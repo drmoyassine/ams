@@ -4,21 +4,20 @@ import {
   roleAssignment,
 } from '@ams/db';
 import {
-  LifecycleTemplateSchema, type AddMember, type CreateEngagement, type Engagement, type EngagementDetail, type Handover, type Member, type Milestone,
+  LifecycleTemplateSchema, type AddMember, type CreateEngagement, type Engagement, type EngagementDetail, type Handover, type Member,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertHuman } from '../framework/common.js';
 import { assertPermitted } from '../permissions.js';
-import { isOverdue, type KeyDates } from './dates.js';
+import type { KeyDates } from './dates.js';
 import { firstPhase, generateMilestones } from './generate.js';
+import { getEngagementRow, loadLifecycle, toMilestone, todayIso } from './common.js';
+import { canAdvance, phaseSummary } from './roadmap.js';
 import { instantiateRequirements } from './instantiate.js';
 
 type EngagementRow = typeof engagement.$inferSelect;
-type MilestoneRow = typeof milestone.$inferSelect;
-
-const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /** Drops null and undefined key dates: an unset date and a missing one are the same thing. */
 export const cleanKeyDates = (k: Record<string, string | null | undefined> | undefined): Record<string, string> =>
@@ -52,20 +51,6 @@ export async function toEngagements(ctx: Ctx, rows: EngagementRow[]): Promise<En
   });
 }
 
-export const toMilestone = (m: MilestoneRow, today = todayIso()): Milestone => ({
-  id: m.id, engagementId: m.engagementId, templateKey: m.templateKey, phase: m.phase, name: m.name, description: m.description, type: m.type,
-  dueDate: m.dueDate, dueRule: m.dueRule ?? null, dateNeeded: m.dateNeeded, overdue: isOverdue(m.dueDate, m.status, today),
-  ownerId: m.ownerId, status: m.status, completedAt: m.completedAt?.toISOString() ?? null,
-  deliverable: m.deliverable ?? null, sourceRef: m.sourceRef ?? null, recurrence: m.recurrence ?? null,
-  displayOrder: m.displayOrder, origin: m.origin, locked: m.locked, required: m.required, skipReason: m.skipReason,
-});
-
-export async function getEngagementRow(ctx: Ctx, id: string): Promise<EngagementRow> {
-  const [row] = await ctx.tx.select().from(engagement).where(eq(engagement.id, id));
-  if (!row) throw new NotFoundError(`engagement ${id}`);
-  return row;
-}
-
 /** Engagements the caller can see (row-level security decides which), newest review year first. */
 export async function listEngagements(ctx: Ctx): Promise<Engagement[]> {
   await assertPermitted(ctx, 'engagement:read', { type: 'any' });
@@ -96,7 +81,8 @@ export async function getEngagement(ctx: Ctx, id: string): Promise<EngagementDet
   const [eng] = await toEngagements(ctx, [row]);
   const ms = await ctx.tx.select().from(milestone).where(eq(milestone.engagementId, id)).orderBy(asc(milestone.displayOrder));
   const today = todayIso();
-  return { engagement: eng!, members: await listMembers(ctx, id), requirementCounts: await requirementCounts(ctx, id), milestones: ms.map((m) => toMilestone(m, today)) };
+  const phases = phaseSummary(await loadLifecycle(ctx, row.frameworkVersionId), row.kind, row.currentPhase, ms);
+  return { engagement: eng!, phases, canAdvance: row.status === 'active' && canAdvance(phases), members: await listMembers(ctx, id), requirementCounts: await requirementCounts(ctx, id), milestones: ms.map((m) => toMilestone(m, today)) };
 }
 
 /**

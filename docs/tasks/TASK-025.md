@@ -1,7 +1,7 @@
 ---
 title: Roadmap editing, guardrails and phase advance
 description: Edit milestones within PRD §8.5 and advance phases manually
-status: pending
+status: completed
 priority: P0
 id: TASK-025
 last_updated: '2026-10-05'
@@ -22,7 +22,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-003
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:18.920Z'
+  at: '2026-10-05T12:58:58.774Z'
 ---
 # TASK-025 — Roadmap editing, guardrails and phase advance
 

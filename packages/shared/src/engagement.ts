@@ -35,6 +35,39 @@ export const UpdateEngagementSchema = z.object({
 });
 export type UpdateEngagement = z.infer<typeof UpdateEngagementSchema>;
 
+export const LOCAL_MILESTONE_TYPES = ['task', 'deliverable', 'submission', 'external_event'] as const;
+
+export const UpdateMilestoneSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  ownerId: z.uuid().nullable().optional(),
+  dueDate: isoDate.nullable().optional(),
+  status: z.enum(MILESTONE_STATUSES).optional(),
+  skipReason: z.string().nullable().optional(),
+  /** Local milestones only. */
+  phase: z.enum(PHASE_TYPES).optional(),
+  /** Local deliverable milestones only: the report template this milestone produces. */
+  deliverableTemplateKey: z.string().min(1).nullable().optional(),
+}).strict();
+export type UpdateMilestone = z.infer<typeof UpdateMilestoneSchema>;
+
+export const AddMilestoneSchema = z.object({
+  phase: z.enum(PHASE_TYPES),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  type: z.enum(LOCAL_MILESTONE_TYPES).default('task'),
+  dueDate: isoDate.nullable().optional(),
+  ownerId: z.uuid().nullable().optional(),
+  required: z.boolean().default(false),
+  deliverableTemplateKey: z.string().min(1).optional(),
+}).strict();
+export type AddMilestone = z.infer<typeof AddMilestoneSchema>;
+
+export const ReorderMilestonesSchema = z.object({ phase: z.enum(PHASE_TYPES), milestoneIds: z.array(z.uuid()).min(1) }).strict();
+export type ReorderMilestones = z.infer<typeof ReorderMilestonesSchema>;
+
+export const WithdrawSchema = z.object({ reason: z.string().trim().min(1) }).strict();
+
 export const AddMemberSchema = z.object({ userId: z.uuid(), role: z.enum(MEMBER_ROLES) });
 export type AddMember = z.infer<typeof AddMemberSchema>;
 export const ChangeMemberSchema = z.object({ role: z.enum(MEMBER_ROLES) });
@@ -73,8 +106,18 @@ export const MilestoneSchema = z.object({
 });
 export type Milestone = z.infer<typeof MilestoneSchema>;
 
+export const PhaseSummarySchema = z.object({
+  type: z.enum(PHASE_TYPES), name: z.string(),
+  requiredTotal: z.number(), requiredDone: z.number(), milestoneCount: z.number(),
+  current: z.boolean(),
+});
+export type PhaseSummary = z.infer<typeof PhaseSummarySchema>;
+
 export const EngagementDetailSchema = z.object({
   engagement: EngagementSchema,
+  phases: z.array(PhaseSummarySchema),
+  /** Whether the lead can advance now: every required milestone of the current phase is done or skipped. */
+  canAdvance: z.boolean(),
   members: z.array(MemberSchema),
   requirementCounts: z.object({ applicable: z.number(), notApplicable: z.number() }),
   milestones: z.array(MilestoneSchema),
