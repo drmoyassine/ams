@@ -1,0 +1,10 @@
+{
+  "name": "@ams/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": { "build": "tsc -b" },
+  "dependencies": { "@ams/shared": "workspace:*", "@ams/db": "workspace:*", "@ams/core": "workspace:*" }
+}
