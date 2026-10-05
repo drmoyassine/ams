@@ -1,0 +1,177 @@
+import { useState, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AuthorityBadge, ReviewBadge } from '../../components/badges';
+import { ContentText } from '../../components/content-text';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDocument, type Version } from '../../lib/framework-api';
+import { can } from '../../lib/me';
+import type { Me } from '@ams/shared';
+
+type Props = { api: FrameworkApi; version: Version; me: Me | undefined };
+
+function useAction(onError: (m: string) => void, invalidate: () => Promise<unknown>) {
+  return useMutation({
+    mutationFn: async (fn: () => Promise<unknown>) => { onError(''); try { await fn(); await invalidate(); } catch (e) { if (e instanceof ApiError) onError(e.message); else throw e; } },
+  });
+}
+
+function NotePanel({ api, note, editable, canReview, invalidate, setError }: {
+  api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
+}) {
+  const act = useAction(setError, invalidate);
+  return (
+    <li className="rounded border border-border p-3" data-testid="note">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <AuthorityBadge authority={note.authority} />
+        <span className="text-xs text-muted-foreground">{note.type.replace('_', ' ')}</span>
+        <ReviewBadge status={note.reviewStatus} />
+        {note.authority === 'required' && <span className="text-xs" data-testid="quote-state">{note.quoteVerified ? 'Quote verified' : 'Quote NOT verified'}</span>}
+      </div>
+      <p className="text-sm"><ContentText>{note.text}</ContentText></p>
+      {note.sourceQuote && <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground"><ContentText>{note.sourceQuote}</ContentText> <span>(page {note.sourcePage})</span></blockquote>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {canReview && editable && <>
+          <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'approved'))}>Approve note</Button>
+          <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'rejected'))}>Reject note</Button>
+        </>}
+        {editable && note.authority === 'ai_suggested' && ['required', 'example', 'suggested', 'institution_defined'].map((a) => (
+          <Button key={a} type="button" variant="ghost" onClick={() => act.mutate(() => api.setAuthority(note.id, a as 'required'))}>Promote to {a.replace('_', '-')}</Button>
+        ))}
+        {editable && <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.deleteNote(note.id))}>Delete note</Button>}
+      </div>
+    </li>
+  );
+}
+
+function AddNote({ api, requirementId, docs, invalidate, setError }: { api: FrameworkApi; requirementId: string; docs: SourceDocument[]; invalidate: () => Promise<unknown>; setError: (m: string) => void }) {
+  const act = useAction(setError, invalidate);
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const doc = String(f.get('doc'));
+    const authority = String(f.get('authority')) as 'required';
+    act.mutate(() => api.addNote(requirementId, {
+      type: String(f.get('type')) as Note['type'], text: String(f.get('text')), authority,
+      ...(doc ? { source: { documentId: doc, page: Number(f.get('page')), quote: String(f.get('quote')) } } : {}),
+    }));
+  };
+  const select = 'rounded-md border border-border bg-background px-2 py-2 text-sm';
+  return (
+    <form onSubmit={submit} className="mt-3 space-y-2 rounded border border-dashed border-border p-3" aria-label="Add note">
+      <textarea name="text" required aria-label="Note text" rows={2} className="w-full rounded-md border border-border p-2 text-sm" />
+      <div className="flex flex-wrap gap-2">
+        <select name="type" aria-label="Note type" className={select}><option value="guidance">Guidance</option><option value="evidence_expectation">Evidence expectation</option><option value="data_request">Data request</option><option value="quantitative_norm">Quantitative norm</option></select>
+        <select name="authority" aria-label="Authority" className={select}><option value="suggested">Suggested</option><option value="example">Example</option><option value="required">Required</option><option value="institution_defined">Institution-defined</option></select>
+        <select name="doc" aria-label="Source document" className={select}><option value="">No source</option>{docs.map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}</select>
+        <Input name="page" type="number" min={1} aria-label="Source page" placeholder="Page" className="w-24" />
+      </div>
+      <Input name="quote" aria-label="Source quote" placeholder="Verbatim quote from the page (required for Required notes)" />
+      <Button type="submit">Add note</Button>
+    </form>
+  );
+}
+
+function Detail({ api, version, req, me, docs, setError, invalidateTree }: Props & { req: Requirement; docs: SourceDocument[]; setError: (m: string) => void; invalidateTree: () => Promise<unknown> }) {
+  const qc = useQueryClient();
+  const editable = version.status === 'draft';
+  const canWrite = editable && can(me, 'framework:write');
+  const canReview = editable && can(me, 'framework:review');
+  const detail = useQuery({ queryKey: ['requirement', req.id], queryFn: () => api.requirement(req.id) });
+  const invalidate = async () => { await qc.invalidateQueries({ queryKey: ['requirement', req.id] }); await invalidateTree(); };
+  const act = useAction(setError, invalidate);
+  const del = useAction(setError, invalidateTree);
+  const save = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    act.mutate(() => api.patchRequirement(req.id, { code: String(f.get('code')), title: String(f.get('title')), officialText: String(f.get('officialText')), isAssessable: f.get('assessable') === 'on' }));
+  };
+  return (
+    <div className="space-y-3" data-testid="requirement-detail">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-semibold"><ContentText>{req.code} — {req.title}</ContentText></h3>
+        <ReviewBadge status={req.reviewStatus} />
+      </div>
+      <form key={`${req.id}-${req.title}-${req.officialText}-${req.code}`} onSubmit={save} className="space-y-2">
+        <label className="block text-sm">Code <Input name="code" defaultValue={req.code} readOnly={!canWrite} dir="auto" /></label>
+        <label className="block text-sm">Title <Input name="title" defaultValue={req.title} readOnly={!canWrite} dir="auto" /></label>
+        <label className="block text-sm">Official text (verbatim from the source)
+          <textarea name="officialText" dir="auto" rows={4} defaultValue={req.officialText ?? ''} readOnly={!canWrite} className="w-full rounded-md border border-border p-2 text-sm" />
+        </label>
+        <label className="text-sm"><input type="checkbox" name="assessable" defaultChecked={req.isAssessable} disabled={!canWrite} /> Assessable (not just a heading)</label>
+        <div className="flex flex-wrap gap-2">
+          {canWrite && <Button type="submit">Save (returns it to review)</Button>}
+          {canReview && <>
+            <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewRequirement(req.id, 'approved'))}>Approve</Button>
+            <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewRequirement(req.id, 'rejected'))}>Reject</Button>
+          </>}
+          {canWrite && <Button type="button" variant="ghost" onClick={() => del.mutate(() => api.deleteRequirement(req.id))}>Delete</Button>}
+        </div>
+      </form>
+      <h4 className="font-medium">Notes</h4>
+      <ul className="space-y-2">
+        {(detail.data?.notes ?? []).map((n) => <NotePanel key={n.id} api={api} note={n} editable={canWrite || canReview} canReview={canReview} invalidate={invalidate} setError={setError} />)}
+        {detail.data?.notes.length === 0 && <li className="text-sm text-muted-foreground">No notes.</li>}
+      </ul>
+      {canWrite && <AddNote api={api} requirementId={req.id} docs={docs} invalidate={invalidate} setError={setError} />}
+    </div>
+  );
+}
+
+export function RequirementsTab({ api, version, me }: Props) {
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const tree = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
+  const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id) });
+  const invalidateTree = () => qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+  const canWrite = version.status === 'draft' && can(me, 'framework:write');
+  const rows = tree.data ?? [];
+  const current = rows.find((r) => r.id === selected) ?? null;
+  const add = useAction(setError, invalidateTree);
+  const labels = (version.levelLabels as string[] | undefined) ?? [];
+
+  const create = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const parent = String(f.get('parent'));
+    add.mutate(() => api.createRequirement(version.id, {
+      code: String(f.get('code')), title: String(f.get('title')), levelLabel: String(f.get('level')),
+      ...(parent ? { parentId: parent } : {}),
+    }));
+    e.currentTarget.reset();
+  };
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div>
+        {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
+        <ul role="tree" aria-label="Requirements" className="space-y-1">
+          {rows.map((r) => (
+            <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
+              <button type="button" onClick={() => setSelected(r.id)} className={`w-full rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected === r.id ? 'bg-muted font-medium' : ''}`}>
+                <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{r.code} {r.title}</ContentText>
+                {r.reviewStatus !== 'approved' && <span className="ms-2 text-xs text-muted-foreground">({r.reviewStatus})</span>}
+              </button>
+            </li>
+          ))}
+          {rows.length === 0 && <li className="text-sm text-muted-foreground">No requirements yet.</li>}
+        </ul>
+        {canWrite && (
+          <form onSubmit={create} className="mt-4 space-y-2 rounded border border-dashed border-border p-3" aria-label="Add requirement">
+            <div className="grid grid-cols-2 gap-2">
+              <Input name="code" required placeholder="Code, e.g. CFR 1.1" aria-label="Code" />
+              <select name="level" aria-label="Level" className="rounded-md border border-border bg-background px-2 py-2 text-sm">{labels.map((l) => <option key={l}>{l}</option>)}{labels.length === 0 && <option>Standard</option>}</select>
+            </div>
+            <Input name="title" required placeholder="Title" aria-label="Title" dir="auto" />
+            <select name="parent" aria-label="Parent" className="w-full rounded-md border border-border bg-background px-2 py-2 text-sm">
+              <option value="">Top level</option>{rows.map((r) => <option key={r.id} value={r.id}>{r.code} {r.title}</option>)}
+            </select>
+            <Button type="submit">Add requirement</Button>
+          </form>
+        )}
+      </div>
+      <div>{current ? <Detail api={api} version={version} req={current} me={me} docs={docs.data ?? []} setError={setError} invalidateTree={invalidateTree} /> : <p className="text-sm text-muted-foreground">Select a requirement.</p>}</div>
+    </div>
+  );
+}

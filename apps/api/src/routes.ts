@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createProgram, listPrograms } from '@ams/core';
-import { CreateProgramSchema, ProgramSchema } from '@ams/shared';
+import { createProgram, listPrograms, myAccess } from '@ams/core';
+import { CreateProgramSchema, MeSchema, ProgramSchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { requirementRoutes } from './routes/requirements.js';
@@ -15,6 +15,11 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
       method: 'get', path: '/healthz', access: publicRoute(),
       responses: { 200: { description: 'Liveness', ...json(z.object({ ok: z.literal(true) })) } },
     }), (c) => c.json({ ok: true as const }, 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/me', access: requires('program:read'), tags: ['session'],
+      responses: { 200: { description: 'The signed-in user, their roles and effective permissions', ...json(MeSchema) }, 401: { description: 'Unauthenticated' }, 403: { description: 'Forbidden' } },
+    }), async (c) => c.json(await myAccess(c.get('ctx')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/programs', access: requires('program:read'),

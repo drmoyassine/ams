@@ -52,3 +52,11 @@ export async function isPermitted(tx: Tx, permission: Permission, scope: Scope):
 export async function assertPermitted(ctx: Ctx, permission: Permission, scope: Scope): Promise<void> {
   if (!(await isPermitted(ctx.tx, permission, scope))) throw new ForbiddenError(`Missing permission ${permission}`);
 }
+
+/** Roles held by the caller (not expired), and the permissions they add up to, for the SPA to show or hide actions. */
+export async function myAccess(ctx: Ctx): Promise<{ userId: string | null; institutionId: string; roles: Role[]; permissions: Permission[] }> {
+  const grants = await activeGrants(ctx.tx);
+  const roles = [...new Set(grants.map((g) => g.role))];
+  const permissions = [...new Set(roles.flatMap((r) => ROLE_PERMISSIONS[r]))];
+  return { userId: ctx.caller.userId, institutionId: ctx.caller.institutionId, roles, permissions };
+}

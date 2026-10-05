@@ -1,5 +1,6 @@
 // Response shapes of the framework API: one definition for the OpenAPI spec, the typed client and the SPA.
 import { z } from 'zod';
+import { PERMISSIONS, ROLES } from './permissions.js';
 
 const iso = z.string();
 const provenance = {
@@ -66,3 +67,8 @@ export const ErrorSchema = z.object({ error: z.string(), message: z.string().opt
 export function toDto<S extends z.ZodType>(schema: S, value: unknown): z.output<S> {
   return schema.parse(JSON.parse(JSON.stringify(value)));
 }
+
+export const MeSchema = z.object({
+  userId: z.string().nullable(), institutionId: z.string(), roles: z.array(z.enum(ROLES)), permissions: z.array(z.enum(PERMISSIONS)),
+});
+export type Me = z.infer<typeof MeSchema>;

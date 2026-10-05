@@ -754,7 +754,7 @@ title: Framework library UI
 description: >-
   SPA: framework list, version page, requirement tree editor, notes with authority badges, lifecycle/report-template
   JSON editors with validation errors, import/export, publish
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -777,7 +777,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:29.361Z'
+  at: '2026-10-05T10:03:15.291Z'
 ---
 
 UI English first; content dir=auto. Never show 'compliant' or readiness scores (DEC-005).

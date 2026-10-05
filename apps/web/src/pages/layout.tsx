@@ -8,6 +8,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const nav = [
     { to: '/', label: t('nav.programs') },
+    { to: '/frameworks', label: t('nav.frameworks', 'Frameworks') },
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
   ] as const;
