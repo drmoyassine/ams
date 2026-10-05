@@ -27,9 +27,10 @@ beforeAll(async () => {
       if (req.method !== 'GET') writes.push(key);
       const data = body ? JSON.parse(body) : null;
       switch (key) {
-        case 'GET /v1/status': return reply(200, { node: 'node1', layout: { version: state.layoutVersion, roles: state.roles } });
+        case 'GET /v1/status': return reply(200, { node: 'node1', layoutVersion: state.layoutVersion });
+        case 'GET /v1/layout': return reply(200, { version: state.layoutVersion, roles: state.roles, stagedRoleChanges: [] });
         case 'POST /v1/layout': state.roles = data; return reply(200, {});
-        case 'POST /v1/layout/apply': state.layoutVersion = data.version; return reply(200, {});
+        case 'POST /v1/layout/apply': if (data.version !== state.layoutVersion + 1) return reply(500, { message: 'Invalid new layout version' }); state.layoutVersion = data.version; return reply(200, {});
         case 'GET /v1/key': return state.keys.has(u.searchParams.get('id')!) ? reply(200, { accessKeyId: u.searchParams.get('id') }) : reply(404, { message: 'no such key' });
         case 'POST /v1/key/import': if (state.keys.has(data.accessKeyId)) return reply(500, { message: 'key exists' }); state.keys.add(data.accessKeyId); return reply(200, {});
         case 'GET /v1/bucket': { const id = state.buckets.get(u.searchParams.get('globalAlias')!); return id ? reply(200, { id }) : reply(404, { message: 'no such bucket' }); }

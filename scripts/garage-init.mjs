@@ -52,11 +52,12 @@ for (let i = 0; i < attempts && !status; i++) {
   if (!status) await sleep(2000);
 }
 if (!status) throw new Error('Garage admin API did not become ready');
-log(`connected to node ${status.node}, layout version ${status.layout?.version ?? 0}, ${status.layout?.roles?.length ?? 0} role(s)`);
+const layout = (await call('GET', '/v1/layout')).json; // {version, roles, stagedRoleChanges}
+log(`connected to node ${status.node}, layout version ${layout.version ?? 0}, ${layout.roles?.length ?? 0} role(s)`);
 
-if (!status.layout?.roles?.length) {
+if (!layout.roles?.length) {
   await call('POST', '/v1/layout', [{ id: status.node, zone: 'dc1', capacity: 1073741824, tags: [] }]);
-  await call('POST', '/v1/layout/apply', { version: (status.layout?.version ?? 0) + 1 });
+  await call('POST', '/v1/layout/apply', { version: (layout.version ?? 0) + 1 });
   log('layout applied');
 } else {
   log('layout already present');

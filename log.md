@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — garage-init: the real cause of the redeploy failure
+
+Logs from the user showed `POST /v1/layout/apply -> 500 Invalid new layout version`. The script read layout state from `/v1/status` (which does not carry it), so it always saw version 0 / no roles and re-applied version 1 on every redeploy; the first deploy worked, every later one failed. It now reads `GET /v1/layout` (the response body, not the wrapper) and applies `version + 1` only when no roles exist. The earlier test fake mirrored the same wrong assumption; it now follows the real endpoint and rejects a wrong layout version like Garage does. Lesson: a fake written from the same belief as the code proves nothing; check against a real response.
+
 ## 2026-10-05 — ABET fixture: APPM text loaded (TASK-012 in progress)
 
 Uploaded: APPM 2025-26, Self-Study Questionnaire and Readiness template (docx), REv information sheet, Tables 5-1/6-1/6-2 (xlsx). The Criteria document itself is not among them. `abet-eac-2027-28.json` now carries Criteria 1-8 names (APPM I.B.1) and the whole of APPM I.C as 40 nested Items, verbatim with quotes; the two placeholder items were replaced. `is_assessable` is true where the clause says must/required. Not done: Criterion wording, Program Criteria, SSQ prompts as notes, data-table columns from the xlsx.
