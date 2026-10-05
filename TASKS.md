@@ -713,7 +713,7 @@ title: Framework API routes and permissions
 description: >-
   Hono routes via secured(): framework:read, framework:write, framework:publish permissions; OpenAPI; route-coverage
   test passes
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -739,7 +739,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:27.483Z'
+  at: '2026-10-05T09:55:35.877Z'
 ---
 
 Extend ROLE_PERMISSIONS in packages/shared. Publish limited to admin/lead.

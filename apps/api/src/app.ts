@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { ForbiddenError, NotFoundError, type JobQueue } from '@ams/core';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type JobQueue } from '@ams/core';
+import { ZodError } from 'zod';
 import {
   assertAllRoutesDeclared, rawPublicRoute, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
 } from './chain.js';
@@ -36,7 +37,10 @@ export function createApp(opts: AppOptions) {
 
   app.onError((err, c) => {
     if (err instanceof ForbiddenError) return c.json({ error: 'forbidden', message: err.message }, 403);
-    if (err instanceof NotFoundError) return c.json({ error: 'not_found' }, 404);
+    if (err instanceof NotFoundError) return c.json({ error: 'not_found', message: err.message }, 404);
+    if (err instanceof ConflictError) return c.json({ error: 'conflict', message: err.message }, 409);
+    if (err instanceof ValidationError) return c.json({ error: 'invalid_request', message: err.message, issues: err.issues }, 400);
+    if (err instanceof ZodError) return c.json({ error: 'invalid_request', issues: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) }, 400);
     console.error(JSON.stringify({ level: 'error', msg: err.message }));
     return c.json({ error: 'internal_error' }, 500);
   });

@@ -2,6 +2,9 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import { createProgram, listPrograms } from '@ams/core';
 import { CreateProgramSchema, ProgramSchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
+import { frameworkRoutes } from './routes/frameworks.js';
+import { requirementRoutes } from './routes/requirements.js';
+import { templateRoutes } from './routes/templates.js';
 
 const json = <T extends z.ZodType>(schema: T) => ({ content: { 'application/json': { schema } } });
 
@@ -33,7 +36,12 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
         401: { description: 'Unauthenticated' },
         403: { description: 'Forbidden' },
       },
-    }), async (c) => c.json(await createProgram(c.get('ctx'), c.req.valid('json')), 201));
+    }), async (c) => c.json(await createProgram(c.get('ctx'), c.req.valid('json')), 201))
+
+    // Framework library (M1). Each module chains its own routes so their types merge into ApiRoutes.
+    .route('/', frameworkRoutes(registry, deps, options))
+    .route('/', requirementRoutes(registry, deps, options))
+    .route('/', templateRoutes(registry, deps, options));
 }
 
 export type ApiRoutes = ReturnType<typeof buildRoutes>;
