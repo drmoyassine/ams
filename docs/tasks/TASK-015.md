@@ -4,7 +4,7 @@ title: Framework JSON schemas (config validation)
 description: >-
   Zod schemas in packages/shared for lifecycle_template, decision/finding/response vocabularies, applies_when,
   rating_method and report_template.structure (PRD 7.1-7.6, 10.2) with example fixtures from Appendix A
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -27,7 +27,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:22.494Z'
+  at: '2026-10-05T09:43:47.649Z'
 ---
 # TASK-015 — Framework JSON schemas (config validation)
 
