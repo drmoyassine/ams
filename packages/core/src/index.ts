@@ -6,3 +6,4 @@ export * from './jobs/run.js';
 export * from './jobs/handlers.js';
 export * from './jobs/pgboss-queue.js';
 export * from './framework/index.js';
+export * from './engagement/index.js';

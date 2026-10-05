@@ -863,7 +863,7 @@ PRD §6.4 and §6.9 (12, 13). engagement, milestone, engagement_requirement with
 ---
 title: Due-rule engine
 description: Pure functions that resolve fixed, anchor, after and null due rules, with date_needed and recurrence
-status: pending
+status: completed
 priority: P0
 id: TASK-022
 last_updated: '2026-10-05'
@@ -883,7 +883,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-003
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:12.805Z'
+  at: '2026-10-05T12:46:25.655Z'
 ---
 
 # Due-rule engine
