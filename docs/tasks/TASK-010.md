@@ -2,7 +2,7 @@
 id: TASK-010
 title: M0 acceptance tests
 description: The three M0 done-when tests
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -34,8 +34,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:57.833Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:09:55.671Z'
 ---
 # TASK-010 — M0 acceptance tests
 

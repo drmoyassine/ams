@@ -408,7 +408,7 @@ Add an application workflow alongside the managed .github/workflows/vef.yml. Fai
 id: TASK-010
 title: M0 acceptance tests
 description: The three M0 done-when tests
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -440,8 +440,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:57.833Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:09:55.671Z'
 ---
 
 1) Contributor scoped to program A cannot read program B rows (API and direct SQL with session settings). 2) Unprotected route fails startup/CI. 3) An API write creates audit_event with the caller's id.

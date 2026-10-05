@@ -3,7 +3,7 @@ id: ROADMAP-001
 title: M0 — Scaffold and integrity foundation
 description: Workspace, Compose, schema for org/access/shared tables, auth, RLS, audit, middleware chain, SPA shell, worker, CI
 quarter: Q4
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams
@@ -32,8 +32,8 @@ related_decisions:
     name: Better Auth for authentication (OIDC/SAML + password)
     url: /DECISIONS.md#DEC-015
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:57.833Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:09:57.243Z'
 related_tasks:
   - id: TASK-001
     name: Scaffold pnpm workspace

@@ -14,6 +14,19 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — M0 complete (ROADMAP-001)
+
+All ten M0 tasks are done. The three done-when tests live in `apps/api/src/m0-acceptance.test.ts` (program-scoped isolation through the API and SQL; a route without `requires(...)` fails startup and `pnpm test:routes`; an API write yields an `audit_event` with the caller's id). ROADMAP-002 (M1, framework library) is now In Progress; do not start it without the framework fixtures (TASK-011, TASK-012).
+
+Open items carried forward:
+- **SAML** is proven only against a mock IdP; integrate with `sso()` (admin-only provider registration) and verify against QuickLaunch.
+- **Queue sweeper** for jobs committed but never published (see TASK-008 note).
+- **Better Auth rate limiting** needs `advanced.ipAddress.trustedProxies` / header config when deployed behind a reverse proxy (it logs a warning without it).
+- **Playwright browser e2e** is not set up; `pnpm test:e2e` is the Compose smoke script until the SPA has real flows.
+- Compose uses `quay.io/minio/minio`; the bucket is created by a directory in `/data` at start.
+
+---
+
 ## 2026-10-05 — M0 tasks 001–006: scaffold, schema, RLS, API chain, auth
 
 Learnings a future session needs:

@@ -78,7 +78,7 @@ id: ROADMAP-001
 title: M0 — Scaffold and integrity foundation
 description: Workspace, Compose, schema for org/access/shared tables, auth, RLS, audit, middleware chain, SPA shell, worker, CI
 quarter: Q4
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams
@@ -107,8 +107,8 @@ related_decisions:
     name: Better Auth for authentication (OIDC/SAML + password)
     url: /DECISIONS.md#DEC-015
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:57.833Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:09:57.243Z'
 related_tasks:
   - id: TASK-001
     name: Scaffold pnpm workspace
@@ -155,7 +155,7 @@ description: >-
   Framework tables, tree editor, notes with authority, lifecycle/report-template/vocabulary editors, JSON import/export,
   publish + immutability
 quarter: Q4
-status: Deferred
+status: In Progress
 priority: P0
 tags:
   - ams
@@ -175,8 +175,8 @@ related_decisions:
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:54:00.849Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:09:58.878Z'
 related_tasks:
   - id: TASK-011
     name: 'Framework fixtures: WSCUC 2023 and PUC 2019'
