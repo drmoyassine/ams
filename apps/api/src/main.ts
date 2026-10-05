@@ -10,7 +10,7 @@ import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
 import { createAuth, sessionAuthenticator } from './auth.js';
-import { seedAdmin } from './seed.js';
+import { seedAdmin, seedFrameworks } from './seed.js';
 
 const env = loadEnv();
 const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
@@ -25,6 +25,10 @@ await ensureQueues(boss);
 
 const auth = createAuth(pool, env);
 if (await seedAdmin(pool, auth, env)) console.log(JSON.stringify({ level: 'info', msg: 'seeded institution and admin' }));
+if (env.SEED_DEMO_FRAMEWORKS) {
+  const added = await seedFrameworks(pool);
+  if (added.length) console.log(JSON.stringify({ level: 'info', msg: 'seeded frameworks', added }));
+}
 
 const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue: pgBossQueue(boss) });
 

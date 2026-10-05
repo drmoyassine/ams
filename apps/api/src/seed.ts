@@ -1,4 +1,9 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type pg from 'pg';
+import { importVersion, publishVersion, submitForReview, validateVersion, type Ctx } from '@ams/core';
+import { FrameworkExportSchema } from '@ams/shared';
+import { fixturesFolder, withIdentity } from '@ams/db';
 import type { Env } from '@ams/shared';
 import type { Auth } from './auth.js';
 
@@ -41,4 +46,36 @@ export async function seedAdmin(
     client.release();
   }
   return true;
+}
+
+/**
+ * Optional demo data: imports and publishes each framework file in the fixtures folder that is not already in the
+ * library (matched by accreditor short name and edition), as the institution's administrator. It goes through the
+ * same importer and publish gate as a person would, so nothing is written that the UI could not write. Safe to run
+ * on every start.
+ */
+export async function seedFrameworks(pool: pg.Pool, folder: string = fixturesFolder): Promise<string[]> {
+  const { rows: [who] } = await pool.query(
+    `select u.id as user_id, u.institution_id from app_user u join role_assignment r on r.user_id = u.id
+      where r.role = 'admin' and r.scope_type = 'institution' order by u.created_at limit 1`);
+  if (!who) return [];
+  const added: string[] = [];
+  for (const name of readdirSync(folder).filter((f) => f.endsWith('.json')).sort()) {
+    const file = FrameworkExportSchema.parse(JSON.parse(readFileSync(join(folder, name), 'utf8')));
+    const { rowCount } = await pool.query(
+      `select 1 from framework_version fv join framework f on f.id = fv.framework_id join accreditor a on a.id = f.accreditor_id
+        where a.short_name = $1 and fv.edition = $2`, [file.accreditor.short_name, file.version.edition]);
+    if (rowCount) continue;
+    const caller = { userId: who.user_id as string, institutionId: who.institution_id as string, requestId: crypto.randomUUID(), actorType: 'user' as const };
+    await withIdentity(pool, caller, async (tx) => {
+      const ctx: Ctx = { tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined };
+      const { version } = await importVersion(ctx, file, { autoApprove: true });
+      const check = await validateVersion(ctx, version.id);
+      if (!check.ok) throw new Error(`${name}: ${JSON.stringify(check)}`);
+      await submitForReview(ctx, version.id);
+      await publishVersion(ctx, version.id);
+    });
+    added.push(name);
+  }
+  return added;
 }

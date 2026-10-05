@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — Optional demo seed for the three frameworks
+
+`SEED_DEMO_FRAMEWORKS=true` makes the API, after the admin seed, import and publish each file in `packages/db/fixtures/` that is not already in the library (accreditor short name + edition), as the institution's administrator, through the normal importer, review and publish steps. Idempotent; off by default. Test: `apps/api/src/seed-frameworks.test.ts`.
+
 ## 2026-10-05 — ABET fixture complete (TASK-012); M1 closed (ROADMAP-002)
 
 Loaded the 2025-26 EAC Criteria (user upload): Criterion 1-8 wording, Student Outcomes (1)-(7) and Criterion 5(a)-(d) as Items (5(a) and 5(b) carry `quantitative_norm` notes, 30 and 45 semester credit hours, required, quote-verified), Mechanical Program Criteria tagged `program_tags: [mechanical]`. SSQ 2027-28 prompts became `suggested` guidance notes without a source (docx has no pages; the `required` rule does not apply). Data-table columns for Tables 5-1, 6-1, 6-2, D-1, D-2 replace the placeholders. Gotchas: a wrapped line starting with a clause code (`I.C.2.b. may be met...`) looked like a new clause; note order in the file must match the exporter's sort (type, authority, text) or the round-trip test fails. Open: 2027-28 Criteria edition when published; master's-level criteria; other Program Criteria.

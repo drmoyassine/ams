@@ -17,6 +17,8 @@ export const envSchema = z.object({
   INSTITUTION_NAME: z.string().min(1).optional(),
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),
+  // Optional: publish the three Appendix A frameworks (WSCUC, ABET, PUC) on first start so the library is not empty.
+  SEED_DEMO_FRAMEWORKS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   // Generic OIDC single sign-on (all three required to enable it).
   OIDC_DISCOVERY_URL: z.url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
