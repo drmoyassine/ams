@@ -4,8 +4,11 @@ Loaded at the start of every Claude session in this repo. This file covers proje
 
 ## What this is
 
-<!-- PROJECT: Replace this section with a 2-3 sentence description of your project. -->
-**AMS — Accreditation Management System** — *Describe your product here.*
+**AMS — Accreditation Management System.** A configurable, host-agnostic system for running accreditation across many accreditors (WSCUC, ABET, NBAQ, PUC, …) on one platform. Every engagement gets a roadmap that produces a self-study and continues into maintenance; every submission opens a tracked accreditor-response sub-cycle; evidence and datasets are stored once and reused. AI extracts accreditor frameworks with page-level citations; humans publish.
+
+**The specification is `docs/PRD.md`.** Read §0 before any work. Build in the milestone order of PRD §18.4; each milestone's "done when" test must pass before the next starts. Roadmap items `ROADMAP-001…011` mirror the milestones; tasks hang off them.
+
+**Stack (DEC-007…DEC-015):** TypeScript · React SPA (Vite, TanStack Router/Query, shadcn/ui, Tiptap, TanStack Table) · Hono API on Node (Zod, OpenAPI, typed RPC client) · PostgreSQL 16 + Drizzle (SQL migrations, RLS, triggers) · Better Auth (OIDC/SAML/password) · S3-compatible storage · pg-boss worker · liteparse (`parseDocument()`) · Vercel AI SDK + Anthropic (`aiExtract`/`aiOcr`) · Docker + Compose.
 
 ## Skills (invoke directly)
 
@@ -83,11 +86,34 @@ Tasks/Roadmap/Vision link to **DECISIONS.md**, not to log.md. The decision is th
 
 ## Critical constraints
 
-<!-- PROJECT: Add your project-specific constraints here. Things that cause bugs if forgotten — infrastructure gotchas, RLS rules, agent runtime constraints, etc. -->
+These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
+
+1. **No accreditor-specific code.** Never branch on accreditor or framework identity. Differences go into framework configuration (PRD §7). (DEC-002)
+2. **Every request and job passes the five-step chain**: authenticate → authorize (`requires(...)`) → transaction with `SET LOCAL app.user_id / app.institution_id / app.request_id` → validate (Zod) → handle (a `packages/core` service). Never query the database outside this helper. (DEC-010)
+3. **Business rules live only in `packages/core`.** `apps/api` and `apps/worker` are thin. The SPA never touches the database.
+4. **Immutability is enforced in the database** (triggers): published framework versions, submission snapshots, `audit_event`, `accreditation_status` history. Do not "fix" a test by relaxing a trigger. (PRD §6.9)
+5. **Official ≠ internal.** Never write "compliant", "met", a readiness score or a predicted outcome in UI, exports or code names. Internal approval is labelled "Internally approved". Official status only via `accreditation_status` with a decision document. (DEC-005)
+6. **AI proposes, humans publish.** AI output goes to proposal tables/drafts only; the worker's DB role cannot approve, publish or set official status. `required` notes need a verified quote. (DEC-006)
+7. **One import point per heavy library**: liteparse only via `parseDocument()`, AI SDK only via `aiExtract`/`aiOcr`, governed metrics only via `datasetSource.fetch()`. No AI calls outside the worker; temperature 0; prompts versioned in the repo. (DEC-011, DEC-012)
+8. **Host-agnostic.** Only PostgreSQL, S3 API, OIDC/SAML, SMTP, HTTPS, configured by env. No provider-proprietary services or SDKs. (DEC-008)
+9. **Evidence files are never sent to AI models in the MVP.** Framework source documents and accreditor letters may be. (DEC-013)
+10. **Arabic is first-class content.** Store original text, NFC; render with `dir="auto"`; quote matching normalises on the AMS side only.
+11. **Migrations are forward-only SQL**, committed with the schema change that needs them.
 
 ## Verification surfaces
 
-<!-- PROJECT: Add your project-specific verification surfaces here. Where to check agent failures, MCP tools, permissions, logs, etc. -->
+| Surface | How |
+|---|---|
+| Unit + integration tests | `pnpm test` (Vitest) |
+| End-to-end on seeded fixtures | `pnpm test:e2e` (Playwright against Compose stack) |
+| Route permission coverage | `pnpm test:routes` — enumerates Hono routes; fails on any route without `requires(...)` |
+| Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger |
+| Types and lint | `pnpm typecheck && pnpm lint` |
+| Project memory | `npx vef check` (also in CI via `.github/workflows/vef.yml`) |
+| Local stack | `docker compose up` — app on :3000, Postgres :5432, MinIO :9000/:9001 |
+| Logs | Structured JSON to stdout from `app` and `worker` |
+
+(Commands above are created in M0 / TASK-001…009; keep this table accurate when they change.)
 
 ## When in doubt
 

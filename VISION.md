@@ -8,13 +8,15 @@ generated:
 
 # Vision
 
-<!-- PROJECT: Describe why this product exists. What problem does it solve? Who is it for? -->
+**Why it exists.** Accreditation work is run through shared drives, spreadsheets and email, one accreditor at a time, and rebuilt from scratch every cycle. Standards are trapped in PDFs, evidence is duplicated, accreditor feedback is lost in inboxes, and AI summaries blur what an accreditor requires with what someone inferred.
 
-*Replace this placeholder with your product vision. A good vision statement answers:*
-- *Why does this exist?*
-- *What problem does it solve?*
-- *Who is the target user?*
-- *What does success look like?*
+**What it does.** AMS turns each accreditor's documents into a versioned, cited framework; runs every engagement as a roadmap that produces a self-study and continues into maintenance; tracks every accreditor response to closure; and keeps one institutional evidence and data base that every report draws from.
+
+**Who it is for.** Institutional effectiveness offices, accreditation liaison officers, program accreditation coordinators, the faculty and staff who contribute evidence, and the reviewers who approve it.
+
+**What success looks like.** An institution runs an institution-level and a program-level accreditation side by side on one platform; every published requirement traces to its source; every accreditor comment traces to its resolution; and the next cycle starts from the last one instead of from zero.
+
+The full specification is [docs/PRD.md](docs/PRD.md).
 
 ---
 
