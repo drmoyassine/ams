@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — M2 complete (ROADMAP-003)
+
+Acceptance (`apps/api/src/m2-acceptance.test.ts`): WSCUC reaffirmation 2028 and ABET EAC initial 2027 (BS Mechanical) are created through the same endpoint with the same request shape and give the Appendix A roadmaps and dates (the WSCUC offsets checked independently with Python's date arithmetic; my first hand calculation of -150 days was off by one and the engine was right), locks on exactly the self-study deliverable and decision points, requirement counts that follow the tags (a civil program has the three Mechanical Program Criteria switched off), and the roadmap guardrails through the API. The engagement detail now returns milestones in phase order. Open items: the self-study report is not created with the engagement (M4); evidence-link copy-forward (M3) and feedback carry-forward (M5) are not done; requirements added in a newer framework version are not instantiated into running engagements; recurring milestones are not materialised until M6; the SPA has no Playwright browser test yet; Arabic UI strings still pending.
+
 ## 2026-10-05 — Engagement API and SPA (TASK-028..030)
 
 API: `engagement:*` routes (chain checks the permission anywhere, the service checks it for the engagement; row-level security hides the rest), `GET /api/users`, ICS download. SPA: engagements list, one-screen wizard, engagement page (phase strip, roadmap with origin badges, member and requirement tabs, key dates, template-update review, calendar link), requirement workspace. Two real bugs found by running the UI against the real API: (1) a program-scoped lead could not read the framework library (reads of `framework:read` now need the permission anywhere, writes still institution-wide), so the wizard could not list published versions; (2) event handlers must read `e.target.value` before handing work to a mutation: React resets a controlled `<select>` right after the handler, so a lazy read sent `null`. Web tests run against the built `dist` of the other packages: run `pnpm build` before `pnpm test` after changing core or api.

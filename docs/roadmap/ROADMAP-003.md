@@ -5,7 +5,7 @@ description: >-
   Engagement wizard with required lead, instantiation, milestone generation and due rules, editable roadmap with
   guardrails, workspace
 quarter: Q4
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams
@@ -23,7 +23,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-003
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:43.882Z'
+  at: '2026-10-05T13:38:28.688Z'
 related_tasks:
   - id: TASK-021
     name: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'

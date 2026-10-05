@@ -82,6 +82,9 @@ export async function getEngagement(ctx: Ctx, id: string): Promise<EngagementDet
   const ms = await ctx.tx.select().from(milestone).where(eq(milestone.engagementId, id)).orderBy(asc(milestone.displayOrder));
   const today = todayIso();
   const phases = phaseSummary(await loadLifecycle(ctx, lifecycleVersionId(row)), row.kind, row.currentPhase, ms);
+  // Roadmap order: the engagement's phases in sequence, then the order within each phase.
+  const rank = new Map(phases.map((p, i) => [p.type as string, i]));
+  ms.sort((a, b) => (rank.get(a.phase) ?? 99) - (rank.get(b.phase) ?? 99) || a.displayOrder - b.displayOrder);
   return { engagement: eng!, phases, canAdvance: row.status === 'active' && canAdvance(phases), members: await listMembers(ctx, id), requirementCounts: await requirementCounts(ctx, id), milestones: ms.map((m) => toMilestone(m, today)) };
 }
 
