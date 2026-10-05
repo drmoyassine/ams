@@ -1151,7 +1151,7 @@ PRD §8.2. Standards-only (RFC 5545), all-day events, stable UIDs so a re-import
 ---
 title: 'Engagement SPA: wizard, list, roadmap timeline, requirement workspace'
 description: The screens for M2
-status: pending
+status: completed
 priority: P0
 id: TASK-030
 last_updated: '2026-10-05'
@@ -1172,7 +1172,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-009
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:28.696Z'
+  at: '2026-10-05T13:34:26.256Z'
 ---
 
 # Engagement SPA: wizard, list, roadmap timeline, requirement workspace

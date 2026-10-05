@@ -6,7 +6,13 @@ import { assertPermitted } from '../permissions.js';
 import type { Permission } from '@ams/shared';
 
 export const institutionScope = { type: 'institution' } as const;
-export const require_ = (ctx: Ctx, permission: Permission) => assertPermitted(ctx, permission, institutionScope);
+/**
+ * Writing framework content needs the permission across the institution. Reading it needs the permission anywhere: the
+ * library is shared reference material, and a program coordinator creating an engagement must be able to choose a
+ * published framework version (row-level security still limits everything to their institution).
+ */
+export const require_ = (ctx: Ctx, permission: Permission) =>
+  assertPermitted(ctx, permission, permission === 'framework:read' ? { type: 'any' } : institutionScope);
 
 /** The caller must be a person: the AI never writes, promotes or approves framework content (PRD 6.3, 6.9 #7). */
 export function assertHuman(ctx: Ctx): void {

@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createProgram, listPrograms, myAccess } from '@ams/core';
-import { CreateProgramSchema, MeSchema, ProgramSchema } from '@ams/shared';
+import { createProgram, listPrograms, listUsers, myAccess } from '@ams/core';
+import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { frameworkRoutes } from './routes/frameworks.js';
@@ -43,6 +43,11 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
         403: { description: 'Forbidden' },
       },
     }), async (c) => c.json(await createProgram(c.get('ctx'), c.req.valid('json')), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/users', access: requires('org:read'), tags: ['users'],
+      responses: { 200: { description: 'Active people of the institution', ...json(z.array(UserSummarySchema)) }, 401: { description: 'Unauthenticated' }, 403: { description: 'Forbidden' } },
+    }), async (c) => c.json(await listUsers(c.get('ctx')), 200))
 
     // Framework library (M1). Each module chains its own routes so their types merge into ApiRoutes.
     .route('/', frameworkRoutes(registry, deps, options))

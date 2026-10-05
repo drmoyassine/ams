@@ -82,6 +82,14 @@ describe('engagement API', () => {
     expect((await call('coord', 'POST', '/api/engagements', { ...body, reviewYear: 'soon' })).status).toBe(400);
   });
 
+  it('lets a program-scoped lead read the framework library (to pick a version) but not change it', async () => {
+    const list = await call('coord', 'GET', '/api/frameworks');
+    expect(list.status).toBe(200);
+    expect(list.body.map((f: { accreditorShortName: string }) => f.accreditorShortName).sort()).toEqual(['ABET', 'WSCUC']);
+    expect((await call('coord', 'POST', '/api/framework-versions/import', { file: fixture('puc-2019') })).status).toBe(403);
+    expect((await call('coord', 'GET', '/api/users')).body.length).toBeGreaterThan(3);
+  });
+
   it('creates an engagement with its lead, requirements and roadmap', async () => {
     const res = await call('coord', 'POST', '/api/engagements', {
       frameworkVersionId: ids.abet, subjectType: 'program', subjectId: ids.mech, kind: 'initial', reviewYear: 2027, leadUserId: ids.coord,

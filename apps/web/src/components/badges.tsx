@@ -32,3 +32,39 @@ export function VersionStatusBadge({ status }: { status: keyof typeof STATUS }) 
   const { t } = useTranslation();
   return <span data-testid="version-status" className="rounded bg-primary px-2 py-0.5 text-xs text-primary-foreground">{t(`framework.status.${status}`, STATUS[status])}</span>;
 }
+
+const ORIGIN = {
+  template: { label: 'From template', hint: 'Required by the accreditor\'s framework', cls: 'bg-sky-50 text-sky-900 border-sky-300' },
+  modified: { label: 'Modified', hint: 'From the template, changed by this engagement', cls: 'bg-amber-50 text-amber-900 border-amber-300' },
+  local: { label: 'Added locally', hint: 'Added by the institution', cls: 'bg-emerald-50 text-emerald-900 border-emerald-300' },
+  decision: { label: 'From decision', hint: 'Created by an accreditation decision', cls: 'bg-purple-50 text-purple-900 border-purple-300' },
+  response: { label: 'From response', hint: 'Created by an accreditor response', cls: 'bg-purple-50 text-purple-900 border-purple-300' },
+} as const;
+
+/** Which steps the accreditor requires and which the institution chose (PRD 8.5). */
+export function OriginBadge({ origin }: { origin: keyof typeof ORIGIN }) {
+  const o = ORIGIN[origin];
+  return <span title={o.hint} data-testid="origin" className={cn('rounded border px-2 py-0.5 text-xs', o.cls)}>{o.label}</span>;
+}
+
+export const REQUIREMENT_STATUS = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  ready_for_review: 'Ready for review',
+  approved: 'Internally approved', // never "compliant" or "met" (DEC-005)
+  needs_work: 'Needs work',
+} as const;
+const REQUIREMENT_STATUS_CLS = {
+  not_started: 'bg-muted text-muted-foreground border-border',
+  in_progress: 'bg-sky-50 text-sky-900 border-sky-300',
+  ready_for_review: 'bg-amber-50 text-amber-900 border-amber-300',
+  approved: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+  needs_work: 'bg-red-50 text-red-900 border-red-300',
+} as const;
+
+/** Internal progress only. "Internally approved" is not an accreditation status (DEC-005). */
+export function RequirementStatusBadge({ status }: { status: keyof typeof REQUIREMENT_STATUS }) {
+  return <span data-testid="requirement-status" className={cn('rounded border px-2 py-0.5 text-xs', REQUIREMENT_STATUS_CLS[status])}>{REQUIREMENT_STATUS[status]}</span>;
+}
+
+export const MILESTONE_STATUS = { not_started: 'Not started', in_progress: 'In progress', done: 'Done', skipped: 'Skipped' } as const;

@@ -225,3 +225,6 @@ export const AssignRequirementsSchema = z.object({
   dueDate: isoDate.nullable().optional(),
 }).strict();
 export type AssignRequirements = z.infer<typeof AssignRequirementsSchema>;
+
+export const UserSummarySchema = z.object({ id: z.string(), fullName: z.string(), email: z.string() });
+export type UserSummary = z.infer<typeof UserSummarySchema>;
