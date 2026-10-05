@@ -14,7 +14,7 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio
+    image: minio/minio
     # Pre-creating the bucket directory is the S3-API-free way to have it exist on first start.
     entrypoint: ["/bin/sh", "-c", "mkdir -p /data/$${S3_BUCKET} && exec minio server /data --console-address :9001"]
     environment:

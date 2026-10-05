@@ -23,7 +23,7 @@ Open items carried forward:
 - **Queue sweeper** for jobs committed but never published (see TASK-008 note).
 - **Better Auth rate limiting** needs `advanced.ipAddress.trustedProxies` / header config when deployed behind a reverse proxy (it logs a warning without it).
 - **Playwright browser e2e** is not set up; `pnpm test:e2e` is the Compose smoke script until the SPA has real flows.
-- Compose uses `quay.io/minio/minio`; the bucket is created by a directory in `/data` at start.
+- Compose uses Docker Hub `minio/minio` (quay.io was unauthorized from the CI runner); the bucket is created by a directory in `/data` at start.
 
 ---
 
