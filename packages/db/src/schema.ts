@@ -1,5 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { ROLES } from '@ams/shared';
+import {
+  ENGAGEMENT_KINDS, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
+  MILESTONE_TYPES, PHASE_TYPES, ROLES,
+} from '@ams/shared';
 import {
   boolean, check, date, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -309,15 +312,6 @@ export const reportTemplate = pgTable('report_template', {
 
 // ---- 6.4 Engagements & roadmap --------------------------------------------------------------
 
-export const ENGAGEMENT_SUBJECT_TYPES = ['institution', 'program'] as const;
-export const ENGAGEMENT_KINDS = ['initial', 'reaffirmation'] as const;
-export const ENGAGEMENT_STATUSES = ['active', 'closed', 'withdrawn'] as const;
-export const PHASE_TYPES = ['eligibility', 'self_study', 'review', 'decision', 'maintenance'] as const;
-export const MILESTONE_TYPES = ['task', 'deliverable', 'submission', 'external_event', 'decision_point'] as const;
-// `overdue` is computed from due_date, never stored (PRD 6.4).
-export const MILESTONE_STATUSES = ['not_started', 'in_progress', 'done', 'skipped'] as const;
-export const MILESTONE_ORIGINS = ['template', 'modified', 'local', 'decision', 'response'] as const;
-export const ENGAGEMENT_REQUIREMENT_STATUSES = ['not_started', 'in_progress', 'ready_for_review', 'approved', 'needs_work'] as const;
 
 export const engagement = pgTable('engagement', {
   ...base(), ...tenant(),

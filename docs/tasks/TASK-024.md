@@ -1,7 +1,7 @@
 ---
 title: 'Engagement service: create, members, lead handover'
 description: 'Wizard transaction in packages/core: members, lead, requirements, milestones, current phase'
-status: pending
+status: completed
 priority: P0
 id: TASK-024
 last_updated: '2026-10-05'
@@ -31,7 +31,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-010
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:16.801Z'
+  at: '2026-10-05T12:54:57.635Z'
 ---
 # TASK-024 — Engagement service: create, members, lead handover
 

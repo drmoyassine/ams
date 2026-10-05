@@ -8,19 +8,22 @@ export type Role = (typeof ROLES)[number];
 export const PERMISSIONS = [
   'org:read', 'org:write', 'program:read', 'program:write', 'role:assign', 'audit:read',
   'framework:read', 'framework:write', 'framework:review', 'framework:publish',
+  // Engagements (PRD 4, 8). `lead` is the narrow set only the lead and the admin hold: hand over the lead role, record
+  // the decision, approve the final snapshot. `manage` is members, roadmap and assignments.
+  'engagement:read', 'engagement:create', 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const READ: Permission[] = ['org:read', 'program:read', 'framework:read'];
+const READ: Permission[] = ['org:read', 'program:read', 'framework:read', 'engagement:read'];
 
 /** Role × permission. Where a role applies is decided by its scope (institution, org_unit, program, engagement). */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review'],
-  engagement_lead: READ,
-  co_lead: READ,
-  contributor: READ,
-  reviewer: [...READ, 'framework:review'],
+  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review', 'engagement:create'],
+  engagement_lead: [...READ, 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review'],
+  co_lead: [...READ, 'engagement:manage', 'engagement:work', 'engagement:review'],
+  contributor: [...READ, 'engagement:work'],
+  reviewer: [...READ, 'framework:review', 'engagement:review'],
   viewer: READ,
   external_reviewer: ['program:read'],  // read-only, one snapshot (P1); framework library is not exposed
 };
@@ -29,7 +32,8 @@ export type Scope =
   | { type: 'any' } // permission held at some scope; row-level security narrows the rows
   | { type: 'institution' }
   | { type: 'org_unit'; id: string }
-  | { type: 'program'; id: string };
+  | { type: 'program'; id: string }
+  | { type: 'engagement'; id: string };
 
 export const DEGREE_LEVELS = ['associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate'] as const;
 

@@ -36,6 +36,14 @@ export async function isPermitted(tx: Tx, permission: Permission, scope: Scope):
   if (scope.type === 'institution') return false;
 
   let orgUnitId: string | undefined;
+  if (scope.type === 'engagement') {
+    if (grants.some((g) => g.scope_type === 'engagement' && g.scope_id === scope.id)) return true;
+    // A program-scoped (or org-unit) grant covers the engagements run for that program.
+    const res = await tx.execute<{ subject_type: string; subject_id: string }>(sql`select subject_type, subject_id from engagement where id = ${scope.id}`);
+    const subject = res.rows[0];
+    if (!subject || subject.subject_type !== 'program') return false;
+    return isPermitted(tx, permission, { type: 'program', id: subject.subject_id });
+  }
   if (scope.type === 'program') {
     if (grants.some((g) => g.scope_type === 'program' && g.scope_id === scope.id)) return true;
     const res = await tx.execute<{ org_unit_id: string }>(sql`select org_unit_id from program where id = ${scope.id}`);
