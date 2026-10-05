@@ -294,7 +294,7 @@ Sessions in PostgreSQL. Seed admin from env. Record the SAML spike outcome as a 
 id: TASK-007
 title: React SPA shell
 description: Vite, TanStack Router/Query, typed Hono client, shadcn/ui, i18n with RTL content
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -317,8 +317,8 @@ related_decisions:
     name: React SPA (Vite) + Hono API on Node; not Next.js; Frontbase not used for the core
     url: /DECISIONS.md#DEC-009
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:53.828Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:01:20.171Z'
 ---
 
 Login, layout, navigation stub, an example query through the typed client, dir='auto' on content fields.

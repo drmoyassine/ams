@@ -1,4 +1,4 @@
-import { OpenAPIHono, createRoute, type RouteConfig, type RouteHandler } from '@hono/zod-openapi';
+import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
 import { withIdentity, type Identity } from '@ams/db';
@@ -75,16 +75,13 @@ const transactionStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c
 export type SecureRouteConfig = Omit<RouteConfig, 'middleware'> & { access: Access };
 
 /**
- * The only way to register an API route: authenticate -> authorize -> transaction -> validate (Zod) -> handle.
- * A route without an `access` declaration throws here, so the app refuses to start (PRD 18.3).
+ * The only way to define an API route: wraps the config with authenticate -> authorize -> transaction; Zod validation
+ * and the handler follow when the route is mounted with `app.openapi(...)`. A route without an `access` declaration
+ * throws here, so the app refuses to start (PRD 18.3). Returns the typed route so the Hono RPC client can infer it.
  */
-export function secureRoute<C extends SecureRouteConfig & RouteConfig>(
-  app: OpenAPIHono<AppEnv>,
-  registry: RouteRegistry,
-  deps: ChainDeps,
-  config: C,
-  handler: RouteHandler<C, AppEnv>,
-): void {
+export function secured<P extends string, C extends Omit<SecureRouteConfig, 'path'> & { path: P }>(
+  registry: RouteRegistry, deps: ChainDeps, config: C,
+) {
   const { access, ...route } = config;
   if (!access || (access.kind !== 'public' && access.kind !== 'permission')) {
     throw new Error(`Route ${route.method.toUpperCase()} ${route.path} has no requires(...) or publicRoute() declaration`);
@@ -96,7 +93,7 @@ export function secureRoute<C extends SecureRouteConfig & RouteConfig>(
   const middleware: MiddlewareHandler<AppEnv>[] = access.kind === 'public'
     ? []
     : [authenticateStep(deps), authorizeStep(deps, access), transactionStep(deps)];
-  app.openapi(createRoute({ ...route, middleware } as RouteConfig), handler as never);
+  return createRoute({ ...route, middleware } as unknown as Omit<C, 'access'> & { middleware: MiddlewareHandler<AppEnv>[] });
 }
 
 /** Fails if the router holds any handler that did not come through secureRoute (or an explicit exemption). */

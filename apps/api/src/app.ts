@@ -3,7 +3,7 @@ import { ForbiddenError, NotFoundError } from '@ams/core';
 import {
   assertAllRoutesDeclared, rawPublicRoute, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
 } from './chain.js';
-import { registerRoutes } from './routes.js';
+import { buildRoutes } from './routes.js';
 import type pg from 'pg';
 
 export interface AppOptions {
@@ -17,15 +17,13 @@ export interface AppOptions {
 
 /** Builds the API. Throws if any route lacks a permission declaration. */
 export function createApp(opts: AppOptions) {
-  const app = new OpenAPIHono<AppEnv>({
+  const registry = new RouteRegistry();
+  const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate };
+  const app = buildRoutes(registry, deps, {
     defaultHook: (result, c) => {
       if (!result.success) return c.json({ error: 'invalid_request', issues: result.error.issues }, 400);
     },
   });
-  const registry = new RouteRegistry();
-  const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate };
-
-  registerRoutes(app, registry, deps);
   if (opts.authHandler) rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', opts.authHandler);
   opts.extend?.(app, registry, deps);
 

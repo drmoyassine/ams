@@ -1,6 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
+  "compilerOptions": {
+    "module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx", "types": ["vite/client"], "allowImportingTsExtensions": false,
+    "outDir": "dist-types", "rootDir": "src", "emitDeclarationOnly": true
+  },
   "include": ["src"],
-  "references": [{ "path": "../../packages/shared" }]
+  "references": [{ "path": "../../packages/shared" }, { "path": "../api" }]
 }

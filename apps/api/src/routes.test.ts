@@ -1,8 +1,8 @@
-import { OpenAPIHono, z } from '@hono/zod-openapi';
+import { z } from '@hono/zod-openapi';
 import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
-import { assertAllRoutesDeclared, publicRoute, RouteRegistry, secureRoute, type AppEnv } from './chain.js';
+import { assertAllRoutesDeclared, publicRoute, RouteRegistry, secured } from './chain.js';
 
 // No database is needed: nothing here opens a connection.
 const pool = new pg.Pool({ connectionString: 'postgres://nobody@localhost:1/none' });
@@ -19,11 +19,8 @@ describe('route permission coverage', () => {
   it('startup fails when a route is registered without requires(...)', () => {
     expect(() => createApp({
       pool, authenticate,
-      extend: (app, registry, deps) => {
-        secureRoute(app, registry, deps, {
-          method: 'get', path: '/api/rogue',
-          responses: { 200: { description: 'x' } },
-        } as never, (() => new Response()) as never);
+      extend: (_app, registry, deps) => {
+        secured(registry, deps, { method: 'get', path: '/api/rogue', responses: { 200: { description: 'x' } } } as never);
       },
     })).toThrow(/no requires\(\.\.\.\)/);
   });
@@ -43,13 +40,12 @@ describe('route permission coverage', () => {
   });
 
   it('refuses to register the same route twice', () => {
-    const app = new OpenAPIHono<AppEnv>();
     const registry = new RouteRegistry();
     const cfg = {
       method: 'get' as const, path: '/x', access: publicRoute(),
       responses: { 200: { description: 'ok', content: { 'application/json': { schema: z.object({}) } } } },
     };
-    secureRoute(app, registry, { pool, authenticate }, cfg, (c) => c.json({}, 200));
-    expect(() => secureRoute(app, registry, { pool, authenticate }, cfg, (c) => c.json({}, 200))).toThrow(/twice/);
+    secured(registry, { pool, authenticate }, cfg);
+    expect(() => secured(registry, { pool, authenticate }, cfg)).toThrow(/twice/);
   });
 });
