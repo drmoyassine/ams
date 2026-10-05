@@ -47,6 +47,7 @@ jobs:
       - name: Write .env
         run: |
           cat > .env <<EOF
+          COMPOSE_FILE=compose.yaml:compose.local.yaml
           NODE_ENV=production
           PORT=3000
           APP_URL=http://localhost:3000

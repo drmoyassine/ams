@@ -1,0 +1,10 @@
+# Local development overlay: publishes service ports on this machine. Not used on a shared host such as Easypanel,
+# where the proxy routes to the app and published ports would collide (Easypanel itself uses :3000).
+# `COMPOSE_FILE=compose.yaml:compose.local.yaml` in .env makes `docker compose up` pick it up.
+services:
+  postgres:
+    ports: ["5432:5432"]
+  garage:
+    ports: ["3900:3900", "3903:3903"]
+  app:
+    ports: ["3000:3000"]
