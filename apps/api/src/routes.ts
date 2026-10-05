@@ -2,6 +2,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import { createProgram, listPrograms, myAccess } from '@ams/core';
 import { CreateProgramSchema, MeSchema, ProgramSchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
+import { engagementRoutes } from './routes/engagements.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { templateRoutes } from './routes/templates.js';
@@ -46,7 +47,10 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     // Framework library (M1). Each module chains its own routes so their types merge into ApiRoutes.
     .route('/', frameworkRoutes(registry, deps, options))
     .route('/', requirementRoutes(registry, deps, options))
-    .route('/', templateRoutes(registry, deps, options));
+    .route('/', templateRoutes(registry, deps, options))
+
+    // Engagements and roadmaps (M2).
+    .route('/', engagementRoutes(registry, deps, options));
 }
 
 export type ApiRoutes = ReturnType<typeof buildRoutes>;

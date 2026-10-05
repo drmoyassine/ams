@@ -1,7 +1,7 @@
 ---
 title: Engagement API routes and permissions
 description: Hono routes through secured() with engagement permissions
-status: pending
+status: completed
 priority: P0
 id: TASK-028
 last_updated: '2026-10-05'
@@ -31,7 +31,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-010
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:24.850Z'
+  at: '2026-10-05T13:09:30.074Z'
 ---
 # TASK-028 — Engagement API routes and permissions
 

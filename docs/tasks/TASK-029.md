@@ -1,7 +1,7 @@
 ---
 title: ICS calendar export
 description: Calendar file of all milestones with due dates
-status: pending
+status: completed
 priority: P0
 id: TASK-029
 last_updated: '2026-10-05'
@@ -22,7 +22,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-008
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:26.842Z'
+  at: '2026-10-05T13:13:18.411Z'
 ---
 # TASK-029 — ICS calendar export
 

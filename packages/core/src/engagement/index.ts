@@ -7,3 +7,4 @@ export * from './common.js';
 export * from './roadmap.js';
 export * from './template-update.js';
 export * from './workspace.js';
+export * from './ics.js';
