@@ -2,7 +2,7 @@
 id: TASK-012
 title: 'Framework fixture: ABET EAC 2027-28'
 description: Blocked on the ABET Criteria for Accrediting Engineering Programs document
-status: pending
+status: in-progress
 priority: P0
 assignee: ''
 tags:
@@ -28,3 +28,7 @@ modified:
 # TASK-012 — Framework fixture: ABET EAC 2027-28
 
 Needs the official Criteria document (not yet uploaded). Lifecycle, vocabularies and SSQ-based templates per Appendix A.2 can be drafted from the APPM and SSQ already available.
+
+## Progress (2026-10-05)
+
+Done from the uploaded APPM 2025-26: Criteria 1-8 names and the full APPM I.C eligibility policy (40 clauses, verbatim, quote-verified). Still needed: the official *Criteria for Accrediting Engineering Programs* (Criterion 1-8 wording and Program Criteria), which none of the uploads contain; abet.org is not reachable from the build environment. The Self-Study Questionnaire and Readiness template (docx) are not yet loaded as source documents: they have no page numbers, which the quote model needs.

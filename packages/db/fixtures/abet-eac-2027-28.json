@@ -12,13 +12,13 @@
     "name": "Criteria for Accrediting Engineering Programs",
     "commission": "EAC",
     "scope": "program",
-    "description": "Skeleton fixture from PRD Appendix A.2: requirement text is pending the official Criteria document (TASK-012)."
+    "description": "General Criteria 1-8 (names from APPM I.B.1) and APPM I.C eligibility policy, verbatim from the 2025-26 APPM. The Criteria wording itself was not in the supplied documents (TASK-012 follow-up)."
   },
   "version": {
     "edition": "2027-28",
     "effective_from": null,
     "effective_to": null,
-    "change_summary": "Fixture skeleton (Appendix A.2)"
+    "change_summary": "Real APPM text for criteria names and eligibility policy"
   },
   "config": {
     "level_labels": [
@@ -829,7 +829,43 @@
       }
     ]
   },
-  "source_documents": [],
+  "source_documents": [
+    {
+      "ref": "doc-1",
+      "title": "2025-2026 Accreditation Policy and Procedure Manual (APPM)",
+      "role": "policy_procedure",
+      "authority": "binding",
+      "language": "en",
+      "sha256": "65b7e809c75b703f892b92136eac83093a485e3e4f873c49fd0f6a9fd5f052d7",
+      "pages": [
+        {
+          "page_no": 7,
+          "text": "2025-2026 Accreditation Policy and Procedure Manual\nI.B. Accreditation Criteria and Definition of Terms\nI.B.1. General Criteria – These criteria address requirements for all programs at each specific\nprogram degree level accredited by a given commission. These criteria have been developed by\nthe commissions and approved by the ABET Board of Delegates or the appropriate Area\nDelegation. General Criteria are posted on the ABET website: https://www.abet.org. For\nbaccalaureate and associate degree level programs, the eight General Criteria are:\n1. Students,\n2. Program Educational Objectives,\n3. Student Outcomes,\n4. Continuous Improvement,\n5. Curriculum,\n6. Faculty,\n7. Facilities, and\n8. Institutional Support.\nI.B.1.a. Harmonized General Criteria – These criteria are a subset of the General\nCriteria for baccalaureate and associate degree level programs. They are identical in\nlanguage across all of ABET’s accreditation commissions. The harmonized criteria are:\n1. Students,\n2. Program Educational Objectives,\n4. Continuous Improvement,\n7. Facilities, and\n8. Institutional Support.\nI.B.2. Program Criteria – These criteria address program-specific requirements within areas of\nspecialization. These criteria have been developed by ABET Member Societies and the\ncommissions. Program Criteria are contained in each commission’s criteria document posted on\nthe ABET website: https://www.abet.org.\nI.B.3. Proposed New Criteria and Changes to Criteria – Proposed new criteria or substantive\nchanges to existing criteria will be published for a period of public review and comment. During\nthe review and comment period, proposed criteria will be published in the “Proposed Criteria”\nsection of the appropriate criteria document. The minimum review and comment period is 180\ndays.\n5",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 8,
+          "text": "2025-2026 Accreditation Policy and Procedure Manual\nI.C. Eligibility of Programs for Accreditation Review\nI.C.1. ABET defines institutions and programs for the purpose of establishing eligibility.\nI.C.1.a. ABET defines an institution of higher education as an organization that has\nverifiable governmental, national, or regional recognition to provide educational\nprograms and confer degrees.\nI.C.1.a.(1) ABET does not accredit departments or institutions.\nI.C.1.b. ABET defines an educational program as an integrated, organized experience\nthat culminates in the awarding of a degree. The program will have program educational\nobjectives (PEOs), student outcomes (SOs), a curriculum, faculty, and facilities.\nI.C.1.b.(1) ABET accredits individual educational programs.\nI.C.2. The institution must demonstrate control over the program to ensure compliance with all\naccreditation criteria and policies.\nI.C.2.a. The institution must demonstrate the authority and ability to produce for\neach student a record of academic work that describes his or her academic performance.\nThis record must provide, for each student who completes the program, at least the\nfollowing:\nI.C.2.a.(1) The name and address of the institution.\nI.C.2.a.(2) The name and other identification as appropriate of the\nstudent.\nI.C.2.a.(3) A record of academic work pursued at the institution including\nidentification of courses and/or credits attempted, academic years of each\nattempt, grade or other evaluation for each attempt, and an indication of all\nrequired work attempted.\nI.C.2.a.(4) A list of required courses/and or credits for which academic\nwork pursued at another institution(s) was accepted to meet the requirements\nof the program.\nI.C.2.b. The institution must demonstrate the authority and ability to produce, for\neach student who completes the program, a statement of graduation that certifies\ncompletion of all program requirements and includes the name of the program (major,\nfield of study), the degree awarded including an indication of the degree level (associate,\nbaccalaureate, masters) and the date the degree was awarded. The program name and\n6",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 9,
+          "text": "2025-2026 Accreditation Policy and Procedure Manual\ndegree awarded must be shown in English exactly the same as they appear on the\nRequest for Evaluation accepted by ABET.\nI.C.2.c. The institution must have a means of certifying that the record of academic\nwork and the statement of graduation were produced by the institution and all such\ndocuments must include the date of issuance. The requirements of Sections I.C.2.a. and\nI.C.2.b. may be met by the issuance of one or more documents.\nI.C.3. A program must be accreditable under one or more of the four commissions of ABET:\nI.C.3.a. ANSAC - Programs accredited by ANSAC are those utilizing mathematics and\nthe sciences as the foundation for discipline-specific professional practice, including\nincreasing the knowledge base in a field of research or solving problems critical to\nsociety. ANSAC accredits a program at the associate, baccalaureate, or master’s degree\nlevel.\nI.C.3.b. CAC – Programs accredited by CAC are those leading to professional practice\nacross the broad spectrum of computing, computational, information, and informatics\ndisciplines. CAC accredits programs at the associate, baccalaureate, or master’s degree\nlevel.\nI.C.3.c. EAC – Programs accredited by EAC are those leading to the professional\npractice of engineering. EAC accredits a program at the baccalaureate or master’s degree\nlevel.\nI.C.3.c.(1) EAC – All engineering program names must include the word\n“engineering” (with the exception of naval architecture programs accredited\nprior to 1984).\nI.C.3.d. ETAC – Baccalaureate programs accredited by ETAC are those leading to the\nprofessional practice of engineering technology. Associate degree programs prepare\ngraduates for careers as engineering technicians. ETAC accredits a program at the\nassociate or baccalaureate degree level.\nI.C.3.d.(1) ETAC – The name of every ETAC-accredited program that\nincludes the word “engineering” in the name of the program must also include\nthe word “technology” directly after the word “engineering.”\nI.C.4. Program names must meet the following ABET requirements.\nI.C.4.a. The program name must be descriptive of the content of the program.\n7",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 10,
+          "text": "2025-2026 Accreditation Policy and Procedure Manual\nI.C.4.a.(1) Each program in a country where English is not the native\nlanguage must provide ABET with both the name of the program in English and\nthe name of the program in the official language(s) of the country.\nI.C.4.b. The program name must be shown consistently on the record of academic\nwork of its graduates, in the institution’s electronic and print publications, and on the\nABET Request for Evaluation (RFE).\nI.C.4.b.(1) The program name must be distinguishable from the degree\nconferred on the record of academic work of graduates and in all publications\nreferring to program accreditation.\nI.C.4.b.(2) A program may choose to have an option, or similar\ndesignation implying specialization within the program, reviewed as a separate\nprogram.\nI.C.4.b.(3) If there is an option, or similar designation implying a\nspecialization within the program, that is not reviewed by ABET as a separate\nprogram, such an option must be displayed separately from and in a\nsubordinate position to the program name on the record of academic work of\ngraduates and in all publications referring to program accreditation.\nI.C.4.c. The program name, curriculum, electronic and print publications, program\neducational objectives, and graduate transcripts determine the commission and the\ncriteria applicable to a program’s review.\nI.C.4.c.(1) Every program must meet the General Criteria for the\ncommission(s) under which it is being reviewed.\nI.C.4.c.(2) If a program name implies specialization(s) for which Program\nCriteria have been developed, the program must satisfy all applicable Program\nCriteria.\nI.C.4.c.(3) If a program name invokes review by more than one\ncommission, then the program will be jointly reviewed by all applicable\ncommissions.\nI.C.5. For a program to be eligible for an initial accreditation review ABET requires that:\nI.C.5.a. A program must have had at least one graduate within the two academic\nyears prior to the on-site review.\n8",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 11,
+          "text": "2025-2026 Accreditation Policy and Procedure Manual\nI.C.5.b. A Readiness Review (REv) must be completed for a program(s) within an\ninstitution without previously ABET-accredited programs in a given commission. An\ninstitution contemplating an ABET review for the first time must contact ABET for more\ninformation prior to making a formal request.\nI.C.5.b.(1) Occurring before a program requests an initial accreditation\nreview, REv is a mandatory document screening process that determines an\ninstitution’s preparedness to have its program(s) reviewed. It serves to reduce\nthe possibility that an institution without ABET accreditation experience will\nexpend resources for an on-site review before there are adequate preparations\nand that ABET will commit volunteer resources before a program is sufficiently\nprepared for the review.\nI.C.5.b.(2) A committee comprising ABET staff and former commissioners\nwill perform the screening process.\nI.C.5.b.(3) The outcome of a Readiness Review (REv) for a program is one\nof three non-binding options:\nI.C.5.b.(3)(a) A recommendation to submit the RFE in the immediate\nupcoming accreditation review cycle, addressing the REv suggestions,\nif any;\nI.C.5.b.(3)(b) A recommendation to postpone the RFE submission\nunless substantive changes in the Self-Study preparation and\ndocumentation are made; or\nI.C.5.b.(3)(c) A recommendation not to submit the RFE in the\nimmediate upcoming accreditation review cycle because it is likely to\nbe rejected or the accreditation review is likely to be unsuccessful\nbecause of factors that do not appear to be addressable in a timely\nmanner.\nI.D. Application and Timeline for Accreditation Review\nI.D.1. Programs are considered for accreditation review only at the written request of the\ninstitution. An institution contemplating an ABET review for the first time must contact ABET for\nmore information prior to making the formal request.\nI.D.1.a. An institution wishing to have programs considered for accreditation must\nsubmit to ABET a Request for Evaluation (RFE) not later than January 31 of the calendar\nyear in which the review is desired. The RFE must be signed by the institutional Chief\n9",
+          "method": "pdf_text"
+        }
+      ]
+    }
+  ],
   "requirements": [
     {
       "code": "Criterion 1",
@@ -843,7 +879,11 @@
       "applies_when": null,
       "display_order": 1,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Students"
+      },
       "notes": []
     },
     {
@@ -858,7 +898,11 @@
       "applies_when": null,
       "display_order": 2,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Program Educational Objectives"
+      },
       "notes": []
     },
     {
@@ -873,7 +917,11 @@
       "applies_when": null,
       "display_order": 3,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Student Outcomes"
+      },
       "notes": []
     },
     {
@@ -888,7 +936,11 @@
       "applies_when": null,
       "display_order": 4,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Continuous Improvement"
+      },
       "notes": []
     },
     {
@@ -903,7 +955,11 @@
       "applies_when": null,
       "display_order": 5,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Curriculum"
+      },
       "notes": []
     },
     {
@@ -918,7 +974,11 @@
       "applies_when": null,
       "display_order": 6,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Faculty"
+      },
       "notes": []
     },
     {
@@ -933,7 +993,11 @@
       "applies_when": null,
       "display_order": 7,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Facilities"
+      },
       "notes": []
     },
     {
@@ -948,7 +1012,11 @@
       "applies_when": null,
       "display_order": 8,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "Institutional Support"
+      },
       "notes": []
     },
     {
@@ -976,12 +1044,12 @@
     {
       "code": "APPM I.C",
       "parent_code": null,
-      "level_label": "Item",
-      "title": "APPM I.C: Eligibility",
+      "level_label": "Criterion",
+      "title": "APPM I.C: Eligibility of Programs for Accreditation Review",
       "official_text": null,
       "language": "en",
       "translation_en": null,
-      "is_assessable": true,
+      "is_assessable": false,
       "applies_when": {
         "scope": [
           "program"
@@ -989,15 +1057,134 @@
       },
       "display_order": 30,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "Eligibility of Programs for Accreditation Review"
+      },
       "notes": []
     },
     {
-      "code": "APPM Program Name",
-      "parent_code": null,
+      "code": "I.C.1",
+      "parent_code": "APPM I.C",
       "level_label": "Item",
-      "title": "APPM: Program name rules",
-      "official_text": null,
+      "title": "I.C.1",
+      "official_text": "ABET defines institutions and programs for the purpose of establishing eligibility.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "ABET defines institutions and programs for the purpose of establishing eligibility."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.1.a",
+      "parent_code": "I.C.1",
+      "level_label": "Item",
+      "title": "I.C.1.a",
+      "official_text": "ABET defines an institution of higher education as an organization that has verifiable governmental, national, or regional recognition to provide educational programs and confer degrees.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "ABET defines an institution of higher education as an organization that has"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.1.a.(1)",
+      "parent_code": "I.C.1.a",
+      "level_label": "Item",
+      "title": "I.C.1.a.(1)",
+      "official_text": "ABET does not accredit departments or institutions.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "ABET does not accredit departments or institutions."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.1.b",
+      "parent_code": "I.C.1",
+      "level_label": "Item",
+      "title": "I.C.1.b",
+      "official_text": "ABET defines an educational program as an integrated, organized experience that culminates in the awarding of a degree. The program will have program educational objectives (PEOs), student outcomes (SOs), a curriculum, faculty, and facilities.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "ABET defines an educational program as an integrated, organized experience"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.1.b.(1)",
+      "parent_code": "I.C.1.b",
+      "level_label": "Item",
+      "title": "I.C.1.b.(1)",
+      "official_text": "ABET accredits individual educational programs.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "ABET accredits individual educational programs."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2",
+      "parent_code": "APPM I.C",
+      "level_label": "Item",
+      "title": "I.C.2",
+      "official_text": "The institution must demonstrate control over the program to ensure compliance with all accreditation criteria and policies.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -1006,9 +1193,795 @@
           "program"
         ]
       },
-      "display_order": 31,
+      "display_order": 2,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution must demonstrate control over the program to ensure compliance with all"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.a",
+      "parent_code": "I.C.2",
+      "level_label": "Item",
+      "title": "I.C.2.a",
+      "official_text": "The institution must demonstrate the authority and ability to produce for each student a record of academic work that describes his or her academic performance. This record must provide, for each student who completes the program, at least the following:",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution must demonstrate the authority and ability to produce for"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.a.(1)",
+      "parent_code": "I.C.2.a",
+      "level_label": "Item",
+      "title": "I.C.2.a.(1)",
+      "official_text": "The name and address of the institution.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The name and address of the institution."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.a.(2)",
+      "parent_code": "I.C.2.a",
+      "level_label": "Item",
+      "title": "I.C.2.a.(2)",
+      "official_text": "The name and other identification as appropriate of the student.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The name and other identification as appropriate of the"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.a.(3)",
+      "parent_code": "I.C.2.a",
+      "level_label": "Item",
+      "title": "I.C.2.a.(3)",
+      "official_text": "A record of academic work pursued at the institution including identification of courses and/or credits attempted, academic years of each attempt, grade or other evaluation for each attempt, and an indication of all required work attempted.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "A record of academic work pursued at the institution including"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.a.(4)",
+      "parent_code": "I.C.2.a",
+      "level_label": "Item",
+      "title": "I.C.2.a.(4)",
+      "official_text": "A list of required courses/and or credits for which academic work pursued at another institution(s) was accepted to meet the requirements of the program.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "A list of required courses/and or credits for which academic"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.b",
+      "parent_code": "I.C.2",
+      "level_label": "Item",
+      "title": "I.C.2.b",
+      "official_text": "The institution must demonstrate the authority and ability to produce, for each student who completes the program, a statement of graduation that certifies completion of all program requirements and includes the name of the program (major, field of study), the degree awarded including an indication of the degree level (associate, baccalaureate, masters) and the date the degree was awarded. The program name and degree awarded must be shown in English exactly the same as they appear on the Request for Evaluation accepted by ABET.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution must demonstrate the authority and ability to produce, for"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.2.c",
+      "parent_code": "I.C.2",
+      "level_label": "Item",
+      "title": "I.C.2.c",
+      "official_text": "The institution must have a means of certifying that the record of academic work and the statement of graduation were produced by the institution and all such documents must include the date of issuance. The requirements of Sections I.C.2.a. and I.C.2.b. may be met by the issuance of one or more documents.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution must have a means of certifying that the record of academic"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3",
+      "parent_code": "APPM I.C",
+      "level_label": "Item",
+      "title": "I.C.3",
+      "official_text": "A program must be accreditable under one or more of the four commissions of ABET:",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "A program must be accreditable under one or more of the four commissions of ABET:"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.a",
+      "parent_code": "I.C.3",
+      "level_label": "Item",
+      "title": "I.C.3.a",
+      "official_text": "ANSAC - Programs accredited by ANSAC are those utilizing mathematics and the sciences as the foundation for discipline-specific professional practice, including increasing the knowledge base in a field of research or solving problems critical to society. ANSAC accredits a program at the associate, baccalaureate, or master’s degree level.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "ANSAC - Programs accredited by ANSAC are those utilizing mathematics and"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.b",
+      "parent_code": "I.C.3",
+      "level_label": "Item",
+      "title": "I.C.3.b",
+      "official_text": "CAC – Programs accredited by CAC are those leading to professional practice across the broad spectrum of computing, computational, information, and informatics disciplines. CAC accredits programs at the associate, baccalaureate, or master’s degree level.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "CAC – Programs accredited by CAC are those leading to professional practice"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.c",
+      "parent_code": "I.C.3",
+      "level_label": "Item",
+      "title": "I.C.3.c",
+      "official_text": "EAC – Programs accredited by EAC are those leading to the professional practice of engineering. EAC accredits a program at the baccalaureate or master’s degree level.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "EAC – Programs accredited by EAC are those leading to the professional"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.c.(1)",
+      "parent_code": "I.C.3.c",
+      "level_label": "Item",
+      "title": "I.C.3.c.(1)",
+      "official_text": "EAC – All engineering program names must include the word “engineering” (with the exception of naval architecture programs accredited prior to 1984).",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "EAC – All engineering program names must include the word"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.d",
+      "parent_code": "I.C.3",
+      "level_label": "Item",
+      "title": "I.C.3.d",
+      "official_text": "ETAC – Baccalaureate programs accredited by ETAC are those leading to the professional practice of engineering technology. Associate degree programs prepare graduates for careers as engineering technicians. ETAC accredits a program at the associate or baccalaureate degree level.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "ETAC – Baccalaureate programs accredited by ETAC are those leading to the"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.3.d.(1)",
+      "parent_code": "I.C.3.d",
+      "level_label": "Item",
+      "title": "I.C.3.d.(1)",
+      "official_text": "ETAC – The name of every ETAC-accredited program that includes the word “engineering” in the name of the program must also include the word “technology” directly after the word “engineering.”",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "ETAC – The name of every ETAC-accredited program that"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4",
+      "parent_code": "APPM I.C",
+      "level_label": "Item",
+      "title": "I.C.4",
+      "official_text": "Program names must meet the following ABET requirements.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "Program names must meet the following ABET requirements."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.a",
+      "parent_code": "I.C.4",
+      "level_label": "Item",
+      "title": "I.C.4.a",
+      "official_text": "The program name must be descriptive of the content of the program.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The program name must be descriptive of the content of the program."
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.a.(1)",
+      "parent_code": "I.C.4.a",
+      "level_label": "Item",
+      "title": "I.C.4.a.(1)",
+      "official_text": "Each program in a country where English is not the native language must provide ABET with both the name of the program in English and the name of the program in the official language(s) of the country.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "Each program in a country where English is not the native"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.b",
+      "parent_code": "I.C.4",
+      "level_label": "Item",
+      "title": "I.C.4.b",
+      "official_text": "The program name must be shown consistently on the record of academic work of its graduates, in the institution’s electronic and print publications, and on the ABET Request for Evaluation (RFE).",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The program name must be shown consistently on the record of academic"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.b.(1)",
+      "parent_code": "I.C.4.b",
+      "level_label": "Item",
+      "title": "I.C.4.b.(1)",
+      "official_text": "The program name must be distinguishable from the degree conferred on the record of academic work of graduates and in all publications referring to program accreditation.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The program name must be distinguishable from the degree"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.b.(2)",
+      "parent_code": "I.C.4.b",
+      "level_label": "Item",
+      "title": "I.C.4.b.(2)",
+      "official_text": "A program may choose to have an option, or similar designation implying specialization within the program, reviewed as a separate program.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "A program may choose to have an option, or similar"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.b.(3)",
+      "parent_code": "I.C.4.b",
+      "level_label": "Item",
+      "title": "I.C.4.b.(3)",
+      "official_text": "If there is an option, or similar designation implying a specialization within the program, that is not reviewed by ABET as a separate program, such an option must be displayed separately from and in a subordinate position to the program name on the record of academic work of graduates and in all publications referring to program accreditation.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "If there is an option, or similar designation implying a"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.c",
+      "parent_code": "I.C.4",
+      "level_label": "Item",
+      "title": "I.C.4.c",
+      "official_text": "The program name, curriculum, electronic and print publications, program educational objectives, and graduate transcripts determine the commission and the criteria applicable to a program’s review.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The program name, curriculum, electronic and print publications, program"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.c.(1)",
+      "parent_code": "I.C.4.c",
+      "level_label": "Item",
+      "title": "I.C.4.c.(1)",
+      "official_text": "Every program must meet the General Criteria for the commission(s) under which it is being reviewed.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "Every program must meet the General Criteria for the"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.c.(2)",
+      "parent_code": "I.C.4.c",
+      "level_label": "Item",
+      "title": "I.C.4.c.(2)",
+      "official_text": "If a program name implies specialization(s) for which Program Criteria have been developed, the program must satisfy all applicable Program Criteria.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "If a program name implies specialization(s) for which Program"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.4.c.(3)",
+      "parent_code": "I.C.4.c",
+      "level_label": "Item",
+      "title": "I.C.4.c.(3)",
+      "official_text": "If a program name invokes review by more than one commission, then the program will be jointly reviewed by all applicable commissions.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "If a program name invokes review by more than one"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5",
+      "parent_code": "APPM I.C",
+      "level_label": "Item",
+      "title": "I.C.5",
+      "official_text": "For a program to be eligible for an initial accreditation review ABET requires that:",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 5,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "For a program to be eligible for an initial accreditation review ABET requires that:"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.a",
+      "parent_code": "I.C.5",
+      "level_label": "Item",
+      "title": "I.C.5.a",
+      "official_text": "A program must have had at least one graduate within the two academic years prior to the on-site review.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "A program must have had at least one graduate within the two academic"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b",
+      "parent_code": "I.C.5",
+      "level_label": "Item",
+      "title": "I.C.5.b",
+      "official_text": "A Readiness Review (REv) must be completed for a program(s) within an institution without previously ABET-accredited programs in a given commission. An institution contemplating an ABET review for the first time must contact ABET for more information prior to making a formal request.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "A Readiness Review (REv) must be completed for a program(s) within an"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(1)",
+      "parent_code": "I.C.5.b",
+      "level_label": "Item",
+      "title": "I.C.5.b.(1)",
+      "official_text": "Occurring before a program requests an initial accreditation review, REv is a mandatory document screening process that determines an institution’s preparedness to have its program(s) reviewed. It serves to reduce the possibility that an institution without ABET accreditation experience will expend resources for an on-site review before there are adequate preparations and that ABET will commit volunteer resources before a program is sufficiently prepared for the review.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "Occurring before a program requests an initial accreditation"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(2)",
+      "parent_code": "I.C.5.b",
+      "level_label": "Item",
+      "title": "I.C.5.b.(2)",
+      "official_text": "A committee comprising ABET staff and former commissioners will perform the screening process.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "A committee comprising ABET staff and former commissioners"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(3)",
+      "parent_code": "I.C.5.b",
+      "level_label": "Item",
+      "title": "I.C.5.b.(3)",
+      "official_text": "The outcome of a Readiness Review (REv) for a program is one of three non-binding options:",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The outcome of a Readiness Review (REv) for a program is one"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(3)(a)",
+      "parent_code": "I.C.5.b.(3)",
+      "level_label": "Item",
+      "title": "I.C.5.b.(3)(a)",
+      "official_text": "A recommendation to submit the RFE in the immediate upcoming accreditation review cycle, addressing the REv suggestions, if any;",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "A recommendation to submit the RFE in the immediate"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(3)(b)",
+      "parent_code": "I.C.5.b.(3)",
+      "level_label": "Item",
+      "title": "I.C.5.b.(3)(b)",
+      "official_text": "A recommendation to postpone the RFE submission unless substantive changes in the Self-Study preparation and documentation are made; or",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "A recommendation to postpone the RFE submission"
+      },
+      "notes": []
+    },
+    {
+      "code": "I.C.5.b.(3)(c)",
+      "parent_code": "I.C.5.b.(3)",
+      "level_label": "Item",
+      "title": "I.C.5.b.(3)(c)",
+      "official_text": "A recommendation not to submit the RFE in the immediate upcoming accreditation review cycle because it is likely to be rejected or the accreditation review is likely to be unsuccessful because of factors that do not appear to be addressable in a timely manner.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "A recommendation not to submit the RFE in the"
+      },
       "notes": []
     }
   ]

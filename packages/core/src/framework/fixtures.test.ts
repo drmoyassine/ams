@@ -139,6 +139,31 @@ describe('real source text (PUC Institutional Accreditation Guide 2019)', () => 
   });
 });
 
+describe('real source text (ABET APPM 2025-26)', () => {
+  it('quotes the criteria names and the whole of APPM I.C, verified against the cited pages', async () => {
+    const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
+    const items = file.requirements.filter((r) => r.parent_code !== null || r.code.startsWith('Criterion '));
+    expect(file.requirements.filter((r) => /^Criterion \d$/.test(r.code))).toHaveLength(8);
+    expect(file.requirements.filter((r) => r.code.startsWith('I.C.'))).toHaveLength(40);
+    expect(items.length).toBeGreaterThan(40);
+    const { rows } = await db.su.query(
+      `select count(*)::int as n, count(*) filter (where not quote_verified)::int as bad from requirement where framework_version_id = $1 and source_quote is not null`,
+      [published['abet-eac-2027-28']],
+    );
+    expect(rows[0].bad).toBe(0);
+    expect(rows[0].n).toBe(8 + 1 + 40);
+  });
+
+  it('nests sub-items under their policy clause and keeps the text verbatim', () => {
+    const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
+    const by = new Map(file.requirements.map((r) => [r.code, r]));
+    expect(by.get('I.C.5.b.(3)(c)')!.parent_code).toBe('I.C.5.b.(3)');
+    expect(by.get('I.C.5.a')!.official_text).toBe('A program must have had at least one graduate within the two academic years prior to the on-site review.');
+    expect(by.get('I.C.5.a')!.is_assessable).toBe(true);
+    expect(by.get('I.C.1.a.(1)')!.is_assessable).toBe(false);
+  });
+});
+
 describe('the three fixtures share one code path and one database', () => {
   it('are all published side by side', async () => {
     const { rows } = await db.su.query(`select a.short_name, fv.edition, fv.status from framework_version fv join framework f on f.id = fv.framework_id join accreditor a on a.id = f.accreditor_id order by a.short_name`);

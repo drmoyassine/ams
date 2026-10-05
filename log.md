@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — ABET fixture: APPM text loaded (TASK-012 in progress)
+
+Uploaded: APPM 2025-26, Self-Study Questionnaire and Readiness template (docx), REv information sheet, Tables 5-1/6-1/6-2 (xlsx). The Criteria document itself is not among them. `abet-eac-2027-28.json` now carries Criteria 1-8 names (APPM I.B.1) and the whole of APPM I.C as 40 nested Items, verbatim with quotes; the two placeholder items were replaced. `is_assessable` is true where the clause says must/required. Not done: Criterion wording, Program Criteria, SSQ prompts as notes, data-table columns from the xlsx.
+
 ## 2026-10-05 — Real WSCUC and PUC fixtures (TASK-011)
 
 `wscuc-2023.json`: Standards 1-4, headings and CFRs 1.1-4.8 from the 2023 Handbook text layer, every requirement quoting a sentence on its cited page; Compliance Worksheet notes are `required`, essay guidance `suggested`. `puc-2019.json`: 7 standards, 24 measures, 151 indicators, Arabic, from the scanned Guide. PUC page text is a manual transcription of image crops (no OCR engine here), stored as `method: "ocr"`; a reviewer must compare it with the PDF. Indicators that span a page break are kept whole and cite the first page. ABET (TASK-012) still needs the official Criteria document.
