@@ -108,8 +108,8 @@ related_vision:
     name: Accreditor frameworks are configuration, not code
     url: /VISION.md#one-platform-many-frameworks
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:54:00.849Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:37:29.361Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -121,6 +121,27 @@ related_tasks:
   - id: TASK-012
     name: 'Framework fixture: ABET EAC 2027-28'
     url: /TASKS.md#TASK-012
+  - id: TASK-013
+    name: 'M1 schema: framework library tables'
+    url: /TASKS.md#TASK-013
+  - id: TASK-014
+    name: Published-frozen triggers and publish gate
+    url: /TASKS.md#TASK-014
+  - id: TASK-015
+    name: Framework JSON schemas (config validation)
+    url: /TASKS.md#TASK-015
+  - id: TASK-016
+    name: Framework core services
+    url: /TASKS.md#TASK-016
+  - id: TASK-017
+    name: Framework JSON import and export
+    url: /TASKS.md#TASK-017
+  - id: TASK-018
+    name: Framework API routes and permissions
+    url: /TASKS.md#TASK-018
+  - id: TASK-019
+    name: Framework library UI
+    url: /TASKS.md#TASK-019
 ---
 
 Source: PRD §0, §2 P1, §7. (docs/PRD.md).
@@ -274,8 +295,8 @@ related_vision:
     name: Official, suggested and inferred are always distinguishable
     url: /VISION.md#trustworthy-traceability
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:41.356Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:37:29.361Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -283,6 +304,28 @@ related_roadmap_items:
   - id: ROADMAP-009
     name: M7 — Framework compiler
     url: /ROADMAP.md#ROADMAP-009
+related_tasks:
+  - id: TASK-013
+    name: 'M1 schema: framework library tables'
+    url: /TASKS.md#TASK-013
+  - id: TASK-014
+    name: Published-frozen triggers and publish gate
+    url: /TASKS.md#TASK-014
+  - id: TASK-015
+    name: Framework JSON schemas (config validation)
+    url: /TASKS.md#TASK-015
+  - id: TASK-016
+    name: Framework core services
+    url: /TASKS.md#TASK-016
+  - id: TASK-017
+    name: Framework JSON import and export
+    url: /TASKS.md#TASK-017
+  - id: TASK-018
+    name: Framework API routes and permissions
+    url: /TASKS.md#TASK-018
+  - id: TASK-019
+    name: Framework library UI
+    url: /TASKS.md#TASK-019
 ---
 
 Source: PRD §6.3, §15, §16, invariants 1–3, 7. (docs/PRD.md).

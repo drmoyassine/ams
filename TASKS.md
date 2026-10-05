@@ -514,4 +514,272 @@ modified:
 
 Needs the official Criteria document (not yet uploaded). Lifecycle, vocabularies and SSQ-based templates per Appendix A.2 can be drafted from the APPM and SSQ already available.
 
+---
+
+## TASK-013 — M1 schema: framework library tables
+
+---
+id: TASK-013
+title: 'M1 schema: framework library tables'
+description: >-
+  Drizzle schema + SQL migration for PRD 6.2 and 6.3: accreditor, framework, framework_version, source_document,
+  source_page, requirement, requirement_note, report_template, with provenance fields, CHECK constraints, RLS and audit
+  triggers
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:19.113Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on: []
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:19.113Z'
+---
+
+Tables and columns exactly as PRD 6.2/6.3. Authority and provenance enums enforced by CHECK. RLS by institution_id. Tests in packages/db.
+
+---
+
+## TASK-014 — Published-frozen triggers and publish gate
+
+---
+id: TASK-014
+title: Published-frozen triggers and publish gate
+description: >-
+  Database enforcement of PRD 6.9 invariants 1-3: rows of a published/retired framework_version cannot change; publish
+  gate; sample reports never create requirements
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:20.778Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-013
+    name: 'M1 schema: framework library tables'
+    url: /TASKS.md#TASK-013
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:20.778Z'
+---
+
+Triggers, not service code. Do not relax a trigger to make a test pass. Tests: every table under a published version rejects insert/update/delete; publish refused while any item is not approved, a required note lacks a verified quote, or an AI item lacks a source reference.
+
+---
+
+## TASK-015 — Framework JSON schemas (config validation)
+
+---
+id: TASK-015
+title: Framework JSON schemas (config validation)
+description: >-
+  Zod schemas in packages/shared for lifecycle_template, decision/finding/response vocabularies, applies_when,
+  rating_method and report_template.structure (PRD 7.1-7.6, 10.2) with example fixtures from Appendix A
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:22.494Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-013
+    name: 'M1 schema: framework library tables'
+    url: /TASKS.md#TASK-013
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:22.494Z'
+---
+
+One schema set reused by API, SPA and worker. No accreditor-specific branches (DEC-002).
+
+---
+
+## TASK-016 — Framework core services
+
+---
+id: TASK-016
+title: Framework core services
+description: >-
+  packages/core/framework: create/edit tree, notes with authority rules (6.3), report templates, version lifecycle draft
+  -> in_review -> published -> retired, new version from existing
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:24.166Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-014
+    name: Published-frozen triggers and publish gate
+    url: /TASKS.md#TASK-014
+  - id: TASK-015
+    name: Framework JSON schemas (config validation)
+    url: /TASKS.md#TASK-015
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:24.166Z'
+---
+
+Authority rules: required needs a verified quote; only humans set institution_defined or promote ai_suggested. Services take (ctx, input) and never open connections.
+
+---
+
+## TASK-017 — Framework JSON import and export
+
+---
+id: TASK-017
+title: Framework JSON import and export
+description: Export a framework version to one JSON file and import it (PRD 7.7) with schema validation; deterministic round-trip
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:25.759Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-016
+    name: Framework core services
+    url: /TASKS.md#TASK-016
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:25.759Z'
+---
+
+Import creates a draft version. Round-trip test: export, import, export is identical modulo ids.
+
+---
+
+## TASK-018 — Framework API routes and permissions
+
+---
+id: TASK-018
+title: Framework API routes and permissions
+description: >-
+  Hono routes via secured(): framework:read, framework:write, framework:publish permissions; OpenAPI; route-coverage
+  test passes
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:27.483Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-016
+    name: Framework core services
+    url: /TASKS.md#TASK-016
+  - id: TASK-017
+    name: Framework JSON import and export
+    url: /TASKS.md#TASK-017
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:27.483Z'
+---
+
+Extend ROLE_PERMISSIONS in packages/shared. Publish limited to admin/lead.
+
+---
+
+## TASK-019 — Framework library UI
+
+---
+id: TASK-019
+title: Framework library UI
+description: >-
+  SPA: framework list, version page, requirement tree editor, notes with authority badges, lifecycle/report-template
+  JSON editors with validation errors, import/export, publish
+status: pending
+priority: P0
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:29.361Z'
+roadmap_item:
+  id: ROADMAP-002
+  name: M1 — Framework library
+  url: /ROADMAP.md#ROADMAP-002
+depends_on:
+  - id: TASK-018
+    name: Framework API routes and permissions
+    url: /TASKS.md#TASK-018
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T09:37:29.361Z'
+---
+
+UI English first; content dir=auto. Never show 'compliant' or readiness scores (DEC-005).
+
 <!-- End VEF generated items. -->
