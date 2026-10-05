@@ -71,7 +71,9 @@ jobs:
       - run: docker compose up -d --build --wait
       - name: Smoke test
         run: |
-          set -a; . ./.env; set +a
+          # .env has values with spaces, so read the two variables rather than sourcing the file
+          export ADMIN_EMAIL="$(grep '^ADMIN_EMAIL=' .env | cut -d= -f2-)"
+          export ADMIN_PASSWORD="$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2-)"
           bash scripts/smoke.sh
       - name: Logs on failure
         if: failure()
