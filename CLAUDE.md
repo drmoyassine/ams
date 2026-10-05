@@ -110,7 +110,7 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 | Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger. Needs PostgreSQL (`TEST_DATABASE_ADMIN_URL`, default `postgres://postgres:postgres@localhost:5432/postgres`) |
 | Types and lint | `pnpm typecheck && pnpm lint` |
 | Project memory | `npx vef check` (also in CI via `.github/workflows/vef.yml`) |
-| Local stack | `docker compose up` — app on :3000, Postgres :5432, MinIO :9000/:9001 |
+| Local stack | `docker compose up` — app on :3000, Postgres :5432, Garage S3 :3900 (admin :3903) |
 | Logs | Structured JSON to stdout from `app` and `worker` |
 
 (Commands above are created in M0 / TASK-001…009; keep this table accurate when they change.)

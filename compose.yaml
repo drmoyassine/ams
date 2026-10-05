@@ -13,21 +13,35 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio
-    # Pre-creating the bucket directory is the S3-API-free way to have it exist on first start.
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/$${S3_BUCKET} && exec minio server /data --console-address :9001"]
+  garage:
+    # S3-compatible object storage (Garage). Pinned: the admin API used by scripts/garage-init.mjs is v1.
+    image: dxflrs/garage:v1.0.1
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET:-ams}
-    ports: ["9000:9000", "9001:9001"]
-    volumes: [miniodata:/data]
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
+    volumes:
+      - ./deploy/garage.toml:/etc/garage.toml:ro
+      - garagemeta:/var/lib/garage/meta
+      - garagedata:/var/lib/garage/data
+    ports: ["3900:3900", "3903:3903"]
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live"]
+      test: ["CMD", "/garage", "status"]
       interval: 5s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 12
+
+  garage-init:
+    image: node:22-slim
+    depends_on:
+      garage: { condition: service_healthy }
+    environment:
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET:-ams}
+    volumes: [./scripts/garage-init.mjs:/init.mjs:ro]
+    command: ["node", "/init.mjs"]
+    restart: "no"
 
   app:
     build: { context: ., target: app }
@@ -35,15 +49,16 @@ services:
     ports: ["3000:3000"]
     depends_on:
       postgres: { condition: service_healthy }
-      minio: { condition: service_healthy }
+      garage-init: { condition: service_completed_successfully }
 
   worker:
     build: { context: ., target: worker }
     env_file: .env
     depends_on:
       postgres: { condition: service_healthy }
-      minio: { condition: service_healthy }
+      garage-init: { condition: service_completed_successfully }
 
 volumes:
   pgdata:
-  miniodata:
+  garagemeta:
+  garagedata:

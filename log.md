@@ -23,7 +23,7 @@ Open items carried forward:
 - **Queue sweeper** for jobs committed but never published (see TASK-008 note).
 - **Better Auth rate limiting** needs `advanced.ipAddress.trustedProxies` / header config when deployed behind a reverse proxy (it logs a warning without it).
 - **Playwright browser e2e** is not set up; `pnpm test:e2e` is the Compose smoke script until the SPA has real flows.
-- Compose uses Docker Hub `minio/minio` (quay.io was unauthorized from the CI runner); the bucket is created by a directory in `/data` at start.
+- **Object storage is Garage, not MinIO** (owner decision, 2026-10-05; `minio/mc` and the quay MinIO images were unavailable to CI). Compose runs `dxflrs/garage:v1.0.1` with `deploy/garage.toml`; `scripts/garage-init.mjs` (compose service `garage-init`) assigns the single-node layout and imports the S3 key from env via the Garage admin API v1, creates the bucket and grants access. Keys must be Garage-shaped: id `GK`+24 hex, secret 64 hex. Written without access to Garage's docs (blocked from this sandbox) and without a Docker daemon, so it is verified only by CI. **PRD §18.1/§18.3/§18.4 and the M0 kickoff prompt still say MinIO; the PRD is the owner's to amend.**
 
 ---
 

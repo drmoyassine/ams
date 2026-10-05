@@ -35,7 +35,7 @@ vef check
 
 ```bash
 pnpm install
-docker compose up -d postgres minio   # local services
+docker compose up -d postgres garage garage-init   # local services
 pnpm db:migrate && pnpm db:seed        # schema + fixtures
 pnpm dev                                # api + web + worker in watch mode
 pnpm typecheck && pnpm lint

@@ -55,11 +55,13 @@ jobs:
           POSTGRES_DB=ams
           DATABASE_URL=postgres://ams:ci-postgres-password@postgres:5432/ams
           AUTH_SECRET=$(openssl rand -hex 32)
-          S3_ENDPOINT=http://minio:9000
-          S3_REGION=us-east-1
+          S3_ENDPOINT=http://garage:3900
+          S3_REGION=garage
           S3_BUCKET=ams
-          S3_ACCESS_KEY_ID=amsminio
-          S3_SECRET_ACCESS_KEY=ci-minio-secret-key
+          S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
+          S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
+          GARAGE_RPC_SECRET=$(openssl rand -hex 32)
+          GARAGE_ADMIN_TOKEN=$(openssl rand -hex 32)
           S3_FORCE_PATH_STYLE=true
           INSTITUTION_NAME=CI University
           ADMIN_EMAIL=admin@ci.test
