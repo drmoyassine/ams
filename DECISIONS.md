@@ -81,4 +81,586 @@ last_updated: '2026-01-01'
 
 This decision establishes the documentation substrate for the project. The framework was adopted via `vef setup`. See [vibe-engineering-framework](https://github.com/drmoyassine/vibe-engineering-framework) for the canonical definition.
 
+---
+
+## DEC-002 — Accreditor frameworks are versioned configuration; no accreditor-specific code
+
+---
+id: DEC-002
+title: Accreditor frameworks are versioned configuration; no accreditor-specific code
+status: accepted
+context: AMS must support WSCUC, ABET, NBAQ, PUC and future accreditors with different structures, lifecycles and vocabularies.
+decision: >-
+  Represent each accreditor edition as a framework_version holding the requirement tree, notes, lifecycle template,
+  report templates and decision/finding/response vocabularies. Code branches on accreditor identity are forbidden.
+rationale: Adding an accreditor becomes configuration; one code path is testable against three fixtures (WSCUC, ABET EAC, PUC).
+consequences: >-
+  Configuration schemas must be expressive enough; anything not expressible is a schema change reviewed against all
+  frameworks.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:11.234Z'
+related_vision:
+  - id: one-platform-many-frameworks
+    name: Accreditor frameworks are configuration, not code
+    url: /VISION.md#one-platform-many-frameworks
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:54:00.849Z'
+related_roadmap_items:
+  - id: ROADMAP-002
+    name: M1 — Framework library
+    url: /ROADMAP.md#ROADMAP-002
+related_tasks:
+  - id: TASK-011
+    name: 'Framework fixtures: WSCUC 2023 and PUC 2019'
+    url: /TASKS.md#TASK-011
+  - id: TASK-012
+    name: 'Framework fixture: ABET EAC 2027-28'
+    url: /TASKS.md#TASK-012
+---
+
+Source: PRD §0, §2 P1, §7. (docs/PRD.md).
+
+---
+
+## DEC-003 — Universal five-phase lifecycle with per-engagement editable roadmaps
+
+---
+id: DEC-003
+title: Universal five-phase lifecycle with per-engagement editable roadmaps
+status: accepted
+context: >-
+  All accreditors examined follow eligibility → self-study → review → decision → maintenance, but with different steps
+  and dates; real engagements also need local steps.
+decision: >-
+  Hard-code only the five phase types. Each framework supplies milestones and due rules. Each engagement holds an
+  editable copy: leads may add, rename, reschedule, reorder and skip; the self-study deliverable, decision points and
+  response reply milestones are locked; template updates never auto-apply.
+rationale: Keeps the accreditor's required steps visible (origin badges) while letting institutions plan realistically.
+consequences: Needs a small due-rule engine and a template-change review screen.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:12.504Z'
+related_vision:
+  - id: lifecycle-roadmaps
+    name: Every engagement runs a roadmap to a self-study and on into maintenance
+    url: /VISION.md#lifecycle-roadmaps
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:32.896Z'
+related_roadmap_items:
+  - id: ROADMAP-003
+    name: M2 — Engagements and roadmaps
+    url: /ROADMAP.md#ROADMAP-003
+---
+
+Source: PRD §5, §7.4, §8.5, invariant 12. (docs/PRD.md).
+
+---
+
+## DEC-004 — Accreditor responses are a tracked sub-cycle; findings are response items
+
+---
+id: DEC-004
+title: Accreditor responses are a tracked sub-cycle; findings are response items
+status: accepted
+context: >-
+  After each submission accreditors send completeness requests, corrections, queries, draft findings, decisions and
+  confirmations that must be tracked to closure.
+decision: >-
+  Model every accreditor communication as accreditor_response with verbatim feedback_items (missing_item, correction,
+  query, finding, recommendation, confirmation). Decision letters are responses flagged is_decision. Corrections create
+  revision rounds; submissions are never edited. No separate findings table.
+rationale: >-
+  One mechanism covers due-process responses, NBAQ completeness rounds, interim reports and 'response to previous
+  actions'.
+consequences: Requires response vocabularies per framework and a phase gate on unanswered responses.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:13.706Z'
+related_vision:
+  - id: accreditor-response-loop
+    name: Nothing the accreditor says is lost
+    url: /VISION.md#accreditor-response-loop
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:38.423Z'
+related_roadmap_items:
+  - id: ROADMAP-006
+    name: M5 — Accreditor responses
+    url: /ROADMAP.md#ROADMAP-006
+  - id: ROADMAP-007
+    name: M6 — Decisions and maintenance
+    url: /ROADMAP.md#ROADMAP-007
+---
+
+Source: PRD §11, invariants 10–11. (docs/PRD.md).
+
+---
+
+## DEC-005 — Official accreditation status is separate from internal readiness; no compliance scores
+
+---
+id: DEC-005
+title: Official accreditation status is separate from internal readiness; no compliance scores
+status: accepted
+context: Systems that show 'compliant' or readiness percentages create false authority.
+decision: >-
+  Official status lives only in append-only accreditation_status rows entered by a person with the decision letter
+  attached. Internal statuses read 'Internally approved'. Framework rating methods (NBAQ, PUC) appear only as labelled
+  internal self-assessment.
+rationale: Protects institutional integrity in front of accreditors.
+consequences: Dashboards show work status rather than a single headline score.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:15.089Z'
+related_vision:
+  - id: trustworthy-traceability
+    name: Official, suggested and inferred are always distinguishable
+    url: /VISION.md#trustworthy-traceability
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:42.806Z'
+related_roadmap_items:
+  - id: ROADMAP-005
+    name: M4 — Reports and submissions
+    url: /ROADMAP.md#ROADMAP-005
+  - id: ROADMAP-007
+    name: M6 — Decisions and maintenance
+    url: /ROADMAP.md#ROADMAP-007
+  - id: ROADMAP-010
+    name: 'M8 — P1: assessment, self-rating, notifications, reviewer portal, version diff'
+    url: /ROADMAP.md#ROADMAP-010
+---
+
+Source: PRD §2 P4/P8, invariant 6, §14. (docs/PRD.md).
+
+---
+
+## DEC-006 — Authority classification with deterministic quote verification; AI proposes, humans publish
+
+---
+id: DEC-006
+title: Authority classification with deterministic quote verification; AI proposes, humans publish
+status: accepted
+context: AI extraction can blur what the accreditor requires with what it suggests or what the model inferred.
+decision: >-
+  Every note carries authority (required, example, suggested, ai_suggested, institution_defined). Every AI item cites
+  page and verbatim quote, verified by deterministic matching against stored page text. required items need a verified
+  quote. AI writes only proposals; publishing is human; published versions are immutable.
+rationale: Traceability becomes a property of the data, testable in CI (NBAQ examples/suggested-documentation regression).
+consequences: Review effort for unverified items; OCR quality matters (see liteparse decision).
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:16.248Z'
+related_vision:
+  - id: trustworthy-traceability
+    name: Official, suggested and inferred are always distinguishable
+    url: /VISION.md#trustworthy-traceability
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:41.356Z'
+related_roadmap_items:
+  - id: ROADMAP-002
+    name: M1 — Framework library
+    url: /ROADMAP.md#ROADMAP-002
+  - id: ROADMAP-009
+    name: M7 — Framework compiler
+    url: /ROADMAP.md#ROADMAP-009
+---
+
+Source: PRD §6.3, §15, §16, invariants 1–3, 7. (docs/PRD.md).
+
+---
+
+## DEC-007 — One PostgreSQL database; not a database per accreditation standard
+
+---
+id: DEC-007
+title: One PostgreSQL database; not a database per accreditation standard
+status: accepted
+context: A Turso/SQLite database per standard was proposed.
+decision: >-
+  Use a single PostgreSQL database with framework versions isolated by framework_version_id and immutability triggers.
+  If AMS becomes multi-institution, isolate per institution (schema- or database-per-tenant), not per standard.
+rationale: >-
+  Cross-framework evidence reuse, carry-forward and portfolio views stay single queries; PostgreSQL provides RLS,
+  triggers, JSON/array types, concurrency and an in-database queue.
+consequences: Requires a PostgreSQL server in every deployment.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:17.513Z'
+related_vision:
+  - id: one-evidence-base
+    name: Evidence and data belong to the institution
+    url: /VISION.md#one-evidence-base
+  - id: integrity-by-construction
+    name: Integrity is enforced by the system, not by discipline
+    url: /VISION.md#integrity-by-construction
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:48.373Z'
+related_roadmap_items:
+  - id: ROADMAP-001
+    name: M0 — Scaffold and integrity foundation
+    url: /ROADMAP.md#ROADMAP-001
+related_tasks:
+  - id: TASK-003
+    name: Schema and migrations for org, access and shared tables
+    url: /TASKS.md#TASK-003
+---
+
+Source: PRD §18.2. (docs/PRD.md).
+
+---
+
+## DEC-008 — Host-agnostic deployment on open standards
+
+---
+id: DEC-008
+title: Host-agnostic deployment on open standards
+status: accepted
+context: Hosting must remain neutral; AIU may self-host or use any cloud.
+decision: >-
+  Depend only on PostgreSQL, the S3 API, OIDC/SAML, SMTP and HTTPS, configured by environment variables. No
+  provider-proprietary service is required. Ship Docker images plus a Compose file (app, worker, postgres, minio).
+rationale: Portable across VM, Easypanel, Kubernetes and managed clouds; data-residency is an operational choice.
+consequences: Some managed conveniences are rebuilt with libraries (auth, RLS session wiring).
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:18.861Z'
+related_vision:
+  - id: integrity-by-construction
+    name: Integrity is enforced by the system, not by discipline
+    url: /VISION.md#integrity-by-construction
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:56.464Z'
+related_roadmap_items:
+  - id: ROADMAP-001
+    name: M0 — Scaffold and integrity foundation
+    url: /ROADMAP.md#ROADMAP-001
+related_tasks:
+  - id: TASK-002
+    name: Docker images and Compose
+    url: /TASKS.md#TASK-002
+  - id: TASK-009
+    name: CI pipeline
+    url: /TASKS.md#TASK-009
+---
+
+Source: PRD §18.1, §20. (docs/PRD.md).
+
+---
+
+## DEC-009 — React SPA (Vite) + Hono API on Node; not Next.js; Frontbase not used for the core
+
+---
+id: DEC-009
+title: React SPA (Vite) + Hono API on Node; not Next.js; Frontbase not used for the core
+status: accepted
+context: Next.js was initially proposed; Frontbase (owned) and Hono were evaluated.
+decision: >-
+  Front end: React SPA built with Vite, TanStack Router/Query over the typed Hono RPC client. API: Hono on Node, Zod
+  validation, generated OpenAPI; it also serves the built front end. Frontbase remains a candidate for peripheral public
+  surfaces later.
+rationale: >-
+  A login-only internal tool gains nothing from SSR/RSC; one API boundary is needed for the integrity chain. Frontbase's
+  SQLite-dialect portability conflicts with PostgreSQL-specific guarantees and edge isolates do not fit OCR/PDF
+  workloads.
+consequences: No SSR; all data access goes through the API.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:20.316Z'
+related_vision:
+  - id: integrity-by-construction
+    name: Integrity is enforced by the system, not by discipline
+    url: /VISION.md#integrity-by-construction
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:53.828Z'
+related_roadmap_items:
+  - id: ROADMAP-001
+    name: M0 — Scaffold and integrity foundation
+    url: /ROADMAP.md#ROADMAP-001
+related_tasks:
+  - id: TASK-001
+    name: Scaffold pnpm workspace
+    url: /TASKS.md#TASK-001
+  - id: TASK-007
+    name: React SPA shell
+    url: /TASKS.md#TASK-007
+---
+
+Source: PRD §18.1, §18.3. (docs/PRD.md).
+
+---
+
+## DEC-010 — One middleware chain for every request and background job
+
+---
+id: DEC-010
+title: One middleware chain for every request and background job
+status: accepted
+context: Permission checks, RLS identity and audit context must never be bypassed.
+decision: >-
+  Every route runs: authenticate → authorize (route declares requires(...)) → open transaction with SET LOCAL
+  app.user_id / app.institution_id / app.request_id → validate (Zod) → handle (service function). Routes without
+  requires(...) fail startup and CI. Worker jobs run in the same transaction helper with the queuing user's or a named
+  system identity.
+rationale: Integrity is enforced structurally and tested.
+consequences: Slight ceremony per route.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:21.648Z'
+related_vision:
+  - id: integrity-by-construction
+    name: Integrity is enforced by the system, not by discipline
+    url: /VISION.md#integrity-by-construction
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:57.833Z'
+related_roadmap_items:
+  - id: ROADMAP-001
+    name: M0 — Scaffold and integrity foundation
+    url: /ROADMAP.md#ROADMAP-001
+related_tasks:
+  - id: TASK-004
+    name: RLS via session settings and audit trigger
+    url: /TASKS.md#TASK-004
+  - id: TASK-005
+    name: Hono API with the five-step middleware chain
+    url: /TASKS.md#TASK-005
+  - id: TASK-008
+    name: Worker skeleton with pg-boss
+    url: /TASKS.md#TASK-008
+  - id: TASK-009
+    name: CI pipeline
+    url: /TASKS.md#TASK-009
+  - id: TASK-010
+    name: M0 acceptance tests
+    url: /TASKS.md#TASK-010
+---
+
+Source: PRD §18.3, M0 tests. (docs/PRD.md).
+
+---
+
+## DEC-011 — liteparse for document parsing, co-developed to AMS requirements
+
+---
+id: DEC-011
+title: liteparse for document parsing, co-developed to AMS requirements
+status: accepted
+context: >-
+  AMS needs per-page text with method attribution, OCR for scanned Arabic, and escalation for corrupted text layers
+  (NBAQ 2017 handbook).
+decision: >-
+  Use liteparse (owned) behind parseDocument(). Implement Appendix D requirements (LP1–LP10) in the liteparse
+  repository, release with semver, pin in AMS. Gate the framework compiler (M7) on the Appendix D test corpus.
+rationale: One isomorphic parser with native → OCR → VLM cascade that the team controls.
+consequences: Parallel workstream in a second repository; accreditor documents stay private to AMS fixtures.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:22.919Z'
+related_vision:
+  - id: trustworthy-traceability
+    name: Official, suggested and inferred are always distinguishable
+    url: /VISION.md#trustworthy-traceability
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:41.356Z'
+related_roadmap_items:
+  - id: ROADMAP-008
+    name: L — liteparse readiness (parallel track)
+    url: /ROADMAP.md#ROADMAP-008
+  - id: ROADMAP-009
+    name: M7 — Framework compiler
+    url: /ROADMAP.md#ROADMAP-009
+---
+
+Source: PRD §15.1, §18.1, Appendix D. (docs/PRD.md).
+
+---
+
+## DEC-012 — Vercel AI SDK with the Anthropic provider behind aiExtract/aiOcr
+
+---
+id: DEC-012
+title: Vercel AI SDK with the Anthropic provider behind aiExtract/aiOcr
+status: accepted
+context: Structured extraction and OCR need schema-validated output and a provider abstraction.
+decision: >-
+  Use the AI SDK (library only, no Vercel hosting) with @ai-sdk/anthropic by default; Zod schemas for generateObject;
+  provider/model from env. liteparse's VLM fallback is injected with aiOcr so all model calls share configuration,
+  logging and data rules. No AI calls outside the worker; temperature 0; prompts versioned.
+rationale: Provider-neutral, typed, consistent with Zod used across the stack.
+consequences: Some provider-specific features are reached through provider options.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:24.320Z'
+related_vision:
+  - id: trustworthy-traceability
+    name: Official, suggested and inferred are always distinguishable
+    url: /VISION.md#trustworthy-traceability
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:41.356Z'
+related_roadmap_items:
+  - id: ROADMAP-009
+    name: M7 — Framework compiler
+    url: /ROADMAP.md#ROADMAP-009
+---
+
+Source: PRD §15.3, §18.1. (docs/PRD.md).
+
+---
+
+## DEC-013 — AI processing approved for framework source documents; evidence not sent in the MVP
+
+---
+id: DEC-013
+title: AI processing approved for framework source documents; evidence not sent in the MVP
+status: accepted
+context: Institutional approval was needed for sending documents to an external model.
+decision: >-
+  Approved for accreditor/framework documents and accreditor letters. Institutional evidence files are not sent to
+  models in the MVP; revisit before P2 features (narrative drafting, evidence suggestions).
+rationale: Unblocks the compiler and OCR.
+consequences: P2 AI features require a further decision.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:25.681Z'
+related_vision:
+  - id: trustworthy-traceability
+    name: Official, suggested and inferred are always distinguishable
+    url: /VISION.md#trustworthy-traceability
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:41.356Z'
+related_roadmap_items:
+  - id: ROADMAP-009
+    name: M7 — Framework compiler
+    url: /ROADMAP.md#ROADMAP-009
+---
+
+Source: PRD §20. (docs/PRD.md).
+
+---
+
+## DEC-014 — Dataset evidence with a source adapter; governed-metric integration optional
+
+---
+id: DEC-014
+title: Dataset evidence with a source adapter; governed-metric integration optional
+status: accepted
+context: Reports need institutional figures; a separate governed BI layer (Cube Core) may or may not exist.
+decision: >-
+  Datasets are evidence items with a dataset_spec and a source_kind: manual_upload (MVP) or governed_metric (P1,
+  structured Cube JSON queries via a service identity, aggregated and suppressed only). Report tables bind to datasets;
+  snapshots freeze values. AMS holds no metric logic; evidence and accreditation workflow do not live in the semantic
+  layer.
+rationale: AMS works standalone; switching to governed metrics changes no report.
+consequences: Manual mode has weaker lineage until the integration exists.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:27.144Z'
+related_vision:
+  - id: one-evidence-base
+    name: Evidence and data belong to the institution
+    url: /VISION.md#one-evidence-base
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:44.328Z'
+related_roadmap_items:
+  - id: ROADMAP-004
+    name: M3 — Evidence and datasets
+    url: /ROADMAP.md#ROADMAP-004
+  - id: ROADMAP-011
+    name: 'M9 — P1: governed-metric adapter'
+    url: /ROADMAP.md#ROADMAP-011
+---
+
+Source: PRD §9.4–9.6, invariant 14. (docs/PRD.md).
+
+---
+
+## DEC-015 — Better Auth for authentication (OIDC/SAML + password)
+
+---
+id: DEC-015
+title: Better Auth for authentication (OIDC/SAML + password)
+status: accepted
+context: Host-agnostic authentication with institutional SSO is required; AIU uses QuickLaunch.
+decision: >-
+  Use Better Auth with sessions in PostgreSQL, generic OIDC and SAML SSO, password fallback for local and external
+  reviewers. Verify SAML against QuickLaunch at M0; if insufficient, place a standards-based OIDC broker (e.g. Keycloak)
+  in front.
+rationale: Open standards, no hosted auth dependency.
+consequences: SAML verification is an early risk.
+tags:
+  - ams
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:28.584Z'
+related_vision:
+  - id: integrity-by-construction
+    name: Integrity is enforced by the system, not by discipline
+    url: /VISION.md#integrity-by-construction
+modified:
+  by: agent/claude-cowork
+  at: '2026-10-05T07:53:52.561Z'
+related_roadmap_items:
+  - id: ROADMAP-001
+    name: M0 — Scaffold and integrity foundation
+    url: /ROADMAP.md#ROADMAP-001
+related_tasks:
+  - id: TASK-006
+    name: Authentication with Better Auth
+    url: /TASKS.md#TASK-006
+---
+
+Source: PRD §17, §18.1. (docs/PRD.md).
+
 <!-- End VEF generated items. -->
