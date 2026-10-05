@@ -2,7 +2,7 @@
 id: TASK-004
 title: RLS via session settings and audit trigger
 description: Row-level security by institution and scope; append-only audit_event trigger
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -25,8 +25,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:49.742Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:50:03.075Z'
 ---
 # TASK-004 — RLS via session settings and audit trigger
 
