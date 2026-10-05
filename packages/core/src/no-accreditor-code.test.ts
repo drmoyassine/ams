@@ -12,7 +12,8 @@ function* sources(dir: string): Generator<string> {
     if (['node_modules', 'dist', 'dist-types', 'migrations', 'fixtures'].includes(entry)) continue;
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) yield* sources(path);
-    else if (/\.(ts|tsx|sql)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) yield path;
+    // Test code and test-support fixtures name accreditors freely: they load Appendix A files, they do not branch on them.
+    else if (/\.(ts|tsx|sql)$/.test(entry) && !/\.test\.tsx?$/.test(entry) && entry !== 'test-support.ts') yield path;
   }
 }
 
