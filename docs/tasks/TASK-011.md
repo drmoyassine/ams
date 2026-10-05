@@ -2,7 +2,7 @@
 id: TASK-011
 title: 'Framework fixtures: WSCUC 2023 and PUC 2019'
 description: JSON fixtures per PRD §7.7 and Appendix A for M1
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:

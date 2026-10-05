@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — Real WSCUC and PUC fixtures (TASK-011)
+
+`wscuc-2023.json`: Standards 1-4, headings and CFRs 1.1-4.8 from the 2023 Handbook text layer, every requirement quoting a sentence on its cited page; Compliance Worksheet notes are `required`, essay guidance `suggested`. `puc-2019.json`: 7 standards, 24 measures, 151 indicators, Arabic, from the scanned Guide. PUC page text is a manual transcription of image crops (no OCR engine here), stored as `method: "ocr"`; a reviewer must compare it with the PDF. Indicators that span a page break are kept whole and cite the first page. ABET (TASK-012) still needs the official Criteria document.
+
 ## 2026-10-05 — garage-init failed on redeploy; made fully idempotent
 
 A redeploy on Easypanel failed with `garage-init` exiting 1 (the first deploy had passed). The Easypanel MCP cannot read container logs here (Loki query returns an error), so the exact Garage answer was not seen. The first version of `scripts/garage-init.mjs` relied on specific error statuses from re-importing a key and re-creating a bucket on a second run. It now checks each step first (layout present, `GET /v1/key`, `GET /v1/bucket`) and only creates what is missing, logs every step with a `[garage-init]` prefix, retries network errors, and prints Garage's own response body on any refusal. `apps/api/src/garage-init.test.ts` runs the script against a fake of the admin API, including a second run that must change nothing. If it still fails on the VPS, the `[garage-init]` lines in the `garage-init` container's output identify the step.

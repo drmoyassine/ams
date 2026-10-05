@@ -538,6 +538,60 @@
     ],
     "report_templates": [
       {
+        "key": "due_process",
+        "name": "Due-process response",
+        "kind": "response",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "R",
+              "title": "Response per shortcoming",
+              "block_type": "feedback_response",
+              "prompt": "Items of category finding."
+            },
+            {
+              "key": "CF",
+              "title": "Corrections of fact",
+              "block_type": "feedback_response",
+              "prompt": "Items of category correction."
+            }
+          ]
+        }
+      },
+      {
+        "key": "interim",
+        "name": "Interim Report",
+        "kind": "follow_up",
+        "language": "en",
+        "requires_attestation": true,
+        "structure": {
+          "sections": [
+            {
+              "key": "A",
+              "title": "A. Contact information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "B",
+              "title": "B. Deficiencies, Weaknesses and Concerns from the previous evaluation and actions taken",
+              "block_type": "feedback_response"
+            },
+            {
+              "key": "C",
+              "title": "C. Additional evidence to be provided during the visit",
+              "block_type": "narrative"
+            },
+            {
+              "key": "SUB",
+              "title": "Submission attesting to compliance",
+              "block_type": "attestation"
+            }
+          ]
+        }
+      },
+      {
         "key": "readiness",
         "name": "Readiness Review Report",
         "kind": "readiness",
@@ -769,60 +823,6 @@
               "key": "SIG",
               "title": "Signature attesting to compliance",
               "block_type": "attestation"
-            }
-          ]
-        }
-      },
-      {
-        "key": "interim",
-        "name": "Interim Report",
-        "kind": "follow_up",
-        "language": "en",
-        "requires_attestation": true,
-        "structure": {
-          "sections": [
-            {
-              "key": "A",
-              "title": "A. Contact information",
-              "block_type": "narrative"
-            },
-            {
-              "key": "B",
-              "title": "B. Deficiencies, Weaknesses and Concerns from the previous evaluation and actions taken",
-              "block_type": "feedback_response"
-            },
-            {
-              "key": "C",
-              "title": "C. Additional evidence to be provided during the visit",
-              "block_type": "narrative"
-            },
-            {
-              "key": "SUB",
-              "title": "Submission attesting to compliance",
-              "block_type": "attestation"
-            }
-          ]
-        }
-      },
-      {
-        "key": "due_process",
-        "name": "Due-process response",
-        "kind": "response",
-        "language": "en",
-        "requires_attestation": false,
-        "structure": {
-          "sections": [
-            {
-              "key": "R",
-              "title": "Response per shortcoming",
-              "block_type": "feedback_response",
-              "prompt": "Items of category finding."
-            },
-            {
-              "key": "CF",
-              "title": "Corrections of fact",
-              "block_type": "feedback_response",
-              "prompt": "Items of category correction."
             }
           ]
         }

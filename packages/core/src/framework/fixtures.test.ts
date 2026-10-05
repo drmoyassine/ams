@@ -82,10 +82,60 @@ describe.each(NAMES)('fixture %s', (name) => {
 
   it('exports exactly what was imported', async () => {
     const out = await admin((c) => exportVersion(c, published[name]));
-    // The exporter writes templates in key order; the fixture files are free to list them in reading order.
-    const expected = FrameworkExportSchema.parse(load(name));
-    expected.config.report_templates.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-    expect(out).toEqual(expected);
+    // Fixture files are kept in the exporter's canonical order (tree order, templates by key), so equality is exact.
+    expect(out).toEqual(FrameworkExportSchema.parse(load(name)));
+  });
+});
+
+describe('real source text (WSCUC 2023 Handbook)', () => {
+  it('every requirement and note quotes a sentence found on the cited page', async () => {
+    const id = published['wscuc-2023'];
+    const { rows } = await db.su.query(
+      `select 'requirement' kind, r.code, r.quote_verified from requirement r where r.framework_version_id = $1 and r.source_quote is not null
+       union all
+       select 'note', r.code, n.quote_verified from requirement_note n join requirement r on r.id = n.requirement_id where r.framework_version_id = $1 and n.source_quote is not null`, [id]);
+    expect(rows).toHaveLength(90); // 4 standards + 41 CFRs, each with a quote; 4 essay notes + 41 worksheet notes
+    expect(rows.filter((r) => !r.quote_verified)).toEqual([]);
+  });
+
+  it('keeps the accreditor\'s hierarchy: Standard > heading > CFR, with headings not assessable', async () => {
+    const file = FrameworkExportSchema.parse(load('wscuc-2023'));
+    const byCode = new Map(file.requirements.map((r) => [r.code, r]));
+    const cfr = byCode.get('CFR 2.9')!;
+    expect(byCode.get(cfr.parent_code!)).toMatchObject({ title: 'Student Learning and Performance', level_label: 'Heading', is_assessable: false, parent_code: 'Standard 2' });
+    expect(byCode.get('Standard 3')!.title).toBe('Assuring Resources and Organizational Structures');
+    expect(cfr.official_text).toMatch(/^The institution demonstrates that graduates consistently achieve stated learning outcomes/);
+  });
+
+  it('classifies only explicit obligations as required', () => {
+    const file = FrameworkExportSchema.parse(load('wscuc-2023'));
+    const notes = file.requirements.flatMap((r) => r.notes);
+    const required = notes.filter((n) => n.authority === 'required');
+    expect(required).toHaveLength(41); // the Compliance Worksheet is required for every CFR
+    expect(new Set(required.map((n) => n.source!.quote))).toEqual(new Set(['institutions are required to complete the Compliance with WSCUC Standards Worksheet']));
+    expect(notes.filter((n) => n.authority === 'suggested')).toHaveLength(4); // essay guidance: descriptive, not "must"
+  });
+});
+
+describe('real source text (PUC Institutional Accreditation Guide 2019)', () => {
+  it('has 7 standards, 24 measures and 151 indicators, all in Arabic with verifiable quotes', async () => {
+    const file = FrameworkExportSchema.parse(load('puc-2019'));
+    const by = (l: string) => file.requirements.filter((r) => r.level_label === l);
+    expect([by('Standard').length, by('Measure').length, by('Indicator').length]).toEqual([7, 24, 151]);
+    expect(file.requirements.every((r) => r.language === 'ar')).toBe(true);
+    const { rows } = await db.su.query(
+      `select count(*)::int as n, count(*) filter (where not r.quote_verified)::int as bad from requirement r where r.framework_version_id = $1 and r.source_quote is not null`,
+      [published['puc-2019']],
+    );
+    expect(rows[0].bad).toBe(0);
+    expect(rows[0].n).toBe(182);
+  });
+
+  it('keeps indicators that span two pages whole and cites the first page', () => {
+    const file = FrameworkExportSchema.parse(load('puc-2019'));
+    const r = file.requirements.find((x) => x.code === '6-1-1')!;
+    expect(r.source!.page).toBe(9);
+    expect(r.official_text!.endsWith('بيع كتب).')).toBe(true);
   });
 });
 
@@ -120,7 +170,7 @@ describe('the three fixtures share one code path and one database', () => {
 
     // PUC: three levels, an Arabic self-study template.
     expect(exp['puc-2019'].config.level_labels).toEqual(['Standard', 'Measure', 'Indicator']);
-    expect(exp['puc-2019'].requirements).toHaveLength(7);
+    expect(exp['puc-2019'].requirements).toHaveLength(182);
     expect(exp['puc-2019'].config.report_templates[0]).toMatchObject({ key: 'puc_self_study', language: 'ar', requires_attestation: true });
     expect(exp['puc-2019'].config.report_templates[0]!.structure.sections).toHaveLength(14);
   });

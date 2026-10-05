@@ -12,13 +12,13 @@
     "name": "WSCUC Handbook of Accreditation",
     "commission": null,
     "scope": "institution",
-    "description": "Skeleton fixture from PRD Appendix A.1: requirement text is pending the source document."
+    "description": "Standards of Accreditation, the reaffirmation review process and Commission decisions, from the WSCUC 2023 Handbook of Accreditation Revised (pages 1-26 of the web edition supplied)."
   },
   "version": {
     "edition": "2023",
     "effective_from": null,
     "effective_to": null,
-    "change_summary": "Fixture skeleton (Appendix A.1)"
+    "change_summary": "Requirements, notes and source pages from the 2023 Handbook Revised; lifecycle, vocabularies and templates from PRD Appendix A.1."
   },
   "config": {
     "level_labels": [
@@ -149,6 +149,10 @@
               "due": {
                 "anchor": "submission_date",
                 "offset_days": -540
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 12
               }
             },
             {
@@ -158,6 +162,10 @@
               "due": {
                 "anchor": "submission_date",
                 "offset_days": -510
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 14
               }
             },
             {
@@ -167,6 +175,10 @@
               "due": {
                 "anchor": "submission_date",
                 "offset_days": -360
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 14
               }
             },
             {
@@ -194,6 +206,10 @@
               "due": {
                 "anchor": "submission_date",
                 "offset_days": -15
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 16
               }
             },
             {
@@ -206,6 +222,10 @@
               },
               "deliverable": {
                 "report_template_key": "institutional_report"
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 15
               }
             }
           ]
@@ -239,7 +259,11 @@
               "key": "offsite_review",
               "name": "Offsite Review",
               "type": "external_event",
-              "due": null
+              "due": null,
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 12
+              }
             },
             {
               "key": "accreditation_visit",
@@ -248,6 +272,10 @@
               "due": {
                 "anchor": "visit_date",
                 "offset_days": 0
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 12
               }
             },
             {
@@ -273,6 +301,10 @@
               "due": {
                 "anchor": "decision_date",
                 "offset_days": 0
+              },
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 12
               }
             },
             {
@@ -283,7 +315,11 @@
                 "after": "commission_action",
                 "offset_days": 30
               },
-              "description": "Within 30 days of the decision."
+              "description": "Within 30 days of the decision.",
+              "source_ref": {
+                "doc": "2023 Handbook of Accreditation Revised",
+                "page": 21
+              }
             }
           ]
         },
@@ -623,6 +659,90 @@
         }
       },
       {
+        "key": "annual_report",
+        "name": "Annual Report",
+        "kind": "annual",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "1",
+              "title": "Student enrollment",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "category",
+                  "label": "Category",
+                  "type": "text"
+                },
+                {
+                  "key": "headcount",
+                  "label": "Headcount",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "2",
+              "title": "Student demographics",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "category",
+                  "label": "Category",
+                  "type": "text"
+                },
+                {
+                  "key": "headcount",
+                  "label": "Headcount",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "3",
+              "title": "Completions",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "program_level",
+                  "label": "Program level",
+                  "type": "text"
+                },
+                {
+                  "key": "completions",
+                  "label": "Completions",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "4",
+              "title": "Financial indicators",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "indicator",
+                  "label": "Indicator",
+                  "type": "text"
+                },
+                {
+                  "key": "value",
+                  "label": "Value",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "5",
+              "title": "Uploads: audited financial statements",
+              "block_type": "appendix"
+            }
+          ]
+        }
+      },
+      {
         "key": "institutional_report",
         "name": "Institutional Report",
         "kind": "self_study",
@@ -761,100 +881,183 @@
           ]
         },
         "word_limit": 18000
-      },
-      {
-        "key": "annual_report",
-        "name": "Annual Report",
-        "kind": "annual",
-        "language": "en",
-        "requires_attestation": false,
-        "structure": {
-          "sections": [
-            {
-              "key": "1",
-              "title": "Student enrollment",
-              "block_type": "data_table",
-              "columns": [
-                {
-                  "key": "category",
-                  "label": "Category",
-                  "type": "text"
-                },
-                {
-                  "key": "headcount",
-                  "label": "Headcount",
-                  "type": "number"
-                }
-              ]
-            },
-            {
-              "key": "2",
-              "title": "Student demographics",
-              "block_type": "data_table",
-              "columns": [
-                {
-                  "key": "category",
-                  "label": "Category",
-                  "type": "text"
-                },
-                {
-                  "key": "headcount",
-                  "label": "Headcount",
-                  "type": "number"
-                }
-              ]
-            },
-            {
-              "key": "3",
-              "title": "Completions",
-              "block_type": "data_table",
-              "columns": [
-                {
-                  "key": "program_level",
-                  "label": "Program level",
-                  "type": "text"
-                },
-                {
-                  "key": "completions",
-                  "label": "Completions",
-                  "type": "number"
-                }
-              ]
-            },
-            {
-              "key": "4",
-              "title": "Financial indicators",
-              "block_type": "data_table",
-              "columns": [
-                {
-                  "key": "indicator",
-                  "label": "Indicator",
-                  "type": "text"
-                },
-                {
-                  "key": "value",
-                  "label": "Value",
-                  "type": "number"
-                }
-              ]
-            },
-            {
-              "key": "5",
-              "title": "Uploads: audited financial statements",
-              "block_type": "appendix"
-            }
-          ]
-        }
       }
     ]
   },
-  "source_documents": [],
+  "source_documents": [
+    {
+      "ref": "doc-1",
+      "title": "2023 Handbook of Accreditation Revised",
+      "role": "standards",
+      "authority": "binding",
+      "language": "en",
+      "sha256": "94e1e606d65450e8e0425820c51f0ef4aa978ed3cbc67275dc98551448d63da6",
+      "pages": [
+        {
+          "page_no": 1,
+          "text": "Introduction\nThe WASC Senior College and University Commission (WSCUC) 2023 Handbook of\nAccreditation Revised is designed for several purposes: to present the Commission’s\nStandards of Accreditation and its framework for making institutional decisions; to\nguide institutions through the institutional review process; and to support peer review\nteams at each stage of review. The 2023 Handbook Revised is intended to serve a\nvariety of readers: representatives of institutions accredited by the Commission and\nthose seeking accreditation; chairs and members of peer review teams; and the\ngeneral public. Each major section is designed to stand alone; at the same time, each\nfits within the larger framework of the 2023 Handbook Revised as a whole.\n\nThe 2023 Handbook Revised is part of a comprehensive system of support provided by\nthe Commission. Complementary information in the form of policies, guides, and\nassociated documentation is available on the Commission’s website and should be\nused in conjunction with this Handbook. The Commission welcomes suggestions for\nimprovement of this Handbook and ways to make it, and the accreditation process\nitself, more useful to institutions, students, and members of the public.\n\nWSCUC is a California nonprofit public benefit corporation established for the\npurposes of accrediting senior (bachelor’s degrees and above) colleges and\nuniversities. Its genesis lies in the Western College Association, founded in 1924.\nWSCUC was formed on July 1, 1962, to evaluate and accredit schools, colleges, and\nuniversities in California, Hawaii, Guam, American Samoa, the Federated States of\nMicronesia, the Republic of Palau, and the Commonwealth of the Northern Mariana\nIslands. Today WSCUC accredits institutions located anywhere in the United States and\naround the world. WSCUC is recognized by the U.S. Department of Education as a\nreliable authority concerning the quality of education provided by member institutions\nof higher education offering baccalaureate and post-baccalaureate degrees.\n\nThe Commission reserves the right to make changes to the 2023 Handbook Revised and\nall related policies and procedures at any time in order to comply with new federal\nrequirements or in response to new needs. Institutions should refer to the website at\nwww.wscuc.org for the most recent versions of all publications.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 2,
+          "text": "All simple uses of “the Commission” in this Handbook and related documents are\nintended as references to WSCUC.\n\nThe 2023 Handbook Revised is copyrighted with a Creative Commons license\n(Attribution-NonCommercial-ShareAlike) that allows sharing and remixing with\nattribution but prohibits use of the work for commercial purposes. It is the\nCommission’s goal that, through wide dissemination and application, the Standards\nand processes in this model of accreditation may inform and contribute to improved\nreviews and institutional practices.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 3,
+          "text": "The Status Of Accreditation\nAccredited Institutions\nAn institution is accredited when the Commission determines that the institution has\nfulfilled the requirements for accreditation established by this Handbook. This means\nthat the institution has:\n\n1. Conducted a self–review under the Standards of Accreditation, developed and\npresented indicators of institutional performance, and identified areas for\nimprovement. The Standards define expectations and characteristics of\nexcellence and provide a framework for institutional self–review.\n\n2. Developed approved institutional reports for accreditation that have been\nevaluated by teams of peer reviewers under the relevant institutional review\nprocesses.\n\n3. Demonstrated to the Commission that it meets the expectations of the\nStandards of Accreditation.\n\n4. Committed itself to institutional improvement, periodic self–evaluation, and\ncontinuing compliance with Commission Standards, policies, procedures, and\ndecisions.\n\nAccreditation is a status conferred following the evaluation of the entire institution and\ncontinues until formally withdrawn. It is subject to periodic review and to conditions as\ndetermined by the Commission. Every accredited institution participates in the Annual\nReport process and undergoes a comprehensive self–review and evaluation at least\nevery ten years. Initial accreditation, as a matter of Commission policy, requires\ninstitutional self–review and peer evaluation no more than six to ten years after the\ndate of the Commission action granting such status.\n\nInstitutions Seeking Accreditation\nWSCUC’s How to Become Accredited Manual (HTBA) on its website describes the process\nfor institutions seeking WSCUC accreditation. This document provides information on\ntwo stages for seeking accreditation: Eligibility and Candidacy/Initial Accreditation. The\nEligibility stage involves submitting an application to demonstrate that the institution\ncan meet WSCUC’s Standards for accreditation. The Candidacy/Initial Accreditation\nstage involves a multi–year self–study process during which the institution assesses its\nprograms, operations, and services against the WSCUC Standards and prepares for a\nsite visit by a team of peer reviewers. The review team’s recommendation is considered",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 4,
+          "text": "by the Commission, which makes the determination to require an additional review,\nconfer Candidacy, or confer Initial Accreditation.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 5,
+          "text": "WSCUC Policies\nWSCUC policies related to institutional accreditation, compliance, and operational and\neducational effectiveness are available on the WSCUC website. Institutions are\nexpected to adhere to all Commission policies, and it is important that institutions\nregularly review these policies to ensure they remain in compliance. WSCUC strives to\nmakes these policies accessible and transparent to its member institutions and the\npublic to maintain the integrity of the accreditation process and to promote quality in\nhigher education. Changes to WSCUC policies are reviewed and published for\ncomment according to the Review of Commission Policies and Definitions of\nCommission Documents Policy.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 6,
+          "text": "Standards Of Accreditation\n\nStandard 1: Standard 2:\nDefining Institutional Mission and Achieving Educational Objectives and\nActing with Integrity Student Success\n\nStandard 3: Standard 4:\nAssuring Resources and Organizational Creating an Institution Committed to\nStructures Quality Assurance and Improvement\n\nSTANDARD 1: Defining Institutional Mission And Acting With Integrity\nThe institution defines its mission and establishes educational and student success\nobjectives aligned with that mission. The institution pursues excellence and promotes\nsuccess for all students. The institution clearly defines its essential values, culture,\ndistinctive elements, and contributions to society and the public good. The institution\nfunctions with integrity and transparency.\n\nCRITERIA FOR REVIEW\nInstitutional Purposes\nCFR 1.1 The institution’s mission and other statements of purpose are appropriate for\nan institution of higher education and clearly define its essential values, culture, and\nways the institution contributes to society and the public good.\n\nCFR 1.2 Consistent with its purposes and character, the institution defines and sets\ngoals, policies, and practices; evaluates student outcomes; removes barriers to\nstudent success; and allocates resources across academic, student support, and co-\ncurricular programs and services to advance success for all students.\n\nIntegrity and Transparency\nCFR 1.3 The institution operates with integrity and transparency in its operations, and\ntruthfully and clearly represents its academic goals, programs, requirements, services,\nand costs.\n\nCFR 1.4 The institution maintains appropriate operating policies and business\nprocedures, including timely and fair responses to complaints and grievances.\n\nCFR 1.5 The institution treats faculty, staff, administrators, and students equitably by\nadhering to its published policies and procedures.\n\nCFR 1.6 The institution maintains, publishes, and adheres to policies on academic\nfreedom.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 7,
+          "text": "CFR 1.7 The institution communicates about important issues with its constituents.\n\nCFR 1.8 The institution is committed to honest and open communication with the\nCommission and to undertaking the accreditation review process with seriousness and\ncandor. The institution abides by Commission policies and procedures and informs the\nCommission promptly of any matter that could affect the accreditation status of the\ninstitution.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 8,
+          "text": "STANDARD 2: Achieving Educational Objectives And Student Success\nThe institution achieves its objectives for educational effectiveness and success for all\nstudents through the core functions of teaching and learning, removal of barriers to\nstudent success, and support for student learning, scholarship, and creative activity.\nThe institution demonstrates that core functions are student-centered and performed\neffectively by evaluating valid and reliable evidence of learning and other outcomes.\n\nCRITERIA FOR REVIEW\nDegree Programs\nCFR 2.1 The institution’s degree programs are appropriate in content, educational\nobjectives, and standards of performance relevant to the level of the degree. All\ndegrees are defined in terms of entry requirements and levels of student achievement\nnecessary for graduation.\n\nCFR 2.2 Degree programs engage students in an integrated course of study of\nsufficient breadth and depth. These programs ensure the development of core and\nprofessional competencies relevant to the level of the degree.\n\nCFR 2.3 The institution clearly identifies and effectively implements student learning\noutcomes and expectations for achievement. These outcomes and expectations are\nreflected in and supported by academic programs, policies, and curricula, and provide\nthe framework for academic advising, student support programs and services, and\ninformation and technology resources.\n\nCFR 2.4 The institution conducts periodic reviews of its degree programs. The program\nreview process includes analysis of student achievement of the program’s learning\noutcomes.\n\nFaculty\nCFR 2.5 The institution has faculty with the capacity and scale to design and deliver the\ncurriculum and to evaluate, improve, and promote student learning and success.\n\nCFR 2.6 The faculty exercise effective academic leadership and act consistently to\nensure that the quality of academic programs and the institution’s educational\npurposes are sustained.\n\nCFR 2.7 The faculty are responsible for creating and evaluating student learning\noutcomes and establishing standards of student performance.\n\nCFR 2.8 The institution has clear expectations for faculty research, scholarship, and\ncreative activity that are commensurate with the mission and degree portfolio.\n\nStudent Learning and Performance",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 9,
+          "text": "CFR 2.9 The institution demonstrates that graduates consistently achieve stated\nlearning outcomes and standards of performance. Faculty evaluate student work in\nterms of stated learning outcomes.\n\nCFR 2.10 The institution demonstrates that students make reasonable progress\ntoward and complete their degrees in a timely manner.\n\nCFR 2.11 The institution monitors and analyzes the outcomes of its students following\ngraduation and uses the results for improvement.\n\nStudent Support\nCFR 2.12 The institution ensures that all students understand the requirements of\ntheir academic programs and receive timely, accurate, and complete information and\nadvising about academic requirements.\n\nCFR 2.13 The institution offers student support and co-curricular programs and\nservices sufficient in nature, scope, and capacity to promote all students’ academic,\npersonal, and professional development.\n\nCFR 2.14 The institution assesses the effectiveness of its student support and co-\ncurricular programs and services and uses the results for improvement.\n\nSTANDARD 3: Assuring Resources And Organizational Structures\nThe institution achieves its objectives for educational effectiveness and success for all\nstudents through allocation of human, physical, fiscal, technology, and information\nresources within appropriate organizational and decision-making structures and\nconsistent with its stated mission and objectives.\n\nCRITERIA FOR REVIEW\nFaculty, Staff, and Administrators\nCFR 3.1 The institution employs faculty, staff, and administrators sufficient in scale,\nprofessional qualifications, and background to achieve the institution’s educational\nand student success objectives, to propose and oversee policy, and to ensure the\nintegrity of its academic, student support, and co-curricular programs and services\nand administrative processes.\n\nCFR 3.2 Faculty, staff, and administrator recruitment, hiring, and orientation practices\nand workload expectations are aligned with institutional mission and priorities. The\ninstitution examines the extent to which its climate supports faculty, staff, and\nadministrators and acts on its findings.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 10,
+          "text": "CFR 3.3 The institution provides professional development and evaluation for faculty,\nstaff, and administrators.\n\nFiscal, Physical, Technology, and Information Resources\nCFR 3.4 Resource planning and development include realistic budgeting, enrollment\nmanagement, and diversification of revenue sources. Resource allocation is aligned\nwith evidence-based educational and student success objectives consistent with\noperational and strategic planning.\n\nCFR 3.5 The institution is financially stable and has resources sufficient to ensure long-\nterm sustainability. The institution has unqualified or unmodified independent\nfinancial audits.\n\nCFR 3.6 The institution provides physical, technology, information, and other resources\nsufficient in scope, quality, currency, and kind to support the work of its faculty, staff,\nadministrators, and students.\n\nOrganizational Structures and Decision-Making Processes\nCFR 3.7 The institution operates with appropriate autonomy governed by an\nindependent board or similar authority that is responsible for mission, integrity, and\noversight of planning, policies, performance, and sustainability. The governing board\nselects and evaluates the chief executive officer.\n\nCFR 3.8 The board members have a range of backgrounds, knowledge, and skills to\ncarry out their responsibilities.\n\nCFR 3.9 The institution has sufficient and qualified leadership capacity at all levels,\ncharacterized by integrity, appropriate responsibility, high performance, and\naccountability.\n\nCFR 3.10 Data are regularly and systematically disseminated internally and externally,\nand analyzed, interpreted, and applied in institutional decision-making.\n\nCFR 3.11 The institution’s organizational structures and decision-making processes are\nclearly defined, consistent, and transparent, support effective decision-making and\nrisk management, and place priority on sustaining institutional resilience and\neducational effectiveness.\n\nSTANDARD 4: Creating An Institution Committed To Quality Assurance And\nImprovement\nThe institution engages in sustained, evidence-based, and participatory reflection\nabout how effectively it is accomplishing its mission and achieving its objectives for",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 11,
+          "text": "educational effectiveness and success for all students. The institution envisions its\nfuture in light of the changing environment of higher education. These activities\ninform both institutional planning and systematic evaluations of educational\neffectiveness.\n\nCRITERIA FOR REVIEW\nQuality Assurance Processes\nCFR 4.1 The institution employs comprehensive quality assurance processes in both\nacademic and non-academic areas and uses the results to improve institutional\noperations.\n\nCFR 4.2 The institution collects, analyzes and acts on disaggregated student outcomes\ndata including retention and graduation rates.\n\nCFR 4.3 The institution examines the extent to which its climate supports student\nsuccess and acts on its findings. The institution regularly assesses the characteristics,\nexperiences, and performance of its students and uses this evidence to improve\nstudent success.\n\nCFR 4.4 The institution has institutional research capacity, scope, and coordination\nconsistent with its purposes and characteristics.\n\nInstitutional Improvement\nCFR 4.5 The institution demonstrates improvement based on the results of inquiry,\nevidence, and evaluation.\n\nCFR 4.6 The institution, with significant faculty involvement, engages in continuous\ninquiry into the processes of teaching and learning, and the conditions and practices\nthat ensure that the institution’s standards of performance are being achieved.\n\nCFR 4.7 The governing board engages in self-evaluation and development.\n\nCFR 4.8 The institution periodically engages its stakeholders in reflection and planning\nprocesses based on the examination of evidence. Through these processes it assesses\nthe institution’s strategic position, articulates priorities, examines the alignment of its\npurposes, core functions, and resources, and defines the future direction of the\ninstitution.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 12,
+          "text": "The Institutional Review Process For Reaffirmation\nThe Self-Study || The Institutional Report || Sections of the Institutional Report\n\nThis section is designed to assist institutions as they address WSCUC’s Standards of\nAccreditation for reaffirmation of accreditation. It provides a description of the steps\ninvolved in an institution’s reaffirmation process, including the self-study, the essays,\nand evidence that need to be included in the institutional report, interactions with the\nreview team, and other details.\n\nOther models apply for institutions seeking accreditation and for Special Visits. At the\nCommission’s discretion and in special circumstances, institutions may be directed to\nfollow a process that differs from the one described in the pages that follow, and those\ninstitutions will be guided by other documents describing those reviews.\n\nAll institutions need to demonstrate that they comply with the Standards of\nAccreditation and with federal regulations that the Commission is required to oversee.\nWithin this context, the goal of the process is the continual improvement of student\nlearning, student success, and institutional effectiveness.\n\nInstitutions can typically expect to spend approximately two years pursuing\nreaffirmation of WSCUC accreditation. The steps for reaffirmation are:\n\n1. The institution conducts a self-study.\n\n2. The institution produces an institutional report based on the self-study.\n\n3. The peer review team conducts an Offsite Review (OSR) of documents.\n\n4. The peer review team conducts an Accreditation Visit (AV) at the institution.\n\n5. The peer review team makes a confidential recommendation to the Commission.\n\n6. The Commission acts on the team’s confidential recommendation.\n\nA full description of the reaffirmation review process follows.\n\nThe Self-Study\nOpportunities for Guidance: WSCUC is committed to supporting institutions as they\nprepare for the Institutional Review Process for reaffirmation. There are multiple\navenues for institutions to gather information and receive guidance.\n\nInstitutional consultations: Institutions can arrange on-campus and/or remote\nconsultations at the start of the two-year process with their WSCUC staff liaison.\nObjectives for this consultation include a review of the institution’s responses to\nprevious Commission requirements and identification of the goals for the self-",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 13,
+          "text": "study, including strengths and areas of challenge. In addition, the WSCUC liaison\nis available to meet with groups and individuals involved in the self-study\nprocess. Together, the institution and staff liaison will clarify subsequent steps\nand strategies for the review. These may include, for example, how the institution\nwill organize for the review, how various constituencies will be involved, and\nwhat resources will be required.\n\nEducational Programs: WSCUC is committed to supporting institutions in\npreparation for the Institutional Review Process. There are many opportunities\nfor information sharing, professional development, and networking through\nWSCUC’s Educational Programs.\n\nThe ARC (Accreditation Resource Conference) is the annual meeting and\nprofessional conference for WSCUC’s membership and the broader higher\neducation community of administrators, staff, faculty, and students.\nComponents of the ARC include plenary presentations featuring leading\nideas and innovative practices in higher education, gatherings for CEOs and\nAccreditation Liaison Officers (ALOs), sessions led by WSCUC staff, and\npresentations from WSCUC membership.\n\nThe Accreditation Leadership Academy (ALA) offers programs that build\nskills to address contemporary challenges of higher education. Through the\napplication of both theoretical and practical frameworks, the curriculum\nfocuses on critical issues to produce actionable approaches to a pressing\nneed identified by each participant and their institution. The ALA considers\nthe intersections and implications of:\n\nThe pursuit of educational effectiveness and promotion of success for\nall students\n\nThe need for effective leadership, systems, and evidence to achieve\nquality\n\nWSCUC Workshops are sessions led by higher education leaders, including\nalumni of the Assessment and Accreditation Leadership Academies. These\nworkshops connect accreditation to emerging ideas and proven practices\nfor institutional improvement and sustainability, educational effectiveness,\nteaching and learning, student engagement, and the use of evidence in\nanalysis and action.\n\nOverview of the Self-Study: The self-study is the institution’s examination of its\neffectiveness under the Standards. It is the process of gathering, analyzing, and acting\non evidence, and reflecting on the results of those actions. Conducted at the",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 14,
+          "text": "beginning of the IRP, the self-study provides the necessary preparation for later steps.\nA candid self-study, with broad engagement of the institutional community, provides\nthe foundation for a high-quality institutional report.\n\nIn preparation for the self-study, institutions are expected to review their accreditation\nhistory. This includes: the most recent team report and all Commission action letters\nreceived since the last reaffirmation; documents submitted to WSCUC since the last\nreview for reaffirmation of accreditation (e.g., substantive change proposals); and\nWSCUC responses where applicable (e.g., recommendations related to an interim\nreport).\n\nUndertaking the Self-Study: Some institutions begin the self-study process with the\nCompliance with WSCUC Standards Worksheet to get an overall sense of the\ninstitution’s strengths and weaknesses (see below for a description of the worksheet—\nthis is a required part of the institutional report). Other institutions prefer to begin the\nself-study process by framing it around their own priorities and planning (e.g.,\nstrategic, academic, and/or financial). The reaffirmation review may then be adapted\nto support those goals. Surveys or focus groups can help identify top campus\npriorities. Such approaches have the advantage of putting the emphasis on the\ninstitution’s goals and then integrating them with WSCUC expectations; thus, they may\ninspire broader campus engagement, stronger commitment to the process, and\ngreater returns on the effort and resources invested.\n\nAfter these initial steps, the focus of the self-study shifts to the specific essays that\nform the institutional report. These essays are described below.\n\nAnother essential element at the outset of the self-study is practical planning for how\nthe institution will launch and conduct the reaffirmation review. Such planning\naddresses the financial and human resources that will be needed, the structures that\nwill support progress, the evidence and data required to support analysis, the metrics\nthat are available or must be generated, and the timeline and milestones that must be\nmet. To the extent possible, institutions are encouraged to make use of existing\nresources, e.g., standing committees, an assessment office, program review, and\ninstitutional research (including WSCUC’s Key Indicators Dashboard:\nhttps://www.wscuc.org/resources/kid/), before introducing new processes.\n\nCompliance with WSCUC Standards Worksheet: As noted earlier, institutions are\nrequired to complete the Compliance with WSCUC Standards Worksheet. This\nWorksheet provides evidence, via links and artifacts, that the institution complies with\neach of the Criteria for Review. The institution completes the worksheet, and the peer\nreview team verifies that the evidence meets the requirements of the CFR.\n\nSome institutions complete the Worksheet early in the self-study to prompt\nconversation on institutional capacity and infrastructure, strengths and weaknesses,",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 15,
+          "text": "priorities, and plans for ensuring compliance with the Standards and institutional\nimprovement.\n\nThe Institutional Report\nOverview of the Institutional Report: The institutional report is based on the\nfindings of the institution’s self-study and must be organized in sections as described\nbelow:\n\nSection A: Introduction – Institutional Context and Response to Previous\nCommission Actions\n\nSection B: Institutional Essays\n\nStandard 1 – Defining Institutional Mission and Acting with Integrity\n\nStandard 2 – Achieving Educational Objectives and Student Success\n\nStandard 3 – Assuring Resources and Organizational Structures\n\nStandard 4 – Creating an Institution Committed to Quality Assurance and\nImprovement\n\nSection C: Reflections – Synthesis of Insights as a Result of the Reaffirmation\nProcess\n\nAppendix I: Compliance with WSCUC Standards Worksheet\n\nAppendix II: Federal Compliance Forms\n\nAppendix III: Institutional Exhibits\n\nIn general, each section should include a discussion of the topic within the context of\nthe institution; analyses undertaken; self-assessment and reflection; areas of strength\nor significant progress and areas of challenge; and next steps, as appropriate. When\nplans are described, include targets, metrics, and timelines.\n\nLength of the Report and Citation of Standards: The institutional report narrative is\ntypically 12,000 to 18,000 words in length (approximately 50-75 pages, double-spaced).\nIt should be only as long as needed, and not to exceed 75 pages, double-spaced; refer\nto the style guide on the WSCUC website [1]. In the body of the report, relevant\nExhibits in the Appendix should be hyperlinked to support each assertion and to\nprovide easy navigation for reviewers. References to the Standards of Accreditation\nand citations of specific CFRs are included in the body of the report.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 16,
+          "text": "While there is no page limit on institutional exhibits, too many exhibits can become\noverwhelming and distracting for the reviewer. Limit the number of exhibits to the\nbare minimum necessary to provide evidence to support the conclusions discussed in\nthe narrative. If the material in the exhibit is not cited in the report, it should not be\nincluded. The exhibits should be well-organized, succinct, and clearly and descriptively\nlabeled, allowing readers to access the information they need quickly. The goal is to\nstrike a balance between providing enough supporting evidence to make your point\nand not overwhelming the reviewer with too much information.\n\nWhen the institutional report is submitted, it should include a letter, signed by the\npresident/chief executive officer, affirming the accuracy of the information presented\nand the institution’s intention to comply fully with WSCUC Standards and policies.\n\n_____________\n\n[1] Do not format the narrative in columns. Columns are difficult to navigate when\nread on electronic devices.\n\nSections of the Institutional Report\nSection A: Introduction to the Institutional Report: Institutional Context;\nResponse to Previous Commission Actions\n\nThis section includes four subsections.\n\nDescription of the institution: Provide a succinct history and overview of the\ninstitution. Give special attention to significant changes since the last accreditation\nreview, e.g., in mission, student demographics, structure, degree programs,\ninstructional modalities, finances, governance, leadership, and other institution-level\nmatters. This is also the place to provide a description of institutional values and the\nqualities of the educational experience that the institution emphasizes.\n\nWhen describing key data elements of the institution, the report should refer to the\nWSCUC Key Indicators Dashboard (https://www.wscuc.org/resources/kid/), available\non the WSCUC website for most institutions, supplemented by the institution’s\nupdated data if available. The institution is welcome to provide additional data\nelements as part of the overview.\n\nProcess to prepare the institutional report: As part of this section, the institution\nshares how it prepared for the review—What was the process? Who was involved?\nHow did this work connect with existing priorities and projects?\n\nResponse to previous Commission requirements: The institution reviews the most\nrecent team report and Commission action letters and notes how it has responded to",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 17,
+          "text": "requirements and recommendations.\n\nOther topics: As relevant, substantive change reviews, interim reports, and trends or\npatterns of complaints against the institution, if any, are discussed.\n\nThis overview of its accreditation history, operations, and responses to previous\ninteractions with WSCUC can help the institution identify issues and anticipate\nquestions that peer review team members may pose as the institutional review\nproceeds. If appropriate, this includes addressing the issues that led to any notices of\nconcern or sanctions.\n\nSection B: Institutional Essays\n\nThe institution is challenged to analyze itself as an institution of higher education in\nthe context of each Standard, recognizing that the Standards build on each other. The\nessays represent separate chapters of a coherent narrative; the institution should tell\nits story through the evidence and analysis that resulted from the self-study. The\nessays are the place where the institution makes sense of its own work in such a way\nthat peer reviewers can understand and appreciate the institution’s intent and\naccomplishments.\n\nThese essays are analytical, supported by data and evidence, rather than simply\ndescriptive. Description provides the setting (the “who”, “what”, “where”, or “when”) for\nevaluation and interpretation (the “so what?” and “what next?”).\n\nInstitutions should not address each of the CFRs in the essays described below.\nThe Standards and CFRs are cited in support of the analysis in the institution’s\nnarrative, rather than treated as independent objectives to be met. Evidence of\nadhering to the specific CFRs is documented in the Compliance with WSCUC Standards\nWorksheet.\n\nEach essay focuses on the emphases of the Standard itself and explains how these\nemphases are put into practice, and how the resulting outcomes are achieved: What\nevidence does the institution have to demonstrate how it engages with the Standard?\nWhat aspects of the Standards are most significant to the institution, both directly and\nas amplified through the related Criteria for Review? What does the institution expect\nto achieve, what has been accomplished so far, how is success measured, and how\nsatisfactory are the outcomes? What do these analyses suggest for future\nimprovement?\n\nSection B: Standard 1 – Defining Institutional Mission and Acting with Integrity\n\nStandard 1: “The institution defines its mission and establishes educational and student\nsuccess objectives aligned with that mission. The institution pursues excellence and\npromotes success for all students. The institution clearly defines its essential values, culture,",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 18,
+          "text": "distinctive elements, and contributions to society and the public good. The institution\nfunctions with integrity and transparency.”\n\nIn this essay, institutions describe:\n\n(1) Their institutional mission, purposes, values, and culture and how these\nelements frame and support a commitment to the success of all students; and\n\n(2) How the mission and purposes support and encourage an open and\nconsultative approach and uphold the principles of integrity and transparency.\n\nNote: The commitment to success for all students is a theme that is repeated in each\nof the four Standards; accordingly, this first essay establishes a foundation for those\ndiscussions while also speaking specifically to Standard 1 issues.\n\nSection B: Standard 2 – Achieving Educational Objectives and Student Success\n\nStandard 2: “The institution achieves its objectives for educational effectiveness and success\nfor all students through the core functions of teaching and learning, removal of barriers to\nstudent success, and support for student learning, scholarship, and creative activity. The\ninstitution demonstrates that core functions are student-centered and performed effectively\nby evaluating valid and reliable evidence of learning and other outcomes.”\n\nIn this essay, institutions analyze the effectiveness of their fundamental education\nactivities by focusing on four key areas:\n\n(1) Degree programs\n\n(2) Faculty\n\n(3) Student learning and performance\n\n(4) Student support\n\nThese four crucial areas collectively constitute the fundamental academic function of\nteaching and learning, which may be supported by research and scholarship\nconducted by the faculty. Degree programs clearly define the entry requirements,\ncurriculum content, and expected learning outcomes. Faculty members serve as the\nprimary designers and assessors of students’ performance in these programs. The\ninstitution establishes the expected levels of achievement within each degree program\nand provides evidence of achieved outcomes. Additionally, the institution describes the\nappropriate array of support services and co-curricular programs to facilitate the goals\nof the degrees and assesses the effectiveness of these programs and services.\n\nSection B: Standard 3 – Assuring Resources and Organizational Structures\n\nStandard 3: “The institution achieves its objectives for educational effectiveness and success\nfor all students through allocation of human, physical, fiscal, technology, and information",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 19,
+          "text": "resources within appropriate organizational and decision-making structures and consistent\nwith its stated mission and objectives.”\n\nIn this essay, institutions document their ability to provide sufficient resources and\neffective decision-making processes to assure that degree programs and other\ninstitutional operations are appropriately resourced. The essay focuses on two\nprincipal areas:\n\n(1) Resources, including human, physical, financial capital, and technological\nassets, as applicable to the institution’s mission; and\n\n(2) Management and implementation of organizational decisions regarding the\nallocation of these resources in alignment with the institution’s mission.\n\nSection B: Standard 4 – Creating an Institution Committed to Quality Assurance\nand Improvement\n\nStandard 4: “The institution engages in sustained, evidence-based, and participatory\nreflection about how effectively it is accomplishing its mission and achieving its objectives\nfor educational effectiveness and success for all students. The institution envisions its future\nin light of the changing environment of higher education. These activities inform both\ninstitutional planning and systematic evaluations of educational effectiveness.”\n\nIn this essay, institutions document and evaluate their processes for carrying out\nessential functions, and engaging in analysis and planning to ensure they can adapt to\nfuture challenges. The essay focuses on two principal areas:\n\n(1) The institution’s collection and use of evidence to analyze the effectiveness of\nits operations to achieve established objectives, using institutional research\nfunctions and other activities; and\n\n(2) The institution’s analysis of evidence to promote the ongoing improvement of\nthe institution.\n\nSection C: Reflections\n\nThis essay is the institution’s reflection on the self-study process and the insights\ngained from that analysis as presented in the essays in Section B. The essay should be\nfocused, succinct, and analytical. It should present conclusions drawn from the work of\nthe self-study, based on the discussion and evidence presented in the essays in Section\nB. It is the culminating chapter of the institution’s story and should go beyond a mere\nrecitation of things already said. Instead, it should present a coherent understanding\nof the current state of the institution in relation to the Standards, with particular\nemphasis on how the conclusions reached in the essays will inform and enhance\ninstitutional practice and outcomes. The Commission expects the reaffirmation\nprocess to yield an analysis that will catalyze future development.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 21,
+          "text": "Commission Decisions On Institutions\nThe Commission is both a decision-making and policy-setting body. It is responsible\nfor determining the accreditation status of institutions, including Candidacy, Initial\nAccreditation, and reaffirmation of accreditation, based on a thorough review process.\nDuring the review process, the Commission considers various factors including the\ninstitution’s accreditation history; the evidence and analysis presented in the\ninstitutional report; the peer review team’s report and confidential team\nrecommendation; the institution’s response, if any, to the team report; any comments\nmade by the institution’s representatives to the Commission subsequent to the team\nreport; and any other pertinent documents. As part of the decision process,\ninstitutional representatives have the opportunity to appear before the Commission\nduring panel deliberations prior to Commission action. The Commission bases its\ndecisions on the evaluation of the full record of evidence presented.\n\nPossible Commission Actions\nExamples of Commission action with regard to institutions include:\n\n1. Grant Candidacy or Initial Accreditation\n2. Reaffirm Accreditation\n3. Defer Action\n4. Issue a Notice of Concern\n5. Issue a Sanction\n\na. Warning\nb. Probation\nc. Order to Show Cause\n\n6. Deny Candidacy or Initial Accreditation\n7. Withdraw Candidacy or Accreditation\n\nDecisions regarding an institution’s accreditation are conveyed to the institution in an\naction letter sent to the institution no later than 30 days after the decision has been\nmade. Action letters may contain special conditions, limitations, or restrictions that the\ninstitution is required to follow in order to maintain its accreditation. Examples include\nrequiring Progress Reports, Interim Reports or Special Visits, as well as placing\nrestrictions on initiating new degree programs, opening of additional sites, or\nenrollment growth.\n\nFollowing Commission actions, all action letters and team reports are made publicly\navailable on the WSCUC website. A report of Commission actions is published and\ndistributed after each Commission meeting, and the accreditation status of each\ninstitution is noted in the Member Directory on the Commission website.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 22,
+          "text": "Grant Candidacy or Initial Accreditation\nCandidacy: The institution must demonstrate that it meets the Standards of\nAccreditation at a foundational level and that it has a clear plan in place to achieve\nmore comprehensive compliance with Standards for accreditation. Candidacy is\nlimited to five years and is granted only when an institution demonstrates that it is\nlikely to become accredited within the five-year period.\n\nInitial Accreditation: The institution has provided evidence that it is in compliance\nwith all Commission Standards. Initial Accreditation is granted for a period of 6, 8 or 10\nyears.\n\nReaffirm Accreditation\nReaffirmation of accreditation occurs at the completion of the institutional review\nprocess. It indicates the Commission has found that an institution has met the\nStandards. Reaffirmation is granted for a period of 6, 8 or 10 years. The Commission\nmay also request other reports and/or Special Visits, or issue a Notice of Concern or\nsanction.\n\nDefer Action\nThe Commission may defer action to provide time for an institution to correct\ndeficiencies and to provide additional information on its progress. This action allows\nthe Commission to indicate to an institution the need for additional information or\nprogress in one or more specified areas related to the Standards before a decision can\nbe made. Deferrals are generally granted for a maximum period of one year and are\nnot appealable.\n\nIssue a Notice of Concern\nThe Commission issues a Notice of Concern when it determines that an institution is\ncurrently meeting WSCUC Standards but is in danger of being found out of compliance\nwith one or more Standards if current trends continue. A Notice of Concern may also\nbe issued when a sanction is removed because while the institution is found to be\nmeeting Standards it continues to be in danger of being found out of compliance.\nWhen a Notice of Concern is issued, the institution typically will have a Special Visit\nwithin four years to assess its progress. A Notice of Concern is public information and\nis posted on the WSCUC website. If the Commission’s concerns are not addressed by\nthe time of the next interaction with WSCUC, a sanction as described below may be\nimposed.\n\nSanctions\nWhen the Commission finds that an institution fails to meet one or more of the\nStandards of Accreditation, it notifies the institution of these findings and gives the",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 23,
+          "text": "institution a specific period of time from the date of the action to institute corrective\nmeasures:\n\n1. For Warning and Probation: two years\n2. For Order to Show Cause: one year\n\nIf an institution has not come into compliance with the Commission’s Standards at the\nconclusion of the sanction period, the Commission will withdraw accreditation unless it\ndetermines that a good cause extension of accreditation is warranted. Institutions\nunder sanction, therefore, must address the Commission’s findings expeditiously, with\nthe full attention of the institution’s leadership.\n\nThe three sanctions—Warning, Probation, and Order to Show Cause—inform the\ninstitution and the public of the Commission’s determination that an institution is not\nmeeting one or more Standards or has failed to meet a condition or restriction\nimposed as part of a Commission action. All sanctions must be made public on the\ninstitution’s website homepage and are published on WSCUC’s website. WSCUC also\npublishes the Commission action letter and any related team report, in accordance\nwith the WSCUC policy on Disclosure of Accreditation Documents and Commission\nActions. Institutions under sanction must notify students and other constituents of the\nCommission action.\n\nIssue a Warning\nA Warning reflects the Commission’s finding that the institution fails to meet one or\nmore of the Standards of Accreditation. While on Warning, any new site or degree\nprogram initiated by the institution is regarded as a substantive change. The\ninstitution’s candidate or accredited status remains in effect while it is on Warning.\n\nImpose Probation\nProbation reflects the Commission’s finding that the institution has significant issues\nof noncompliance with one or more of the Standards of Accreditation. While on\nProbation, the institution is subject to special scrutiny by the Commission, which may\ninclude a requirement to submit periodic reports and to receive Special Visits by\nrepresentatives of the Commission. In addition, while on Probation, any new site or\ndegree program initiated by the institution is regarded as a substantive change. The\ninstitution’s candidate or accredited status remains in effect while it is on Probation.\n\nIssue an Order to Show Cause\nAn Order to Show Cause is a decision by the Commission to terminate the\naccreditation of the institution within a maximum period of one year from the date of\nthe Order unless the institution can demonstrate why such action should not be taken.\nSuch an Order may be issued when an institution is found to be in substantial\nnoncompliance with one or more Commission Standards or, having been placed on",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 24,
+          "text": "Warning or Probation for at least one year, has been found not to have made sufficient\nprogress to come into compliance with the Standards. An Order to Show Cause may\nalso be issued as a summary sanction for unethical institutional behavior (see\nSummary Sanctions for Unethical Institutional Behavior, below). In response to the\nOrder, the institution has the burden of proving why its candidacy or accreditation\nshould not be terminated. The institution must demonstrate that it has responded\nsatisfactorily to Commission concerns, has come into compliance with all Standards,\nand will likely be able to sustain compliance.\n\nThe institution’s accredited status remains in effect while it is on an Order to Show\nCause, but during this period, any new site or degree program initiated by the\ninstitution is regarded as a substantive change and requires prior approval. In\naddition, the institution may be subject to special scrutiny by the Commission, which\nmay include special conditions and requirements to submit reports or receive Special\nVisits by representatives of the Commission.\n\nThe foregoing sanctions are not intended or required to be applied in any particular\norder or sequence.\n\nGood Cause Extension\nWhen a sanction is imposed, the Commission may not continue the institution under\nthe same or a new sanction beyond the maximum timeframe unless the institution\npresents evidence that there is good cause to provide further time for corrective\nmeasures and the Commission determines the evidence supports an extension of\ntime.\n\nThe Commission has determined that it will only grant a Good Cause Extension when\nthe institution has demonstrated:\n\na. Significant accomplishments in addressing the areas of noncompliance during\nthe period under sanction, AND\nb. For any remaining deficiencies, an understanding of those deficiencies, and\nreadiness, institutional capacity, and a plan to remedy those deficiencies within\nthe period of extension granted by the Commission.\n\nIn determining whether these criteria have been met, the Commission will also\nconsider whether:\n\na. The quality of education provided by the institution is judged to be in\ncompliance with Commission Standards at the time of the extension, AND\nb. The Commission has evidence of any new or continuing violations of\nStandard 1 regarding institutional integrity, AND\nc. The Commission has evidence of other reasons or current circumstances\nwhy the institution should not be granted a Good Cause Extension.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 25,
+          "text": "The Commission may grant a Good Cause Extension for a maximum of two years,\ndepending on the seriousness of the issues and on its judgment of how much\nadditional time is warranted. When the institution presents evidence that there are\nexigent circumstances beyond the control of the institution, the Commission may\ndecide to extend the time to come into compliance. By the conclusion of the extension\nperiod identified by the Commission, the institution must submit a report, supported\nby verifiable evidence, that demonstrates its compliance with the Standards that it\nfailed to meet and that led to the sanction. Mere promises of future action or a\nsummary of progress made during the extension period do not constitute evidence of\ncompliance with the Standards.\n\nIn addition, when an institution is placed on sanction, the Commission typically\nrequests that the institution’s chief leadership personnel, representatives of the\ninstitutional governing board, and senior faculty leadership meet with WSCUC staff\nwithin 90 days. The purposes of the meeting are to communicate the reasons for the\nCommission action, to discuss the institution’s plan for resolving those issues, and to\ngain understanding of the institution’s plan to notify the institution’s community about\nthe sanction.\n\nDeny Candidacy or Initial Accreditation\nDenial of candidacy or initial accreditation reflects the Commission’s finding that an\ninstitution has failed to demonstrate that it meets the Standards of Accreditation at\nthe level required for Candidacy or Initial Accreditation. An institution that is denied\ncandidacy or initial accreditation may reapply after one year. Denial is an appealable\naction.\n\nWithdraw Candidacy or Accreditation\nA decision to withdraw candidacy or accreditation is made by the Commission when\nan institution has been found to be out of compliance with one or more Standards.\nAlthough this sequence is not required, a decision to withdraw accreditation may be\nmade after an Order to Show Cause or another sanction has been imposed and the\ninstitution has failed to come into compliance. When accreditation is withdrawn, a\nspecific implementation date is specified. An action to withdraw candidacy or\naccreditation is subject to the WSCUC appeals process. If an institution closes after a\nwithdrawal action, it must comply with both federal requirements and WSCUC policies\nabout teach-out arrangements. WSCUC has established policies on notice of such\nactions and on teach-out.\n\nSummary Sanctions for Unethical Institutional Behavior\nIf it appears to the Commission or its staff that an institution is out of compliance with\nStandard One (Defining Institutional Mission and Acting with Integrity) in a manner",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 26,
+          "text": "that requires immediate attention, the Commission will conduct an investigation, issue\na letter of findings to the institution, and give the institution an opportunity to\nrespond. If the Commission concludes that the institution is out of compliance due to\nunlawful or unethical conduct it may:\n\n1. Sever relations if the institution has applied for, but has not yet been granted,\ncandidacy or initial accreditation; or\n2. If the institution is a candidate or accredited, either:\n\na. issue an Order to Show Cause why its candidacy or accreditation should\nnot be withdrawn at the end of a stated period;\nb. in an extreme case, sever its relationship with the institution by denying\nor withdrawing candidacy or accreditation; or\n\n3. Apply less severe sanctions as deemed appropriate.",
+          "method": "pdf_text"
+        }
+      ]
+    }
+  ],
   "requirements": [
     {
       "code": "Standard 1",
       "parent_code": null,
       "level_label": "Standard",
-      "title": "Standard 1",
+      "title": "Defining Institutional Mission and Acting with Integrity",
+      "official_text": "The institution defines its mission and establishes educational and student success objectives aligned with that mission. The institution pursues excellence and promotes success for all students. The institution clearly defines its essential values, culture, distinctive elements, and contributions to society and the public good. The institution functions with integrity and transparency.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution defines its mission and establishes educational and student"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "In this essay, institutions describe: (1) Their institutional mission, purposes, values, and culture and how these elements frame and support a commitment to the success of all students; and (2) How the mission and purposes support and encourage an open and consultative approach and uphold the principles of integrity and transparency.",
+          "authority": "suggested",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 18,
+            "quote": "Their institutional mission, purposes, values, and culture and how these elements frame and support a commitment to the success of all students"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 1 - Institutional Purposes",
+      "parent_code": "Standard 1",
+      "level_label": "Heading",
+      "title": "Institutional Purposes",
       "official_text": null,
       "language": "en",
       "translation_en": null,
@@ -867,28 +1070,75 @@
     },
     {
       "code": "CFR 1.1",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Institutional Purposes",
       "level_label": "CFR",
       "title": "CFR 1.1",
-      "official_text": null,
+      "official_text": "The institution’s mission and other statements of purpose are appropriate for an institution of higher education and clearly define its essential values, culture, and ways the institution contributes to society and the public good.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 1,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution’s mission and other statements of purpose are"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.2",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Institutional Purposes",
       "level_label": "CFR",
       "title": "CFR 1.2",
-      "official_text": null,
+      "official_text": "Consistent with its purposes and character, the institution defines and sets goals, policies, and practices; evaluates student outcomes; removes barriers to student success; and allocates resources across academic, student support, and co-curricular programs and services to advance success for all students.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "Consistent with its purposes and character, the institution defines"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 1 - Integrity and Transparency",
+      "parent_code": "Standard 1",
+      "level_label": "Heading",
+      "title": "Integrity and Transparency",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
       "applies_when": null,
       "display_order": 2,
       "weight": null,
@@ -897,553 +1147,971 @@
     },
     {
       "code": "CFR 1.3",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.3",
-      "official_text": null,
+      "official_text": "The institution operates with integrity and transparency in its operations, and truthfully and clearly represents its academic goals, programs, requirements, services, and costs.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 3,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution operates with integrity and transparency in its"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.4",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.4",
-      "official_text": null,
+      "official_text": "The institution maintains appropriate operating policies and business procedures, including timely and fair responses to complaints and grievances.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 4,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution maintains appropriate operating policies and business procedures,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.5",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.5",
-      "official_text": null,
+      "official_text": "The institution treats faculty, staff, administrators, and students equitably by adhering to its published policies and procedures.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 5,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution treats faculty, staff, administrators, and students equitably"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.6",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.6",
-      "official_text": null,
+      "official_text": "The institution maintains, publishes, and adheres to policies on academic freedom.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 6,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 6,
+        "quote": "The institution maintains, publishes, and adheres to policies on"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.7",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.7",
-      "official_text": null,
+      "official_text": "The institution communicates about important issues with its constituents.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 7,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "The institution communicates about important issues with its constituents."
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 1.8",
-      "parent_code": "Standard 1",
+      "parent_code": "Standard 1 - Integrity and Transparency",
       "level_label": "CFR",
       "title": "CFR 1.8",
-      "official_text": null,
+      "official_text": "The institution is committed to honest and open communication with the Commission and to undertaking the accreditation review process with seriousness and candor. The institution abides by Commission policies and procedures and informs the Commission promptly of any matter that could affect the accreditation status of the institution.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 8,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 7,
+        "quote": "The institution is committed to honest and open communication"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "Standard 2",
       "parent_code": null,
       "level_label": "Standard",
-      "title": "Standard 2",
+      "title": "Achieving Educational Objectives and Student Success",
+      "official_text": "The institution achieves its objectives for educational effectiveness and success for all students through the core functions of teaching and learning, removal of barriers to student success, and support for student learning, scholarship, and creative activity. The institution demonstrates that core functions are student-centered and performed effectively by evaluating valid and reliable evidence of learning and other outcomes.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution achieves its objectives for educational effectiveness and success"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "In this essay, institutions analyze the effectiveness of their fundamental education activities by focusing on four key areas: (1) Degree programs (2) Faculty (3) Student learning and performance (4) Student support",
+          "authority": "suggested",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 18,
+            "quote": "In this essay, institutions analyze the effectiveness of their fundamental education activities by focusing on four key areas"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 2 - Degree Programs",
+      "parent_code": "Standard 2",
+      "level_label": "Heading",
+      "title": "Degree Programs",
       "official_text": null,
       "language": "en",
       "translation_en": null,
       "is_assessable": false,
       "applies_when": null,
-      "display_order": 2,
+      "display_order": 1,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 2.1",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Degree Programs",
       "level_label": "CFR",
       "title": "CFR 2.1",
-      "official_text": null,
+      "official_text": "The institution’s degree programs are appropriate in content, educational objectives, and standards of performance relevant to the level of the degree. All degrees are defined in terms of entry requirements and levels of student achievement necessary for graduation.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 1,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution’s degree programs are appropriate in content, educational"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.2",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Degree Programs",
       "level_label": "CFR",
       "title": "CFR 2.2",
-      "official_text": null,
+      "official_text": "Degree programs engage students in an integrated course of study of sufficient breadth and depth. These programs ensure the development of core and professional competencies relevant to the level of the degree.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 2,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "Degree programs engage students in an integrated course of"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.3",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Degree Programs",
       "level_label": "CFR",
       "title": "CFR 2.3",
-      "official_text": null,
+      "official_text": "The institution clearly identifies and effectively implements student learning outcomes and expectations for achievement. These outcomes and expectations are reflected in and supported by academic programs, policies, and curricula, and provide the framework for academic advising, student support programs and services, and information and technology resources.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 3,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution clearly identifies and effectively implements student learning"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.4",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Degree Programs",
       "level_label": "CFR",
       "title": "CFR 2.4",
-      "official_text": null,
+      "official_text": "The institution conducts periodic reviews of its degree programs. The program review process includes analysis of student achievement of the program’s learning outcomes.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution conducts periodic reviews of its degree programs."
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 2 - Faculty",
+      "parent_code": "Standard 2",
+      "level_label": "Heading",
+      "title": "Faculty",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 2,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 2.5",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Faculty",
       "level_label": "CFR",
       "title": "CFR 2.5",
-      "official_text": null,
+      "official_text": "The institution has faculty with the capacity and scale to design and deliver the curriculum and to evaluate, improve, and promote student learning and success.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 5,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution has faculty with the capacity and scale"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.6",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Faculty",
       "level_label": "CFR",
       "title": "CFR 2.6",
-      "official_text": null,
+      "official_text": "The faculty exercise effective academic leadership and act consistently to ensure that the quality of academic programs and the institution’s educational purposes are sustained.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 6,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The faculty exercise effective academic leadership and act consistently"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.7",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Faculty",
       "level_label": "CFR",
       "title": "CFR 2.7",
-      "official_text": null,
+      "official_text": "The faculty are responsible for creating and evaluating student learning outcomes and establishing standards of student performance.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 7,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The faculty are responsible for creating and evaluating student"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.8",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Faculty",
       "level_label": "CFR",
       "title": "CFR 2.8",
-      "official_text": null,
+      "official_text": "The institution has clear expectations for faculty research, scholarship, and creative activity that are commensurate with the mission and degree portfolio.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 8,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 8,
+        "quote": "The institution has clear expectations for faculty research, scholarship,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 2 - Student Learning and Performance",
+      "parent_code": "Standard 2",
+      "level_label": "Heading",
+      "title": "Student Learning and Performance",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 3,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 2.9",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Learning and Performance",
       "level_label": "CFR",
       "title": "CFR 2.9",
-      "official_text": null,
+      "official_text": "The institution demonstrates that graduates consistently achieve stated learning outcomes and standards of performance. Faculty evaluate student work in terms of stated learning outcomes.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 9,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution demonstrates that graduates consistently achieve stated learning"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.10",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Learning and Performance",
       "level_label": "CFR",
       "title": "CFR 2.10",
-      "official_text": null,
+      "official_text": "The institution demonstrates that students make reasonable progress toward and complete their degrees in a timely manner.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 10,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution demonstrates that students make reasonable progress toward"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.11",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Learning and Performance",
       "level_label": "CFR",
       "title": "CFR 2.11",
-      "official_text": null,
+      "official_text": "The institution monitors and analyzes the outcomes of its students following graduation and uses the results for improvement.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 11,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution monitors and analyzes the outcomes of its"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 2 - Student Support",
+      "parent_code": "Standard 2",
+      "level_label": "Heading",
+      "title": "Student Support",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 4,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 2.12",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Support",
       "level_label": "CFR",
       "title": "CFR 2.12",
-      "official_text": null,
+      "official_text": "The institution ensures that all students understand the requirements of their academic programs and receive timely, accurate, and complete information and advising about academic requirements.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 12,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution ensures that all students understand the requirements"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.13",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Support",
       "level_label": "CFR",
       "title": "CFR 2.13",
-      "official_text": null,
+      "official_text": "The institution offers student support and co-curricular programs and services sufficient in nature, scope, and capacity to promote all students’ academic, personal, and professional development.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 13,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution offers student support and co-curricular programs and"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 2.14",
-      "parent_code": "Standard 2",
+      "parent_code": "Standard 2 - Student Support",
       "level_label": "CFR",
       "title": "CFR 2.14",
-      "official_text": null,
+      "official_text": "The institution assesses the effectiveness of its student support and co-curricular programs and services and uses the results for improvement.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 14,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution assesses the effectiveness of its student support"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "Standard 3",
       "parent_code": null,
       "level_label": "Standard",
-      "title": "Standard 3",
+      "title": "Assuring Resources and Organizational Structures",
+      "official_text": "The institution achieves its objectives for educational effectiveness and success for all students through allocation of human, physical, fiscal, technology, and information resources within appropriate organizational and decision-making structures and consistent with its stated mission and objectives.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution achieves its objectives for educational effectiveness and success"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "In this essay, institutions document their ability to provide sufficient resources and effective decision-making processes to assure that degree programs and other institutional operations are appropriately resourced. The essay focuses on two principal areas: (1) Resources, including human, physical, financial capital, and technological assets, as applicable to the institution’s mission; and (2) Management and implementation of organizational decisions regarding the allocation of these resources in alignment with the institution’s mission.",
+          "authority": "suggested",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 19,
+            "quote": "institutions document their ability to provide sufficient resources and effective decision-making processes"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 3 - Faculty, Staff, and Administrators",
+      "parent_code": "Standard 3",
+      "level_label": "Heading",
+      "title": "Faculty, Staff, and Administrators",
       "official_text": null,
       "language": "en",
       "translation_en": null,
       "is_assessable": false,
       "applies_when": null,
-      "display_order": 3,
+      "display_order": 1,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 3.1",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Faculty, Staff, and Administrators",
       "level_label": "CFR",
       "title": "CFR 3.1",
-      "official_text": null,
+      "official_text": "The institution employs faculty, staff, and administrators sufficient in scale, professional qualifications, and background to achieve the institution’s educational and student success objectives, to propose and oversee policy, and to ensure the integrity of its academic, student support, and co-curricular programs and services and administrative processes.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 1,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "The institution employs faculty, staff, and administrators sufficient in"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 3.2",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Faculty, Staff, and Administrators",
       "level_label": "CFR",
       "title": "CFR 3.2",
-      "official_text": null,
+      "official_text": "Faculty, staff, and administrator recruitment, hiring, and orientation practices and workload expectations are aligned with institutional mission and priorities. The institution examines the extent to which its climate supports faculty, staff, and administrators and acts on its findings.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 2,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 9,
+        "quote": "Faculty, staff, and administrator recruitment, hiring, and orientation practices"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 3.3",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Faculty, Staff, and Administrators",
       "level_label": "CFR",
       "title": "CFR 3.3",
-      "official_text": null,
+      "official_text": "The institution provides professional development and evaluation for faculty, staff, and administrators.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution provides professional development and evaluation for faculty,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 3 - Fiscal, Physical, Technology, and Information Resources",
+      "parent_code": "Standard 3",
+      "level_label": "Heading",
+      "title": "Fiscal, Physical, Technology, and Information Resources",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 2,
       "weight": null,
       "source": null,
       "notes": []
     },
     {
       "code": "CFR 3.4",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Fiscal, Physical, Technology, and Information Resources",
       "level_label": "CFR",
       "title": "CFR 3.4",
-      "official_text": null,
+      "official_text": "Resource planning and development include realistic budgeting, enrollment management, and diversification of revenue sources. Resource allocation is aligned with evidence-based educational and student success objectives consistent with operational and strategic planning.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 4,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "Resource planning and development include realistic budgeting, enrollment management,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 3.5",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Fiscal, Physical, Technology, and Information Resources",
       "level_label": "CFR",
       "title": "CFR 3.5",
-      "official_text": null,
+      "official_text": "The institution is financially stable and has resources sufficient to ensure long-term sustainability. The institution has unqualified or unmodified independent financial audits.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 5,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution is financially stable and has resources sufficient"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
       "code": "CFR 3.6",
-      "parent_code": "Standard 3",
+      "parent_code": "Standard 3 - Fiscal, Physical, Technology, and Information Resources",
       "level_label": "CFR",
       "title": "CFR 3.6",
-      "official_text": null,
+      "official_text": "The institution provides physical, technology, information, and other resources sufficient in scope, quality, currency, and kind to support the work of its faculty, staff, administrators, and students.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 6,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution provides physical, technology, information, and other resources"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
-      "code": "CFR 3.7",
+      "code": "Standard 3 - Organizational Structures and Decision-Making Processes",
       "parent_code": "Standard 3",
-      "level_label": "CFR",
-      "title": "CFR 3.7",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 7,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 3.8",
-      "parent_code": "Standard 3",
-      "level_label": "CFR",
-      "title": "CFR 3.8",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 8,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 3.9",
-      "parent_code": "Standard 3",
-      "level_label": "CFR",
-      "title": "CFR 3.9",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 9,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 3.10",
-      "parent_code": "Standard 3",
-      "level_label": "CFR",
-      "title": "CFR 3.10",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 10,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 3.11",
-      "parent_code": "Standard 3",
-      "level_label": "CFR",
-      "title": "CFR 3.11",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 11,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "Standard 4",
-      "parent_code": null,
-      "level_label": "Standard",
-      "title": "Standard 4",
+      "level_label": "Heading",
+      "title": "Organizational Structures and Decision-Making Processes",
       "official_text": null,
       "language": "en",
       "translation_en": null,
       "is_assessable": false,
-      "applies_when": null,
-      "display_order": 4,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.1",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.1",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 1,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.2",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.2",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 2,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.3",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.3",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
       "applies_when": null,
       "display_order": 3,
       "weight": null,
@@ -1451,79 +2119,468 @@
       "notes": []
     },
     {
-      "code": "CFR 4.4",
-      "parent_code": "Standard 4",
+      "code": "CFR 3.7",
+      "parent_code": "Standard 3 - Organizational Structures and Decision-Making Processes",
       "level_label": "CFR",
-      "title": "CFR 4.4",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 4,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.5",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.5",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 5,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.6",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.6",
-      "official_text": null,
-      "language": "en",
-      "translation_en": null,
-      "is_assessable": true,
-      "applies_when": null,
-      "display_order": 6,
-      "weight": null,
-      "source": null,
-      "notes": []
-    },
-    {
-      "code": "CFR 4.7",
-      "parent_code": "Standard 4",
-      "level_label": "CFR",
-      "title": "CFR 4.7",
-      "official_text": null,
+      "title": "CFR 3.7",
+      "official_text": "The institution operates with appropriate autonomy governed by an independent board or similar authority that is responsible for mission, integrity, and oversight of planning, policies, performance, and sustainability. The governing board selects and evaluates the chief executive officer.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 7,
       "weight": null,
-      "source": null,
-      "notes": []
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution operates with appropriate autonomy governed by an"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     },
     {
-      "code": "CFR 4.8",
-      "parent_code": "Standard 4",
+      "code": "CFR 3.8",
+      "parent_code": "Standard 3 - Organizational Structures and Decision-Making Processes",
       "level_label": "CFR",
-      "title": "CFR 4.8",
-      "official_text": null,
+      "title": "CFR 3.8",
+      "official_text": "The board members have a range of backgrounds, knowledge, and skills to carry out their responsibilities.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
       "applies_when": null,
       "display_order": 8,
       "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The board members have a range of backgrounds, knowledge,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 3.9",
+      "parent_code": "Standard 3 - Organizational Structures and Decision-Making Processes",
+      "level_label": "CFR",
+      "title": "CFR 3.9",
+      "official_text": "The institution has sufficient and qualified leadership capacity at all levels, characterized by integrity, appropriate responsibility, high performance, and accountability.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 9,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution has sufficient and qualified leadership capacity at"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 3.10",
+      "parent_code": "Standard 3 - Organizational Structures and Decision-Making Processes",
+      "level_label": "CFR",
+      "title": "CFR 3.10",
+      "official_text": "Data are regularly and systematically disseminated internally and externally, and analyzed, interpreted, and applied in institutional decision-making.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 10,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "Data are regularly and systematically disseminated internally and externally,"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 3.11",
+      "parent_code": "Standard 3 - Organizational Structures and Decision-Making Processes",
+      "level_label": "CFR",
+      "title": "CFR 3.11",
+      "official_text": "The institution’s organizational structures and decision-making processes are clearly defined, consistent, and transparent, support effective decision-making and risk management, and place priority on sustaining institutional resilience and educational effectiveness.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 11,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution’s organizational structures and decision-making processes are clearly"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 4",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Creating an Institution Committed to Quality Assurance and Improvement",
+      "official_text": "The institution engages in sustained, evidence-based, and participatory reflection about how effectively it is accomplishing its mission and achieving its objectives for educational effectiveness and success for all students. The institution envisions its future in light of the changing environment of higher education. These activities inform both institutional planning and systematic evaluations of educational effectiveness.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 10,
+        "quote": "The institution engages in sustained, evidence-based, and participatory reflection about"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "In this essay, institutions document and evaluate their processes for carrying out essential functions, and engaging in analysis and planning to ensure they can adapt to future challenges. The essay focuses on two principal areas: (1) The institution’s collection and use of evidence to analyze the effectiveness of its operations to achieve established objectives, using institutional research functions and other activities; and (2) The institution’s analysis of evidence to promote the ongoing improvement of the institution.",
+          "authority": "suggested",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 19,
+            "quote": "institutions document and evaluate their processes for carrying out essential functions"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 4 - Quality Assurance Processes",
+      "parent_code": "Standard 4",
+      "level_label": "Heading",
+      "title": "Quality Assurance Processes",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
       "source": null,
       "notes": []
+    },
+    {
+      "code": "CFR 4.1",
+      "parent_code": "Standard 4 - Quality Assurance Processes",
+      "level_label": "CFR",
+      "title": "CFR 4.1",
+      "official_text": "The institution employs comprehensive quality assurance processes in both academic and non-academic areas and uses the results to improve institutional operations.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution employs comprehensive quality assurance processes in both"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.2",
+      "parent_code": "Standard 4 - Quality Assurance Processes",
+      "level_label": "CFR",
+      "title": "CFR 4.2",
+      "official_text": "The institution collects, analyzes and acts on disaggregated student outcomes data including retention and graduation rates.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution collects, analyzes and acts on disaggregated student"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.3",
+      "parent_code": "Standard 4 - Quality Assurance Processes",
+      "level_label": "CFR",
+      "title": "CFR 4.3",
+      "official_text": "The institution examines the extent to which its climate supports student success and acts on its findings. The institution regularly assesses the characteristics, experiences, and performance of its students and uses this evidence to improve student success.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution examines the extent to which its climate"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.4",
+      "parent_code": "Standard 4 - Quality Assurance Processes",
+      "level_label": "CFR",
+      "title": "CFR 4.4",
+      "official_text": "The institution has institutional research capacity, scope, and coordination consistent with its purposes and characteristics.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution has institutional research capacity, scope, and coordination"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Standard 4 - Institutional Improvement",
+      "parent_code": "Standard 4",
+      "level_label": "Heading",
+      "title": "Institutional Improvement",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.5",
+      "parent_code": "Standard 4 - Institutional Improvement",
+      "level_label": "CFR",
+      "title": "CFR 4.5",
+      "official_text": "The institution demonstrates improvement based on the results of inquiry, evidence, and evaluation.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution demonstrates improvement based on the results of"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.6",
+      "parent_code": "Standard 4 - Institutional Improvement",
+      "level_label": "CFR",
+      "title": "CFR 4.6",
+      "official_text": "The institution, with significant faculty involvement, engages in continuous inquiry into the processes of teaching and learning, and the conditions and practices that ensure that the institution’s standards of performance are being achieved.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution, with significant faculty involvement, engages in continuous"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.7",
+      "parent_code": "Standard 4 - Institutional Improvement",
+      "level_label": "CFR",
+      "title": "CFR 4.7",
+      "official_text": "The governing board engages in self-evaluation and development.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The governing board engages in self-evaluation and development."
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
+    },
+    {
+      "code": "CFR 4.8",
+      "parent_code": "Standard 4 - Institutional Improvement",
+      "level_label": "CFR",
+      "title": "CFR 4.8",
+      "official_text": "The institution periodically engages its stakeholders in reflection and planning processes based on the examination of evidence. Through these processes it assesses the institution’s strategic position, articulates priorities, examines the alignment of its purposes, core functions, and resources, and defines the future direction of the institution.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": {
+        "document": "doc-1",
+        "page": 11,
+        "quote": "The institution periodically engages its stakeholders in reflection and"
+      },
+      "notes": [
+        {
+          "type": "evidence_expectation",
+          "text": "Document how the institution complies with this CFR in the Compliance with WSCUC Standards Worksheet, with links and artifacts as evidence.",
+          "authority": "required",
+          "norm": null,
+          "source": {
+            "document": "doc-1",
+            "page": 14,
+            "quote": "institutions are required to complete the Compliance with WSCUC Standards Worksheet"
+          }
+        }
+      ]
     }
   ]
 }

@@ -5,11 +5,18 @@ importer accepts and `pnpm test` loads, publishes and exports again.
 
 | File | Source in the PRD | State |
 |---|---|---|
-| `wscuc-2023.json` | A.1 WSCUC (institutional) | **Skeleton** |
+| `wscuc-2023.json` | A.1 WSCUC (institutional) | **Real text** (2023 Handbook Revised, PDF text layer) |
 | `abet-eac-2027-28.json` | A.2 ABET EAC (program) | **Skeleton** |
-| `puc-2019.json` | A.3 PUC Kuwait (institutional, Arabic) | **Skeleton** |
+| `puc-2019.json` | A.3 PUC Kuwait (institutional, Arabic) | **Real text** (Guide, Dec 2019; scanned, manually transcribed) |
 
 ## What is real and what is a placeholder
+
+**WSCUC and PUC (TASK-011)** carry the accreditors' own text: every requirement has `official_text`, a source page and a
+quote that passes verification. WSCUC: 4 Standards, their headings and 41 CFRs, with Compliance Worksheet notes.
+PUC: 7 standards, 24 measures and 151 indicators in Arabic. The PUC guide is a scan, so its source pages are
+manual transcriptions (`method: "ocr"`) and must be reviewed against the PDF before anything is relied on.
+The remainder of this section still describes the **ABET** skeleton (TASK-012).
+
 
 Everything the PRD specifies is carried over as written: level labels, the lifecycle (phases, milestones, due rules),
 the decision, finding and response vocabularies, and the report-template structures.
