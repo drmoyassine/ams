@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { ROLES } from '@ams/shared';
 import {
-  boolean, check, index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
+  boolean, check, date, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 /** Drizzle's `enum` option is type-only; this makes the database enforce the value set too. */
@@ -124,16 +124,14 @@ export const job = pgTable('job', {
 export const EXTRACTION_KINDS = [
   'requirement', 'note', 'report_section', 'milestone', 'decision', 'finding_severity', 'response_type', 'metadata',
 ] as const;
-// framework_version_id and source_document_id are plain uuids for now: their tables arrive in M1 (ROADMAP-002),
-// which adds the foreign keys.
 const EXTRACTION_STATUSES = ['pending', 'accepted', 'edited', 'rejected'] as const;
 export const extractionItem = pgTable('extraction_item', {
   ...base(), ...tenant(),
-  frameworkVersionId: uuid('framework_version_id').notNull(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
   jobId: uuid('job_id').references(() => job.id),
   kind: text('kind', { enum: EXTRACTION_KINDS }).notNull(),
   payload: jsonb('payload').notNull(),
-  sourceDocumentId: uuid('source_document_id'),
+  sourceDocumentId: uuid('source_document_id').references(() => sourceDocument.id),
   sourcePage: integer('source_page'),
   sourceQuote: text('source_quote'),
   quoteVerified: boolean('quote_verified').notNull().default(false),
@@ -145,4 +143,166 @@ export const extractionItem = pgTable('extraction_item', {
   index('extraction_item_version_idx').on(t.frameworkVersionId, t.status),
   oneOf('extraction_item_kind_check', t.kind, EXTRACTION_KINDS),
   oneOf('extraction_item_status_check', t.status, EXTRACTION_STATUSES),
+]);
+
+// ---- 6.2 Framework library ------------------------------------------------------------------
+
+const ACCREDITOR_TYPES = ['institutional', 'programmatic', 'regulatory'] as const;
+export const accreditor = pgTable('accreditor', {
+  ...base(), ...tenant(),
+  name: text('name').notNull(),
+  shortName: text('short_name').notNull(),
+  type: text('type', { enum: ACCREDITOR_TYPES }).notNull(),
+  country: text('country'),
+  website: text('website'),
+}, (t) => [
+  uniqueIndex('accreditor_short_name_idx').on(t.institutionId, t.shortName),
+  oneOf('accreditor_type_check', t.type, ACCREDITOR_TYPES),
+]);
+
+const FRAMEWORK_SCOPES = ['institution', 'program', 'both'] as const;
+export const framework = pgTable('framework', {
+  ...base(), ...tenant(),
+  accreditorId: uuid('accreditor_id').notNull().references(() => accreditor.id),
+  name: text('name').notNull(),
+  commission: text('commission'),
+  scope: text('scope', { enum: FRAMEWORK_SCOPES }).notNull(),
+  description: text('description'),
+}, (t) => [index('framework_accreditor_idx').on(t.accreditorId), oneOf('framework_scope_check', t.scope, FRAMEWORK_SCOPES)]);
+
+export const FRAMEWORK_VERSION_STATUSES = ['draft', 'in_review', 'published', 'retired'] as const;
+export const frameworkVersion = pgTable('framework_version', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  edition: text('edition').notNull(),
+  effectiveFrom: date('effective_from'),
+  effectiveTo: date('effective_to'),
+  status: text('status', { enum: FRAMEWORK_VERSION_STATUSES }).notNull().default('draft'),
+  levelLabels: jsonb('level_labels').notNull().default(sql`'[]'::jsonb`),
+  lifecycleTemplate: jsonb('lifecycle_template').notNull().default(sql`'{}'::jsonb`),
+  decisionVocab: jsonb('decision_vocab').notNull().default(sql`'[]'::jsonb`),
+  findingVocab: jsonb('finding_vocab').notNull().default(sql`'[]'::jsonb`),
+  responseVocab: jsonb('response_vocab').notNull().default(sql`'[]'::jsonb`),
+  ratingMethod: jsonb('rating_method'),
+  changeSummary: text('change_summary'),
+  publishedBy: uuid('published_by').references((): AnyPgColumn => appUser.id),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  supersedesId: uuid('supersedes_id').references((): AnyPgColumn => frameworkVersion.id),
+}, (t) => [
+  uniqueIndex('framework_version_edition_idx').on(t.frameworkId, t.edition),
+  oneOf('framework_version_status_check', t.status, FRAMEWORK_VERSION_STATUSES),
+  check('framework_version_published_fields', sql`${t.status} not in ('published', 'retired') or (${t.publishedAt} is not null and ${t.publishedBy} is not null)`),
+]);
+
+const DOCUMENT_ROLES = [
+  'standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other',
+] as const;
+const DOCUMENT_AUTHORITIES = ['binding', 'interpretive', 'informational'] as const;
+const TEXT_STATUSES = ['pending', 'extracted', 'ocr_needed', 'ocr_done', 'failed'] as const;
+export const sourceDocument = pgTable('source_document', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  title: text('title').notNull(),
+  role: text('role', { enum: DOCUMENT_ROLES }).notNull(),
+  authority: text('authority', { enum: DOCUMENT_AUTHORITIES }).notNull(),
+  language: text('language').notNull().default('en'),
+  filePath: text('file_path').notNull(),
+  sha256: text('sha256').notNull(),
+  pageCount: integer('page_count'),
+  textStatus: text('text_status', { enum: TEXT_STATUSES }).notNull().default('pending'),
+}, (t) => [
+  index('source_document_version_idx').on(t.frameworkVersionId),
+  oneOf('source_document_role_check', t.role, DOCUMENT_ROLES),
+  oneOf('source_document_authority_check', t.authority, DOCUMENT_AUTHORITIES),
+  oneOf('source_document_text_status_check', t.textStatus, TEXT_STATUSES),
+  check('source_document_sha256_check', sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+]);
+
+const PAGE_METHODS = ['pdf_text', 'ocr'] as const;
+export const sourcePage = pgTable('source_page', {
+  ...base(), ...tenant(),
+  sourceDocumentId: uuid('source_document_id').notNull().references(() => sourceDocument.id),
+  pageNo: integer('page_no').notNull(),
+  text: text('text').notNull(),
+  method: text('method', { enum: PAGE_METHODS }).notNull(),
+  reviewed: boolean('reviewed').notNull().default(false),
+}, (t) => [
+  uniqueIndex('source_page_doc_page_idx').on(t.sourceDocumentId, t.pageNo),
+  oneOf('source_page_method_check', t.method, PAGE_METHODS),
+  check('source_page_no_check', sql`${t.pageNo} >= 1`),
+]);
+
+/** Provenance fields carried by requirement, requirement_note and report_template (PRD 6.2). */
+export const ORIGINS = ['manual', 'import', 'ai'] as const;
+export const REVIEW_STATUSES = ['pending', 'approved', 'rejected'] as const;
+const provenance = () => ({
+  origin: text('origin', { enum: ORIGINS }).notNull().default('manual'),
+  sourceDocumentId: uuid('source_document_id').references(() => sourceDocument.id),
+  sourcePage: integer('source_page'),
+  sourceQuote: text('source_quote'),
+  quoteVerified: boolean('quote_verified').notNull().default(false),
+  reviewStatus: text('review_status', { enum: REVIEW_STATUSES }).notNull().default('pending'),
+  reviewedBy: uuid('reviewed_by').references((): AnyPgColumn => appUser.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+});
+const provenanceChecks = (name: string, t: { origin: AnyPgColumn; reviewStatus: AnyPgColumn; quoteVerified: AnyPgColumn; sourceQuote: AnyPgColumn }) => [
+  oneOf(`${name}_origin_check`, t.origin, ORIGINS),
+  oneOf(`${name}_review_status_check`, t.reviewStatus, REVIEW_STATUSES),
+  check(`${name}_verified_quote_check`, sql`not ${t.quoteVerified} or ${t.sourceQuote} is not null`),
+];
+
+export const requirement = pgTable('requirement', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  parentId: uuid('parent_id').references((): AnyPgColumn => requirement.id),
+  code: text('code').notNull(),
+  levelLabel: text('level_label').notNull(),
+  title: text('title').notNull(),
+  officialText: text('official_text'),
+  language: text('language').notNull().default('en'),
+  translationEn: text('translation_en'),
+  isAssessable: boolean('is_assessable').notNull().default(true),
+  appliesWhen: jsonb('applies_when'),
+  displayOrder: integer('display_order').notNull().default(0),
+  weight: numeric('weight'),
+  ...provenance(),
+}, (t) => [
+  uniqueIndex('requirement_version_code_idx').on(t.frameworkVersionId, t.code),
+  index('requirement_parent_idx').on(t.parentId),
+  ...provenanceChecks('requirement', t),
+]);
+
+const NOTE_TYPES = ['guidance', 'evidence_expectation', 'data_request', 'quantitative_norm'] as const;
+export const NOTE_AUTHORITIES = ['required', 'example', 'suggested', 'ai_suggested', 'institution_defined'] as const;
+export const requirementNote = pgTable('requirement_note', {
+  ...base(), ...tenant(),
+  requirementId: uuid('requirement_id').notNull().references(() => requirement.id),
+  type: text('type', { enum: NOTE_TYPES }).notNull(),
+  text: text('text').notNull(),
+  authority: text('authority', { enum: NOTE_AUTHORITIES }).notNull(),
+  norm: jsonb('norm'),
+  ...provenance(),
+}, (t) => [
+  index('requirement_note_requirement_idx').on(t.requirementId),
+  oneOf('requirement_note_type_check', t.type, NOTE_TYPES),
+  oneOf('requirement_note_authority_check', t.authority, NOTE_AUTHORITIES),
+  ...provenanceChecks('requirement_note', t),
+]);
+
+const TEMPLATE_KINDS = ['application', 'readiness', 'self_study', 'follow_up', 'annual', 'response', 'other'] as const;
+export const reportTemplate = pgTable('report_template', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  kind: text('kind', { enum: TEMPLATE_KINDS }).notNull(),
+  language: text('language').notNull().default('en'),
+  structure: jsonb('structure').notNull().default(sql`'{}'::jsonb`),
+  wordLimit: integer('word_limit'),
+  requiresAttestation: boolean('requires_attestation').notNull().default(false),
+  ...provenance(),
+}, (t) => [
+  uniqueIndex('report_template_version_key_idx').on(t.frameworkVersionId, t.key),
+  oneOf('report_template_kind_check', t.kind, TEMPLATE_KINDS),
+  ...provenanceChecks('report_template', t),
 ]);

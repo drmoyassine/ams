@@ -22,6 +22,20 @@
       "when": 1791190451120,
       "tag": "0002_auth_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791193103865,
+      "tag": "0003_framework_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791193104843,
+      "tag": "0004_framework_library_rls",
+      "breakpoints": true
     }
   ]
 }

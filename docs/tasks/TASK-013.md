@@ -5,7 +5,7 @@ description: >-
   Drizzle schema + SQL migration for PRD 6.2 and 6.3: accreditor, framework, framework_version, source_document,
   source_page, requirement, requirement_note, report_template, with provenance fields, CHECK constraints, RLS and audit
   triggers
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -25,7 +25,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:19.113Z'
+  at: '2026-10-05T09:39:43.584Z'
 ---
 # TASK-013 — M1 schema: framework library tables
 

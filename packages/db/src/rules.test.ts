@@ -162,10 +162,13 @@ describe('worker role', () => {
 
   it('cannot change an extraction item status (AI cannot approve)', async () => {
     const jobId = await one(`insert into job (institution_id, type) values ($1, 'ai_extract') returning id`, [ids.instA]);
+    const acc = await one(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'A', 'A', 'regulatory') returning id`, [ids.instA]);
+    const fw = await one(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'F', 'both') returning id`, [ids.instA, acc]);
+    const ver = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, '1') returning id`, [ids.instA, fw]);
     const item = await db.as({ userId: ids.admin, institutionId: ids.instA, role: 'ams_worker' }, async (c) => {
       const r = await c.query(
         `insert into extraction_item (institution_id, framework_version_id, job_id, kind, payload)
-         values ($1, gen_random_uuid(), $2, 'requirement', '{}') returning id`, [ids.instA, jobId]);
+         values ($1, $3, $2, 'requirement', '{}') returning id`, [ids.instA, jobId, ver]);
       return r.rows[0].id as string;
     });
     await expect(db.as({ userId: ids.admin, institutionId: ids.instA, role: 'ams_worker' }, (c) =>
