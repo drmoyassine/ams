@@ -109,7 +109,7 @@ related_vision:
     url: /VISION.md#one-platform-many-frameworks
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:29.361Z'
+  at: '2026-10-05T10:07:20.748Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -142,6 +142,9 @@ related_tasks:
   - id: TASK-019
     name: Framework library UI
     url: /TASKS.md#TASK-019
+  - id: TASK-020
+    name: 'M1 acceptance: Appendix A skeleton fixtures and the publish/immutability gate test'
+    url: /TASKS.md#TASK-020
 ---
 
 Source: PRD §0, §2 P1, §7. (docs/PRD.md).
@@ -296,7 +299,7 @@ related_vision:
     url: /VISION.md#trustworthy-traceability
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:29.361Z'
+  at: '2026-10-05T10:07:20.748Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -326,6 +329,9 @@ related_tasks:
   - id: TASK-019
     name: Framework library UI
     url: /TASKS.md#TASK-019
+  - id: TASK-020
+    name: 'M1 acceptance: Appendix A skeleton fixtures and the publish/immutability gate test'
+    url: /TASKS.md#TASK-020
 ---
 
 Source: PRD §6.3, §15, §16, invariants 1–3, 7. (docs/PRD.md).

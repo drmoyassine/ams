@@ -1,0 +1,448 @@
+{
+  "format": "ams-framework",
+  "format_version": 1,
+  "accreditor": {
+    "name": "Private Universities Council",
+    "short_name": "PUC",
+    "type": "institutional",
+    "country": "KW",
+    "website": null
+  },
+  "framework": {
+    "name": "Institutional Accreditation Guide",
+    "commission": null,
+    "scope": "institution",
+    "description": "Skeleton fixture from PRD Appendix A.3: Arabic official text, measures and indicators are pending the source document (TASK-011)."
+  },
+  "version": {
+    "edition": "2019",
+    "effective_from": null,
+    "effective_to": null,
+    "change_summary": "Fixture skeleton (Appendix A.3)"
+  },
+  "config": {
+    "level_labels": [
+      "Standard",
+      "Measure",
+      "Indicator"
+    ],
+    "lifecycle_template": {
+      "phases": [
+        {
+          "type": "eligibility",
+          "name": "Eligibility",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "puc_request_letter",
+              "name": "PUC request letter received",
+              "type": "decision_point",
+              "due": null,
+              "description": "Attach the letter."
+            }
+          ]
+        },
+        {
+          "type": "self_study",
+          "name": "Self-study",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "assign_section_owners",
+              "name": "Assign section owners",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "data_tables_complete",
+              "name": "Data tables complete",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "draft_complete",
+              "name": "Draft complete",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "board_approval",
+              "name": "Board approval",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "attestation_signed",
+              "name": "Attestation signed",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "submit_self_study",
+              "name": "Submit self-study",
+              "type": "submission",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": 0
+              },
+              "deliverable": {
+                "report_template_key": "puc_self_study"
+              }
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "name": "Review",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "committee_review",
+              "name": "Committee review or visit",
+              "type": "external_event",
+              "due": null,
+              "description": "Confirm with PUC."
+            },
+            {
+              "key": "respond_to_queries",
+              "name": "Respond to queries",
+              "type": "submission",
+              "due": null
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "name": "Decision",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "puc_decision_letter",
+              "name": "PUC decision letter",
+              "type": "decision_point",
+              "due": {
+                "anchor": "decision_date",
+                "offset_days": 0
+              }
+            }
+          ]
+        },
+        {
+          "type": "maintenance",
+          "name": "Maintenance",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "implementation_plan",
+              "name": "Implementation plan against conditions",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "condition_progress_reports",
+              "name": "Condition progress reports",
+              "type": "submission",
+              "due": null,
+              "required": false,
+              "description": "Confirm with PUC."
+            },
+            {
+              "key": "start_next_cycle",
+              "name": "Start next cycle",
+              "type": "task",
+              "due": {
+                "anchor": "expiry_date",
+                "offset_days": -365
+              },
+              "required": false
+            }
+          ]
+        }
+      ],
+      "next_cycle": {
+        "start_offset_days_before_expiry": 365
+      }
+    },
+    "decision_vocab": [
+      {
+        "code": "accredited",
+        "label": "Accredited",
+        "outcome": "accredited"
+      },
+      {
+        "code": "accredited_with_conditions",
+        "label": "Accredited with conditions",
+        "outcome": "accredited_with_conditions"
+      },
+      {
+        "code": "not_accredited",
+        "label": "Not accredited",
+        "outcome": "not_accredited"
+      }
+    ],
+    "finding_vocab": [
+      {
+        "code": "condition",
+        "label": "Condition",
+        "requires_action": true
+      }
+    ],
+    "response_vocab": [
+      {
+        "code": "query_letter",
+        "label": "Query letter",
+        "reply_required": true
+      },
+      {
+        "code": "decision_letter",
+        "label": "Decision letter",
+        "reply_required": false,
+        "is_decision": true
+      }
+    ],
+    "report_templates": [
+      {
+        "key": "puc_self_study",
+        "name": "Item 11: Institutional Evaluation Data",
+        "kind": "self_study",
+        "language": "ar",
+        "requires_attestation": true,
+        "structure": {
+          "sections": [
+            {
+              "key": "1",
+              "title": "General information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "2",
+              "title": "Mission and goals",
+              "block_type": "narrative"
+            },
+            {
+              "key": "3",
+              "title": "Partner (affiliated) university",
+              "block_type": "narrative"
+            },
+            {
+              "key": "4",
+              "title": "Administration",
+              "block_type": "narrative"
+            },
+            {
+              "key": "5",
+              "title": "Academic programs",
+              "block_type": "narrative",
+              "children": [
+                {
+                  "key": "5a",
+                  "title": "Current programs",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "program",
+                      "label": "Program",
+                      "type": "text"
+                    }
+                  ]
+                },
+                {
+                  "key": "5b",
+                  "title": "Programs under evaluation or accreditation",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "program",
+                      "label": "Program",
+                      "type": "text"
+                    }
+                  ]
+                },
+                {
+                  "key": "5c",
+                  "title": "Internationally accredited programs",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "program",
+                      "label": "Program",
+                      "type": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "6",
+              "title": "Admission and registration",
+              "block_type": "narrative"
+            },
+            {
+              "key": "7",
+              "title": "Assessment and examinations",
+              "block_type": "narrative"
+            },
+            {
+              "key": "8",
+              "title": "Faculty",
+              "block_type": "narrative"
+            },
+            {
+              "key": "9",
+              "title": "Workforce",
+              "block_type": "narrative"
+            },
+            {
+              "key": "10",
+              "title": "Infrastructure",
+              "block_type": "narrative"
+            },
+            {
+              "key": "11",
+              "title": "Financial position",
+              "block_type": "narrative"
+            },
+            {
+              "key": "12",
+              "title": "Records and files",
+              "block_type": "narrative"
+            },
+            {
+              "key": "13",
+              "title": "Campus environment",
+              "block_type": "narrative"
+            },
+            {
+              "key": "14",
+              "title": "Attestation of accuracy",
+              "block_type": "attestation"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "source_documents": [],
+  "requirements": [
+    {
+      "code": "1",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Mission, goals, vision and strategic planning",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "2",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Teaching and learning",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "3",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Governance, leadership and administration",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "4",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Students",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "5",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Faculty and support staff",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "6",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Institutional resources",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "7",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Scientific research and innovation",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    }
+  ]
+}

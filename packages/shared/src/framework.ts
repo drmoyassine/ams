@@ -156,7 +156,7 @@ export const ReportTemplateConfigSchema = z.object({
   kind: z.enum(TEMPLATE_KINDS),
   language: z.string().min(2).default('en'),
   structure: ReportTemplateStructureSchema,
-  word_limit: z.number().int().positive().nullable().optional(),
+  word_limit: z.number().int().positive().nullable().default(null),
   requires_attestation: z.boolean().default(false),
 }).strict();
 
@@ -192,12 +192,12 @@ export function checkFrameworkConfig(c: FrameworkConfig): ConfigIssue[] {
   if (templates.size !== c.report_templates.length) add('report_templates', 'template keys must be unique');
 
   const milestoneKeys = new Set<string>();
-  const milestones: { phase: string; m: z.infer<typeof MilestoneTemplateSchema>; path: string }[] = [];
+  const milestones: { m: z.infer<typeof MilestoneTemplateSchema>; path: string }[] = [];
   c.lifecycle_template.phases.forEach((p, pi) => p.milestones.forEach((m, mi) => {
     const path = `lifecycle_template.phases[${pi}].milestones[${mi}]`;
     if (milestoneKeys.has(m.key)) add(path, `duplicate milestone key ${m.key}`);
     milestoneKeys.add(m.key);
-    milestones.push({ phase: p.type, m, path });
+    milestones.push({ m, path });
   }));
   for (const { m, path } of milestones) {
     if (m.due && 'after' in m.due && !milestoneKeys.has(m.due.after)) add(`${path}.due`, `unknown milestone ${m.due.after}`);
@@ -205,9 +205,17 @@ export function checkFrameworkConfig(c: FrameworkConfig): ConfigIssue[] {
     if (dk && !templates.has(dk)) add(`${path}.deliverable`, `unknown report template ${dk}`);
   }
 
-  const selfStudy = milestones.filter(({ m }) => m.deliverable && templates.get(m.deliverable.report_template_key)?.kind === 'self_study');
-  if (selfStudy.length !== 1) {
-    add('lifecycle_template', `exactly one milestone must deliver a self_study template (found ${selfStudy.length})`);
+  // Every engagement kind the lifecycle serves must produce exactly one self-study report. A milestone belongs to a
+  // kind when both its phase and (if it narrows it) the milestone itself apply to that kind.
+  const kinds = new Set(c.lifecycle_template.phases.flatMap((p) => p.applies_to));
+  for (const kind of ENGAGEMENT_KINDS.filter((k) => kinds.has(k))) {
+    const deliverers = c.lifecycle_template.phases
+      .filter((p) => p.applies_to.includes(kind))
+      .flatMap((p) => p.milestones)
+      .filter((m) => (m.applies_to ?? ENGAGEMENT_KINDS).includes(kind) && m.deliverable && templates.get(m.deliverable.report_template_key)?.kind === 'self_study');
+    if (deliverers.length !== 1) {
+      add('lifecycle_template', `exactly one milestone must deliver a self_study template for ${kind} engagements (found ${deliverers.length})`);
+    }
   }
 
   c.decision_vocab.forEach((d, di) => d.follow_up?.forEach((f, fi) => {

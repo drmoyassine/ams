@@ -14,6 +14,26 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — M1 built (TASK-013..020); real fixtures still blocked on documents
+
+M1 (ROADMAP-002) is implemented end to end: schema (PRD 6.2), database-enforced immutability and publish gate (6.9 #1-3), Zod config schemas with cross-reference checks, core services, JSON import/export, API, and the SPA (framework list, import, tree editor, notes with authority badges, lifecycle/vocabulary/template JSON editors, review and publish, new version from a published one).
+
+Learnings a future session needs:
+- **Triggers bind the owner.** `a_version_frozen`, `a_version_lifecycle`, `b_publish_gate`, `b_no_sample_requirements` fire for every role, including the migration owner and tests using the superuser connection. Trigger names sort alphabetically and `stamp_actor` runs after them.
+- **Status graph:** `draft -> in_review -> published -> retired` (in_review may return to draft). A new version must start as `draft`. Once published only `status` can change (to `retired`).
+- **Publish gate covers** every requirement and note approved, every `required` note quote-verified, every `origin = ai` item with a source reference. Report templates are not part of the approval gate in the PRD (they have a review flag the UI uses).
+- **Editing returns content to review.** Any edit to a requirement, note or template resets `review_status` to `pending`; approvals refer to exactly what was approved.
+- **Quote verification** is `normalizeForQuote` (NFC, whitespace, case, quotes, dashes, Arabic diacritics and tatweel, zero-width marks) against the stored `source_page.text`. Clients never send `quote_verified`.
+- **Self-study rule is per engagement kind:** each kind a lifecycle serves must have exactly one milestone delivering a `self_study` template (WSCUC initial and reaffirmation each have one). PRD 7.4 says "exactly one"; this is the reading that makes WSCUC's two lifecycles valid.
+- **OpenAPI cannot expand a recursive Zod schema** (report template sections use `z.lazy`); the template route takes `structure` as opaque JSON and the service validates it.
+- **Tests under jsdom:** `import.meta.url` was not a `file:` URL for workspace packages, so `@ams/db` uses `import.meta.dirname`. UI tests run the real API in-process through the typed client.
+- `/api/me` returns the caller's roles and effective permissions so the SPA shows only actions the API will accept; the API still enforces every one.
+- UI strings in the framework pages are inline English with `t(key, default)` only on titles and navigation; extraction to resources is still to do before Arabic UI work.
+
+**Fixtures are skeletons.** `packages/db/fixtures/` holds WSCUC 2023, ABET EAC 2027-28 and PUC 2019 built from PRD Appendix A (lifecycles, vocabularies, report templates, requirement codes). Verbatim requirement text, notes and quotes are not included because the source documents are not in the repository. See `packages/db/fixtures/README.md`. TASK-011 and TASK-012 stay pending and keep ROADMAP-002 In Progress until the documents are supplied.
+
+---
+
 ## 2026-10-05 — First deploy to Easypanel
 
 Deployed `compose.yaml` (branch `claude/check-and-proceed-i4izas`) as Compose service `management/ams` on the owner's Easypanel (Easypanel would not create a new project: project limit; owner chose `management`). Source is the private repo over an SSH deploy key (`easypanel-ams`, read-only). Domain `ams-app.4ky7uo.easypanel.host` -> compose service `app`, port 3000. Env (generated secrets, `APP_URL`, seeded admin `admin@ams.local`) lives only in the Easypanel service. Containers `app`, `worker`, `postgres`, `garage` were running; `garage-init` completed (the app depends on it). CI run 10 (compose-smoke) is green on Docker, including login and the protected route.

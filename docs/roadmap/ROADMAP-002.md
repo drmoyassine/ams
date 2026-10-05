@@ -26,7 +26,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:29.361Z'
+  at: '2026-10-05T10:07:20.748Z'
 related_tasks:
   - id: TASK-011
     name: 'Framework fixtures: WSCUC 2023 and PUC 2019'
@@ -55,6 +55,9 @@ related_tasks:
   - id: TASK-019
     name: Framework library UI
     url: /TASKS.md#TASK-019
+  - id: TASK-020
+    name: 'M1 acceptance: Appendix A skeleton fixtures and the publish/immutability gate test'
+    url: /TASKS.md#TASK-020
 ---
 # ROADMAP-002 — M1 — Framework library
 

@@ -1,0 +1,1015 @@
+{
+  "format": "ams-framework",
+  "format_version": 1,
+  "accreditor": {
+    "name": "ABET",
+    "short_name": "ABET",
+    "type": "programmatic",
+    "country": "US",
+    "website": null
+  },
+  "framework": {
+    "name": "Criteria for Accrediting Engineering Programs",
+    "commission": "EAC",
+    "scope": "program",
+    "description": "Skeleton fixture from PRD Appendix A.2: requirement text is pending the official Criteria document (TASK-012)."
+  },
+  "version": {
+    "edition": "2027-28",
+    "effective_from": null,
+    "effective_to": null,
+    "change_summary": "Fixture skeleton (Appendix A.2)"
+  },
+  "config": {
+    "level_labels": [
+      "Criterion",
+      "Item"
+    ],
+    "lifecycle_template": {
+      "phases": [
+        {
+          "type": "eligibility",
+          "name": "Readiness Review and RFE",
+          "applies_to": [
+            "initial"
+          ],
+          "milestones": [
+            {
+              "key": "confirm_graduate",
+              "name": "Confirm at least one graduate within the two academic years before the visit",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "rrev_request",
+              "name": "Submit Request for Readiness Review",
+              "type": "submission",
+              "due": {
+                "fixed": "08-15",
+                "year_offset": -1
+              }
+            },
+            {
+              "key": "rrev_report",
+              "name": "Submit Readiness Review Report and transcripts",
+              "type": "submission",
+              "due": {
+                "fixed": "09-01",
+                "year_offset": -1
+              },
+              "deliverable": {
+                "report_template_key": "readiness"
+              }
+            },
+            {
+              "key": "rrev_fee",
+              "name": "Pay Readiness Review fee",
+              "type": "task",
+              "due": {
+                "fixed": "11-30",
+                "year_offset": -1
+              }
+            },
+            {
+              "key": "rrev_recommendation",
+              "name": "Readiness Review recommendation received",
+              "type": "decision_point",
+              "due": {
+                "fixed": "12-20",
+                "year_offset": -1
+              }
+            },
+            {
+              "key": "notify_abet",
+              "name": "Notify ABET of decision",
+              "type": "submission",
+              "due": {
+                "fixed": "01-15",
+                "year_offset": 0
+              }
+            },
+            {
+              "key": "rfe_submit_initial",
+              "name": "Submit RFE signed by the CEO, one transcript per program, and the Request for Acknowledgement",
+              "type": "submission",
+              "due": {
+                "fixed": "01-31",
+                "year_offset": 0
+              }
+            }
+          ]
+        },
+        {
+          "type": "eligibility",
+          "name": "Request for Evaluation",
+          "applies_to": [
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "rfe_submit",
+              "name": "Submit RFE",
+              "type": "submission",
+              "due": {
+                "fixed": "01-31",
+                "year_offset": 0
+              }
+            }
+          ]
+        },
+        {
+          "type": "self_study",
+          "name": "Self-Study Report",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "assign_criterion_owners",
+              "name": "Assign criterion owners",
+              "type": "task",
+              "due": {
+                "fixed": "09-01",
+                "year_offset": -1
+              }
+            },
+            {
+              "key": "complete_tables",
+              "name": "Complete Tables 5-1, 6-1, 6-2, D-1, D-2",
+              "type": "task",
+              "due": {
+                "fixed": "04-15",
+                "year_offset": 0
+              }
+            },
+            {
+              "key": "ssr_draft",
+              "name": "Draft SSR complete",
+              "type": "task",
+              "due": {
+                "fixed": "05-15",
+                "year_offset": 0
+              }
+            },
+            {
+              "key": "internal_approval",
+              "name": "Internal approval",
+              "type": "task",
+              "due": {
+                "fixed": "06-15",
+                "year_offset": 0
+              }
+            },
+            {
+              "key": "ssr_submit",
+              "name": "Submit Self-Study Report",
+              "type": "submission",
+              "due": {
+                "fixed": "07-01",
+                "year_offset": 0
+              },
+              "deliverable": {
+                "report_template_key": "ssr"
+              }
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "name": "Review",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "pay_invoice",
+              "name": "Pay invoice",
+              "type": "task",
+              "due": {
+                "fixed": "05-31",
+                "year_offset": 0
+              },
+              "description": "Due 30 days after the invoice; about 31 May."
+            },
+            {
+              "key": "review_team_conflicts",
+              "name": "Review team for conflicts",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "on_site_visit",
+              "name": "On-site visit",
+              "type": "external_event",
+              "due": {
+                "anchor": "visit_date",
+                "offset_days": 0
+              },
+              "description": "September to December of the review year."
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "name": "Decision",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "draft_statement_received",
+              "name": "Draft Statement received",
+              "type": "external_event",
+              "due": null
+            },
+            {
+              "key": "due_process_response",
+              "name": "Submit the 30-day due-process response",
+              "type": "submission",
+              "due": {
+                "after": "draft_statement_received",
+                "offset_days": 30
+              },
+              "deliverable": {
+                "report_template_key": "due_process"
+              }
+            },
+            {
+              "key": "july_commission_meeting",
+              "name": "July Commission meeting",
+              "type": "external_event",
+              "due": {
+                "fixed": "07-15",
+                "year_offset": 1
+              }
+            },
+            {
+              "key": "final_statement_received",
+              "name": "Final Statement received",
+              "type": "decision_point",
+              "due": {
+                "fixed": "08-31",
+                "year_offset": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "maintenance",
+          "name": "Maintenance",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "report_program_changes",
+              "name": "Report program changes during the accreditation period",
+              "type": "task",
+              "due": null,
+              "required": false
+            },
+            {
+              "key": "start_next_cycle",
+              "name": "Start next cycle",
+              "type": "task",
+              "due": null,
+              "required": false
+            }
+          ]
+        }
+      ],
+      "next_cycle": {
+        "start_offset_days_before_expiry": 730
+      }
+    },
+    "decision_vocab": [
+      {
+        "code": "NGR",
+        "label": "Next General Review",
+        "outcome": "accredited",
+        "term_years": 6,
+        "follow_up": [
+          {
+            "milestone_key": "next_rfe",
+            "name": "Submit RFE for the next general review",
+            "type": "submission",
+            "due": {
+              "fixed": "01-31",
+              "year_offset": 6
+            }
+          }
+        ]
+      },
+      {
+        "code": "IR",
+        "label": "Interim Report",
+        "outcome": "accredited",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "interim_report",
+            "name": "Submit Interim Report",
+            "type": "submission",
+            "deliverable": {
+              "report_template_key": "interim"
+            },
+            "due": {
+              "fixed": "07-01",
+              "year_offset": 2
+            }
+          }
+        ]
+      },
+      {
+        "code": "IV",
+        "label": "Interim Visit",
+        "outcome": "accredited",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "interim_report",
+            "name": "Submit Interim Report",
+            "type": "submission",
+            "deliverable": {
+              "report_template_key": "interim"
+            },
+            "due": {
+              "fixed": "07-01",
+              "year_offset": 2
+            }
+          },
+          {
+            "milestone_key": "interim_visit",
+            "name": "Interim visit",
+            "type": "external_event",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "SCR",
+        "label": "Show Cause Report",
+        "outcome": "accredited_with_conditions",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "summary_to_students",
+            "name": "Send the summary of reasons and corrective actions to students and faculty",
+            "type": "task",
+            "due": {
+              "after": "final_statement_received",
+              "offset_days": 60
+            }
+          },
+          {
+            "milestone_key": "show_cause_report",
+            "name": "Submit Show Cause Report",
+            "type": "submission",
+            "due": {
+              "fixed": "07-01",
+              "year_offset": 2
+            }
+          }
+        ]
+      },
+      {
+        "code": "SCV",
+        "label": "Show Cause Visit",
+        "outcome": "accredited_with_conditions",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "summary_to_students",
+            "name": "Send the summary of reasons and corrective actions to students and faculty",
+            "type": "task",
+            "due": {
+              "after": "final_statement_received",
+              "offset_days": 60
+            }
+          },
+          {
+            "milestone_key": "show_cause_report",
+            "name": "Submit Show Cause Report",
+            "type": "submission",
+            "due": {
+              "fixed": "07-01",
+              "year_offset": 2
+            }
+          },
+          {
+            "milestone_key": "show_cause_visit",
+            "name": "Show cause visit",
+            "type": "external_event",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "RE",
+        "label": "Reevaluation",
+        "outcome": "accredited",
+        "term_options": [
+          2,
+          4
+        ],
+        "follow_up": [
+          {
+            "milestone_key": "next_rfe",
+            "name": "Submit RFE for the next evaluation (year offset entered with the decision)",
+            "type": "submission",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "VE",
+        "label": "Visit Evaluation",
+        "outcome": "accredited",
+        "term_options": [
+          2,
+          4
+        ],
+        "follow_up": [
+          {
+            "milestone_key": "next_rfe",
+            "name": "Submit RFE for the next evaluation (year offset entered with the decision)",
+            "type": "submission",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "SE",
+        "label": "Self-Study Evaluation",
+        "outcome": "accredited",
+        "term_options": [
+          2,
+          4
+        ],
+        "follow_up": [
+          {
+            "milestone_key": "next_rfe",
+            "name": "Submit RFE for the next evaluation (year offset entered with the decision)",
+            "type": "submission",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "NA",
+        "label": "Not to Accredit",
+        "outcome": "not_accredited"
+      }
+    ],
+    "finding_vocab": [
+      {
+        "code": "deficiency",
+        "label": "Deficiency",
+        "requires_action": true
+      },
+      {
+        "code": "weakness",
+        "label": "Weakness",
+        "requires_action": true
+      },
+      {
+        "code": "concern",
+        "label": "Concern",
+        "requires_action": true
+      },
+      {
+        "code": "observation",
+        "label": "Observation",
+        "requires_action": false
+      }
+    ],
+    "response_vocab": [
+      {
+        "code": "rev_recommendation",
+        "label": "Readiness Review recommendation",
+        "reply_required": true,
+        "reply_due": {
+          "fixed": "01-15",
+          "year_offset": 0
+        },
+        "reply_kind": "letter",
+        "item_categories": [
+          "recommendation"
+        ]
+      },
+      {
+        "code": "rfe_acknowledgement",
+        "label": "RFE acknowledgement",
+        "reply_required": false
+      },
+      {
+        "code": "draft_statement",
+        "label": "Draft Statement",
+        "reply_required": true,
+        "reply_window_days": 30,
+        "reply_kind": "report",
+        "reply_template_key": "due_process",
+        "item_categories": [
+          "finding",
+          "correction"
+        ]
+      },
+      {
+        "code": "post_due_process_permission",
+        "label": "Permission to submit additional information",
+        "reply_required": false,
+        "reply_kind": "report",
+        "reply_template_key": "due_process",
+        "reply_due": {
+          "fixed": "07-15",
+          "year_offset": 1
+        }
+      },
+      {
+        "code": "final_statement",
+        "label": "Final Statement",
+        "reply_required": false,
+        "is_decision": true
+      }
+    ],
+    "report_templates": [
+      {
+        "key": "readiness",
+        "name": "Readiness Review Report",
+        "kind": "readiness",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "BG",
+              "title": "Background Information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "CRIT",
+              "title": "Criteria 1-8",
+              "block_type": "narrative"
+            },
+            {
+              "key": "PRR",
+              "title": "Program for Readiness Review",
+              "block_type": "narrative"
+            },
+            {
+              "key": "APP",
+              "title": "Appendices (discipline-specific syllabi only)",
+              "block_type": "appendix"
+            }
+          ]
+        }
+      },
+      {
+        "key": "ssr",
+        "name": "Self-Study Report",
+        "kind": "self_study",
+        "language": "en",
+        "requires_attestation": true,
+        "structure": {
+          "sections": [
+            {
+              "key": "BG",
+              "title": "Background Information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "C1",
+              "title": "Criterion 1: Students",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 1"
+              ]
+            },
+            {
+              "key": "C2",
+              "title": "Criterion 2: Program Educational Objectives",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 2"
+              ]
+            },
+            {
+              "key": "C3",
+              "title": "Criterion 3: Student Outcomes",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 3"
+              ],
+              "children": [
+                {
+                  "key": "C3-MAP",
+                  "title": "Student Outcome to Program Educational Objective mapping",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "outcome",
+                      "label": "Student outcome",
+                      "type": "text"
+                    },
+                    {
+                      "key": "peo",
+                      "label": "Program educational objectives",
+                      "type": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "C4",
+              "title": "Criterion 4: Continuous Improvement",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 4"
+              ]
+            },
+            {
+              "key": "C5",
+              "title": "Criterion 5: Curriculum",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 5"
+              ],
+              "children": [
+                {
+                  "key": "T5-1",
+                  "title": "Table 5-1 Curriculum",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "course",
+                      "label": "Course (Dept, Number, Title)",
+                      "type": "text"
+                    },
+                    {
+                      "key": "req",
+                      "label": "R / E / SE",
+                      "type": "enum",
+                      "options": [
+                        "R",
+                        "E",
+                        "SE"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "C6",
+              "title": "Criterion 6: Faculty",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 6"
+              ],
+              "children": [
+                {
+                  "key": "T6-1",
+                  "title": "Table 6-1 Faculty Qualifications",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "item",
+                      "label": "Item",
+                      "type": "text"
+                    }
+                  ]
+                },
+                {
+                  "key": "T6-2",
+                  "title": "Table 6-2 Faculty Workload",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "item",
+                      "label": "Item",
+                      "type": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "C7",
+              "title": "Criterion 7: Facilities",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 7"
+              ]
+            },
+            {
+              "key": "C8",
+              "title": "Criterion 8: Institutional Support",
+              "block_type": "narrative",
+              "requirement_codes": [
+                "Criterion 8"
+              ]
+            },
+            {
+              "key": "PC",
+              "title": "Program Criteria",
+              "block_type": "narrative"
+            },
+            {
+              "key": "APP-A",
+              "title": "Appendix A: Course Syllabi",
+              "block_type": "appendix"
+            },
+            {
+              "key": "APP-B",
+              "title": "Appendix B: Faculty Vitae",
+              "block_type": "appendix"
+            },
+            {
+              "key": "APP-C",
+              "title": "Appendix C: Equipment",
+              "block_type": "appendix"
+            },
+            {
+              "key": "APP-D",
+              "title": "Appendix D: Institutional Summary",
+              "block_type": "narrative",
+              "children": [
+                {
+                  "key": "TD-1",
+                  "title": "Table D-1 Program Enrollment and Degree Data",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "item",
+                      "label": "Item",
+                      "type": "text"
+                    }
+                  ]
+                },
+                {
+                  "key": "TD-2",
+                  "title": "Table D-2 Personnel",
+                  "block_type": "data_table",
+                  "columns": [
+                    {
+                      "key": "item",
+                      "label": "Item",
+                      "type": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "SIG",
+              "title": "Signature attesting to compliance",
+              "block_type": "attestation"
+            }
+          ]
+        }
+      },
+      {
+        "key": "interim",
+        "name": "Interim Report",
+        "kind": "follow_up",
+        "language": "en",
+        "requires_attestation": true,
+        "structure": {
+          "sections": [
+            {
+              "key": "A",
+              "title": "A. Contact information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "B",
+              "title": "B. Deficiencies, Weaknesses and Concerns from the previous evaluation and actions taken",
+              "block_type": "feedback_response"
+            },
+            {
+              "key": "C",
+              "title": "C. Additional evidence to be provided during the visit",
+              "block_type": "narrative"
+            },
+            {
+              "key": "SUB",
+              "title": "Submission attesting to compliance",
+              "block_type": "attestation"
+            }
+          ]
+        }
+      },
+      {
+        "key": "due_process",
+        "name": "Due-process response",
+        "kind": "response",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "R",
+              "title": "Response per shortcoming",
+              "block_type": "feedback_response",
+              "prompt": "Items of category finding."
+            },
+            {
+              "key": "CF",
+              "title": "Corrections of fact",
+              "block_type": "feedback_response",
+              "prompt": "Items of category correction."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "source_documents": [],
+  "requirements": [
+    {
+      "code": "Criterion 1",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 1: Students",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 2",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 2: Program Educational Objectives",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 3",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 3: Student Outcomes",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 4",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 4: Continuous Improvement",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 5",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 5: Curriculum",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 6",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 6: Faculty",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 7",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 7: Facilities",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Criterion 8",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Criterion 8: Institutional Support",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Program Criteria: Mechanical",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Program Criteria: Mechanical Engineering",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ],
+        "program_tags": [
+          "mechanical"
+        ]
+      },
+      "display_order": 20,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "APPM I.C",
+      "parent_code": null,
+      "level_label": "Item",
+      "title": "APPM I.C: Eligibility",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 30,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "APPM Program Name",
+      "parent_code": null,
+      "level_label": "Item",
+      "title": "APPM: Program name rules",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ]
+      },
+      "display_order": 31,
+      "weight": null,
+      "source": null,
+      "notes": []
+    }
+  ]
+}

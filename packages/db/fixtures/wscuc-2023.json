@@ -1,0 +1,1529 @@
+{
+  "format": "ams-framework",
+  "format_version": 1,
+  "accreditor": {
+    "name": "WASC Senior College and University Commission",
+    "short_name": "WSCUC",
+    "type": "institutional",
+    "country": "US",
+    "website": null
+  },
+  "framework": {
+    "name": "WSCUC Handbook of Accreditation",
+    "commission": null,
+    "scope": "institution",
+    "description": "Skeleton fixture from PRD Appendix A.1: requirement text is pending the source document."
+  },
+  "version": {
+    "edition": "2023",
+    "effective_from": null,
+    "effective_to": null,
+    "change_summary": "Fixture skeleton (Appendix A.1)"
+  },
+  "config": {
+    "level_labels": [
+      "Standard",
+      "CFR"
+    ],
+    "lifecycle_template": {
+      "phases": [
+        {
+          "type": "eligibility",
+          "name": "Eligibility",
+          "applies_to": [
+            "initial"
+          ],
+          "milestones": [
+            {
+              "key": "submit_inquiry",
+              "name": "Submit inquiry",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "intro_meeting",
+              "name": "Introductory meeting",
+              "type": "external_event",
+              "due": {
+                "after": "submit_inquiry",
+                "offset_days": 2
+              },
+              "description": "About 2 business days after the inquiry."
+            },
+            {
+              "key": "pay_eligibility_fee",
+              "name": "Pay eligibility review fee",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "submit_notice_of_intent",
+              "name": "Submit Notice of Intent",
+              "type": "submission",
+              "due": null
+            },
+            {
+              "key": "submit_programs_locations",
+              "name": "Submit Programs & Locations at Eligibility form",
+              "type": "submission",
+              "due": null
+            },
+            {
+              "key": "alignment_review_submission",
+              "name": "Submit Alignment Review Submission Form",
+              "type": "submission",
+              "due": null,
+              "deliverable": {
+                "report_template_key": "alignment_review"
+              }
+            },
+            {
+              "key": "financial_review",
+              "name": "Financial Review",
+              "type": "external_event",
+              "due": null
+            },
+            {
+              "key": "eligibility_decision",
+              "name": "Eligibility decision",
+              "type": "decision_point",
+              "due": {
+                "after": "alignment_review_submission",
+                "offset_days": 84
+              },
+              "description": "Within 60 business days of complete materials (84 calendar days used as the default; confirm)."
+            },
+            {
+              "key": "submit_application",
+              "name": "Submit Application for Accreditation",
+              "type": "submission",
+              "due": {
+                "after": "eligibility_decision",
+                "offset_days": 0
+              }
+            },
+            {
+              "key": "pay_sav1_fee",
+              "name": "Pay SAV1 fee",
+              "type": "task",
+              "due": null
+            }
+          ]
+        },
+        {
+          "type": "self_study",
+          "name": "Self-study (initial)",
+          "applies_to": [
+            "initial"
+          ],
+          "milestones": [
+            {
+              "key": "sav_preparation",
+              "name": "Seeking Accreditation Visit preparation",
+              "type": "task",
+              "due": null
+            },
+            {
+              "key": "initial_self_study_report",
+              "name": "Self-study report",
+              "type": "submission",
+              "due": null,
+              "deliverable": {
+                "report_template_key": "institutional_report"
+              },
+              "description": "Confirm the sequence against the How to Become Accredited manual."
+            }
+          ]
+        },
+        {
+          "type": "self_study",
+          "name": "Self-study (reaffirmation)",
+          "applies_to": [
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "liaison_consultation",
+              "name": "Consultation with WSCUC staff liaison",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -540
+              }
+            },
+            {
+              "key": "review_accreditation_history",
+              "name": "Review accreditation history: last team report, action letters, interim and substantive change documents",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -510
+              }
+            },
+            {
+              "key": "compliance_worksheet_draft",
+              "name": "Complete Compliance with Standards Worksheet draft",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -360
+              }
+            },
+            {
+              "key": "essays_drafted",
+              "name": "Essays drafted",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -150
+              }
+            },
+            {
+              "key": "internal_approval",
+              "name": "Internal approval",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -45
+              }
+            },
+            {
+              "key": "presidents_letter_signed",
+              "name": "President's letter signed",
+              "type": "task",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": -15
+              }
+            },
+            {
+              "key": "submit_institutional_report",
+              "name": "Submit Institutional Report",
+              "type": "submission",
+              "due": {
+                "anchor": "submission_date",
+                "offset_days": 0
+              },
+              "deliverable": {
+                "report_template_key": "institutional_report"
+              }
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "name": "Review (initial)",
+          "applies_to": [
+            "initial"
+          ],
+          "milestones": [
+            {
+              "key": "seeking_accreditation_visit",
+              "name": "Seeking Accreditation Visit(s)",
+              "type": "external_event",
+              "due": {
+                "anchor": "visit_date",
+                "offset_days": 0
+              }
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "name": "Review (reaffirmation)",
+          "applies_to": [
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "offsite_review",
+              "name": "Offsite Review",
+              "type": "external_event",
+              "due": null
+            },
+            {
+              "key": "accreditation_visit",
+              "name": "Accreditation Visit",
+              "type": "external_event",
+              "due": {
+                "anchor": "visit_date",
+                "offset_days": 0
+              }
+            },
+            {
+              "key": "response_to_team_report",
+              "name": "Response to team report",
+              "type": "submission",
+              "due": null
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "name": "Decision",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "commission_action",
+              "name": "Commission action",
+              "type": "decision_point",
+              "due": {
+                "anchor": "decision_date",
+                "offset_days": 0
+              }
+            },
+            {
+              "key": "action_letter_received",
+              "name": "Action letter received",
+              "type": "external_event",
+              "due": {
+                "after": "commission_action",
+                "offset_days": 30
+              },
+              "description": "Within 30 days of the decision."
+            }
+          ]
+        },
+        {
+          "type": "maintenance",
+          "name": "Maintenance",
+          "applies_to": [
+            "initial",
+            "reaffirmation"
+          ],
+          "milestones": [
+            {
+              "key": "annual_report",
+              "name": "Annual Report",
+              "type": "submission",
+              "due": null,
+              "description": "Yearly; submitted by the ALO. Due date to be confirmed with WSCUC (recurrence not set)."
+            },
+            {
+              "key": "follow_up_report",
+              "name": "Progress or interim report, or special visit, per the action letter",
+              "type": "task",
+              "due": null,
+              "required": false
+            },
+            {
+              "key": "start_next_cycle",
+              "name": "Start next cycle",
+              "type": "task",
+              "due": null,
+              "required": false,
+              "applies_to": [
+                "reaffirmation"
+              ]
+            }
+          ]
+        }
+      ],
+      "next_cycle": {
+        "start_offset_days_before_expiry": 730
+      }
+    },
+    "decision_vocab": [
+      {
+        "code": "reaffirm",
+        "label": "Reaffirm accreditation",
+        "outcome": "accredited",
+        "term_options": [
+          6,
+          8,
+          10
+        ]
+      },
+      {
+        "code": "initial",
+        "label": "Grant initial accreditation",
+        "outcome": "accredited",
+        "term_options": [
+          6,
+          8,
+          10
+        ]
+      },
+      {
+        "code": "candidacy",
+        "label": "Grant candidacy",
+        "outcome": "candidate",
+        "term_years": 5
+      },
+      {
+        "code": "defer",
+        "label": "Defer action",
+        "outcome": "deferred",
+        "term_years": 1,
+        "follow_up": [
+          {
+            "milestone_key": "deferral_report",
+            "name": "Submit the report requested in the deferral",
+            "type": "submission",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "notice_of_concern",
+        "label": "Issue a Notice of Concern",
+        "outcome": "accredited",
+        "follow_up": [
+          {
+            "milestone_key": "special_visit",
+            "name": "Special visit (within 4 years)",
+            "type": "external_event",
+            "due": null
+          }
+        ]
+      },
+      {
+        "code": "warning",
+        "label": "Issue a Warning",
+        "outcome": "sanctioned",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "wscuc_meeting",
+            "name": "Meeting with the Commission within 90 days",
+            "type": "external_event",
+            "due": {
+              "anchor": "decision_date",
+              "offset_days": 90
+            }
+          }
+        ]
+      },
+      {
+        "code": "probation",
+        "label": "Place on Probation",
+        "outcome": "sanctioned",
+        "term_years": 2,
+        "follow_up": [
+          {
+            "milestone_key": "wscuc_meeting",
+            "name": "Meeting with the Commission within 90 days",
+            "type": "external_event",
+            "due": {
+              "anchor": "decision_date",
+              "offset_days": 90
+            }
+          }
+        ]
+      },
+      {
+        "code": "show_cause",
+        "label": "Order to Show Cause",
+        "outcome": "sanctioned",
+        "term_years": 1,
+        "follow_up": [
+          {
+            "milestone_key": "wscuc_meeting",
+            "name": "Meeting with the Commission within 90 days",
+            "type": "external_event",
+            "due": {
+              "anchor": "decision_date",
+              "offset_days": 90
+            }
+          }
+        ]
+      },
+      {
+        "code": "deny",
+        "label": "Deny accreditation",
+        "outcome": "not_accredited"
+      },
+      {
+        "code": "withdraw",
+        "label": "Accreditation withdrawn",
+        "outcome": "withdrawn"
+      }
+    ],
+    "finding_vocab": [
+      {
+        "code": "recommendation",
+        "label": "Recommendation",
+        "requires_action": true
+      },
+      {
+        "code": "commendation",
+        "label": "Commendation",
+        "requires_action": false
+      }
+    ],
+    "response_vocab": [
+      {
+        "code": "eligibility_decision",
+        "label": "Eligibility decision",
+        "reply_required": false,
+        "is_decision": true
+      },
+      {
+        "code": "information_request",
+        "label": "Request for information",
+        "reply_required": true
+      },
+      {
+        "code": "team_report",
+        "label": "Team report",
+        "reply_required": false,
+        "reply_kind": "letter"
+      },
+      {
+        "code": "action_letter",
+        "label": "Action letter",
+        "reply_required": false,
+        "is_decision": true
+      },
+      {
+        "code": "annual_report_query",
+        "label": "Annual report query",
+        "reply_required": true
+      }
+    ],
+    "report_templates": [
+      {
+        "key": "alignment_review",
+        "name": "Alignment Review",
+        "kind": "application",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "1",
+              "title": "Institution information",
+              "block_type": "narrative"
+            },
+            {
+              "key": "2",
+              "title": "Mission, educational quality and values",
+              "block_type": "narrative",
+              "word_limit": 500
+            },
+            {
+              "key": "3",
+              "title": "Innovation aligned with mission",
+              "block_type": "narrative",
+              "word_limit": 500
+            },
+            {
+              "key": "4",
+              "title": "Institutional accreditations",
+              "block_type": "narrative"
+            },
+            {
+              "key": "5",
+              "title": "Strategic partnerships",
+              "block_type": "narrative"
+            },
+            {
+              "key": "6",
+              "title": "Enrollment",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "year",
+                  "label": "Year",
+                  "type": "text"
+                },
+                {
+                  "key": "ug_ft",
+                  "label": "Undergraduate full-time",
+                  "type": "number"
+                },
+                {
+                  "key": "ug_pt",
+                  "label": "Undergraduate part-time",
+                  "type": "number"
+                },
+                {
+                  "key": "gr_ft",
+                  "label": "Graduate full-time",
+                  "type": "number"
+                },
+                {
+                  "key": "gr_pt",
+                  "label": "Graduate part-time",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "7",
+              "title": "Retention",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "academic_year",
+                  "label": "Academic year",
+                  "type": "text"
+                },
+                {
+                  "key": "cohort_size",
+                  "label": "Cohort size",
+                  "type": "number"
+                },
+                {
+                  "key": "rate",
+                  "label": "Retention rate",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "8",
+              "title": "Graduation",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "cohort_year",
+                  "label": "Cohort year",
+                  "type": "text"
+                },
+                {
+                  "key": "cohort_size",
+                  "label": "Cohort size",
+                  "type": "number"
+                },
+                {
+                  "key": "rate_6yr",
+                  "label": "6-year graduation rate",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "9",
+              "title": "Post-graduation outcomes",
+              "block_type": "narrative"
+            },
+            {
+              "key": "10",
+              "title": "Authorization and governance",
+              "block_type": "narrative",
+              "word_limit": 500,
+              "children": [
+                {
+                  "key": "10a",
+                  "title": "Required uploads",
+                  "block_type": "appendix"
+                }
+              ]
+            },
+            {
+              "key": "11",
+              "title": "Sanctions",
+              "block_type": "narrative"
+            }
+          ]
+        }
+      },
+      {
+        "key": "institutional_report",
+        "name": "Institutional Report",
+        "kind": "self_study",
+        "language": "en",
+        "requires_attestation": true,
+        "structure": {
+          "sections": [
+            {
+              "key": "A",
+              "title": "Section A: Introduction",
+              "block_type": "narrative",
+              "children": [
+                {
+                  "key": "A1",
+                  "title": "Institutional context",
+                  "block_type": "narrative"
+                },
+                {
+                  "key": "A2",
+                  "title": "Process to prepare the report",
+                  "block_type": "narrative"
+                },
+                {
+                  "key": "A3",
+                  "title": "Response to previous Commission actions",
+                  "block_type": "feedback_response"
+                },
+                {
+                  "key": "A4",
+                  "title": "Other topics",
+                  "block_type": "narrative"
+                }
+              ]
+            },
+            {
+              "key": "B",
+              "title": "Section B: Essays",
+              "block_type": "narrative",
+              "children": [
+                {
+                  "key": "B1",
+                  "title": "Standard 1 essay",
+                  "block_type": "narrative",
+                  "requirement_codes": [
+                    "CFR 1.1",
+                    "CFR 1.2",
+                    "CFR 1.3",
+                    "CFR 1.4",
+                    "CFR 1.5",
+                    "CFR 1.6",
+                    "CFR 1.7",
+                    "CFR 1.8"
+                  ]
+                },
+                {
+                  "key": "B2",
+                  "title": "Standard 2 essay",
+                  "block_type": "narrative",
+                  "requirement_codes": [
+                    "CFR 2.1",
+                    "CFR 2.2",
+                    "CFR 2.3",
+                    "CFR 2.4",
+                    "CFR 2.5",
+                    "CFR 2.6",
+                    "CFR 2.7",
+                    "CFR 2.8",
+                    "CFR 2.9",
+                    "CFR 2.10",
+                    "CFR 2.11",
+                    "CFR 2.12",
+                    "CFR 2.13",
+                    "CFR 2.14"
+                  ]
+                },
+                {
+                  "key": "B3",
+                  "title": "Standard 3 essay",
+                  "block_type": "narrative",
+                  "requirement_codes": [
+                    "CFR 3.1",
+                    "CFR 3.2",
+                    "CFR 3.3",
+                    "CFR 3.4",
+                    "CFR 3.5",
+                    "CFR 3.6",
+                    "CFR 3.7",
+                    "CFR 3.8",
+                    "CFR 3.9",
+                    "CFR 3.10",
+                    "CFR 3.11"
+                  ]
+                },
+                {
+                  "key": "B4",
+                  "title": "Standard 4 essay",
+                  "block_type": "narrative",
+                  "requirement_codes": [
+                    "CFR 4.1",
+                    "CFR 4.2",
+                    "CFR 4.3",
+                    "CFR 4.4",
+                    "CFR 4.5",
+                    "CFR 4.6",
+                    "CFR 4.7",
+                    "CFR 4.8"
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "C",
+              "title": "Section C: Reflections",
+              "block_type": "narrative"
+            },
+            {
+              "key": "APP-I",
+              "title": "Appendix I: Compliance with Standards Worksheet",
+              "block_type": "compliance_matrix"
+            },
+            {
+              "key": "APP-II",
+              "title": "Appendix II: Federal Compliance Forms",
+              "block_type": "appendix"
+            },
+            {
+              "key": "APP-III",
+              "title": "Appendix III: Institutional Exhibits",
+              "block_type": "evidence_index"
+            },
+            {
+              "key": "ATT",
+              "title": "President's letter affirming accuracy",
+              "block_type": "attestation"
+            }
+          ]
+        },
+        "word_limit": 18000
+      },
+      {
+        "key": "annual_report",
+        "name": "Annual Report",
+        "kind": "annual",
+        "language": "en",
+        "requires_attestation": false,
+        "structure": {
+          "sections": [
+            {
+              "key": "1",
+              "title": "Student enrollment",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "category",
+                  "label": "Category",
+                  "type": "text"
+                },
+                {
+                  "key": "headcount",
+                  "label": "Headcount",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "2",
+              "title": "Student demographics",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "category",
+                  "label": "Category",
+                  "type": "text"
+                },
+                {
+                  "key": "headcount",
+                  "label": "Headcount",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "3",
+              "title": "Completions",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "program_level",
+                  "label": "Program level",
+                  "type": "text"
+                },
+                {
+                  "key": "completions",
+                  "label": "Completions",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "4",
+              "title": "Financial indicators",
+              "block_type": "data_table",
+              "columns": [
+                {
+                  "key": "indicator",
+                  "label": "Indicator",
+                  "type": "text"
+                },
+                {
+                  "key": "value",
+                  "label": "Value",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "key": "5",
+              "title": "Uploads: audited financial statements",
+              "block_type": "appendix"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "source_documents": [],
+  "requirements": [
+    {
+      "code": "Standard 1",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Standard 1",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.1",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.1",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.2",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.2",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.3",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.3",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.4",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.4",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.5",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.5",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.6",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.6",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.7",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.7",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 1.8",
+      "parent_code": "Standard 1",
+      "level_label": "CFR",
+      "title": "CFR 1.8",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Standard 2",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Standard 2",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.1",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.1",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.2",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.2",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.3",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.3",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.4",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.4",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.5",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.5",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.6",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.6",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.7",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.7",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.8",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.8",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.9",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.9",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 9,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.10",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.10",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 10,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.11",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.11",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 11,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.12",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.12",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 12,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.13",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.13",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 13,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 2.14",
+      "parent_code": "Standard 2",
+      "level_label": "CFR",
+      "title": "CFR 2.14",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 14,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Standard 3",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Standard 3",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.1",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.1",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.2",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.2",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.3",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.3",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.4",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.4",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.5",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.5",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.6",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.6",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.7",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.7",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.8",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.8",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.9",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.9",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 9,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.10",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.10",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 10,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 3.11",
+      "parent_code": "Standard 3",
+      "level_label": "CFR",
+      "title": "CFR 3.11",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 11,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "Standard 4",
+      "parent_code": null,
+      "level_label": "Standard",
+      "title": "Standard 4",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": false,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.1",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.1",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.2",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.2",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.3",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.3",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.4",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.4",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.5",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.5",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.6",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.6",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.7",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.7",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": null,
+      "notes": []
+    },
+    {
+      "code": "CFR 4.8",
+      "parent_code": "Standard 4",
+      "level_label": "CFR",
+      "title": "CFR 4.8",
+      "official_text": null,
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 8,
+      "weight": null,
+      "source": null,
+      "notes": []
+    }
+  ]
+}

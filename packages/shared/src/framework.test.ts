@@ -88,9 +88,15 @@ describe('framework configuration schemas', () => {
 
   it('requires a self_study deliverable in exactly one milestone', () => {
     expect(issuesOf(mutate((c) => { delete (c.lifecycle_template.phases[1]!.milestones[0] as { deliverable?: unknown }).deliverable; })))
-      .toContainEqual(expect.stringContaining('exactly one milestone must deliver a self_study template (found 0)'));
+      .toContainEqual(expect.stringContaining('exactly one milestone must deliver a self_study template for initial engagements (found 0)'));
     expect(issuesOf(mutate((c) => { c.lifecycle_template.phases[1]!.milestones[1] = { ...c.lifecycle_template.phases[1]!.milestones[0]!, key: 'ssr_again' }; })))
-      .toContainEqual(expect.stringContaining('(found 2)'));
+      .toContainEqual(expect.stringContaining('for initial engagements (found 2)'));
+    // Different kinds may each have their own self-study report: one milestone per kind is enough.
+    expect(issuesOf(mutate((c) => {
+      c.lifecycle_template.phases[1]!.applies_to = ['initial'];
+      c.lifecycle_template.phases.push({ type: 'self_study', name: 'Reaffirmation self-study', applies_to: ['reaffirmation'], milestones: [
+        { key: 'ssr_reaff', name: 'Submit', type: 'submission', deliverable: { report_template_key: 'ssr' }, due: null }] } as never);
+    }))).toEqual([]);
   });
 
   it('resolves references between milestones, templates and vocabularies', () => {

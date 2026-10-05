@@ -61,6 +61,7 @@ Full field lists: PRD §6. The shape:
 - **Responses & decisions** — accreditor_response (document required) → feedback_item (verbatim, category, severity, carried_from) → action; accreditation_status (append-only official record).
 - **Shared** — comment, audit_event (append-only), job, extraction_item (AI proposals).
 - **Tenancy** — every row carries institution_id; RLS keys on it.
+- **Framework library (M1)** — `packages/core/src/framework/` (versions, tree, notes, templates, sources, import/export); configuration schemas in `packages/shared/src/framework.ts`; immutability and the publish gate are database triggers (migration 0005). Fixtures in `packages/db/fixtures/`.
 
 Invariants (PRD §6.9) are enforced by triggers and constraints, not by convention.
 
