@@ -1037,7 +1037,7 @@ PRD §8.5. Running engagements are never changed automatically. A diff against t
 ---
 title: Requirement workspace service
 description: Statuses, owners, reviewers, working notes and applicability override
-status: pending
+status: completed
 priority: P0
 id: TASK-027
 last_updated: '2026-10-05'
@@ -1061,7 +1061,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:22.873Z'
+  at: '2026-10-05T13:06:25.672Z'
 ---
 
 # Requirement workspace service

@@ -6,3 +6,4 @@ export * from './engagements.js';
 export * from './common.js';
 export * from './roadmap.js';
 export * from './template-update.js';
+export * from './workspace.js';

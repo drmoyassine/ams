@@ -64,6 +64,13 @@
       "when": 1791204558773,
       "tag": "0008_m2_engagement_members",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791205400961,
+      "tag": "0009_m2_engagement_audit_read",
+      "breakpoints": true
     }
   ]
 }

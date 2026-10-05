@@ -163,3 +163,65 @@ export const ApplyTemplateUpdateSchema = z.object({
   decisions: z.record(z.string(), z.enum(['accept', 'ignore'])),
 }).strict();
 export type ApplyTemplateUpdate = z.infer<typeof ApplyTemplateUpdateSchema>;
+
+// ---- Requirement workspace (PRD 8.4) --------------------------------------------------------------------------
+
+export const NOTE_TYPES = ['guidance', 'evidence_expectation', 'data_request', 'quantitative_norm'] as const;
+export const NOTE_AUTHORITIES = ['required', 'example', 'suggested', 'ai_suggested', 'institution_defined'] as const;
+
+export const EngagementRequirementSchema = z.object({
+  id: z.string(), engagementId: z.string(), requirementId: z.string(),
+  code: z.string(), title: z.string(), levelLabel: z.string(), parentCode: z.string().nullable(), displayOrder: z.number(),
+  applicable: z.boolean(), naReason: z.string().nullable(),
+  ownerId: z.string().nullable(), reviewerId: z.string().nullable(),
+  status: z.enum(ENGAGEMENT_REQUIREMENT_STATUSES), dueDate: z.string().nullable(),
+});
+export type EngagementRequirement = z.infer<typeof EngagementRequirementSchema>;
+
+export const RequirementListSchema = z.object({
+  items: z.array(EngagementRequirementSchema),
+  /** Counts of applicable requirements by status. */
+  byStatus: z.record(z.string(), z.number()),
+});
+export type RequirementList = z.infer<typeof RequirementListSchema>;
+
+const sourceLink = z.object({ documentId: z.string(), page: z.number(), quote: z.string().nullable(), quoteVerified: z.boolean() }).nullable();
+
+export const WorkspaceSchema = z.object({
+  item: EngagementRequirementSchema,
+  requirement: z.object({
+    code: z.string(), title: z.string(), levelLabel: z.string(), officialText: z.string().nullable(), language: z.string(), translationEn: z.string().nullable(),
+    path: z.array(z.object({ code: z.string(), title: z.string() })),
+    source: sourceLink,
+  }),
+  notes: z.array(z.object({ id: z.string(), type: z.enum(NOTE_TYPES), text: z.string(), authority: z.enum(NOTE_AUTHORITIES), norm: z.unknown().nullable(), source: sourceLink })),
+  workingNotes: z.string().nullable(),
+  /** Statuses the caller may move this requirement to now. */
+  allowedStatuses: z.array(z.enum(ENGAGEMENT_REQUIREMENT_STATUSES)),
+  canAssign: z.boolean(),
+  canEdit: z.boolean(),
+  /** Report sections that cite this requirement: filled in when reports exist (M4). */
+  reports: z.array(z.object({ reportId: z.string(), title: z.string(), sectionKey: z.string() })),
+  history: z.array(z.object({ at: z.string(), actorName: z.string().nullable(), action: z.string(), changes: z.record(z.string(), z.object({ from: z.unknown(), to: z.unknown() })) })),
+});
+export type Workspace = z.infer<typeof WorkspaceSchema>;
+
+export const UpdateRequirementWorkSchema = z.object({
+  status: z.enum(ENGAGEMENT_REQUIREMENT_STATUSES).optional(),
+  workingNotes: z.string().nullable().optional(),
+  ownerId: z.uuid().nullable().optional(),
+  reviewerId: z.uuid().nullable().optional(),
+  dueDate: isoDate.nullable().optional(),
+}).strict();
+export type UpdateRequirementWork = z.infer<typeof UpdateRequirementWorkSchema>;
+
+export const SetApplicabilitySchema = z.object({ applicable: z.boolean(), reason: z.string().trim().min(1, 'a reason is required') }).strict();
+export type SetApplicability = z.infer<typeof SetApplicabilitySchema>;
+
+export const AssignRequirementsSchema = z.object({
+  requirementIds: z.array(z.uuid()).min(1),
+  ownerId: z.uuid().nullable().optional(),
+  reviewerId: z.uuid().nullable().optional(),
+  dueDate: isoDate.nullable().optional(),
+}).strict();
+export type AssignRequirements = z.infer<typeof AssignRequirementsSchema>;
