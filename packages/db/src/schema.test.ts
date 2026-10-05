@@ -2,7 +2,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations } from './migrate.js';
 
-const admin = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres@localhost:5432/postgres';
+const admin = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5432/postgres';
 const dbName = `ams_schema_${process.pid}`;
 const url = admin.replace(/\/[^/]*$/, `/${dbName}`);
 let client: pg.Client;

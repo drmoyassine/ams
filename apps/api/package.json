@@ -5,6 +5,21 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": { "build": "tsc -b" },
-  "dependencies": { "@ams/shared": "workspace:*", "@ams/db": "workspace:*", "@ams/core": "workspace:*" }
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@ams/core": "workspace:*",
+    "@ams/db": "workspace:*",
+    "@ams/shared": "workspace:*",
+    "@hono/node-server": "^2.1.3",
+    "@hono/zod-openapi": "^1.6.3",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.13",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
+  }
 }

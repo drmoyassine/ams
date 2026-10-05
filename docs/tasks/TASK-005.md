@@ -2,7 +2,7 @@
 id: TASK-005
 title: Hono API with the five-step middleware chain
 description: authenticate → authorize(requires) → transaction with SET LOCAL → validate → handle; OpenAPI
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -25,8 +25,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:51.277Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:53:26.247Z'
 ---
 # TASK-005 — Hono API with the five-step middleware chain
 

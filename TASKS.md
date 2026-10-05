@@ -220,7 +220,7 @@ Policies read current_setting('app.user_id') and current_setting('app.institutio
 id: TASK-005
 title: Hono API with the five-step middleware chain
 description: authenticate → authorize(requires) → transaction with SET LOCAL → validate → handle; OpenAPI
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -243,8 +243,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:51.277Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:53:26.247Z'
 ---
 
 Route registration helper requires a requires(permission, scope) declaration; the app refuses to start otherwise. Transaction helper sets app.user_id, app.institution_id, app.request_id. @hono/zod-openapi generates the spec. Serves the SPA build in production.

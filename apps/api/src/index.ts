@@ -1,1 +1,2 @@
-export const APP = '@ams/api';
+export * from './app.js';
+export * from './chain.js';

@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { runMigrations } from './migrate.js';
 
-const admin = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres@localhost:5432/postgres';
+const admin = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5432/postgres';
 
 export interface TestDb {
   url: string;

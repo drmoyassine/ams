@@ -6,6 +6,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "vitest run",
+    "test:routes": "vitest run apps/api/src/routes.test.ts",
     "db:test": "vitest run packages/db",
     "db:generate": "pnpm --filter @ams/db exec drizzle-kit generate",
     "typecheck": "tsc -b",

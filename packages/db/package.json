@@ -16,5 +16,15 @@
   "devDependencies": {
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./test-db": {
+      "types": "./dist/test-db.d.ts",
+      "default": "./dist/test-db.js"
+    }
   }
 }

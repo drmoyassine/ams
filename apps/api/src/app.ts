@@ -1,0 +1,41 @@
+import { OpenAPIHono } from '@hono/zod-openapi';
+import { ForbiddenError, NotFoundError } from '@ams/core';
+import {
+  assertAllRoutesDeclared, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
+} from './chain.js';
+import { registerRoutes } from './routes.js';
+import type pg from 'pg';
+
+export interface AppOptions {
+  pool: pg.Pool;
+  authenticate: Authenticator;
+  /** Extra route modules, registered before the startup check (used by tests to prove the check bites). */
+  extend?: (app: OpenAPIHono<AppEnv>, registry: RouteRegistry, deps: ChainDeps) => void;
+}
+
+/** Builds the API. Throws if any route lacks a permission declaration. */
+export function createApp(opts: AppOptions) {
+  const app = new OpenAPIHono<AppEnv>({
+    defaultHook: (result, c) => {
+      if (!result.success) return c.json({ error: 'invalid_request', issues: result.error.issues }, 400);
+    },
+  });
+  const registry = new RouteRegistry();
+  const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate };
+
+  registerRoutes(app, registry, deps);
+  opts.extend?.(app, registry, deps);
+
+  app.doc('/openapi.json', { openapi: '3.0.0', info: { title: 'AMS API', version: '0.0.0' } });
+  registry.declared.set('GET /openapi.json', { kind: 'public' });
+
+  app.onError((err, c) => {
+    if (err instanceof ForbiddenError) return c.json({ error: 'forbidden', message: err.message }, 403);
+    if (err instanceof NotFoundError) return c.json({ error: 'not_found' }, 404);
+    console.error(JSON.stringify({ level: 'error', msg: err.message }));
+    return c.json({ error: 'internal_error' }, 500);
+  });
+
+  assertAllRoutesDeclared(app, registry);
+  return { app, registry };
+}

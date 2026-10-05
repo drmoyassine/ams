@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { ROLES } from '@ams/shared';
 import {
   boolean, check, index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -64,9 +65,6 @@ export const appUser = pgTable('app_user', {
   uniqueIndex('app_user_auth_user_idx').on(t.authUserId),
 ]);
 
-export const ROLES = [
-  'admin', 'lead', 'engagement_lead', 'co_lead', 'contributor', 'reviewer', 'viewer', 'external_reviewer',
-] as const;
 export const SCOPE_TYPES = ['institution', 'org_unit', 'program', 'engagement'] as const;
 
 // scope_id is polymorphic (institution / org_unit / program / engagement) and so carries no foreign key.
