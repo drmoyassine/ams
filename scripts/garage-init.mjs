@@ -1,3 +1,4 @@
+/* global process, fetch, setTimeout, console */
 // One-shot bootstrap for a single-node Garage: assign the layout, import the S3 key the app is configured with,
 // create the bucket and grant the key access. Idempotent; safe to re-run on every `docker compose up`.
 // Uses the Garage admin API v1 (pinned image in compose.yaml).
