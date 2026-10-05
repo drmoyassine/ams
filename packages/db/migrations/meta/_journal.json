@@ -43,6 +43,20 @@
       "when": 1791193228664,
       "tag": "0005_published_frozen_and_publish_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791203980647,
+      "tag": "0006_m2_engagements",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791203999762,
+      "tag": "0007_m2_engagements_rls",
+      "breakpoints": true
     }
   ]
 }

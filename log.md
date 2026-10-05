@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — M2 started: schema (TASK-021)
+
+ROADMAP-003 split into TASK-021..031 (schema, due-rule engine, applicability and instantiation, engagement service, roadmap editing, template-update review, requirement workspace, API routes, ICS, SPA, acceptance). `vef` runs via `npx --yes vibe-engineering-framework@0.3.1 <cmd>` (the CI pin); `vef setup` regenerated the ledger I had hand-edited. Migrations 0006 (tables) and 0007 (RLS, audit, rules). Access: `app_can_access_engagement` = institution-wide role, a role scoped to the engagement, or program access for a program engagement. One-lead rule is a deferred constraint trigger (engagement and its `engagement_lead` assignment must be created in the same transaction). Locked milestones cannot be deleted or unlocked; template milestones keep phase, requiredness and key; origin can only go template to modified. Deviations from PRD 6.4: `milestone.deliverable` jsonb added (the template's `report_template_key`; `report_id` stays null until M4). Engagements are never deleted. The DEC-002 guard test caught accreditor names in comments I wrote for the demo seed; reworded (the earlier push 8bbec3d had that failure).
+
 ## 2026-10-05 — Optional demo seed for the three frameworks
 
 `SEED_DEMO_FRAMEWORKS=true` makes the API, after the admin seed, import and publish each file in `packages/db/fixtures/` that is not already in the library (accreditor short name + edition), as the institution's administrator, through the normal importer, review and publish steps. Idempotent; off by default. Test: `apps/api/src/seed-frameworks.test.ts`.

@@ -306,3 +306,97 @@ export const reportTemplate = pgTable('report_template', {
   oneOf('report_template_kind_check', t.kind, TEMPLATE_KINDS),
   ...provenanceChecks('report_template', t),
 ]);
+
+// ---- 6.4 Engagements & roadmap --------------------------------------------------------------
+
+export const ENGAGEMENT_SUBJECT_TYPES = ['institution', 'program'] as const;
+export const ENGAGEMENT_KINDS = ['initial', 'reaffirmation'] as const;
+export const ENGAGEMENT_STATUSES = ['active', 'closed', 'withdrawn'] as const;
+export const PHASE_TYPES = ['eligibility', 'self_study', 'review', 'decision', 'maintenance'] as const;
+export const MILESTONE_TYPES = ['task', 'deliverable', 'submission', 'external_event', 'decision_point'] as const;
+// `overdue` is computed from due_date, never stored (PRD 6.4).
+export const MILESTONE_STATUSES = ['not_started', 'in_progress', 'done', 'skipped'] as const;
+export const MILESTONE_ORIGINS = ['template', 'modified', 'local', 'decision', 'response'] as const;
+export const ENGAGEMENT_REQUIREMENT_STATUSES = ['not_started', 'in_progress', 'ready_for_review', 'approved', 'needs_work'] as const;
+
+export const engagement = pgTable('engagement', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  subjectType: text('subject_type', { enum: ENGAGEMENT_SUBJECT_TYPES }).notNull(),
+  // The institution or program id; polymorphic, so no foreign key (validated by the service).
+  subjectId: uuid('subject_id').notNull(),
+  kind: text('kind', { enum: ENGAGEMENT_KINDS }).notNull(),
+  title: text('title').notNull(),
+  reviewYear: integer('review_year').notNull(),
+  keyDates: jsonb('key_dates').notNull().default(sql`'{}'::jsonb`),
+  currentPhase: text('current_phase', { enum: PHASE_TYPES }),
+  status: text('status', { enum: ENGAGEMENT_STATUSES }).notNull().default('active'),
+  withdrawnReason: text('withdrawn_reason'),
+  leadUserId: uuid('lead_user_id').notNull().references(() => appUser.id),
+  previousEngagementId: uuid('previous_engagement_id').references((): AnyPgColumn => engagement.id),
+  templateSyncedVersionId: uuid('template_synced_version_id').references(() => frameworkVersion.id),
+}, (t) => [
+  index('engagement_subject_idx').on(t.subjectType, t.subjectId),
+  index('engagement_version_idx').on(t.frameworkVersionId),
+  index('engagement_lead_idx').on(t.leadUserId),
+  oneOf('engagement_subject_type_check', t.subjectType, ENGAGEMENT_SUBJECT_TYPES),
+  oneOf('engagement_kind_check', t.kind, ENGAGEMENT_KINDS),
+  oneOf('engagement_status_check', t.status, ENGAGEMENT_STATUSES),
+  check('engagement_current_phase_check', sql`${t.currentPhase} is null or ${t.currentPhase} in ('eligibility', 'self_study', 'review', 'decision', 'maintenance')`),
+  check('engagement_review_year_check', sql`${t.reviewYear} between 1990 and 2200`),
+  check('engagement_withdrawn_reason', sql`${t.status} <> 'withdrawn' or length(trim(coalesce(${t.withdrawnReason}, ''))) > 0`),
+]);
+
+export const milestone = pgTable('milestone', {
+  ...base(), ...tenant(),
+  engagementId: uuid('engagement_id').notNull().references(() => engagement.id),
+  // Key of the template milestone this was generated from; null for local, decision and response milestones.
+  templateKey: text('template_key'),
+  phase: text('phase', { enum: PHASE_TYPES }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  type: text('type', { enum: MILESTONE_TYPES }).notNull(),
+  dueDate: date('due_date'),
+  dueRule: jsonb('due_rule'),
+  dateNeeded: boolean('date_needed').notNull().default(false),
+  ownerId: uuid('owner_id').references(() => appUser.id),
+  status: text('status', { enum: MILESTONE_STATUSES }).notNull().default('not_started'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  // The report this milestone produces (M4). `deliverable` holds {report_template_key} from the template.
+  reportId: uuid('report_id'),
+  deliverable: jsonb('deliverable'),
+  sourceRef: jsonb('source_ref'),
+  recurrence: jsonb('recurrence'),
+  displayOrder: integer('display_order').notNull().default(0),
+  origin: text('origin', { enum: MILESTONE_ORIGINS }).notNull().default('template'),
+  locked: boolean('locked').notNull().default(false),
+  required: boolean('required').notNull().default(true),
+  skipReason: text('skip_reason'),
+}, (t) => [
+  index('milestone_engagement_idx').on(t.engagementId, t.phase, t.displayOrder),
+  uniqueIndex('milestone_engagement_template_key_idx').on(t.engagementId, t.templateKey).where(sql`${t.templateKey} is not null and ${t.recurrence} is null`),
+  oneOf('milestone_phase_check', t.phase, PHASE_TYPES),
+  oneOf('milestone_type_check', t.type, MILESTONE_TYPES),
+  oneOf('milestone_status_check', t.status, MILESTONE_STATUSES),
+  oneOf('milestone_origin_check', t.origin, MILESTONE_ORIGINS),
+  check('milestone_skip_reason', sql`${t.status} <> 'skipped' or ${t.required} = false or length(trim(coalesce(${t.skipReason}, ''))) > 0`),
+  check('milestone_done_completed_at', sql`${t.status} <> 'done' or ${t.completedAt} is not null`),
+]);
+
+export const engagementRequirement = pgTable('engagement_requirement', {
+  ...base(), ...tenant(),
+  engagementId: uuid('engagement_id').notNull().references(() => engagement.id),
+  requirementId: uuid('requirement_id').notNull().references(() => requirement.id),
+  applicable: boolean('applicable').notNull().default(true),
+  naReason: text('na_reason'),
+  ownerId: uuid('owner_id').references(() => appUser.id),
+  reviewerId: uuid('reviewer_id').references(() => appUser.id),
+  status: text('status', { enum: ENGAGEMENT_REQUIREMENT_STATUSES }).notNull().default('not_started'),
+  workingNotes: text('working_notes'),
+  selfRating: real('self_rating'),
+  dueDate: date('due_date'),
+}, (t) => [
+  uniqueIndex('engagement_requirement_unique_idx').on(t.engagementId, t.requirementId),
+  index('engagement_requirement_owner_idx').on(t.ownerId),
+  oneOf('engagement_requirement_status_check', t.status, ENGAGEMENT_REQUIREMENT_STATUSES),
+]);

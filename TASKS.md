@@ -830,7 +830,7 @@ packages/db/fixtures/*.json carry everything Appendix A specifies (lifecycles, v
 ---
 title: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'
 description: Tables, forward-only migration, RLS by engagement membership, audit, and the roadmap guardrail triggers
-status: pending
+status: completed
 priority: P0
 id: TASK-021
 last_updated: '2026-10-05'
@@ -850,7 +850,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-010
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:10.889Z'
+  at: '2026-10-05T12:43:05.740Z'
 ---
 
 # M2 schema: engagement, milestone, engagement_requirement, RLS and invariants
