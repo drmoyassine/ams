@@ -4,7 +4,7 @@ title: Published-frozen triggers and publish gate
 description: >-
   Database enforcement of PRD 6.9 invariants 1-3: rows of a published/retired framework_version cannot change; publish
   gate; sample reports never create requirements
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -27,7 +27,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:20.778Z'
+  at: '2026-10-05T09:41:44.151Z'
 ---
 # TASK-014 — Published-frozen triggers and publish gate
 

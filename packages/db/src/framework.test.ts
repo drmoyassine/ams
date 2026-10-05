@@ -50,7 +50,7 @@ describe('framework library schema', () => {
   it('enforces enumerations in the database', async () => {
     await reject(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'x', 'x', 'bogus')`, [ids.instA], /accreditor_type_check/);
     await reject(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'x', 'galaxy')`, [ids.instA, ids.acc], /framework_scope_check/);
-    await reject(`update framework_version set status = 'live' where id = $1`, [ids.ver], /framework_version_status_check/);
+    await reject(`update framework_version set status = 'live' where id = $1`, [ids.ver], /framework_version_status_check|illegal framework version status/);
     await reject(`insert into requirement_note (institution_id, requirement_id, type, text, authority) values ($1, $2, 'guidance', 't', 'mandatory')`,
       [ids.instA, ids.req], /requirement_note_authority_check/);
     await reject(`insert into report_template (institution_id, framework_version_id, key, name, kind) values ($1, $2, 'k', 'n', 'essay')`,
@@ -58,7 +58,9 @@ describe('framework library schema', () => {
   });
 
   it('requires publisher and time on a published version', async () => {
-    await reject(`update framework_version set status = 'published' where id = $1`, [ids.ver], /framework_version_published_fields/);
+    const empty = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'empty') returning id`, [ids.instA, ids.fw]);
+    await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [empty]);
+    await reject(`update framework_version set status = 'published' where id = $1`, [empty], /framework_version_published_fields/);
   });
 
   it('ties codes to their version and templates to their key', async () => {
