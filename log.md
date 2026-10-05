@@ -14,6 +14,14 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — First deploy to Easypanel
+
+Deployed `compose.yaml` (branch `claude/check-and-proceed-i4izas`) as Compose service `management/ams` on the owner's Easypanel (Easypanel would not create a new project: project limit; owner chose `management`). Source is the private repo over an SSH deploy key (`easypanel-ams`, read-only). Domain `ams-app.4ky7uo.easypanel.host` -> compose service `app`, port 3000. Env (generated secrets, `APP_URL`, seeded admin `admin@ams.local`) lives only in the Easypanel service. Containers `app`, `worker`, `postgres`, `garage` were running; `garage-init` completed (the app depends on it). CI run 10 (compose-smoke) is green on Docker, including login and the protected route.
+
+Notes: the Easypanel MCP `deployComposeService` call times out client-side at 60 s while the build continues; check containers afterwards. `listProjectsAndServices` returns every service's env vars (secrets) — avoid it. The public URL was not reachable from the build sandbox (egress proxy), so end-to-end on the live URL is owner-verified.
+
+---
+
 ## 2026-10-05 — M0 complete (ROADMAP-001)
 
 All ten M0 tasks are done. The three done-when tests live in `apps/api/src/m0-acceptance.test.ts` (program-scoped isolation through the API and SQL; a route without `requires(...)` fails startup and `pnpm test:routes`; an API write yields an `audit_event` with the caller's id). ROADMAP-002 (M1, framework library) is now In Progress; do not start it without the framework fixtures (TASK-011, TASK-012).
