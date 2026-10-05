@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-05 — garage-init failed on redeploy; made fully idempotent
+
+A redeploy on Easypanel failed with `garage-init` exiting 1 (the first deploy had passed). The Easypanel MCP cannot read container logs here (Loki query returns an error), so the exact Garage answer was not seen. The first version of `scripts/garage-init.mjs` relied on specific error statuses from re-importing a key and re-creating a bucket on a second run. It now checks each step first (layout present, `GET /v1/key`, `GET /v1/bucket`) and only creates what is missing, logs every step with a `[garage-init]` prefix, retries network errors, and prints Garage's own response body on any refusal. `apps/api/src/garage-init.test.ts` runs the script against a fake of the admin API, including a second run that must change nothing. If it still fails on the VPS, the `[garage-init]` lines in the `garage-init` container's output identify the step.
+
+---
+
 ## 2026-10-05 — M1 built (TASK-013..020); real fixtures still blocked on documents
 
 M1 (ROADMAP-002) is implemented end to end: schema (PRD 6.2), database-enforced immutability and publish gate (6.9 #1-3), Zod config schemas with cross-reference checks, core services, JSON import/export, API, and the SPA (framework list, import, tree editor, notes with authority badges, lifecycle/vocabulary/template JSON editors, review and publish, new version from a published one).
