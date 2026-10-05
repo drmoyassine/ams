@@ -1,1 +1,2 @@
-export const PACKAGE = '@ams/db';
+export * from './schema.js';
+export * from './migrate.js';

@@ -2,7 +2,7 @@
 id: TASK-003
 title: Schema and migrations for org, access and shared tables
 description: Drizzle schema + SQL migrations for PRD §6.1 and §6.8
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -25,8 +25,8 @@ related_decisions:
     name: One PostgreSQL database; not a database per accreditation standard
     url: /DECISIONS.md#DEC-007
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:48.373Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:38:13.594Z'
 ---
 # TASK-003 — Schema and migrations for org, access and shared tables
 
