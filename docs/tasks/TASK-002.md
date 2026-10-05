@@ -2,7 +2,7 @@
 id: TASK-002
 title: Docker images and Compose
 description: app and worker images; Compose with postgres and minio; env-only config
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -25,8 +25,8 @@ related_decisions:
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:47.008Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:23:32.525Z'
 ---
 # TASK-002 — Docker images and Compose
 

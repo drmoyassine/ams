@@ -109,7 +109,7 @@ Create the layout in PRD §18.3. Strict TypeScript, ESLint + Prettier, Vitest at
 id: TASK-002
 title: Docker images and Compose
 description: app and worker images; Compose with postgres and minio; env-only config
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -132,8 +132,8 @@ related_decisions:
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:47.008Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:23:32.525Z'
 ---
 
 Images: app (Hono API serving the built SPA) and worker. Compose adds postgres:16 and minio with healthchecks and volumes. .env.example documents every variable. No provider-specific service.
