@@ -514,6 +514,12 @@ modified:
 
 Needs the official Criteria document (not yet uploaded). Lifecycle, vocabularies and SSQ-based templates per Appendix A.2 can be drafted from the APPM and SSQ already available.
 
+## Done (2026-10-05)
+
+From the uploads: APPM 2025-26 (Criteria names, APPM I.C eligibility, 40 clauses) and the 2025-26 EAC Criteria (Criterion 1-8 baccalaureate wording, Student Outcomes (1)-(7), Criterion 5(a)-(d) with the 30 and 45 credit-hour norms, Mechanical Program Criteria), all verbatim with quote-verified page citations. Self-Study Questionnaire 2027-28 prompts are loaded as unsourced `suggested` guidance notes (the docx has no pages to cite). Data-table columns for Tables 5-1, 6-1, 6-2, D-1 and D-2 come from the questionnaire and the Supplement xlsx.
+
+Not loaded: master's-level criteria (MS1-8, MI1-8), other Program Criteria, Readiness template and REv sheet as notes. The 2027-28 Criteria were not available; the fixture uses 2025-26 wording and must be re-checked when the new edition is published.
+
 ---
 
 ## TASK-013 — M1 schema: framework library tables
@@ -816,5 +822,409 @@ modified:
 ---
 
 packages/db/fixtures/*.json carry everything Appendix A specifies (lifecycles, vocabularies, report templates, requirement codes); official requirement text, quotes and notes are placeholders pending the source documents (TASK-011, TASK-012). packages/core/src/framework/fixtures.test.ts is the M1 gate; no-accreditor-code.test.ts guards DEC-002.
+
+---
+
+## TASK-021 — M2 schema: engagement, milestone, engagement_requirement, RLS and invariants
+
+---
+title: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'
+description: Tables, forward-only migration, RLS by engagement membership, audit, and the roadmap guardrail triggers
+status: pending
+priority: P0
+id: TASK-021
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:10.889Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+related_decisions:
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:10.889Z'
+---
+
+# M2 schema: engagement, milestone, engagement_requirement, RLS and invariants
+PRD §6.4 and §6.9 (12, 13). engagement, milestone, engagement_requirement with RLS (institution tenant plus engagement membership), audit trigger, locked-milestone delete guard, required-skip needs reason, exactly one engagement_lead mirrored by engagement.lead_user_id. Engagement scope added to role resolution.
+
+---
+
+## TASK-022 — Due-rule engine
+
+---
+title: Due-rule engine
+description: Pure functions that resolve fixed, anchor, after and null due rules, with date_needed and recurrence
+status: pending
+priority: P0
+id: TASK-022
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:12.805Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:12.805Z'
+---
+
+# Due-rule engine
+PRD §7.4. packages/core, no database. fixed MM-DD with year_offset from review_year; anchor to key_dates; after another milestone's completion; null manual; unresolved gives due_date null and date_needed true and resolves when the anchor is entered. Tested against the Appendix A WSCUC and ABET dates, including leap days.
+
+---
+
+## TASK-023 — Applicability matcher and requirement instantiation
+
+---
+title: Applicability matcher and requirement instantiation
+description: Match applies_when tags to a subject and create engagement_requirement rows
+status: pending
+priority: P0
+id: TASK-023
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:14.792Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:14.792Z'
+---
+
+# Applicability matcher and requirement instantiation
+PRD §7.3 and §8.3. scope, degree_level, program_tags, engagement_kind; empty means always. Assessable requirements only; non-matching rows are created with applicable false so a lead can switch them on with a reason. No accreditor identity is ever consulted.
+
+---
+
+## TASK-024 — Engagement service: create, members, lead handover
+
+---
+title: 'Engagement service: create, members, lead handover'
+description: 'Wizard transaction in packages/core: members, lead, requirements, milestones, current phase'
+status: pending
+priority: P0
+id: TASK-024
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:16.801Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-021
+    name: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'
+    url: /TASKS.md#TASK-021
+  - id: TASK-022
+    name: Due-rule engine
+    url: /TASKS.md#TASK-022
+  - id: TASK-023
+    name: Applicability matcher and requirement instantiation
+    url: /TASKS.md#TASK-023
+related_decisions:
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:16.801Z'
+---
+
+# Engagement service: create, members, lead handover
+PRD §8.1 steps 1, 2, 3, 5 and §4 leadership rules. One transaction. Exactly one engagement_lead; only an admin or the current lead hands over, audited, outgoing lead becomes a member. Only published framework versions. Step 4 (create the self-study report) and step 6 (copy evidence links, carry forward feedback) wait for M4, M3 and M5 and are recorded as such. Admin may act as lead.
+
+---
+
+## TASK-025 — Roadmap editing, guardrails and phase advance
+
+---
+title: Roadmap editing, guardrails and phase advance
+description: Edit milestones within PRD §8.5 and advance phases manually
+status: pending
+priority: P0
+id: TASK-025
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:18.920Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+related_decisions:
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:18.920Z'
+---
+
+# Roadmap editing, guardrails and phase advance
+Rename, describe, assign owner, change due date (origin modified); add local milestones; reorder within a phase; skip optional; un-skip. Prevented: deleting locked milestones, skipping required without reason, adding or removing phase types, changing the self-study report template. Key-date changes re-resolve due dates. Advance phase is enabled only when required milestones are done or skipped. Progress is completed required over required.
+
+---
+
+## TASK-026 — Template-update review
+
+---
+title: Template-update review
+description: Show added, removed and re-dated milestones when a newer framework version is published
+status: pending
+priority: P0
+id: TASK-026
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:20.852Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-025
+    name: Roadmap editing, guardrails and phase advance
+    url: /TASKS.md#TASK-025
+related_decisions:
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:20.852Z'
+---
+
+# Template-update review
+PRD §8.5. Running engagements are never changed automatically. A diff against template_synced_version_id lists changes the lead accepts or ignores one by one; modified and local milestones are never overwritten.
+
+---
+
+## TASK-027 — Requirement workspace service
+
+---
+title: Requirement workspace service
+description: Statuses, owners, reviewers, working notes and applicability override
+status: pending
+priority: P0
+id: TASK-027
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:22.873Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+related_decisions:
+  - id: DEC-005
+    name: Official accreditation status is separate from internal readiness; no compliance scores
+    url: /DECISIONS.md#DEC-005
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:22.873Z'
+---
+
+# Requirement workspace service
+PRD §8.4. contributor to ready_for_review, reviewer to approved or needs_work; the label is Internally approved and never compliant or met (DEC-005). Applicability override needs a reason. History comes from the audit trail.
+
+---
+
+## TASK-028 — Engagement API routes and permissions
+
+---
+title: Engagement API routes and permissions
+description: Hono routes through secured() with engagement permissions
+status: pending
+priority: P0
+id: TASK-028
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:24.850Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+  - id: TASK-025
+    name: Roadmap editing, guardrails and phase advance
+    url: /TASKS.md#TASK-025
+  - id: TASK-026
+    name: Template-update review
+    url: /TASKS.md#TASK-026
+  - id: TASK-027
+    name: Requirement workspace service
+    url: /TASKS.md#TASK-027
+related_decisions:
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:24.850Z'
+---
+
+# Engagement API routes and permissions
+Every route declares requires(...); pnpm test:routes must stay green. New permissions for engagement read, write, manage members, roadmap edit. Typed client types flow to the SPA.
+
+---
+
+## TASK-029 — ICS calendar export
+
+---
+title: ICS calendar export
+description: Calendar file of all milestones with due dates
+status: pending
+priority: P0
+id: TASK-029
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:26.842Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+related_decisions:
+  - id: DEC-008
+    name: Host-agnostic deployment on open standards
+    url: /DECISIONS.md#DEC-008
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:26.842Z'
+---
+
+# ICS calendar export
+PRD §8.2. Standards-only (RFC 5545), all-day events, stable UIDs so a re-import updates rather than duplicates, milestones without a due date are omitted.
+
+---
+
+## TASK-030 — Engagement SPA: wizard, list, roadmap timeline, requirement workspace
+
+---
+title: 'Engagement SPA: wizard, list, roadmap timeline, requirement workspace'
+description: The screens for M2
+status: pending
+priority: P0
+id: TASK-030
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:28.696Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-028
+    name: Engagement API routes and permissions
+    url: /TASKS.md#TASK-028
+related_decisions:
+  - id: DEC-009
+    name: React SPA (Vite) + Hono API on Node; not Next.js; Frontbase not used for the core
+    url: /DECISIONS.md#DEC-009
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:28.696Z'
+---
+
+# Engagement SPA: wizard, list, roadmap timeline, requirement workspace
+One-screen wizard (subject, published version, kind, review year, key dates, lead), engagements list, roadmap grouped by the five phases with origin badges, owners, dates and status, template-update review, phase advance, requirement workspace with RTL official text. UI shows only actions the caller may take.
+
+---
+
+## TASK-031 — M2 acceptance test
+
+---
+title: M2 acceptance test
+description: WSCUC reaffirmation 2028 and ABET EAC initial 2027 (BS Mechanical) on one code path
+status: pending
+priority: P0
+id: TASK-031
+last_updated: '2026-10-05'
+generated:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:30.859Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+depends_on:
+  - id: TASK-029
+    name: ICS calendar export
+    url: /TASKS.md#TASK-029
+  - id: TASK-025
+    name: Roadmap editing, guardrails and phase advance
+    url: /TASKS.md#TASK-025
+  - id: TASK-026
+    name: Template-update review
+    url: /TASKS.md#TASK-026
+  - id: TASK-027
+    name: Requirement workspace service
+    url: /TASKS.md#TASK-027
+  - id: TASK-028
+    name: Engagement API routes and permissions
+    url: /TASKS.md#TASK-028
+related_decisions:
+  - id: DEC-002
+    name: Accreditor frameworks are versioned configuration; no accreditor-specific code
+    url: /DECISIONS.md#DEC-002
+  - id: DEC-003
+    name: Universal five-phase lifecycle with per-engagement editable roadmaps
+    url: /DECISIONS.md#DEC-003
+modified:
+  by: agent/claude-code
+  at: '2026-10-05T12:38:30.859Z'
+---
+
+# M2 acceptance test
+The M2 done-when: both engagements, created from the published fixtures, produce the milestones and dates in Appendix A, and requirement counts match the applicability tags (Mechanical Program Criteria apply only to the ABET program tagged mechanical). Roadmap guardrails verified through the API.
 
 <!-- End VEF generated items. -->

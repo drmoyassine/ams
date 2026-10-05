@@ -109,7 +109,7 @@ related_vision:
     url: /VISION.md#one-platform-many-frameworks
 modified:
   by: agent/claude-code
-  at: '2026-10-05T10:07:20.748Z'
+  at: '2026-10-05T12:38:30.859Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -145,6 +145,15 @@ related_tasks:
   - id: TASK-020
     name: 'M1 acceptance: Appendix A skeleton fixtures and the publish/immutability gate test'
     url: /TASKS.md#TASK-020
+  - id: TASK-022
+    name: Due-rule engine
+    url: /TASKS.md#TASK-022
+  - id: TASK-023
+    name: Applicability matcher and requirement instantiation
+    url: /TASKS.md#TASK-023
+  - id: TASK-031
+    name: M2 acceptance test
+    url: /TASKS.md#TASK-031
 ---
 
 Source: PRD §0, §2 P1, §7. (docs/PRD.md).
@@ -177,12 +186,31 @@ related_vision:
     name: Every engagement runs a roadmap to a self-study and on into maintenance
     url: /VISION.md#lifecycle-roadmaps
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:32.896Z'
+  by: agent/claude-code
+  at: '2026-10-05T12:38:30.859Z'
 related_roadmap_items:
   - id: ROADMAP-003
     name: M2 — Engagements and roadmaps
     url: /ROADMAP.md#ROADMAP-003
+related_tasks:
+  - id: TASK-021
+    name: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'
+    url: /TASKS.md#TASK-021
+  - id: TASK-022
+    name: Due-rule engine
+    url: /TASKS.md#TASK-022
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+  - id: TASK-025
+    name: Roadmap editing, guardrails and phase advance
+    url: /TASKS.md#TASK-025
+  - id: TASK-026
+    name: Template-update review
+    url: /TASKS.md#TASK-026
+  - id: TASK-031
+    name: M2 acceptance test
+    url: /TASKS.md#TASK-031
 ---
 
 Source: PRD §5, §7.4, §8.5, invariant 12. (docs/PRD.md).
@@ -256,8 +284,8 @@ related_vision:
     name: Official, suggested and inferred are always distinguishable
     url: /VISION.md#trustworthy-traceability
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:42.806Z'
+  by: agent/claude-code
+  at: '2026-10-05T12:38:22.873Z'
 related_roadmap_items:
   - id: ROADMAP-005
     name: M4 — Reports and submissions
@@ -268,6 +296,10 @@ related_roadmap_items:
   - id: ROADMAP-010
     name: 'M8 — P1: assessment, self-rating, notifications, reviewer portal, version diff'
     url: /ROADMAP.md#ROADMAP-010
+related_tasks:
+  - id: TASK-027
+    name: Requirement workspace service
+    url: /TASKS.md#TASK-027
 ---
 
 Source: PRD §2 P4/P8, invariant 6, §14. (docs/PRD.md).
@@ -299,7 +331,7 @@ related_vision:
     url: /VISION.md#trustworthy-traceability
 modified:
   by: agent/claude-code
-  at: '2026-10-05T10:07:20.748Z'
+  at: '2026-10-05T12:38:22.873Z'
 related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
@@ -332,6 +364,9 @@ related_tasks:
   - id: TASK-020
     name: 'M1 acceptance: Appendix A skeleton fixtures and the publish/immutability gate test'
     url: /TASKS.md#TASK-020
+  - id: TASK-027
+    name: Requirement workspace service
+    url: /TASKS.md#TASK-027
 ---
 
 Source: PRD §6.3, §15, §16, invariants 1–3, 7. (docs/PRD.md).
@@ -408,7 +443,7 @@ related_vision:
     url: /VISION.md#integrity-by-construction
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:18:58.100Z'
+  at: '2026-10-05T12:38:26.842Z'
 related_roadmap_items:
   - id: ROADMAP-001
     name: M0 — Scaffold and integrity foundation
@@ -420,6 +455,9 @@ related_tasks:
   - id: TASK-009
     name: CI pipeline
     url: /TASKS.md#TASK-009
+  - id: TASK-029
+    name: ICS calendar export
+    url: /TASKS.md#TASK-029
 ---
 
 Source: PRD §18.1, §20. (docs/PRD.md).
@@ -453,8 +491,8 @@ related_vision:
     name: Integrity is enforced by the system, not by discipline
     url: /VISION.md#integrity-by-construction
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:53.828Z'
+  by: agent/claude-code
+  at: '2026-10-05T12:38:28.696Z'
 related_roadmap_items:
   - id: ROADMAP-001
     name: M0 — Scaffold and integrity foundation
@@ -466,6 +504,9 @@ related_tasks:
   - id: TASK-007
     name: React SPA shell
     url: /TASKS.md#TASK-007
+  - id: TASK-030
+    name: 'Engagement SPA: wizard, list, roadmap timeline, requirement workspace'
+    url: /TASKS.md#TASK-030
 ---
 
 Source: PRD §18.1, §18.3. (docs/PRD.md).
@@ -497,8 +538,8 @@ related_vision:
     name: Integrity is enforced by the system, not by discipline
     url: /VISION.md#integrity-by-construction
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:57.833Z'
+  by: agent/claude-code
+  at: '2026-10-05T12:38:24.850Z'
 related_roadmap_items:
   - id: ROADMAP-001
     name: M0 — Scaffold and integrity foundation
@@ -519,6 +560,15 @@ related_tasks:
   - id: TASK-010
     name: M0 acceptance tests
     url: /TASKS.md#TASK-010
+  - id: TASK-021
+    name: 'M2 schema: engagement, milestone, engagement_requirement, RLS and invariants'
+    url: /TASKS.md#TASK-021
+  - id: TASK-024
+    name: 'Engagement service: create, members, lead handover'
+    url: /TASKS.md#TASK-024
+  - id: TASK-028
+    name: Engagement API routes and permissions
+    url: /TASKS.md#TASK-028
 ---
 
 Source: PRD §18.3, M0 tests. (docs/PRD.md).
