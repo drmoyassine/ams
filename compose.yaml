@@ -18,15 +18,18 @@ services:
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
+      # The healthcheck below opens an RPC connection each run; keep those handshakes out of the logs.
+      RUST_LOG: garage=info,garage_net=warn
     volumes:
       - ./deploy/garage.toml:/etc/garage.toml:ro
       - garagemeta:/var/lib/garage/meta
       - garagedata:/var/lib/garage/data
     healthcheck:
       test: ["CMD", "/garage", "status"]
-      interval: 5s
+      interval: 15s
       timeout: 5s
-      retries: 12
+      retries: 6
+      start_period: 10s
 
   garage-init:
     image: node:22-slim
