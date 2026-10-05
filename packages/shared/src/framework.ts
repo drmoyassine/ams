@@ -246,3 +246,66 @@ export function validateFrameworkConfig(input: unknown): { ok: true; config: Fra
   const issues = checkFrameworkConfig(parsed.data);
   return issues.length ? { ok: false, issues } : { ok: true, config: parsed.data };
 }
+
+// ---- 7.7 Import / export ----------------------------------------------------------------------------
+
+export const FRAMEWORK_EXPORT_FORMAT = 'ams-framework';
+export const FRAMEWORK_EXPORT_VERSION = 1;
+
+const exportSource = z.object({ document: z.string().min(1), page: z.number().int().min(1), quote: z.string().min(1) }).strict();
+
+export const ExportedNoteSchema = z.object({
+  type: z.enum(['guidance', 'evidence_expectation', 'data_request', 'quantitative_norm']),
+  text: z.string().min(1),
+  authority: z.enum(['required', 'example', 'suggested', 'ai_suggested', 'institution_defined']),
+  norm: z.record(z.string(), z.unknown()).nullable().default(null),
+  source: exportSource.nullable().default(null),
+}).strict();
+
+export const ExportedRequirementSchema = z.object({
+  code: z.string().min(1),
+  parent_code: z.string().min(1).nullable(),
+  level_label: z.string().min(1),
+  title: z.string().min(1),
+  official_text: z.string().nullable().default(null),
+  language: z.string().min(2).default('en'),
+  translation_en: z.string().nullable().default(null),
+  is_assessable: z.boolean().default(true),
+  applies_when: AppliesWhenSchema.default(null),
+  display_order: z.number().int().default(0),
+  weight: z.number().nonnegative().nullable().default(null),
+  source: exportSource.nullable().default(null),
+  notes: z.array(ExportedNoteSchema).default([]),
+}).strict();
+
+export const ExportedDocumentSchema = z.object({
+  ref: z.string().min(1),
+  title: z.string().min(1),
+  role: z.enum(['standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other']),
+  authority: z.enum(['binding', 'interpretive', 'informational']),
+  language: z.string().min(2).default('en'),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/).nullable().default(null),
+  /** Page text travels with the file so quotes can be re-verified; the original file does not. */
+  pages: z.array(z.object({ page_no: z.number().int().min(1), text: z.string().min(1), method: z.enum(['pdf_text', 'ocr']) }).strict()).default([]),
+}).strict();
+
+export const FrameworkExportSchema = z.object({
+  format: z.literal(FRAMEWORK_EXPORT_FORMAT),
+  format_version: z.literal(FRAMEWORK_EXPORT_VERSION),
+  accreditor: z.object({
+    name: z.string().min(1), short_name: z.string().min(1), type: z.enum(['institutional', 'programmatic', 'regulatory']),
+    country: z.string().nullable().default(null), website: z.string().nullable().default(null),
+  }).strict(),
+  framework: z.object({
+    name: z.string().min(1), commission: z.string().nullable().default(null), scope: z.enum(['institution', 'program', 'both']),
+    description: z.string().nullable().default(null),
+  }).strict(),
+  version: z.object({
+    edition: z.string().min(1), effective_from: z.string().nullable().default(null), effective_to: z.string().nullable().default(null),
+    change_summary: z.string().nullable().default(null),
+  }).strict(),
+  config: FrameworkConfigSchema,
+  source_documents: z.array(ExportedDocumentSchema).default([]),
+  requirements: z.array(ExportedRequirementSchema).min(1),
+}).strict();
+export type FrameworkExport = z.infer<typeof FrameworkExportSchema>;

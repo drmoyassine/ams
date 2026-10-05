@@ -2,7 +2,7 @@
 id: TASK-017
 title: Framework JSON import and export
 description: Export a framework version to one JSON file and import it (PRD 7.7) with schema validation; deterministic round-trip
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -25,7 +25,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:25.759Z'
+  at: '2026-10-05T09:51:26.646Z'
 ---
 # TASK-017 — Framework JSON import and export
 
