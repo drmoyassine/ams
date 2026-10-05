@@ -1,7 +1,7 @@
 ---
 title: Applicability matcher and requirement instantiation
 description: Match applies_when tags to a subject and create engagement_requirement rows
-status: pending
+status: completed
 priority: P0
 id: TASK-023
 last_updated: '2026-10-05'
@@ -18,7 +18,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-002
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:14.792Z'
+  at: '2026-10-05T12:47:42.959Z'
 ---
 # TASK-023 — Applicability matcher and requirement instantiation
 
