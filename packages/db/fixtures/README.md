@@ -6,7 +6,7 @@ importer accepts and `pnpm test` loads, publishes and exports again.
 | File | Source in the PRD | State |
 |---|---|---|
 | `wscuc-2023.json` | A.1 WSCUC (institutional) | **Real text** (2023 Handbook Revised, PDF text layer) |
-| `abet-eac-2027-28.json` | A.2 ABET EAC (program) | **Partly real**: criteria names and APPM I.C eligibility policy; Criteria wording pending |
+| `abet-eac-2027-28.json` | A.2 ABET EAC (program) | **Real text** (2025-26 EAC Criteria and APPM; Self-Study Questionnaire prompts as notes) |
 | `puc-2019.json` | A.3 PUC Kuwait (institutional, Arabic) | **Real text** (Guide, Dec 2019; scanned, manually transcribed) |
 
 ## What is real and what is a placeholder
@@ -15,7 +15,7 @@ importer accepts and `pnpm test` loads, publishes and exports again.
 quote that passes verification. WSCUC: 4 Standards, their headings and 41 CFRs, with Compliance Worksheet notes.
 PUC: 7 standards, 24 measures and 151 indicators in Arabic. The PUC guide is a scan, so its source pages are
 manual transcriptions (`method: "ocr"`) and must be reviewed against the PDF before anything is relied on.
-**ABET (TASK-012)** is partly real: the eight criteria names and APPM I.C (40 clauses) come verbatim from the 2025-26 APPM with page quotes. Criterion wording and Program Criteria need the official Criteria document, so those `official_text` fields are still empty. The rest of this section describes what is still a placeholder.
+**ABET (TASK-012)**: Criterion 1-8 (baccalaureate), Student Outcomes (1)-(7), Criterion 5(a)-(d) with the 30/45 credit-hour norms, the Mechanical Program Criteria and APPM I.C (40 clauses) are verbatim with page quotes. The 2025-26 edition is used because the 2027-28 Criteria are not published yet. Questionnaire prompts are unsourced `suggested` notes. Master's-level and other Program Criteria are not loaded.
 
 
 Everything the PRD specifies is carried over as written: level labels, the lifecycle (phases, milestones, due rules),

@@ -2,7 +2,7 @@
 id: TASK-012
 title: 'Framework fixture: ABET EAC 2027-28'
 description: Blocked on the ABET Criteria for Accrediting Engineering Programs document
-status: in-progress
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -29,6 +29,8 @@ modified:
 
 Needs the official Criteria document (not yet uploaded). Lifecycle, vocabularies and SSQ-based templates per Appendix A.2 can be drafted from the APPM and SSQ already available.
 
-## Progress (2026-10-05)
+## Done (2026-10-05)
 
-Done from the uploaded APPM 2025-26: Criteria 1-8 names and the full APPM I.C eligibility policy (40 clauses, verbatim, quote-verified). Still needed: the official *Criteria for Accrediting Engineering Programs* (Criterion 1-8 wording and Program Criteria), which none of the uploads contain; abet.org is not reachable from the build environment. The Self-Study Questionnaire and Readiness template (docx) are not yet loaded as source documents: they have no page numbers, which the quote model needs.
+From the uploads: APPM 2025-26 (Criteria names, APPM I.C eligibility, 40 clauses) and the 2025-26 EAC Criteria (Criterion 1-8 baccalaureate wording, Student Outcomes (1)-(7), Criterion 5(a)-(d) with the 30 and 45 credit-hour norms, Mechanical Program Criteria), all verbatim with quote-verified page citations. Self-Study Questionnaire 2027-28 prompts are loaded as unsourced `suggested` guidance notes (the docx has no pages to cite). Data-table columns for Tables 5-1, 6-1, 6-2, D-1 and D-2 come from the questionnaire and the Supplement xlsx.
+
+Not loaded: master's-level criteria (MS1-8, MI1-8), other Program Criteria, Readiness template and REv sheet as notes. The 2027-28 Criteria were not available; the fixture uses 2025-26 wording and must be re-checked when the new edition is published.

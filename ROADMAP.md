@@ -155,7 +155,7 @@ description: >-
   Framework tables, tree editor, notes with authority, lifecycle/report-template/vocabulary editors, JSON import/export,
   publish + immutability
 quarter: Q4
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams

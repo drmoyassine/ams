@@ -488,7 +488,7 @@ WSCUC: Standards 1–4, CFRs, lifecycle, vocabularies, report templates (Alignme
 id: TASK-012
 title: 'Framework fixture: ABET EAC 2027-28'
 description: Blocked on the ABET Criteria for Accrediting Engineering Programs document
-status: in-progress
+status: completed
 priority: P0
 assignee: ''
 tags:

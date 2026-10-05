@@ -139,28 +139,46 @@ describe('real source text (PUC Institutional Accreditation Guide 2019)', () => 
   });
 });
 
-describe('real source text (ABET APPM 2025-26)', () => {
-  it('quotes the criteria names and the whole of APPM I.C, verified against the cited pages', async () => {
+describe('real source text (ABET EAC Criteria and APPM 2025-26)', () => {
+  it('quotes every criterion, the Mechanical Program Criteria and APPM I.C, verified against the cited pages', async () => {
     const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
-    const items = file.requirements.filter((r) => r.parent_code !== null || r.code.startsWith('Criterion '));
     expect(file.requirements.filter((r) => /^Criterion \d$/.test(r.code))).toHaveLength(8);
     expect(file.requirements.filter((r) => r.code.startsWith('I.C.'))).toHaveLength(40);
-    expect(items.length).toBeGreaterThan(40);
+    expect(file.requirements.every((r) => r.code.startsWith('APPM') || r.official_text)).toBe(true);
+    const sourced = file.requirements.filter((r) => r.source).length;
     const { rows } = await db.su.query(
       `select count(*)::int as n, count(*) filter (where not quote_verified)::int as bad from requirement where framework_version_id = $1 and source_quote is not null`,
       [published['abet-eac-2027-28']],
     );
     expect(rows[0].bad).toBe(0);
-    expect(rows[0].n).toBe(8 + 1 + 40);
+    expect(rows[0].n).toBe(sourced);
   });
 
-  it('nests sub-items under their policy clause and keeps the text verbatim', () => {
+  it('splits student outcomes and curriculum items, keeps verbatim text, and tags program criteria', () => {
     const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
     const by = new Map(file.requirements.map((r) => [r.code, r]));
-    expect(by.get('I.C.5.b.(3)(c)')!.parent_code).toBe('I.C.5.b.(3)');
+    expect(file.requirements.filter((r) => r.parent_code === 'Criterion 3')).toHaveLength(7);
+    expect(by.get('Criterion 3(3)')!.official_text).toBe('an ability to communicate effectively with a range of audiences.');
+    expect(file.requirements.filter((r) => r.parent_code === 'Criterion 5').map((r) => r.code)).toEqual(['Criterion 5(a)', 'Criterion 5(b)', 'Criterion 5(c)', 'Criterion 5(d)']);
+    expect(by.get('Criterion 5(a)')!.notes[0]).toMatchObject({ type: 'quantitative_norm', authority: 'required', norm: { min: 30, unit: 'semester_credit_hours' } });
+    expect(by.get('Criterion 5(b)')!.notes[0]!.norm).toMatchObject({ min: 45 });
+    expect(by.get('Mechanical 1')!.applies_when).toEqual({ scope: ['program'], program_tags: ['mechanical'] });
     expect(by.get('I.C.5.a')!.official_text).toBe('A program must have had at least one graduate within the two academic years prior to the on-site review.');
-    expect(by.get('I.C.5.a')!.is_assessable).toBe(true);
     expect(by.get('I.C.1.a.(1)')!.is_assessable).toBe(false);
+  });
+
+  it('carries the Self-Study Questionnaire prompts as unsourced suggested notes, and the ABET data-table columns', () => {
+    const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
+    const ssq = file.requirements.flatMap((r) => r.notes).filter((n) => n.text.startsWith('Self-Study Questionnaire 2027-28'));
+    expect(ssq.length).toBeGreaterThanOrEqual(30);
+    expect(ssq.every((n) => n.authority === 'suggested' && n.source === null)).toBe(true);
+    const ssr = file.config.report_templates.find((t) => t.key === 'ssr')!;
+    const tables = new Map<string, string[]>();
+    const walk = (ss: typeof ssr.structure.sections): void => { for (const s of ss) { if (s.columns) tables.set(s.key, s.columns.map((c) => c.key)); walk(s.children ?? []); } };
+    walk(ssr.structure.sections);
+    expect(tables.get('T5-1')).toContain('max_section_enrollment');
+    expect(tables.get('T6-1')).toEqual(expect.arrayContaining(['rank', 'appointment', 'registration']));
+    expect(tables.get('TD-2')).toEqual(['category', 'head_ft', 'head_pt', 'fte']);
   });
 });
 

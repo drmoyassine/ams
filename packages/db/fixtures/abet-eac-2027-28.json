@@ -12,13 +12,13 @@
     "name": "Criteria for Accrediting Engineering Programs",
     "commission": "EAC",
     "scope": "program",
-    "description": "General Criteria 1-8 (names from APPM I.B.1) and APPM I.C eligibility policy, verbatim from the 2025-26 APPM. The Criteria wording itself was not in the supplied documents (TASK-012 follow-up)."
+    "description": "General Criteria 1-8 for baccalaureate programs and the Mechanical Program Criteria (2025-26 EAC Criteria), plus APPM I.C eligibility policy (2025-26 APPM), all verbatim with page quotes. Master's-level criteria and other Program Criteria are not loaded."
   },
   "version": {
     "edition": "2027-28",
     "effective_from": null,
     "effective_to": null,
-    "change_summary": "Real APPM text for criteria names and eligibility policy"
+    "change_summary": "Real EAC Criteria, Mechanical Program Criteria and APPM eligibility policy"
   },
   "config": {
     "level_labels": [
@@ -701,18 +701,52 @@
                   "columns": [
                     {
                       "key": "course",
-                      "label": "Course (Dept, Number, Title)",
+                      "label": "Course (Department, Number, Title)",
                       "type": "text"
                     },
                     {
                       "key": "req",
-                      "label": "R / E / SE",
+                      "label": "Required (R), Elective (E) or Selected Elective (SE)",
                       "type": "enum",
                       "options": [
                         "R",
                         "E",
                         "SE"
                       ]
+                    },
+                    {
+                      "key": "math_basic_sci_hours",
+                      "label": "Math & Basic Sciences (credit hours)",
+                      "type": "number"
+                    },
+                    {
+                      "key": "engineering_topics_hours",
+                      "label": "Engineering Topics (credit hours)",
+                      "type": "number"
+                    },
+                    {
+                      "key": "significant_design",
+                      "label": "Engineering Topics contain significant design",
+                      "type": "enum",
+                      "options": [
+                        "yes",
+                        "no"
+                      ]
+                    },
+                    {
+                      "key": "other_hours",
+                      "label": "Other (credit hours)",
+                      "type": "number"
+                    },
+                    {
+                      "key": "last_two_terms",
+                      "label": "Last two terms the course was offered (year and semester or quarter)",
+                      "type": "text"
+                    },
+                    {
+                      "key": "max_section_enrollment",
+                      "label": "Maximum section enrollment for the last two terms offered",
+                      "type": "text"
                     }
                   ]
                 }
@@ -732,8 +766,65 @@
                   "block_type": "data_table",
                   "columns": [
                     {
-                      "key": "item",
-                      "label": "Item",
+                      "key": "faculty_name",
+                      "label": "Faculty name",
+                      "type": "text"
+                    },
+                    {
+                      "key": "highest_degree",
+                      "label": "Highest degree earned: field and year",
+                      "type": "text"
+                    },
+                    {
+                      "key": "rank",
+                      "label": "Rank",
+                      "type": "enum",
+                      "options": [
+                        "P",
+                        "ASC",
+                        "AST",
+                        "I",
+                        "A",
+                        "O"
+                      ]
+                    },
+                    {
+                      "key": "appointment",
+                      "label": "Type of academic appointment",
+                      "type": "enum",
+                      "options": [
+                        "T",
+                        "TT",
+                        "OA"
+                      ]
+                    },
+                    {
+                      "key": "ft_pt",
+                      "label": "FT or PT",
+                      "type": "enum",
+                      "options": [
+                        "FT",
+                        "PT"
+                      ]
+                    },
+                    {
+                      "key": "years_govt_industry",
+                      "label": "Years of experience: government/industry practice",
+                      "type": "number"
+                    },
+                    {
+                      "key": "years_teaching",
+                      "label": "Years of experience: teaching",
+                      "type": "number"
+                    },
+                    {
+                      "key": "years_institution",
+                      "label": "Years of experience: this institution",
+                      "type": "number"
+                    },
+                    {
+                      "key": "registration",
+                      "label": "Professional registration/certification",
                       "type": "text"
                     }
                   ]
@@ -744,8 +835,22 @@
                   "block_type": "data_table",
                   "columns": [
                     {
-                      "key": "item",
-                      "label": "Item",
+                      "key": "faculty_name",
+                      "label": "Faculty member (name)",
+                      "type": "text"
+                    },
+                    {
+                      "key": "ft_pt",
+                      "label": "PT or FT",
+                      "type": "enum",
+                      "options": [
+                        "FT",
+                        "PT"
+                      ]
+                    },
+                    {
+                      "key": "classes_taught",
+                      "label": "Classes taught (course no./title/credit hrs.), term and year",
                       "type": "text"
                     }
                   ]
@@ -799,9 +904,73 @@
                   "block_type": "data_table",
                   "columns": [
                     {
-                      "key": "item",
-                      "label": "Item",
+                      "key": "academic_year",
+                      "label": "Academic year",
                       "type": "text"
+                    },
+                    {
+                      "key": "status",
+                      "label": "Enrollment status",
+                      "type": "enum",
+                      "options": [
+                        "FT",
+                        "PT"
+                      ]
+                    },
+                    {
+                      "key": "year_1",
+                      "label": "Enrollment year: 1st",
+                      "type": "number"
+                    },
+                    {
+                      "key": "year_2",
+                      "label": "Enrollment year: 2nd",
+                      "type": "number"
+                    },
+                    {
+                      "key": "year_3",
+                      "label": "Enrollment year: 3rd",
+                      "type": "number"
+                    },
+                    {
+                      "key": "year_4",
+                      "label": "Enrollment year: 4th",
+                      "type": "number"
+                    },
+                    {
+                      "key": "year_5",
+                      "label": "Enrollment year: 5th",
+                      "type": "number"
+                    },
+                    {
+                      "key": "total_undergrad",
+                      "label": "Total undergraduate",
+                      "type": "number"
+                    },
+                    {
+                      "key": "total_grad",
+                      "label": "Total graduate",
+                      "type": "number"
+                    },
+                    {
+                      "key": "deg_associates",
+                      "label": "Degrees awarded: Associates",
+                      "type": "number"
+                    },
+                    {
+                      "key": "deg_bachelors",
+                      "label": "Degrees awarded: Bachelors",
+                      "type": "number"
+                    },
+                    {
+                      "key": "deg_masters",
+                      "label": "Degrees awarded: Masters",
+                      "type": "number"
+                    },
+                    {
+                      "key": "deg_doctorates",
+                      "label": "Degrees awarded: Doctorates",
+                      "type": "number"
                     }
                   ]
                 },
@@ -811,9 +980,24 @@
                   "block_type": "data_table",
                   "columns": [
                     {
-                      "key": "item",
-                      "label": "Item",
+                      "key": "category",
+                      "label": "Employment category",
                       "type": "text"
+                    },
+                    {
+                      "key": "head_ft",
+                      "label": "Head count: FT",
+                      "type": "number"
+                    },
+                    {
+                      "key": "head_pt",
+                      "label": "Head count: PT",
+                      "type": "number"
+                    },
+                    {
+                      "key": "fte",
+                      "label": "FTE",
+                      "type": "number"
                     }
                   ]
                 }
@@ -864,6 +1048,36 @@
           "method": "pdf_text"
         }
       ]
+    },
+    {
+      "ref": "doc-2",
+      "title": "2025-2026 Criteria for Accrediting Engineering Programs (EAC)",
+      "role": "standards",
+      "authority": "binding",
+      "language": "en",
+      "sha256": "89d3124c5a6c77d6d21e5d58f0c3f7948273876f27c093883ed05e6740e8d031",
+      "pages": [
+        {
+          "page_no": 8,
+          "text": "I. GENERAL CRITERIA FOR BACCALAUREATE LEVEL PROGRAMS\nAll programs seeking accreditation from the Engineering Accreditation Commission of\nABET must demonstrate that they satisfy all of the following General Criteria for\nBaccalaureate Level Programs.\nCriterion 1. Students\nStudent performance must be evaluated. Student progress must be monitored to foster\nsuccess in attaining student outcomes, thereby enabling graduates to attain program\neducational objectives. Students must be advised regarding curriculum and career\nmatters.\nThe program must have and enforce policies for accepting both new and transfer\nstudents, awarding appropriate academic credit for courses taken at other institutions,\nand awarding appropriate academic credit for work in lieu of courses taken at the\ninstitution. The program must have and enforce procedures to ensure and document\nthat students who graduate meet all graduation requirements.\nCriterion 2. Program Educational Objectives\nThe program must have published program educational objectives that are consistent\nwith the mission of the institution, the needs of the program’s various constituencies,\nand these criteria. There must be a documented, systematically utilized, and effective\nprocess, involving program constituencies, for the periodic review of these program\neducational objectives that ensures they remain consistent with the institutional\nmission, the program’s constituents’ needs, and these criteria.\nCriterion 3. Student Outcomes\nThe program must have documented student outcomes that support the program\neducational objectives. Attainment of these outcomes prepares graduates to enter the\nprofessional practice of engineering. Student outcomes are outcomes (1) through (7),\nplus any additional outcomes that may be articulated by the program.\n1.   an ability to identify, formulate, and solve complex engineering problems by\napplying principles of engineering, science, and mathematics.\n2.   an ability to apply engineering design to produce solutions that meet specified\nneeds with consideration of public health, safety, and welfare, as well as global,\ncultural, social, environmental, and economic factors.\n3.   an ability to communicate effectively with a range of audiences.\n4.   an ability to recognize ethical and professional responsibilities in engineering\nsituations and make informed judgments, which must consider the impact of\nengineering solutions in global, economic, environmental, and societal contexts.\n5.   an ability to function effectively on a team whose members together provide\nleadership, create a collaborative environment, establish goals, plan tasks, and\nmeet objectives.\n6.   an ability to develop and conduct appropriate experimentation, analyze and\ninterpret data, and use engineering judgment to draw conclusions.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 9,
+          "text": "7.   an ability to acquire and apply new knowledge as needed, using appropriate\nlearning strategies.\nCriterion 4. Continuous Improvement\nThe program must regularly use appropriate, documented processes for assessing and\nevaluating the extent to which the student outcomes are being attained. The results of\nthese evaluations must be systematically utilized as input for the program’s continuous\nimprovement actions. Other available information may also be used to assist in the\ncontinuous improvement of the program.\nCriterion 5. Curriculum\nThe curriculum requirements specify subject areas appropriate to engineering but do\nnot prescribe specific courses. The program curriculum must provide adequate content\nfor each area, consistent with the student outcomes and program educational\nobjectives, to ensure that students are prepared to enter the practice of engineering. The\ncurriculum must include:\na.   a minimum of 30 semester credit hours (or equivalent) of a combination of\ncollege-level mathematics and basic sciences with experimental experience\nappropriate to the program.\nb.   a minimum of 45 semester credit hours (or equivalent) of engineering topics\nappropriate to the program, consisting of engineering and computer sciences and\nengineering design, and utilizing modern engineering tools.\nc.   a broad education component that complements the technical content of the\ncurriculum and is consistent with the program educational objectives.\nd.   a culminating major engineering design experience that 1) incorporates\nappropriate engineering standards and multiple constraints, and 2) is based on\nthe knowledge and skills acquired in earlier course work.\nCriterion 6. Faculty\nThe program must demonstrate that the faculty members are of sufficient number and\nthey have the competencies to cover all of the curricular areas of the program. There\nmust be sufficient faculty to accommodate adequate levels of student-faculty\ninteraction, student advising and counseling, university service activities, professional\ndevelopment, and interactions with industrial and professional practitioners, as well as\nemployers of students.\nThe program faculty must have appropriate qualifications and must have and\ndemonstrate sufficient authority to ensure the proper guidance of the program and to\ndevelop and implement processes for the evaluation, assessment, and continuing\nimprovement of the program. The overall competence of the faculty may be judged by\nsuch factors as education, engineering experience, teaching effectiveness and\nexperience, ability to communicate, enthusiasm for developing more effective programs,\nlevel of scholarship, participation in professional societies, and licensure as\nProfessional Engineers.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 10,
+          "text": "Criterion 7. Facilities\nClassrooms, offices, laboratories, and associated equipment must be adequate to\nsupport attainment of the student outcomes and to provide an atmosphere conducive to\nlearning. Modern tools, equipment, computing resources, and laboratories appropriate\nto the program must be available and systematically maintained and upgraded to\nenable students to attain the student outcomes and to support program needs. Students\nmust be provided appropriate guidance regarding the use of the tools, equipment,\ncomputing resources, and laboratories available to the program.\nThe library services and the computing and information infrastructure must be\nadequate to support the scholarly and professional activities of the students and\nfaculty.\nCriterion 8. Institutional Support\nInstitutional support, resources, and leadership must be sufficient to: a) ensure the\nquality and continuity of the program; b) attract, retain, and provide for the continued\nprofessional development of a qualified faculty; c) acquire, maintain, and operate\ninfrastructures, facilities and equipment appropriate for the program; and d) create and\nfoster a respectful environment among the program’s students, faculty, staff, and\nadministrators such that the student outcomes can be attained. Resources include\ninstitutional services and policies, financial support, and administrative and technical\nstaff.",
+          "method": "pdf_text"
+        },
+        {
+          "page_no": 38,
+          "text": "Mechanical and Similarly Named Engineering Programs\nLead Society: American Society of Mechanical Engineers\nThese program criteria will apply to all engineering programs that include “mechanical”\nor similar modifiers in their titles.\n1. Curriculum\nIn preparation for professional practice, the curriculum must include:\na.   principles of engineering, basic science, and mathematics (including multivariate\ncalculus and differential equations);\nb.   applications of these topics to modeling, analysis, design, and realization of\nphysical systems, components, or processes;\nc.   coverage of both thermal and mechanical systems; and\nd.   in-depth coverage of either thermal or mechanical systems.\n2. Faculty\nThe program must demonstrate that faculty members responsible for the upper-level\nprofessional courses maintain currency in their specialty area(s).",
+          "method": "pdf_text"
+        }
+      ]
     }
   ],
   "requirements": [
@@ -871,8 +1085,8 @@
       "code": "Criterion 1",
       "parent_code": null,
       "level_label": "Criterion",
-      "title": "Criterion 1: Students",
-      "official_text": null,
+      "title": "Students",
+      "official_text": "Student performance must be evaluated. Student progress must be monitored to foster success in attaining student outcomes, thereby enabling graduates to attain program educational objectives. Students must be advised regarding curriculum and career matters. The program must have and enforce policies for accepting both new and transfer students, awarding appropriate academic credit for courses taken at other institutions, and awarding appropriate academic credit for work in lieu of courses taken at the institution. The program must have and enforce procedures to ensure and document that students who graduate meet all graduation requirements.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -880,18 +1094,75 @@
       "display_order": 1,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Students"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "Student performance must be evaluated. Student progress must be monitored to foster success in attaining"
       },
-      "notes": []
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Advising and Career Guidance. Summarize the process for advising and providing career guidance to students.  Include information on how often students are advised and who provides the advising (for example, program faculty member or program, departmental, college or university advisor).",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Evaluating Student Performance. Summarize the process by which student performance is evaluated and student progress is monitored.  Include information on how the program ensures and documents that students are meeting prerequisites and how it handles and documents situations when a prerequisite has not been met.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: For the sections below, attach any written policies that apply.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Graduation Requirements. Summarize the graduation requirements for the program and the process for ensuring and documenting that each graduate completes all graduation requirements for the program.  If applicable, describe the process and documentation for how course deviations are handled to ensure that graduation requirements are met.  State the name of the degree awarded (Master of Science in Safety Sciences, Bachelor of Technology, Bachelor of Science in Computer Science, Bachelor of Science in Electrical Engineering, etc.)",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Student Admissions. Summarize the requirements and process for accepting new students into the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Transcripts of Recent Graduates. The program will provide transcripts from some of the most recent graduates.  The team chair will specify which transcripts to provide.  New programs requesting retroactive accreditation must provide transcripts from graduates from all academic years covered by the retroactive accreditation request.  Transcripts should be accompanied by copies of degree audits and/or other explanations for interpreting the transcripts.  State how the program and any program options are designated on the transcript.  (See APPM, Section I.E.3.a.)",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Transfer Students and Transfer Courses. Summarize the requirements and process for accepting transfer students and transfer credit.  Include any state-mandated articulation requirements that impact the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 1: Work in Lieu of Courses. Summarize the requirements, process, and documentation for awarding credit for work in lieu of courses.  This could include such things as life experience, Advanced Placement, dual enrollment, test out, military experience, etc.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
     },
     {
       "code": "Criterion 2",
       "parent_code": null,
       "level_label": "Criterion",
-      "title": "Criterion 2: Program Educational Objectives",
-      "official_text": null,
+      "title": "Program Educational Objectives",
+      "official_text": "The program must have published program educational objectives that are consistent with the mission of the institution, the needs of the program’s various constituencies, and these criteria. There must be a documented, systematically utilized, and effective process, involving program constituencies, for the periodic review of these program educational objectives that ensures they remain consistent with the institutional mission, the program’s constituents’ needs, and these criteria.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -899,18 +1170,54 @@
       "display_order": 2,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Program Educational Objectives"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "The program must have published program educational objectives that are consistent with the mission of the"
       },
-      "notes": []
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 2: Consistency of the Program Educational Objectives with the Mission of the Institution. Describe how the program educational objectives are consistent with the mission of the institution.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 2: Mission Statement. Provide the institutional mission statement.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 2: Process for Review of the Program Educational Objectives. Describe the process that periodically reviews the program educational objectives including how ALL of the program’s various constituencies are involved in this process.  Describe how this process is systematically utilized to ensure that the program’s educational objectives remain consistent with the institutional mission, the program constituents’ needs and these Criteria.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 2: Program Constituencies. List the program constituencies. Describe how the program educational objectives meet the needs of these constituencies. Constituencies are defined by the program and should include those groups that have an interest in the program and are able to provide meaningful input regarding the program educational objectives. For illustrative purposes only, common constituencies include the program’s faculty, alumni, and employers of the program’s graduates.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 2: Program Educational Objectives. List the program educational objectives and state where they may be found by the general public as required by APPM Section I.A.6.b.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
     },
     {
       "code": "Criterion 3",
       "parent_code": null,
       "level_label": "Criterion",
-      "title": "Criterion 3: Student Outcomes",
-      "official_text": null,
+      "title": "Student Outcomes",
+      "official_text": "The program must have documented student outcomes that support the program educational objectives. Attainment of these outcomes prepares graduates to enter the professional practice of engineering. Student outcomes are outcomes (1) through (7), plus any additional outcomes that may be articulated by the program.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -918,18 +1225,90 @@
       "display_order": 3,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Student Outcomes"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "The program must have documented student outcomes that support the program educational objectives. Attainment"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 3: Relationship of Student Outcomes to Program Educational Objectives. Describe how the student outcomes prepare graduates to attain the program educational objectives.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 3: Student Outcomes. List the student outcomes and state where they may be found by the general public as required by APPM Section I.A.6.b.    If the student outcomes used by the program are stated differently than those listed in Criterion 3, provide a mapping of the program’s student outcomes to the student outcomes (1) through (7) listed in Criterion 3.   In the event that a program has not stated any student outcome verbatim as cited in the Engineering Accreditation Criteria, all elements required by that outcome must be retained.  Further, the program must not alter the intent or otherwise diminish the meaning of that outcome.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
+    },
+    {
+      "code": "Criterion 3(1)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (1)",
+      "official_text": "an ability to identify, formulate, and solve complex engineering problems by applying principles of engineering, science, and mathematics.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to identify, formulate, and solve complex engineering problems by applying"
       },
       "notes": []
     },
     {
-      "code": "Criterion 4",
-      "parent_code": null,
-      "level_label": "Criterion",
-      "title": "Criterion 4: Continuous Improvement",
-      "official_text": null,
+      "code": "Criterion 3(2)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (2)",
+      "official_text": "an ability to apply engineering design to produce solutions that meet specified needs with consideration of public health, safety, and welfare, as well as global, cultural, social, environmental, and economic factors.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to apply engineering design to produce solutions that meet specified needs"
+      },
+      "notes": []
+    },
+    {
+      "code": "Criterion 3(3)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (3)",
+      "official_text": "an ability to communicate effectively with a range of audiences.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to communicate effectively with a range of audiences."
+      },
+      "notes": []
+    },
+    {
+      "code": "Criterion 3(4)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (4)",
+      "official_text": "an ability to recognize ethical and professional responsibilities in engineering situations and make informed judgments, which must consider the impact of engineering solutions in global, economic, environmental, and societal contexts.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -937,18 +1316,18 @@
       "display_order": 4,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Continuous Improvement"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to recognize ethical and professional responsibilities in engineering"
       },
       "notes": []
     },
     {
-      "code": "Criterion 5",
-      "parent_code": null,
-      "level_label": "Criterion",
-      "title": "Criterion 5: Curriculum",
-      "official_text": null,
+      "code": "Criterion 3(5)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (5)",
+      "official_text": "an ability to function effectively on a team whose members together provide leadership, create a collaborative environment, establish goals, plan tasks, and meet objectives.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -956,18 +1335,18 @@
       "display_order": 5,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Curriculum"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to function effectively on a team whose members together provide leadership,"
       },
       "notes": []
     },
     {
-      "code": "Criterion 6",
-      "parent_code": null,
-      "level_label": "Criterion",
-      "title": "Criterion 6: Faculty",
-      "official_text": null,
+      "code": "Criterion 3(6)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (6)",
+      "official_text": "an ability to develop and conduct appropriate experimentation, analyze and interpret data, and use engineering judgment to draw conclusions.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -975,18 +1354,18 @@
       "display_order": 6,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Faculty"
+        "document": "doc-2",
+        "page": 8,
+        "quote": "an ability to develop and conduct appropriate experimentation, analyze and interpret"
       },
       "notes": []
     },
     {
-      "code": "Criterion 7",
-      "parent_code": null,
-      "level_label": "Criterion",
-      "title": "Criterion 7: Facilities",
-      "official_text": null,
+      "code": "Criterion 3(7)",
+      "parent_code": "Criterion 3",
+      "level_label": "Item",
+      "title": "Student outcome (7)",
+      "official_text": "an ability to acquire and apply new knowledge as needed, using appropriate learning strategies.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -994,18 +1373,327 @@
       "display_order": 7,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Facilities"
+        "document": "doc-2",
+        "page": 9,
+        "quote": "an ability to acquire and apply new knowledge as needed, using appropriate learning"
       },
       "notes": []
+    },
+    {
+      "code": "Criterion 4",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Continuous Improvement",
+      "official_text": "The program must regularly use appropriate, documented processes for assessing and evaluating the extent to which the student outcomes are being attained. The results of these evaluations must be systematically utilized as input for the program’s continuous improvement actions. Other available information may also be used to assist in the continuous improvement of the program.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "The program must regularly use appropriate, documented processes for assessing and evaluating the extent to"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 4: Additional Information. Copies of any of the assessment instruments or materials referenced in 4.A and 4.B must be available for review at the time of the visit.  Other information, such as minutes from meetings where the assessment results were evaluated and where recommendations for action were made, could also be included.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 4: Continuous Improvement. Describe how the results of evaluation processes for the student outcomes and any other available information have been systematically used as input in the continuous improvement of the program.  Describe the results of any changes (whether or not effective) in those cases where re-assessment of the results has been completed.  Indicate any significant future program improvement plans based upon recent evaluations.  Provide a brief rationale for each of these planned changes.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 4: Student Outcomes. It is recommended that this section include the following (a table may be used to present this information): A listing and description of the assessment processes used to gather the data upon which the evaluation of each student outcome is based. Among other things, the description should explicitly address how all the considerations, factors, and contexts listed in Student Outcomes (2) and (4) are incorporated into the assessment processes. Examples of data collection processes may include, but are not limited to, specific exam questions, student portfolios, internally developed assessment exams, senior project presentations, nationally-normed exams, oral exams, focus groups, industrial advisory committee meetings, or other processes that are relevant and appropriate to the program. The frequency with which these assessment processes are carried out",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 4: The expected level of attainment for each of the student outcomes. Summaries of the results of the evaluation process and an analysis illustrating the extent to which each of the student outcomes is being attained How the results are documented and maintained",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 4: This section of your Self-Study Report should document your processes for regularly assessing and evaluating the extent to which the student outcomes are being attained.  This section should also document the extent to which the student outcomes are being attained and describe how the results of these processes are utilized to affect continuous improvement of the program.  Each program must independently assess all student outcomes; when programs share courses, assessment data must be disaggregated by program in order to ensure the individual program’s outcomes are being independently assessed. Assessment is defined as one or more processes that identify, collect, and prepare the data necessary for evaluation.  Evaluation is defined as one or more processes for interpreting the data acquired though the assessment processes in order to determine how well the student outcomes are being attained. Although the program can report its processes as it chooses, the following is presented as a guide to help you organize your Self-Study Report.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
+    },
+    {
+      "code": "Criterion 5",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Curriculum",
+      "official_text": "The curriculum requirements specify subject areas appropriate to engineering but do not prescribe specific courses. The program curriculum must provide adequate content for each area, consistent with the student outcomes and program educational objectives, to ensure that students are prepared to enter the practice of engineering. The curriculum must include:",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 5,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "The curriculum requirements specify subject areas appropriate to engineering but do not prescribe specific"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 5: Course Syllabi. In Appendix A of the Self-Study Report, include a syllabus for each course used to satisfy the mathematics, science, and discipline-specific requirements required by Criterion 5 or by any applicable program criteria.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 5: Program Curriculum. Complete Table 5-1 that describes the plan of study for students in this program including information on course offerings in the form of a recommended schedule by year and term along with maximum section enrollments for all courses in the program for the last two terms the course was taught.  If there is more than one curricular path or option for a program, a separate Table 5-1 should be provided for each path or option.   State whether the institution operates on quarters or semesters. Describe how the curriculum aligns with the program educational objectives. Describe how the curriculum and its associated prerequisite structure support the attainment of the student outcomes. Attach a flowchart or worksheet that illustrates the prerequisite structure of the program’s required courses. Describe how the program meets the requirements in terms of hours and depth of study for each subject area (Math and Basic Sciences, Engineering Topics) specifically addressed by either the general criteria or the program criteria. Describe the broad education component and how it complements the technical content of the curriculum and how it is consistent with the program educational objectives. Describe the culminating major design experience that prepares students for engineering practice, and how the experience conforms to the EAC definition of “engineering design.”  Describe how this experience: is based upon the knowledge and skills acquired in earlier coursework, incorporates appropriate engineering standards, and incorporates multiple design constraints. Provide the titles of all culminating major design projects from the most recent graduating class. If multiple teams work on projects with the same title, provide a way to distinguish the projects. New programs requesting two-year retroactive accreditation should provide titles of all projects for the graduating classes from the two most recent years. If the program allows cooperative education to satisfy curricular requirements specifically addressed by either the general or program criteria, describe the academic component of this experience and how it is evaluated by the faculty. Describe the materials that will be available for review during and/or prior to the visit to demonstrate achievement related to this criterion.  (See APPM Section I.E.5.b.(2))",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
+    },
+    {
+      "code": "Criterion 5(a)",
+      "parent_code": "Criterion 5",
+      "level_label": "Item",
+      "title": "Criterion 5(a)",
+      "official_text": "a minimum of 30 semester credit hours (or equivalent) of a combination of college-level mathematics and basic sciences with experimental experience appropriate to the program.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "a minimum of 30 semester credit hours (or equivalent) of a combination of college-level"
+      },
+      "notes": [
+        {
+          "type": "quantitative_norm",
+          "text": "Minimum 30 semester credit hours (or equivalent) of college-level mathematics and basic sciences.",
+          "authority": "required",
+          "norm": {
+            "metric": "credit_hours",
+            "unit": "semester_credit_hours",
+            "min": 30,
+            "subject": "college-level mathematics and basic sciences"
+          },
+          "source": {
+            "document": "doc-2",
+            "page": 9,
+            "quote": "a minimum of 30 semester credit hours (or equivalent)"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Criterion 5(b)",
+      "parent_code": "Criterion 5",
+      "level_label": "Item",
+      "title": "Criterion 5(b)",
+      "official_text": "a minimum of 45 semester credit hours (or equivalent) of engineering topics appropriate to the program, consisting of engineering and computer sciences and engineering design, and utilizing modern engineering tools.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "a minimum of 45 semester credit hours (or equivalent) of engineering topics appropriate"
+      },
+      "notes": [
+        {
+          "type": "quantitative_norm",
+          "text": "Minimum 45 semester credit hours (or equivalent) of engineering topics.",
+          "authority": "required",
+          "norm": {
+            "metric": "credit_hours",
+            "unit": "semester_credit_hours",
+            "min": 45,
+            "subject": "engineering topics"
+          },
+          "source": {
+            "document": "doc-2",
+            "page": 9,
+            "quote": "a minimum of 45 semester credit hours (or equivalent)"
+          }
+        }
+      ]
+    },
+    {
+      "code": "Criterion 5(c)",
+      "parent_code": "Criterion 5",
+      "level_label": "Item",
+      "title": "Criterion 5(c)",
+      "official_text": "a broad education component that complements the technical content of the curriculum and is consistent with the program educational objectives.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 3,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "a broad education component that complements the technical content of the curriculum and"
+      },
+      "notes": []
+    },
+    {
+      "code": "Criterion 5(d)",
+      "parent_code": "Criterion 5",
+      "level_label": "Item",
+      "title": "Criterion 5(d)",
+      "official_text": "a culminating major engineering design experience that 1) incorporates appropriate engineering standards and multiple constraints, and 2) is based on the knowledge and skills acquired in earlier course work.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 4,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "a culminating major engineering design experience that 1) incorporates appropriate"
+      },
+      "notes": []
+    },
+    {
+      "code": "Criterion 6",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Faculty",
+      "official_text": "The program must demonstrate that the faculty members are of sufficient number and they have the competencies to cover all of the curricular areas of the program. There must be sufficient faculty to accommodate adequate levels of student-faculty interaction, student advising and counseling, university service activities, professional development, and interactions with industrial and professional practitioners, as well as employers of students. The program faculty must have appropriate qualifications and must have and demonstrate sufficient authority to ensure the proper guidance of the program and to develop and implement processes for the evaluation, assessment, and continuing improvement of the program. The overall competence of the faculty may be judged by such factors as education, engineering experience, teaching effectiveness and experience, ability to communicate, enthusiasm for developing more effective programs, level of scholarship, participation in professional societies, and licensure as Professional Engineers.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 6,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 9,
+        "quote": "The program must demonstrate that the faculty members are of sufficient number and they have the competencies"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 6: Authority and Responsibility of Faculty. Describe the role played by faculty members with respect to course creation, modification, and evaluation, their role in the definition and revision of program educational objectives and student outcomes, and their role in the attainment of the student outcomes.  Describe the roles of others on campus, e.g., dean or provost, with respect to these areas.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 6: Faculty Qualifications. Describe the qualifications of the faculty and how they are adequate to cover all the curricular areas of the program and also meet any applicable program criteria.  This description should include the composition, size, credentials, and experience of the faculty.  Complete Table 6-1.  Include faculty resumes in Appendix B.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 6: Faculty Size. Discuss the adequacy of the size of the faculty and describe the extent and quality of faculty involvement in interactions with students, student advising and counseling, university service activities, professional development, and interactions with industrial and professional practitioners including employers of students.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 6: Faculty Workload. Complete Table 6-2, Faculty Workload Summary and describe this information in terms of workload expectations or requirements.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 6: Professional Development. Provide detailed descriptions of professional development activities for each faculty member.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
+    },
+    {
+      "code": "Criterion 7",
+      "parent_code": null,
+      "level_label": "Criterion",
+      "title": "Facilities",
+      "official_text": "Classrooms, offices, laboratories, and associated equipment must be adequate to support attainment of the student outcomes and to provide an atmosphere conducive to learning. Modern tools, equipment, computing resources, and laboratories appropriate to the program must be available and systematically maintained and upgraded to enable students to attain the student outcomes and to support program needs. Students must be provided appropriate guidance regarding the use of the tools, equipment, computing resources, and laboratories available to the program. The library services and the computing and information infrastructure must be adequate to support the scholarly and professional activities of the students and faculty.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": null,
+      "display_order": 7,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 10,
+        "quote": "Classrooms, offices, laboratories, and associated equipment must be adequate to support attainment of the"
+      },
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 7: A. Offices, Classrooms and Laboratories. Summarize each of the program’s facilities in terms of their ability to support the attainment of the student outcomes and to provide an atmosphere conducive to learning. Offices (such as administrative, faculty, clerical, and teaching assistants) and any associated equipment that is typically available there. Classrooms and associated equipment that are typically available where the program courses are taught. Laboratory facilities including those containing computers (describe available hardware and software) and the associated tools and equipment that support instruction.  Include those facilities used by students in the program even if they are not dedicated to the program and state the times they are available to students.  Complete Appendix C containing a listing of the major pieces of equipment used by the program in support of instruction.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 7: B. Computing Resources. Describe any computing resources (workstations, servers, storage, networks including software), in addition to those described in the laboratories in Part A, which are used by the students in the program. State the hours the various computing facilities are open to students.  Assess the adequacy of these facilities to support the scholarly and professional activities of the students and faculty in the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 7: C. Guidance. Describe how students in the program are provided appropriate guidance regarding the use of the tools, equipment, computing resources, and laboratories.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 7: D. Maintenance and Upgrading of Facilities. Describe the policies and procedures for maintaining and upgrading the tools, equipment, computing resources, and laboratories used by students and faculty in the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 7: E. Library Services. Describe and evaluate the capability of the library (or libraries) to serve the program including the adequacy of the library’s technical collection relative to the needs of the program and the faculty, the adequacy of the process by which faculty may request the library to order books or subscriptions, the library’s systems for locating and obtaining electronic information, and any other library services relevant to the needs of the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
     },
     {
       "code": "Criterion 8",
       "parent_code": null,
       "level_label": "Criterion",
-      "title": "Criterion 8: Institutional Support",
-      "official_text": null,
+      "title": "Institutional Support",
+      "official_text": "Institutional support, resources, and leadership must be sufficient to: a) ensure the quality and continuity of the program; b) attract, retain, and provide for the continued professional development of a qualified faculty; c) acquire, maintain, and operate infrastructures, facilities and equipment appropriate for the program; and d) create and foster a respectful environment among the program’s students, faculty, staff, and administrators such that the student outcomes can be attained. Resources include institutional services and policies, financial support, and administrative and technical staff.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -1013,18 +1701,61 @@
       "display_order": 8,
       "weight": null,
       "source": {
-        "document": "doc-1",
-        "page": 7,
-        "quote": "Institutional Support"
+        "document": "doc-2",
+        "page": 10,
+        "quote": "Institutional support, resources, and leadership must be sufficient to: a) ensure the quality and continuity"
       },
-      "notes": []
+      "notes": [
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: F. Respectful Environment. Describe mechanisms such as policies, activities, and services that create and foster a respectful environment among the program’s students, faculty, staff, and administrators such that student outcomes can be attained.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: Faculty Hiring and Retention. Describe the process for hiring of new faculty. Describe strategies used to retain current qualified faculty.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: Leadership. Describe the leadership of the program and discuss its adequacy to ensure the quality and continuity of the program and how the leadership is involved in decisions that affect the program.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: Program Budget and Financial Support. Describe the process used to establish the program’s budget and provide evidence of continuity of institutional support for the program.  Include the sources of financial support including both permanent (recurring) and temporary (one-time) funds. Describe how teaching is supported by the institution in terms of graders, teaching assistants, teaching workshops, etc. To the extent not described above, describe how resources are provided to acquire, maintain, and upgrade the infrastructures, facilities, and equipment used in the program. Assess the adequacy of the resources described in this section with respect to the students in the program being able to attain the student outcomes.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: Staffing. Describe the adequacy of the staff (administrative, instructional, and technical) and institutional services provided to the program.  Discuss methods used to retain and train staff.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        },
+        {
+          "type": "guidance",
+          "text": "Self-Study Questionnaire 2027-28, Criterion 8: Support of Faculty Professional Development. Describe the adequacy of support for faculty professional development, how such activities such as sabbaticals, travel, workshops, seminars, etc., are planned and supported.",
+          "authority": "suggested",
+          "norm": null,
+          "source": null
+        }
+      ]
     },
     {
       "code": "Program Criteria: Mechanical",
       "parent_code": null,
       "level_label": "Criterion",
-      "title": "Program Criteria: Mechanical Engineering",
-      "official_text": null,
+      "title": "Program Criteria: Mechanical and Similarly Named Engineering Programs",
+      "official_text": "These program criteria will apply to all engineering programs that include “mechanical” or similar modifiers in their titles.",
       "language": "en",
       "translation_en": null,
       "is_assessable": true,
@@ -1038,7 +1769,63 @@
       },
       "display_order": 20,
       "weight": null,
-      "source": null,
+      "source": {
+        "document": "doc-2",
+        "page": 38,
+        "quote": "These program criteria will apply to all engineering programs that include “mechanical” or similar modifiers"
+      },
+      "notes": []
+    },
+    {
+      "code": "Mechanical 1",
+      "parent_code": "Program Criteria: Mechanical",
+      "level_label": "Item",
+      "title": "Mechanical 1. Curriculum",
+      "official_text": "In preparation for professional practice, the curriculum must include: a. principles of engineering, basic science, and mathematics (including multivariate calculus and differential equations); b. applications of these topics to modeling, analysis, design, and realization of physical systems, components, or processes; c. coverage of both thermal and mechanical systems; and d. in-depth coverage of either thermal or mechanical systems.",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ],
+        "program_tags": [
+          "mechanical"
+        ]
+      },
+      "display_order": 1,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 38,
+        "quote": "In preparation for professional practice, the curriculum must include: a. principles of engineering, basic"
+      },
+      "notes": []
+    },
+    {
+      "code": "Mechanical 2",
+      "parent_code": "Program Criteria: Mechanical",
+      "level_label": "Item",
+      "title": "Mechanical 2. Faculty",
+      "official_text": "The program must demonstrate that faculty members responsible for the upper-level professional courses maintain currency in their specialty area(s).",
+      "language": "en",
+      "translation_en": null,
+      "is_assessable": true,
+      "applies_when": {
+        "scope": [
+          "program"
+        ],
+        "program_tags": [
+          "mechanical"
+        ]
+      },
+      "display_order": 2,
+      "weight": null,
+      "source": {
+        "document": "doc-2",
+        "page": 38,
+        "quote": "The program must demonstrate that faculty members responsible for the upper-level professional courses"
+      },
       "notes": []
     },
     {
