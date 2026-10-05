@@ -331,7 +331,7 @@ Login, layout, navigation stub, an example query through the typed client, dir='
 id: TASK-008
 title: Worker skeleton with pg-boss
 description: Job runner using the same identity-carrying transaction helper
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -354,8 +354,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:55.117Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:03:51.451Z'
 ---
 
 Jobs record the queuing user's id or a named system identity; RLS and audit apply inside jobs. One example job end to end.

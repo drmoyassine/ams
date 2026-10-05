@@ -2,7 +2,7 @@ import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
 import { withIdentity, type Identity } from '@ams/db';
-import { isPermitted, type Ctx } from '@ams/core';
+import { isPermitted, type Ctx, type JobQueue } from '@ams/core';
 import type { Permission, Scope } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
@@ -40,6 +40,7 @@ class Rollback extends Error {}
 
 export interface ChainDeps {
   pool: pg.Pool;
+  queue: JobQueue;
   authenticate: Authenticator;
 }
 
@@ -61,14 +62,22 @@ const authorizeStep = (deps: ChainDeps, access: Extract<Access, { kind: 'permiss
 /** Wraps validation and the handler in one identity-carrying transaction; a 4xx/5xx response rolls it back. */
 const transactionStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
   const caller = c.get('caller');
+  const hooks: (() => Promise<void>)[] = [];
+  let committed = true;
   try {
     await withIdentity(deps.pool, caller, async (tx) => {
-      c.set('ctx', { tx, caller });
+      c.set('ctx', { tx, caller, queue: deps.queue, afterCommit: (fn) => { hooks.push(fn); } });
       await next();
       if (c.error || c.res.status >= 400) throw new Rollback();
     });
   } catch (e) {
     if (!(e instanceof Rollback)) throw e;
+    committed = false;
+  }
+  if (committed) {
+    for (const hook of hooks) {
+      await hook().catch((err: unknown) => console.error(JSON.stringify({ level: 'error', msg: 'afterCommit failed', err: String(err) })));
+    }
   }
 };
 

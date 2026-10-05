@@ -12,7 +12,8 @@
     "@ams/db": "workspace:*",
     "@ams/shared": "workspace:*",
     "drizzle-orm": "^0.45.3",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "pg-boss": "^12.36.0"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1"

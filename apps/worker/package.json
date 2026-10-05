@@ -3,8 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": { "build": "tsc -b" },
-  "dependencies": { "@ams/shared": "workspace:*", "@ams/db": "workspace:*", "@ams/core": "workspace:*" }
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@ams/core": "workspace:*",
+    "@ams/db": "workspace:*",
+    "@ams/shared": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.36.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
+  }
 }

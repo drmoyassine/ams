@@ -45,7 +45,7 @@ describe('route permission coverage', () => {
       method: 'get' as const, path: '/x', access: publicRoute(),
       responses: { 200: { description: 'ok', content: { 'application/json': { schema: z.object({}) } } } },
     };
-    secured(registry, { pool, authenticate }, cfg);
-    expect(() => secured(registry, { pool, authenticate }, cfg)).toThrow(/twice/);
+    secured(registry, { pool, authenticate, queue: { send: async () => undefined } }, cfg);
+    expect(() => secured(registry, { pool, authenticate, queue: { send: async () => undefined } }, cfg)).toThrow(/twice/);
   });
 });

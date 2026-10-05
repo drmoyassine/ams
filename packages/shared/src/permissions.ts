@@ -53,3 +53,18 @@ export const CreateProgramSchema = z.object({
   tags: z.array(z.string().trim().min(1)).default([]),
 });
 export type CreateProgram = z.infer<typeof CreateProgramSchema>;
+
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify'] as const;
+export type JobType = (typeof JOB_TYPES)[number];
+
+/**
+ * What travels through the queue. The identity is the user who queued the job (or a named system identity with
+ * `userId: null`); the worker runs the job as that identity so RLS and the audit trigger apply (DEC-010).
+ */
+export const JobEnvelopeSchema = z.object({
+  jobId: z.uuid(),
+  institutionId: z.uuid(),
+  userId: z.uuid().nullable(),
+  actorType: z.enum(['user', 'system', 'ai']),
+});
+export type JobEnvelope = z.infer<typeof JobEnvelopeSchema>;
