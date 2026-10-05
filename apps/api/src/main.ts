@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { PgBoss } from 'pg-boss';
 import pg from 'pg';
 import { ensureQueues, pgBossQueue } from '@ams/core';
+import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
 import { createAuth, sessionAuthenticator } from './auth.js';
@@ -13,6 +14,9 @@ import { seedAdmin } from './seed.js';
 
 const env = loadEnv();
 const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
+
+// Forward-only SQL migrations, applied before anything else touches the database. The worker never migrates.
+await runMigrations(env.DATABASE_URL);
 
 const boss = new PgBoss(env.DATABASE_URL);
 boss.on('error', (err) => console.error(JSON.stringify({ level: 'error', msg: 'pg-boss', err: String(err) })));

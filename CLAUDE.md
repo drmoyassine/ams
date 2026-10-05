@@ -105,9 +105,9 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 | Surface | How |
 |---|---|
 | Unit + integration tests | `pnpm test` (Vitest) |
-| End-to-end on seeded fixtures | `pnpm test:e2e` (Playwright against Compose stack) |
+| End-to-end | `pnpm test:e2e` — `scripts/smoke.sh` against the running Compose stack (health, login, protected route, worker). Playwright browser tests join when the SPA has real flows |
 | Route permission coverage | `pnpm test:routes` — enumerates Hono routes; fails on any route without `requires(...)` |
-| Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger |
+| Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger. Needs PostgreSQL (`TEST_DATABASE_ADMIN_URL`, default `postgres://postgres:postgres@localhost:5432/postgres`) |
 | Types and lint | `pnpm typecheck && pnpm lint` |
 | Project memory | `npx vef check` (also in CI via `.github/workflows/vef.yml`) |
 | Local stack | `docker compose up` — app on :3000, Postgres :5432, MinIO :9000/:9001 |

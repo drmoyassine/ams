@@ -2,7 +2,7 @@
 id: TASK-009
 title: CI pipeline
 description: Migrations on throwaway Postgres + MinIO, unit and e2e tests, route-permission enumeration, vef check
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -28,8 +28,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:56.464Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:04:48.818Z'
 ---
 # TASK-009 — CI pipeline
 

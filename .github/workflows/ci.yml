@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      # Migrations run on the throwaway Postgres inside the database and API tests (RLS, triggers, audit).
+      - run: pnpm db:test
+      # Fails the build if any route is registered without a requires(...) / publicRoute() declaration.
+      - run: pnpm test:routes
+      - run: pnpm test
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v6
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          NODE_ENV=production
+          PORT=3000
+          APP_URL=http://localhost:3000
+          POSTGRES_USER=ams
+          POSTGRES_PASSWORD=ci-postgres-password
+          POSTGRES_DB=ams
+          DATABASE_URL=postgres://ams:ci-postgres-password@postgres:5432/ams
+          AUTH_SECRET=$(openssl rand -hex 32)
+          S3_ENDPOINT=http://minio:9000
+          S3_REGION=us-east-1
+          S3_BUCKET=ams
+          S3_ACCESS_KEY_ID=amsminio
+          S3_SECRET_ACCESS_KEY=ci-minio-secret-key
+          S3_FORCE_PATH_STYLE=true
+          INSTITUTION_NAME=CI University
+          ADMIN_EMAIL=admin@ci.test
+          ADMIN_PASSWORD=ci-admin-password-1
+          EOF
+      - run: docker compose up -d --build --wait
+      - name: Smoke test
+        run: |
+          set -a; . ./.env; set +a
+          bash scripts/smoke.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - run: docker compose down -v
+        if: always()

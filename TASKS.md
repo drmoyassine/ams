@@ -368,7 +368,7 @@ Jobs record the queuing user's id or a named system identity; RLS and audit appl
 id: TASK-009
 title: CI pipeline
 description: Migrations on throwaway Postgres + MinIO, unit and e2e tests, route-permission enumeration, vef check
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -394,8 +394,8 @@ related_decisions:
     name: One middleware chain for every request and background job
     url: /DECISIONS.md#DEC-010
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:56.464Z'
+  by: agent/claude-code
+  at: '2026-10-05T09:04:48.818Z'
 ---
 
 Add an application workflow alongside the managed .github/workflows/vef.yml. Fail on any route lacking requires(...).
