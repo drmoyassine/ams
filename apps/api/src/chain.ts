@@ -115,3 +115,18 @@ export function assertAllRoutesDeclared(
     throw new Error(`Routes registered without a requires(...) declaration: ${missing.join(', ')}`);
   }
 }
+
+/**
+ * Mounts a handler that is deliberately outside the permission chain (the authentication endpoints), recorded as
+ * public so the startup check still accounts for it.
+ */
+export function rawPublicRoute(
+  app: OpenAPIHono<AppEnv>,
+  registry: RouteRegistry,
+  methods: ('GET' | 'POST')[],
+  path: string,
+  handler: (req: Request) => Response | Promise<Response>,
+): void {
+  for (const m of methods) registry.declared.set(registry.key(m, path), { kind: 'public' });
+  app.on(methods, path, (c) => handler(c.req.raw));
+}

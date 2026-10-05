@@ -13,6 +13,15 @@ export const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  // Seed administrator, created on first start when the database has no institution.
+  INSTITUTION_NAME: z.string().min(1).optional(),
+  ADMIN_EMAIL: z.email().optional(),
+  ADMIN_PASSWORD: z.string().min(12).optional(),
+  // Generic OIDC single sign-on (all three required to enable it).
+  OIDC_DISCOVERY_URL: z.url().optional(),
+  OIDC_CLIENT_ID: z.string().min(1).optional(),
+  OIDC_CLIENT_SECRET: z.string().min(1).optional(),
+  OIDC_PROVIDER_ID: z.string().min(1).default('oidc'),
   SMTP_URL: z.string().url().optional(),
   SMTP_FROM: z.string().optional(),
   AI_PROVIDER: z.string().default('anthropic'),
@@ -23,7 +32,9 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
-  const parsed = envSchema.safeParse(source);
+  // An empty value (as in a copied .env.example) means "not set".
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''));
+  const parsed = envSchema.safeParse(present);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment: ${issues}`);

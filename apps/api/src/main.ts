@@ -6,12 +6,16 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
+import { createAuth, sessionAuthenticator } from './auth.js';
+import { seedAdmin } from './seed.js';
 
 const env = loadEnv();
 const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
 
-// TASK-006 replaces this with the Better Auth session lookup. Until then every protected route answers 401.
-const { app } = createApp({ pool, authenticate: async () => null });
+const auth = createAuth(pool, env);
+if (await seedAdmin(pool, auth, env)) console.log(JSON.stringify({ level: 'info', msg: 'seeded institution and admin' }));
+
+const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler });
 
 const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
 if (existsSync(webRoot)) {

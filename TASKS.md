@@ -257,7 +257,7 @@ Route registration helper requires a requires(permission, scope) declaration; th
 id: TASK-006
 title: Authentication with Better Auth
 description: Password + generic OIDC; SAML spike against QuickLaunch
-status: pending
+status: completed
 priority: P0
 assignee: ''
 tags:
@@ -280,8 +280,8 @@ related_decisions:
     name: Better Auth for authentication (OIDC/SAML + password)
     url: /DECISIONS.md#DEC-015
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:52.561Z'
+  by: agent/claude-code
+  at: '2026-10-05T08:58:25.569Z'
 ---
 
 Sessions in PostgreSQL. Seed admin from env. Record the SAML spike outcome as a decision update if a broker is needed.

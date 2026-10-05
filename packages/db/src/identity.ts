@@ -40,3 +40,30 @@ export async function withIdentity<T>(pool: pg.Pool, identity: Identity, fn: (tx
     client.release();
   }
 }
+
+type Resolved = { userId: string; institutionId: string } | null;
+
+async function asApp(pool: pg.Pool, sqlText: string, params: unknown[]): Promise<Resolved> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role ams_app');
+    const { rows } = await client.query<{ user_id: string; institution_id: string }>(sqlText, params);
+    await client.query('commit');
+    const row = rows[0];
+    return row ? { userId: row.user_id, institutionId: row.institution_id } : null;
+  } catch (e) {
+    await client.query('rollback').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/** Maps a Better Auth user id to the AMS caller, or null if that user has not been provisioned (or is inactive). */
+export const resolveIdentity = (pool: pg.Pool, authUserId: string): Promise<Resolved> =>
+  asApp(pool, 'select user_id, institution_id from app_resolve_identity($1)', [authUserId]);
+
+/** Links a verified-email auth user to the app_user an administrator created for that address. */
+export const linkIdentity = (pool: pg.Pool, authUserId: string, email: string): Promise<Resolved> =>
+  asApp(pool, 'select user_id, institution_id from app_link_identity($1, $2)', [authUserId, email]);

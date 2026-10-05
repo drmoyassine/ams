@@ -1,7 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { ForbiddenError, NotFoundError } from '@ams/core';
 import {
-  assertAllRoutesDeclared, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
+  assertAllRoutesDeclared, rawPublicRoute, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
 } from './chain.js';
 import { registerRoutes } from './routes.js';
 import type pg from 'pg';
@@ -9,6 +9,8 @@ import type pg from 'pg';
 export interface AppOptions {
   pool: pg.Pool;
   authenticate: Authenticator;
+  /** Better Auth's request handler, mounted at /api/auth/*. */
+  authHandler?: (req: Request) => Response | Promise<Response>;
   /** Extra route modules, registered before the startup check (used by tests to prove the check bites). */
   extend?: (app: OpenAPIHono<AppEnv>, registry: RouteRegistry, deps: ChainDeps) => void;
 }
@@ -24,6 +26,7 @@ export function createApp(opts: AppOptions) {
   const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate };
 
   registerRoutes(app, registry, deps);
+  if (opts.authHandler) rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', opts.authHandler);
   opts.extend?.(app, registry, deps);
 
   app.doc('/openapi.json', { openapi: '3.0.0', info: { title: 'AMS API', version: '0.0.0' } });
