@@ -636,7 +636,7 @@ title: Framework core services
 description: >-
   packages/core/framework: create/edit tree, notes with authority rules (6.3), report templates, version lifecycle draft
   -> in_review -> published -> retired, new version from existing
-status: pending
+status: completed
 priority: P0
 last_updated: '2026-10-05'
 generated:
@@ -662,7 +662,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-05T09:37:24.166Z'
+  at: '2026-10-05T09:48:49.962Z'
 ---
 
 Authority rules: required needs a verified quote; only humans set institution_defined or promote ai_suggested. Services take (ctx, input) and never open connections.

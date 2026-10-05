@@ -5,3 +5,4 @@ export * from './jobs/jobs.js';
 export * from './jobs/run.js';
 export * from './jobs/handlers.js';
 export * from './jobs/pgboss-queue.js';
+export * from './framework/index.js';

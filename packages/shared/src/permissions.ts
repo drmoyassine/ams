@@ -7,21 +7,22 @@ export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
   'org:read', 'org:write', 'program:read', 'program:write', 'role:assign', 'audit:read',
+  'framework:read', 'framework:write', 'framework:review', 'framework:publish',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const READ: Permission[] = ['org:read', 'program:read'];
+const READ: Permission[] = ['org:read', 'program:read', 'framework:read'];
 
 /** Role × permission. Where a role applies is decided by its scope (institution, org_unit, program, engagement). */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  lead: [...READ, 'org:write', 'program:write'],
+  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review'],
   engagement_lead: READ,
   co_lead: READ,
   contributor: READ,
-  reviewer: READ,
+  reviewer: [...READ, 'framework:review'],
   viewer: READ,
-  external_reviewer: ['program:read'],
+  external_reviewer: ['program:read'],  // read-only, one snapshot (P1); framework library is not exposed
 };
 
 export type Scope =

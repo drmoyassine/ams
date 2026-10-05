@@ -21,3 +21,12 @@ export class ForbiddenError extends Error {
 export class NotFoundError extends Error {
   readonly status = 404;
 }
+export class ConflictError extends Error {
+  readonly status = 409;
+}
+export class ValidationError extends Error {
+  readonly status = 400;
+  constructor(message: string, readonly issues: { path: string; message: string }[] = []) {
+    super(message);
+  }
+}
