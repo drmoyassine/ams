@@ -13,7 +13,7 @@ import { assertHuman } from '../framework/common.js';
 import { assertPermitted } from '../permissions.js';
 import type { KeyDates } from './dates.js';
 import { firstPhase, generateMilestones } from './generate.js';
-import { getEngagementRow, loadLifecycle, toMilestone, todayIso } from './common.js';
+import { getEngagementRow, lifecycleVersionId, loadLifecycle, toMilestone, todayIso } from './common.js';
 import { canAdvance, phaseSummary } from './roadmap.js';
 import { instantiateRequirements } from './instantiate.js';
 
@@ -81,7 +81,7 @@ export async function getEngagement(ctx: Ctx, id: string): Promise<EngagementDet
   const [eng] = await toEngagements(ctx, [row]);
   const ms = await ctx.tx.select().from(milestone).where(eq(milestone.engagementId, id)).orderBy(asc(milestone.displayOrder));
   const today = todayIso();
-  const phases = phaseSummary(await loadLifecycle(ctx, row.frameworkVersionId), row.kind, row.currentPhase, ms);
+  const phases = phaseSummary(await loadLifecycle(ctx, lifecycleVersionId(row)), row.kind, row.currentPhase, ms);
   return { engagement: eng!, phases, canAdvance: row.status === 'active' && canAdvance(phases), members: await listMembers(ctx, id), requirementCounts: await requirementCounts(ctx, id), milestones: ms.map((m) => toMilestone(m, today)) };
 }
 

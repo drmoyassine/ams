@@ -1003,7 +1003,7 @@ Rename, describe, assign owner, change due date (origin modified); add local mil
 ---
 title: Template-update review
 description: Show added, removed and re-dated milestones when a newer framework version is published
-status: pending
+status: completed
 priority: P0
 id: TASK-026
 last_updated: '2026-10-05'
@@ -1024,7 +1024,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-003
 modified:
   by: agent/claude-code
-  at: '2026-10-05T12:38:20.852Z'
+  at: '2026-10-05T13:02:34.766Z'
 ---
 
 # Template-update review

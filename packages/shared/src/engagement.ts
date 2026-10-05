@@ -129,3 +129,37 @@ export const CreateEngagementResultSchema = z.object({
   requirementCounts: z.object({ applicable: z.number(), notApplicable: z.number() }),
   milestoneCount: z.number(),
 });
+
+// ---- Template update review (PRD 8.5) -------------------------------------------------------------------------
+
+export const TEMPLATE_CHANGE_KINDS = ['added', 'removed', 'redated', 'changed'] as const;
+export const TemplateChangeSchema = z.object({
+  /** Stable: `<kind>:<template key>`. */
+  id: z.string(),
+  kind: z.enum(TEMPLATE_CHANGE_KINDS),
+  templateKey: z.string(),
+  name: z.string(),
+  phase: z.enum(PHASE_TYPES),
+  /** The milestone was changed locally, so accepting this change would not overwrite it and has no effect. */
+  protectedByEdit: z.boolean(),
+  /** A locked milestone cannot be removed from an engagement. */
+  blocked: z.string().nullable(),
+  before: z.record(z.string(), z.unknown()).nullable(),
+  after: z.record(z.string(), z.unknown()).nullable(),
+});
+export type TemplateChange = z.infer<typeof TemplateChangeSchema>;
+
+export const TemplateUpdateSchema = z.object({
+  available: z.boolean(),
+  fromVersion: z.object({ id: z.string(), edition: z.string() }),
+  toVersion: z.object({ id: z.string(), edition: z.string() }).nullable(),
+  changes: z.array(TemplateChangeSchema),
+});
+export type TemplateUpdate = z.infer<typeof TemplateUpdateSchema>;
+
+export const ApplyTemplateUpdateSchema = z.object({
+  toVersionId: z.uuid(),
+  /** A decision for every change: accept or ignore, item by item. */
+  decisions: z.record(z.string(), z.enum(['accept', 'ignore'])),
+}).strict();
+export type ApplyTemplateUpdate = z.infer<typeof ApplyTemplateUpdateSchema>;

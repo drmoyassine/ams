@@ -10,7 +10,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
-import { getActiveEngagementRow, loadLifecycle, toMilestone, type EngagementRow, type MilestoneRow } from './common.js';
+import { getActiveEngagementRow, lifecycleVersionId, loadLifecycle, toMilestone, type EngagementRow, type MilestoneRow } from './common.js';
 import { resolveDueRule, type IsoDate, type KeyDates } from './dates.js';
 
 const manage = (ctx: Ctx, engagementId: string) => assertPermitted(ctx, 'engagement:manage', { type: 'engagement', id: engagementId });
@@ -81,7 +81,7 @@ async function getMilestone(ctx: Ctx, id: string): Promise<MilestoneRow> {
 }
 
 async function assertKnownTemplate(ctx: Ctx, e: EngagementRow, key: string) {
-  const [t] = await ctx.tx.select({ key: reportTemplate.key }).from(reportTemplate).where(and(eq(reportTemplate.frameworkVersionId, e.frameworkVersionId), eq(reportTemplate.key, key)));
+  const [t] = await ctx.tx.select({ key: reportTemplate.key }).from(reportTemplate).where(and(eq(reportTemplate.frameworkVersionId, lifecycleVersionId(e)), eq(reportTemplate.key, key)));
   if (!t) throw new ValidationError(`the framework has no report template "${key}"`);
 }
 
@@ -102,7 +102,7 @@ export async function updateMilestone(ctx: Ctx, milestoneId: string, patch: Upda
 
   if (patch.phase !== undefined && patch.phase !== m.phase) {
     if (m.origin !== 'local') throw new ConflictError('only milestones you added can move to another phase');
-    const phases = phasesFor(await loadLifecycle(ctx, e.frameworkVersionId), e.kind).map((p) => p.type as string);
+    const phases = phasesFor(await loadLifecycle(ctx, lifecycleVersionId(e)), e.kind).map((p) => p.type as string);
     if (!phases.includes(patch.phase)) throw new ConflictError('phases cannot be added to an engagement');
     const [{ next }] = await ctx.tx.select({ next: sql<number>`coalesce(max(${milestone.displayOrder}), -1) + 1` }).from(milestone).where(and(eq(milestone.engagementId, e.id), eq(milestone.phase, patch.phase))) as [{ next: number }];
     set.phase = patch.phase; set.displayOrder = next;
@@ -139,7 +139,7 @@ export async function addLocalMilestone(ctx: Ctx, engagementId: string, input: P
   assertHuman(ctx);
   await manage(ctx, engagementId);
   const e = await getActiveEngagementRow(ctx, engagementId);
-  const phases = phasesFor(await loadLifecycle(ctx, e.frameworkVersionId), e.kind).map((p) => p.type as string);
+  const phases = phasesFor(await loadLifecycle(ctx, lifecycleVersionId(e)), e.kind).map((p) => p.type as string);
   if (!phases.includes(input.phase)) throw new ConflictError('phases cannot be added to an engagement');
   if (input.deliverableTemplateKey) {
     if (input.type !== 'deliverable' && input.type !== 'submission') throw new ValidationError('only a deliverable or submission milestone can produce a report');
@@ -185,7 +185,7 @@ export async function advancePhase(ctx: Ctx, engagementId: string) {
   assertHuman(ctx);
   await manage(ctx, engagementId);
   const e = await getActiveEngagementRow(ctx, engagementId);
-  const lifecycle = await loadLifecycle(ctx, e.frameworkVersionId);
+  const lifecycle = await loadLifecycle(ctx, lifecycleVersionId(e));
   const ms = await ctx.tx.select().from(milestone).where(eq(milestone.engagementId, engagementId));
   const summaries = phaseSummary(lifecycle, e.kind, e.currentPhase, ms);
   const i = summaries.findIndex((s) => s.current);

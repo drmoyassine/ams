@@ -23,7 +23,13 @@ export async function getActiveEngagementRow(ctx: Ctx, id: string): Promise<Enga
   return row;
 }
 
-/** The lifecycle of the framework version the engagement was built on. Published versions never change. */
+/**
+ * The version whose lifecycle the engagement's roadmap follows: the one last reviewed (template_synced_version_id),
+ * which starts as the version it was created on and moves when the lead accepts a template update.
+ */
+export const lifecycleVersionId = (e: Pick<EngagementRow, 'frameworkVersionId' | 'templateSyncedVersionId'>) => e.templateSyncedVersionId ?? e.frameworkVersionId;
+
+/** The lifecycle of a framework version. Published versions never change. */
 export async function loadLifecycle(ctx: Ctx, versionId: string): Promise<LifecycleTemplate> {
   const [v] = await ctx.tx.select({ lifecycle: frameworkVersion.lifecycleTemplate }).from(frameworkVersion).where(eq(frameworkVersion.id, versionId));
   const parsed = LifecycleTemplateSchema.safeParse(v?.lifecycle);
