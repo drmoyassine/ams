@@ -5,17 +5,20 @@ import { VersionStatusBadge } from '../components/badges';
 import { type FrameworkApi } from '../lib/framework-api';
 import { useApi, useMe } from '../lib/me';
 import { ConfigTab } from './version/config-tab';
+import { MappingsTab } from './version/mappings-tab';
 import { PublishTab } from './version/publish-tab';
 import { RequirementsTab } from './version/requirements-tab';
 import { SourcesTab } from './version/sources-tab';
 import { TemplatesTab } from './version/templates-tab';
 
 const INTERNAL_TABS = ['requirements', 'config', 'publish'];
+const EXTERNAL_ONLY_TABS = ['mappings'];
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'config', label: 'Lifecycle and vocabularies' },
   { id: 'templates', label: 'Report templates' },
   { id: 'sources', label: 'Sources' },
+  { id: 'mappings', label: 'Mappings' },
   { id: 'publish', label: 'Review and publish' },
 ] as const;
 
@@ -42,7 +45,7 @@ export function VersionPage({ versionId, api: apiProp, onOpenVersion }: { versio
         {version.supersedesId && <span className="text-sm text-muted-foreground">supersedes an earlier version</span>}
       </div>
       <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
-        {TABS.filter((t) => !version.internal || INTERNAL_TABS.includes(t.id)).map((t) => (
+        {TABS.filter((t) => (version.internal ? INTERNAL_TABS.includes(t.id) : true) && !(version.internal && EXTERNAL_ONLY_TABS.includes(t.id))).map((t) => (
           <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
             className={`px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{version.internal && t.id === 'config' ? 'Level names' : t.label}</button>
         ))}
@@ -51,6 +54,7 @@ export function VersionPage({ versionId, api: apiProp, onOpenVersion }: { versio
         {tab === 'requirements' && <RequirementsTab api={api} version={version} me={me.data} />}
         {tab === 'config' && <ConfigTab api={api} version={version} me={me.data} />}
         {tab === 'templates' && <TemplatesTab api={api} version={version} me={me.data} />}
+        {tab === 'mappings' && <MappingsTab api={api} version={version} me={me.data} />}
         {tab === 'sources' && <SourcesTab api={api} version={version} me={me.data} />}
         {tab === 'publish' && <PublishTab api={api} version={version} me={me.data} onOpenVersion={open} />}
       </div>

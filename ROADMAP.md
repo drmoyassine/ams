@@ -560,7 +560,7 @@ description: >-
   A Settings area (organization, branding, org chart, programs), the institution's own quality framework and glossary,
   and per-standard mappings to them
 quarter: Q4
-status: In Progress
+status: Completed
 priority: P0
 id: ROADMAP-012
 last_updated: '2026-10-06'
@@ -573,7 +573,7 @@ vision_theme:
   url: /VISION.md#one-platform-many-frameworks
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:40.035Z'
+  at: '2026-10-06T06:53:27.083Z'
 related_decisions:
   - id: DEC-016
     name: Internal quality framework and glossary unify terminology; mappings live on each external standard

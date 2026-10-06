@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Mappings on each standard (TASK-038)
+
+`requirement_mapping` (migrations 0015-0016): an external requirement mapped onto an item of the institution's quality framework, keyed by requirement code within each framework (not by version) so it carries over to new versions of either side and is not part of any frozen version. Relation is covers, partly covers or related, never "equivalent", with an optional rationale. A person with framework:write proposes or edits (an edit returns it to pending), a person with framework:review approves or rejects; the worker role can only read. Triggers: the external side must be an external standard, the internal side the quality framework, and the pair cannot change. A mapping whose requirement no longer exists is flagged. UI: a Mappings tab on each external standard's version page (not in global Settings): pick a requirement, see its mapped items, propose, approve, change relation, remove; points to Settings when the quality framework is empty. API under `/api/framework-versions/{id}/mappings` and `/api/mappings/{id}`. Evidence on internal items will be offered as suggested links on mapped requirements in M3. ROADMAP-012 is complete.
+
+---
+
 ## 2026-10-06 — Internal quality framework (TASK-037)
 
 The institution's own framework lives in the framework library: `framework.internal` (migration 0013, at most one per institution via a partial unique index) and a trigger rule (0014) that refuses an engagement built on it. It stands on a placeholder accreditor "Internal" and is hidden from the Standards list and the glossary's external terms. Levels are named by the institution (default Standard, Sub-standard) in `levelLabels`; a version needs only level names and one approved requirement to publish (no accreditor lifecycle, vocabularies or report templates), then freezes like any version and changes via a new version. API `GET/POST /api/quality-framework`; Settings → Quality framework sets it up and lists versions; its version page shows only Requirements, Level names and Review and publish. Next: TASK-038, the Mappings tab on each external standard's page, onto this framework.

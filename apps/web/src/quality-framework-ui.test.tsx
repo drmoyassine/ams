@@ -6,13 +6,14 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '@ams/api';
+import { createApp, seedFrameworks } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
 import { createApi } from './lib/api';
 import { frameworkApi } from './lib/framework-api';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
 import { VersionPage } from './pages/version';
+import { within } from '@testing-library/react';
 
 configure({ asyncUtilTimeout: 10000 });
 
@@ -36,10 +37,11 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: db.url });
   app = createApp({ pool, authenticate: async (req) => { const h = req.headers.get('x-test-user'); if (!h) return null; const [u, i] = h.split(':'); return { userId: u!, institutionId: i! }; } }).app;
   ids.inst = await one(`insert into institution (name_en) values ('Gulf University') returning id`);
-  for (const n of ['lead', 'viewer']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
-  for (const [u, role] of [['lead', 'lead'], ['viewer', 'viewer']]) {
+  for (const n of ['admin', 'lead', 'viewer']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
+  for (const [u, role] of [['admin', 'admin'], ['lead', 'lead'], ['viewer', 'viewer']]) {
     await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, $3, 'institution', $1)`, [ids.inst, ids[u!], role]);
   }
+  await seedFrameworks(pool, undefined);
 }, 60000);
 afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
@@ -73,5 +75,60 @@ describe('quality framework settings', () => {
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
     expect(tabs).toEqual(['Requirements', 'Level names', 'Review and publish']);
     expect(screen.getByRole('link', { name: 'Quality framework' })).toBeTruthy();
+  });
+});
+
+describe('mappings tab', () => {
+  it('maps a requirement of a standard onto an item of the quality framework, and an approver reviews it', async () => {
+    const user = userEvent.setup();
+    const admin = apiFor('admin');
+    const { versions } = await admin.qualityFramework();
+    const qv = versions[0]!.id;
+    const std = await admin.createRequirement(qv, { code: 'Q1', levelLabel: 'Pillar', title: 'Teaching quality' });
+    const sub = await admin.createRequirement(qv, { code: 'Q1.1', levelLabel: 'Standard', title: 'Course review', parentId: std.id });
+    for (const r of [std, sub]) await admin.reviewRequirement(r.id, 'approved');
+    await admin.submit(qv);
+    await admin.publish(qv);
+
+    const abet = (await admin.frameworks()).find((f) => f.accreditorShortName === 'ABET')!;
+    const abetVersion = (await admin.versions(abet.id))[0]!;
+    const reqs = await admin.requirements(abetVersion.id);
+    const target = reqs.find((r) => r.isAssessable)!;
+
+    render(wrap(<VersionPage versionId={abetVersion.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
+    await user.click(await screen.findByRole('tab', { name: 'Mappings' }));
+    const tree = await screen.findByRole('tree', { name: 'Requirements to map' });
+    await user.click(await within(tree).findByRole('button', { name: new RegExp(target.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
+    expect(await screen.findByText('Not mapped to your quality framework yet.')).toBeTruthy();
+
+    const item = await screen.findByLabelText('Quality framework item');
+    await waitFor(() => expect((item as HTMLSelectElement).options.length).toBe(3));
+    await user.selectOptions(item, [...(item as HTMLSelectElement).options].find((o) => o.textContent?.includes('Course review'))!.value);
+    await user.selectOptions(screen.getByLabelText('Relation'), 'partly_covers');
+    await user.type(screen.getByLabelText('Why'), 'Annual course review');
+    await user.click(screen.getByRole('button', { name: 'Propose mapping' }));
+
+    const row = await screen.findByTestId('mapping');
+    expect(row.textContent).toContain('Course review');
+    expect(row.textContent).toContain('Pending review');
+    expect(within(row).getByRole('combobox').closest('select')!.value).toBe('partly_covers');
+    await user.click(within(row).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(screen.getByTestId('mapping').textContent).toContain('Reviewed: approved'));
+    expect((await admin.mappings(abetVersion.id)).mappings).toHaveLength(1);
+  });
+
+  it('shows the viewer the mappings without the controls to change them', async () => {
+    const admin = apiFor('admin');
+    const abet = (await admin.frameworks()).find((f) => f.accreditorShortName === 'ABET')!;
+    const abetVersion = (await admin.versions(abet.id))[0]!;
+    const target = (await admin.requirements(abetVersion.id)).find((r) => r.isAssessable)!;
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={abetVersion.id} api={apiFor('viewer')} onOpenVersion={() => undefined} />));
+    await user.click(await screen.findByRole('tab', { name: 'Mappings' }));
+    const tree = await screen.findByRole('tree', { name: 'Requirements to map' });
+    await user.click(await within(tree).findByRole('button', { name: new RegExp(target.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
+    expect(await screen.findByTestId('mapping')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Map to a quality framework item' })).toBeNull();
   });
 });

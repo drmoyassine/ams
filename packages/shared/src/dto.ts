@@ -165,3 +165,33 @@ export const SetAliasSchema = z.object({
   frameworkId: z.uuid(), source: z.enum(ALIAS_SOURCES), externalTerm: z.string().min(1), termId: z.uuid().nullable(),
 }).strict();
 export type SetAlias = z.infer<typeof SetAliasSchema>;
+
+// ---- Mappings from an external standard onto the institution's quality framework (DEC-016) ------------------------
+
+export const MAPPING_RELATIONS = ['covers', 'partly_covers', 'related'] as const;
+export const MappingSchema = z.object({
+  id: z.string(),
+  externalCode: z.string(), externalRequirementId: z.string().nullable(),
+  internalCode: z.string(), internalRequirementId: z.string().nullable(), internalTitle: z.string().nullable(),
+  relation: z.enum(MAPPING_RELATIONS), rationale: z.string().nullable(),
+  origin: z.enum(['manual', 'import', 'ai']), reviewStatus: z.enum(['pending', 'approved', 'rejected']),
+  /** The mapped requirement no longer exists in the version shown (a newer edition may have dropped or renumbered it). */
+  stale: z.boolean(),
+});
+export type Mapping = z.infer<typeof MappingSchema>;
+export const MappingsSchema = z.object({
+  /** The version of the quality framework the choices come from: its latest published one, else its latest draft. */
+  internalVersionId: z.string().nullable(),
+  internalOptions: z.array(z.object({ id: z.string(), code: z.string(), title: z.string(), levelLabel: z.string(), depth: z.number() })),
+  mappings: z.array(MappingSchema),
+});
+export type Mappings = z.infer<typeof MappingsSchema>;
+export const CreateMappingSchema = z.object({
+  externalRequirementId: z.uuid(), internalRequirementId: z.uuid(),
+  relation: z.enum(MAPPING_RELATIONS), rationale: z.string().trim().min(1).optional(),
+}).strict();
+export type CreateMapping = z.infer<typeof CreateMappingSchema>;
+export const UpdateMappingSchema = z.object({
+  relation: z.enum(MAPPING_RELATIONS).optional(), rationale: z.string().trim().nullable().optional(),
+}).strict();
+export type UpdateMapping = z.infer<typeof UpdateMappingSchema>;

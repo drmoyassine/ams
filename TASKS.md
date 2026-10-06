@@ -1430,7 +1430,7 @@ Owner is the institution, levels named by the institution (e.g. Standard to Sub-
 ---
 title: Mappings tab on each external standard
 description: Map external requirements to internal nodes, from the standard's own page
-status: pending
+status: completed
 priority: P0
 id: TASK-038
 last_updated: '2026-10-06'
@@ -1451,7 +1451,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-016
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:40.035Z'
+  at: '2026-10-06T06:53:15.765Z'
 ---
 
 # Mappings tab on each external standard

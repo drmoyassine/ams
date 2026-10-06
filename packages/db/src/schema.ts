@@ -436,3 +436,30 @@ export const glossaryAlias = pgTable('glossary_alias', {
   index('glossary_alias_term_idx').on(t.termId),
   oneOf('glossary_alias_source_check', t.source, ALIAS_SOURCES),
 ]);
+
+export const MAPPING_RELATIONS = ['covers', 'partly_covers', 'related'] as const;
+/**
+ * An external requirement mapped onto an item of the institution's own quality framework (DEC-016). Owned by the
+ * institution and keyed by requirement codes within each framework, not by version, so a mapping carries over to a new
+ * version of either side. Never "equivalent": the relation says how much of the external requirement the internal item
+ * answers. Proposed by a person or the AI; only a person approves.
+ */
+export const requirementMapping = pgTable('requirement_mapping', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  externalCode: text('external_code').notNull(),
+  internalFrameworkId: uuid('internal_framework_id').notNull().references(() => framework.id),
+  internalCode: text('internal_code').notNull(),
+  relation: text('relation', { enum: MAPPING_RELATIONS }).notNull(),
+  rationale: text('rationale'),
+  origin: text('origin', { enum: ORIGINS }).notNull().default('manual'),
+  reviewStatus: text('review_status', { enum: REVIEW_STATUSES }).notNull().default('pending'),
+  reviewedBy: uuid('reviewed_by').references((): AnyPgColumn => appUser.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+}, (t) => [
+  uniqueIndex('requirement_mapping_unique_idx').on(t.frameworkId, t.externalCode, t.internalCode),
+  index('requirement_mapping_internal_idx').on(t.internalFrameworkId, t.internalCode),
+  oneOf('requirement_mapping_relation_check', t.relation, MAPPING_RELATIONS),
+  oneOf('requirement_mapping_origin_check', t.origin, ORIGINS),
+  oneOf('requirement_mapping_review_status_check', t.reviewStatus, REVIEW_STATUSES),
+]);

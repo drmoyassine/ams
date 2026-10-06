@@ -12,3 +12,4 @@ export * from './org/institution.js';
 export * from './org/units.js';
 export * from './glossary/defaults.js';
 export * from './glossary/glossary.js';
+export * from './mapping/mapping.js';

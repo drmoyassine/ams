@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type {
   ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
-  SourcePageSchema, TemplateSchema, QualityFrameworkSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
+  SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { api as defaultApi, type createApi } from './api';
 
@@ -18,6 +18,8 @@ export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 export type ImportResult = z.infer<typeof ImportResultSchema>;
 export type NewVersionResult = z.infer<typeof NewVersionResultSchema>;
 export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
+export type Mappings = z.infer<typeof MappingsSchema>;
+export type Mapping = z.infer<typeof MappingSchema>;
 export type Issue = { path: string; message: string };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
@@ -51,6 +53,14 @@ export function frameworkApi(api: Api = defaultApi) {
     qualityFramework: () => api.api['quality-framework'].$get().then((r) => unwrap<QualityFramework>(r)),
     setUpQualityFramework: (json: { name?: string; levelLabels?: string[] }) =>
       api.api['quality-framework'].$post({ json }).then((r) => unwrap<QualityFramework>(r)),
+    mappings: (versionId: string) => v[':id'].mappings.$get({ param: { id: versionId } }).then((r) => unwrap<Mappings>(r)),
+    createMapping: (versionId: string, json: { externalRequirementId: string; internalRequirementId: string; relation: Mapping['relation']; rationale?: string }) =>
+      v[':id'].mappings.$post({ param: { id: versionId }, json }).then((r) => unwrap<Mapping>(r)),
+    updateMapping: (id: string, json: { relation?: Mapping['relation']; rationale?: string | null }) =>
+      api.api.mappings[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Mapping>(r)),
+    reviewMapping: (id: string, decision: 'approved' | 'rejected') =>
+      api.api.mappings[':id'].review.$post({ param: { id }, json: { decision } }).then((r) => unwrap<Mapping>(r)),
+    deleteMapping: (id: string) => api.api.mappings[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     importFile: (json: { file: unknown; edition?: string; autoApprove?: boolean }) =>
       v.import.$post({ json }).then((r) => unwrap<ImportResult>(r)),
     version: (id: string) => v[':id'].$get({ param: { id } }).then((r) => unwrap<Version>(r)),
