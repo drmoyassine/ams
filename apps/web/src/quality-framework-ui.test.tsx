@@ -66,26 +66,23 @@ describe('quality framework settings', () => {
     await user.click(screen.getByRole('button', { name: 'Set up' }));
     const version = (await screen.findByLabelText('Version')) as HTMLSelectElement;
     expect(version.selectedOptions[0]!.textContent).toBe('1 · Draft');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Definitions', 'Requirements', 'Cycle', 'Review and publish']);
-    // the versions' own editor is this page: Definitions first, then the requirements with their add form
-    await user.click(screen.getByRole('tab', { name: 'Requirements' }));
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Framework', 'Terms', 'Review and publish']);
+    // the framework tab: level names on one line, then the tree with its add form; the level is the depth, not a choice
     expect(await screen.findByRole('form', { name: 'Add requirement' })).toBeTruthy();
-    expect(screen.queryByLabelText('Level')).toBeNull(); // the level is the depth, not a choice
-    await user.click(screen.getByRole('tab', { name: 'Definitions' }));
-    // the definitions are part of this page: its level terms are the levels just chosen
-    const levelTerms = await screen.findByRole('region', { name: 'Levels' });
-    await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
-    // levels are renamed where the terms are, and the terms follow
-    await user.click(within(levelTerms).getByRole('button', { name: 'Edit Pillar' }));
-    const level1 = within(levelTerms).getByLabelText('Term (English)');
+    expect(screen.queryByLabelText('Level')).toBeNull();
+    expect((screen.getByLabelText('Level 1 name') as HTMLInputElement).value).toBe('Pillar');
+    // set up with the template box ticked: the generic areas are there to rename
+    await waitFor(() => expect(screen.getByRole('tree', { name: 'Requirements' }).textContent).toContain('Mission and governance'));
+    expect(screen.queryByRole('button', { name: 'Start from the generic template' })).toBeNull(); // only offered on an empty draft
+    const level1 = screen.getByLabelText('Level 1 name');
     await user.clear(level1);
-    await user.type(level1, 'Theme');
-    await user.click(within(levelTerms).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Levels' })).getAllByTestId('term').map((t) => t.textContent?.match(/^(Theme|Pillar|Standard|Indicator)/)?.[1])).toEqual(['Theme', 'Standard', 'Indicator']));
-    // the definitions show as groups, each kind on its own card
-    for (const g of ['Your quality system', 'Accreditors\' words', 'Other terms']) expect(screen.getByRole('heading', { name: g })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Add a level' }));
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Levels' })).getAllByTestId('term')).toHaveLength(4));
+    await user.type(level1, 'Area');
+    await user.click(screen.getByRole('button', { name: 'Save levels' }));
+    await waitFor(() => expect(screen.getByRole('tree', { name: 'Requirements' }).textContent).toMatch(/Area\s*1 · Mission and governance|Area.*Mission and governance/));
+    // the terms tab is a short list: findings, reports, general terms, and no levels
+    await user.click(screen.getByRole('tab', { name: 'Terms' }));
+    expect(await screen.findByText(/each standard's Terminology tab maps its own words onto these/i)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Levels' })).toBeNull();
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {
@@ -94,33 +91,8 @@ describe('quality framework settings', () => {
     render(wrap(<VersionPage versionId={versions[0]!.id} api={api} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { name: 'Version 1' })).toBeTruthy();
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
-    expect(tabs).toEqual(['Requirements', 'Cycle', 'Review and publish']);
+    expect(tabs).toEqual(['Requirements', 'Review and publish']);
     expect(screen.getByRole('link', { name: 'Internal Quality Framework' })).toBeTruthy();
-  });
-});
-
-describe('cycle tab', () => {
-  it('shows the Plan, Do, Check, Act cycle, edits it and saves it for agents to read', async () => {
-    const user = userEvent.setup();
-    await extra('lead').glossary.seedDefaults(); // the blocks' names come from Definitions
-    render(wrap(<QualityFrameworkPage api={apiFor('lead')} {...extra('lead')} />));
-    await user.click(await screen.findByRole('tab', { name: 'Cycle' }));
-    await waitFor(() => expect(screen.getAllByTestId('stage')).toHaveLength(4));
-    expect(screen.getAllByTestId('flow')).toHaveLength(12);
-    expect(screen.getByLabelText('Mermaid text').textContent).toContain('subgraph plan["Plan"]');
-    await user.click(screen.getByRole('button', { name: 'Remove Opportunity from Plan' }));
-    expect(screen.getAllByTestId('flow')).toHaveLength(11); // its flow goes with it
-    const stage4 = screen.getByLabelText('Stage 4 name');
-    await user.clear(stage4);
-    await user.type(stage4, 'Improve');
-    await user.click(screen.getByRole('button', { name: 'Save cycle' }));
-    const { versions } = await apiFor('lead').qualityFramework();
-    await waitFor(async () => {
-      const model = await apiFor('viewer').qmsModel(versions[versions.length - 1]!.id);
-      expect(model.cycleIsDefault).toBe(false);
-      expect(model.cycle.stages.map((s) => s.name)).toEqual(['Plan', 'Do', 'Check', 'Improve']);
-      expect(model.mermaid).not.toContain('opportunity');
-    });
   });
 });
 
@@ -132,7 +104,8 @@ describe('mappings tab', () => {
     const qv = versions[0]!.id;
     const std = await admin.createRequirement(qv, { code: 'Q1', levelLabel: 'Pillar', title: 'Teaching quality' });
     const sub = await admin.createRequirement(qv, { code: 'Q1.1', levelLabel: 'Standard', title: 'Course review', parentId: std.id });
-    for (const r of [std, sub]) await admin.reviewRequirement(r.id, 'approved');
+    for (const r of await admin.requirements(qv)) await admin.reviewRequirement(r.id, 'approved'); // the template's items too
+    void sub;
     await admin.submit(qv);
     await admin.publish(qv);
 
@@ -148,7 +121,7 @@ describe('mappings tab', () => {
     expect(await screen.findByText('Not mapped to your internal quality framework yet.')).toBeTruthy();
 
     const item = await screen.findByLabelText('Internal Quality Framework item');
-    await waitFor(() => expect((item as HTMLSelectElement).options.length).toBe(3));
+    await waitFor(() => expect([...(item as HTMLSelectElement).options].some((o) => o.textContent?.includes('Course review'))).toBe(true));
     await user.selectOptions(item, [...(item as HTMLSelectElement).options].find((o) => o.textContent?.includes('Course review'))!.value);
     await user.selectOptions(screen.getByLabelText('Relation'), 'partly_covers');
     await user.type(screen.getByLabelText('Why'), 'Annual course review');

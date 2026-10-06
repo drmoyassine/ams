@@ -67,13 +67,11 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     expect(await screen.findByText('No terms yet.')).toBeTruthy();
     await user.click(await screen.findByRole('button', { name: 'Add starter terms' }));
-    expect(await screen.findByText(/No level names yet/)).toBeTruthy(); // levels come from the internal quality framework
-    cleanup();
+    const findings = await screen.findByRole('region', { name: 'Findings' });
+    expect(within(findings).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Observation'), expect.stringContaining('Required action')]);
+    expect(screen.queryByRole('region', { name: 'Levels' })).toBeNull(); // level names live with the framework tree
+    // the levels come from the internal framework, and standards' level names map onto them
     await fw('lead').setUpQualityFramework({ levelLabels: ['Standard', 'Sub-standard'] });
-    render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    const levels = await screen.findByRole('region', { name: 'Levels' });
-    expect(within(levels).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Standard'), expect.stringContaining('Sub-standard')]);
-    expect(levels.textContent).toMatch(/Named by depth/);
     expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull(); // it lives on each standard
     expect(screen.queryByText(/How each standard's words map/)).toBeNull();
   });
@@ -125,7 +123,7 @@ describe('glossary settings', () => {
   it('is read-only for someone who cannot edit', async () => {
     const a = apis('viewer');
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    await screen.findByRole('region', { name: 'Levels' });
+    await screen.findByRole('region', { name: 'Findings' });
     expect(screen.queryByRole('button', { name: /Edit / })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add a term' })).toBeNull();
     cleanup();

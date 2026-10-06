@@ -196,7 +196,7 @@ export async function newVersionFrom(ctx: Ctx, sourceVersionId: string, input: {
   const [draft] = await guardIntegrity(() => ctx.tx.insert(frameworkVersion).values({
     institutionId: ctx.caller.institutionId, frameworkId: src.frameworkId, edition: input.edition, changeSummary: input.changeSummary ?? null,
     levelLabels: src.levelLabels, lifecycleTemplate: src.lifecycleTemplate, decisionVocab: src.decisionVocab,
-    findingVocab: src.findingVocab, responseVocab: src.responseVocab, ratingMethod: src.ratingMethod, qmsCycle: src.qmsCycle, supersedesId: src.id,
+    findingVocab: src.findingVocab, responseVocab: src.responseVocab, ratingMethod: src.ratingMethod, supersedesId: src.id,
   }).returning());
   const target = draft!;
 

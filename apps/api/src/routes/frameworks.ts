@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
-  getQmsModel, getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQmsCycle, setQualityLevels, setUpQualityFramework, submitForReview,
+  applyQualityTemplate, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
+  getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
 import {
-  AccreditorSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, QualityFrameworkSchema, ValidationResultSchema, VersionSchema,
+  AccreditorSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, QualityFrameworkSchema, RequirementSchema, ValidationResultSchema, VersionSchema,
   toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -38,27 +38,21 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/quality-framework', access: requires('framework:write'), tags: tag,
-      request: { body: { required: true, ...json(z.object({ name: z.string().optional(), levelLabels: z.array(z.string()).optional() })) } },
+      request: { body: { required: true, ...json(z.object({ name: z.string().optional(), levelLabels: z.array(z.string()).optional(), template: z.boolean().optional() })) } },
       responses: { 201: { description: 'Set up', ...json(QualityFrameworkSchema) }, ...errors },
     }), async (c) => c.json(toDto(QualityFrameworkSchema, await setUpQualityFramework(c.get('ctx'), c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/framework-versions/{id}/quality-template', access: requires('framework:write'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'An empty draft of the internal framework filled with the generic starting template', ...json(z.array(RequirementSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(RequirementSchema), await applyQualityTemplate(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'put', path: '/api/quality-framework/levels', access: requires('framework:write'), tags: tag,
       request: { body: { required: true, ...json(z.object({ levelLabels: z.array(z.string()) })) } },
       responses: { 200: { description: 'The level names, top first, set on the newest draft version', ...json(QualityFrameworkSchema) }, ...errors },
     }), async (c) => c.json(toDto(QualityFrameworkSchema, await setQualityLevels(c.get('ctx'), c.req.valid('json').levelLabels)), 200))
-
-    .openapi(secured(registry, deps, {
-      method: 'get', path: '/api/framework-versions/{id}/qms-model', access: requires('framework:read'), tags: tag,
-      request: { params: idParam },
-      responses: { 200: { description: 'The quality management model of an internal framework version (blocks, levels, cycle, Mermaid), for people and agents', ...json(z.record(z.string(), z.unknown())) }, ...errors },
-    }), async (c) => c.json(JSON.parse(JSON.stringify(await getQmsModel(c.get('ctx'), c.req.valid('param').id))) as Record<string, unknown>, 200))
-
-    .openapi(secured(registry, deps, {
-      method: 'put', path: '/api/framework-versions/{id}/qms-cycle', access: requires('framework:write'), tags: tag,
-      request: { params: idParam, body: { required: true, ...json(z.object({ stages: z.array(z.unknown()), flows: z.array(z.unknown()) })) } },
-      responses: { 200: { description: 'The cycle of a draft internal framework version', ...json(VersionSchema) }, ...errors },
-    }), async (c) => c.json(toDto(VersionSchema, await setQmsCycle(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/accreditors', access: requires('framework:write'), tags: tag,

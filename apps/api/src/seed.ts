@@ -94,7 +94,7 @@ export async function seedGlossary(pool: pg.Pool): Promise<{ terms: number; mapp
     const ctx: Ctx = { tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined };
     // The glossary's level terms are the quality framework's level names, so an empty framework with default levels
     // is set up first when there is none; the institution renames and fills it in Settings.
-    if (!(await getQualityFramework(ctx)).framework) await setUpQualityFramework(ctx);
+    if (!(await getQualityFramework(ctx)).framework) await setUpQualityFramework(ctx, { template: true });
     const { added } = await seedDefaultGlossary(ctx);
     const { mapped } = await autoMapStandards(ctx);
     return { terms: added, mapped };

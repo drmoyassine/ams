@@ -134,6 +134,13 @@
       "when": 1791282876982,
       "tag": "0018_qms_blocks_and_cycle",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791287932380,
+      "tag": "0019_simplify_internal_framework",
+      "breakpoints": true
     }
   ]
 }

@@ -46,7 +46,6 @@ export async function createTerm(ctx: Ctx, input: CreateTerm): Promise<GlossaryT
   assertHuman(ctx);
   await canEdit(ctx);
   if (input.kind === 'level') throw new ValidationError('requirement levels are named in your quality framework');
-  if (input.kind === 'block' || input.kind === 'attribute') throw new ValidationError('the building blocks are fixed; rename and define the ones there are');
   const key = input.key ?? slug(input.labelEn);
   if (!/^[a-z][a-z0-9_]*$/.test(key)) throw new ValidationError('give the term a key of lower-case letters, digits and _');
   const [row] = await guardIntegrity(() => ctx.tx.insert(glossaryTerm).values({

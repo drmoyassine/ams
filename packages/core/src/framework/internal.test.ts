@@ -5,9 +5,7 @@ import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { createEngagement } from '../engagement/engagements.js';
 import { listExternalTerms } from '../glossary/glossary.js';
-import { BUILDING_BLOCKS, DEFAULT_QMS_CYCLE } from '@ams/shared';
-import { seedDefaultGlossary } from '../glossary/glossary.js';
-import { getQmsModel, getQualityFramework, indentRequirement, outdentRequirement, setQmsCycle, setQualityLevels, setUpQualityFramework } from './internal.js';
+import { applyQualityTemplate, getQualityFramework, indentRequirement, outdentRequirement, setQualityLevels, setUpQualityFramework } from './internal.js';
 import { createRequirement, listRequirements, reviewRequirement } from './requirements.js';
 import { getVersionDetail, listFrameworks, newVersionFrom, publishVersion, returnToDraft, submitForReview, validateVersion } from './versions.js';
 
@@ -60,7 +58,7 @@ describe('quality framework', () => {
   });
 });
 
-describe('levels by depth, and the cycle', () => {
+describe('levels by depth', () => {
   it('names each requirement by its depth, follows renames, and indents or outdents it', async () => {
     const w2 = await buildWorld('internallevels');
     try {
@@ -93,32 +91,21 @@ describe('levels by depth, and the cycle', () => {
     } finally { await w2.close(); }
   });
 
-  it('starts from Plan, Do, Check, Act, saves a valid cycle on a draft, and draws it with the institution\'s names', async () => {
-    const { versions } = await w.as('admin', (c) => getQualityFramework(c));
-    const draft = versions.find((v) => v.status === 'draft')!;
-    await w.as('admin', (c) => seedDefaultGlossary(c));
-    const model = await w.as('contrib', (c) => getQmsModel(c, draft.id));
-    expect(model.cycleIsDefault).toBe(true);
-    expect(model.cycle.stages.map((s) => s.name)).toEqual(['Plan', 'Do', 'Check', 'Act']);
-    expect(model.blocks.map((b) => b.key)).toEqual([...BUILDING_BLOCKS]);
-    expect(model.attributes.map((a) => a.key).sort()).toEqual(['owner', 'scope']);
-    expect(model.mermaid).toContain('measure["Measure / KPI"]');
-
-    const twice = { stages: [{ key: 'a', name: 'A', blocks: ['policy'] }, { key: 'b', name: 'B', blocks: ['policy'] }], flows: [] };
-    await expect(w.as('alo', (c) => setQmsCycle(c, draft.id, twice))).rejects.toThrow(ValidationError);
-    await expect(w.as('alo', (c) => setQmsCycle(c, draft.id, { stages: [{ key: 'a', name: 'A', blocks: ['policy'] }], flows: [{ from: 'policy', to: 'evidence' }] }))).rejects.toThrow(ValidationError);
-    await expect(w.as('contrib', (c) => setQmsCycle(c, draft.id, DEFAULT_QMS_CYCLE))).rejects.toThrow(ForbiddenError);
-    const mine = { stages: [{ key: 'plan', name: 'Plan', blocks: ['policy', 'objective'] }, { key: 'review', name: 'Review', blocks: ['internal_review'] }], flows: [{ from: 'policy', to: 'objective' }, { from: 'objective', to: 'internal_review', label: 'checked by' }] };
-    await w.as('alo', (c) => setQmsCycle(c, draft.id, mine));
-    const after = await w.as('contrib', (c) => getQmsModel(c, draft.id));
-    expect(after.cycleIsDefault).toBe(false);
-    expect(after.mermaid).toBe([
-      'flowchart LR', '  subgraph plan["Plan"]', '    policy["Policy"]', '    objective["Objective"]', '  end',
-      '  subgraph review["Review"]', '    internal_review["Internal review"]', '  end',
-      '  objective -->|"checked by"| internal_review', '  policy --> objective', // arrows to later stages first
-    ].join('\n'));
-    await expect(w.as('alo', (c) => getQmsModel(c, w.ids.abet!))).rejects.toThrow(ValidationError); // external standards have no cycle
-    const published = versions.find((v) => v.status === 'published')!;
-    await expect(w.as('alo', (c) => setQmsCycle(c, published.id, mine))).rejects.toThrow(ConflictError);
+  it('starts from the generic template on an empty draft, and only there', async () => {
+    const w3 = await buildWorld('internaltemplate');
+    try {
+      const set = await w3.as('alo', (c) => setUpQualityFramework(c, { levelLabels: ['Area', 'Standard'], template: true }));
+      const rows = await w3.as('contrib', (c) => listRequirements(c, set.versions[0]!.id));
+      const tops = rows.filter((r) => r.depth === 0);
+      expect(tops.map((r) => r.title)).toEqual([
+        'Mission and governance', 'Programs and curriculum', 'Teaching and learning', 'Students and support',
+        'Faculty and staff', 'Research and community engagement', 'Resources and infrastructure', 'Quality assurance and improvement',
+      ]);
+      expect(tops.every((r) => r.levelLabel === 'Area' && !r.isAssessable)).toBe(true);
+      expect(rows.filter((r) => r.depth === 1).every((r) => r.levelLabel === 'Standard')).toBe(true);
+      expect(rows.find((r) => r.code === '1.1')!.title).toBe('Mission, vision and values');
+      await expect(w3.as('alo', (c) => applyQualityTemplate(c, set.versions[0]!.id))).rejects.toThrow(/already has items/);
+      await expect(w3.as('alo', (c) => applyQualityTemplate(c, w3.ids.abet!))).rejects.toThrow(ValidationError);
+    } finally { await w3.close(); }
   });
 });

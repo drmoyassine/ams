@@ -1,13 +1,13 @@
 import { asc, eq } from 'drizzle-orm';
-import { accreditor, framework, frameworkVersion, glossaryTerm, requirement } from '@ams/db';
-import { BUILDING_BLOCKS, checkQmsCycle, cycleToMermaid, DEFAULT_QMS_CYCLE, QmsCycleSchema, type QmsCycle } from '@ams/shared';
+import { accreditor, framework, frameworkVersion, requirement } from '@ams/db';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
 import { getDraftVersion, getRequirement, getVersion, isInternalVersion, require_ } from './common.js';
-import { listRequirements, moveRequirement, relabelByDepth } from './requirements.js';
+import { INTERNAL_TEMPLATE } from './internal-template.js';
+import { createRequirement, listRequirements, moveRequirement, relabelByDepth } from './requirements.js';
 
 /**
  * The institution's own quality framework (DEC-016) lives in the framework library like any standard, but is owned
@@ -18,6 +18,8 @@ export const DEFAULT_INTERNAL_LEVELS = ['Standard', 'Sub-standard'];
 export const SetUpQualityFrameworkSchema = z.object({
   name: z.string().trim().min(1).default('Internal Quality Framework'),
   levelLabels: z.array(z.string().trim().min(1)).min(1).default(DEFAULT_INTERNAL_LEVELS),
+  /** Start from the generic template rather than an empty tree. */
+  template: z.boolean().default(false),
 });
 
 export async function getQualityFramework(ctx: Ctx) {
@@ -47,6 +49,7 @@ export async function setUpQualityFramework(ctx: Ctx, input: z.input<typeof SetU
     institutionId, frameworkId: fw!.id, edition: '1', levelLabels: data.levelLabels,
   }).returning();
   await syncLevelTerms(ctx);
+  if (data.template) await applyQualityTemplate(ctx, version!.id);
   return { framework: { id: fw!.id, name: fw!.name }, versions: [version!] };
 }
 
@@ -65,49 +68,28 @@ export async function setQualityLevels(ctx: Ctx, levelLabels: string[]) {
   return getQualityFramework(ctx);
 }
 
-// ---- The quality management cycle ------------------------------------------------------------------------------
-
 async function internalVersion(ctx: Ctx, versionId: string) {
   const v = await getVersion(ctx, versionId);
-  if (!(await isInternalVersion(ctx, versionId))) throw new ValidationError('the cycle belongs to the internal quality framework');
+  if (!(await isInternalVersion(ctx, versionId))) throw new ValidationError('this belongs to the internal quality framework');
   return v;
 }
 
-/** Saves the cycle of a draft version of the internal framework. Published versions keep theirs (database-frozen). */
-export async function setQmsCycle(ctx: Ctx, versionId: string, input: unknown) {
+/**
+ * Fills an empty draft of the internal framework with the generic starting template (eight areas, each with a few
+ * items), numbered 1, 1.1 and so on. Refused once the draft has anything in it, so it never mixes with real content.
+ */
+export async function applyQualityTemplate(ctx: Ctx, versionId: string) {
   await require_(ctx, 'framework:write');
   await internalVersion(ctx, versionId);
   await getDraftVersion(ctx, versionId);
-  const parsed = QmsCycleSchema.safeParse(input);
-  if (!parsed.success) throw new ValidationError('invalid cycle', parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })));
-  const issues = checkQmsCycle(parsed.data);
-  if (issues.length) throw new ValidationError('invalid cycle', issues);
-  const [row] = await guardIntegrity(() => ctx.tx.update(frameworkVersion).set({ qmsCycle: parsed.data }).where(eq(frameworkVersion.id, versionId)).returning());
-  return row!;
-}
-
-/**
- * The whole quality management model of one version, for people and agents alike: the building blocks with the
- * institution's names and definitions, the level names, the cycle (the default PDCA cycle when none is saved) and the
- * same cycle as a Mermaid flowchart. Switched-off blocks are listed as such and left out of the diagram's labels' source.
- */
-export async function getQmsModel(ctx: Ctx, versionId: string) {
-  await require_(ctx, 'framework:read');
-  const v = await internalVersion(ctx, versionId);
-  const terms = await ctx.tx.select().from(glossaryTerm);
-  const def = (t: typeof terms[number]) => ({
-    key: t.key, name: t.labelEn, nameAr: t.labelAr, definition: t.definitionEn, definitionAr: t.definitionAr, active: t.active,
-  });
-  const blocks = BUILDING_BLOCKS.map((k) => terms.find((t) => t.key === k && t.kind === 'block')).filter((t) => !!t).map(def);
-  const attributes = terms.filter((t) => t.kind === 'attribute').map(def);
-  const cycle = (v.qmsCycle as QmsCycle | null) ?? DEFAULT_QMS_CYCLE;
-  const names = Object.fromEntries(blocks.map((b) => [b.key, b.name]));
-  return {
-    framework: 'internal-quality-framework', version: v.edition, status: v.status,
-    levels: (v.levelLabels as string[]).map((name, depth) => ({ depth: depth + 1, name })),
-    blocks, attributes, cycle, cycleIsDefault: v.qmsCycle === null,
-    mermaid: cycleToMermaid(cycle, names),
-  };
+  if ((await listRequirements(ctx, versionId)).length > 0) throw new ConflictError('the framework already has items; the template only fills an empty one');
+  for (const [i, area] of INTERNAL_TEMPLATE.entries()) {
+    const top = await createRequirement(ctx, { versionId, code: String(i + 1), levelLabel: 'Level 1', title: area.title, displayOrder: i, isAssessable: false });
+    for (const [j, title] of area.children.entries()) {
+      await createRequirement(ctx, { versionId, parentId: top.id, code: `${i + 1}.${j + 1}`, levelLabel: 'Level 2', title, displayOrder: j });
+    }
+  }
+  return listRequirements(ctx, versionId);
 }
 
 /** Indents a requirement under the sibling just above it; its level (and its subtree's) follows its new depth. */

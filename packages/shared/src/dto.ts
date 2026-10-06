@@ -29,7 +29,7 @@ export const FrameworkSchema = z.object({
 export const VersionSchema = z.object({
   id: z.string(), frameworkId: z.string(), edition: z.string(), effectiveFrom: z.string().nullable(), effectiveTo: z.string().nullable(),
   status: z.enum(['draft', 'in_review', 'published', 'retired']),
-  levelLabels: z.unknown(), qmsCycle: z.unknown().optional(), lifecycleTemplate: z.unknown(), decisionVocab: z.unknown(), findingVocab: z.unknown(), responseVocab: z.unknown(), ratingMethod: z.unknown(),
+  levelLabels: z.unknown(), lifecycleTemplate: z.unknown(), decisionVocab: z.unknown(), findingVocab: z.unknown(), responseVocab: z.unknown(), ratingMethod: z.unknown(),
   changeSummary: z.string().nullable(), publishedBy: z.string().nullable(), publishedAt: iso.nullable(), supersedesId: z.string().nullable(),
   /** Set on the detail of a version of the institution's own quality framework. */
   internal: z.boolean().optional(),
@@ -115,7 +115,7 @@ export type UpdateOrgUnit = z.infer<typeof UpdateOrgUnitSchema>;
 
 // ---- Glossary (DEC-016) -------------------------------------------------------------------------
 
-export const GLOSSARY_KINDS = ['block', 'attribute', 'level', 'finding', 'report', 'general'] as const;
+export const GLOSSARY_KINDS = ['level', 'finding', 'report', 'general'] as const;
 export const ALIAS_SOURCES = ['level_label', 'finding_code', 'report_template'] as const;
 
 export const GlossaryTermSchema = z.object({

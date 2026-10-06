@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Internal framework simplified
+
+Pulled back to the goal: a simple, generic internal framework that institutions customise and that every external standard maps onto, so data is collected once and reported per accreditor. Removed the quality cycle (tab, `qms_cycle` column, model export, Mermaid dependency) and the building-block and attribute definitions (migration 0019 drops the column, removes those terms and turns Evidence back into a general term). The page has three tabs: Framework (level names on one line above the tree, levels by indentation, Indent/Outdent), Terms (findings, report types and general terms only, the words each standard's Terminology tab maps onto) and Review and publish. Set-up offers a generic starting template, ticked by default and used by the start-up seed: eight areas (mission and governance; programs and curriculum; teaching and learning; students and support; faculty and staff; research and community engagement; resources and infrastructure; quality assurance and improvement), each with two to four items; an empty draft offers "Start from the generic template" (`POST /api/framework-versions/{id}/quality-template`). Next: data collection on internal items and reporting through the mappings (M3).
+
+---
+
 ## 2026-10-06 — Definitions laid out in groups
 
 Definitions was one long card with the level names as a separate form. Now three titled groups (Your quality system: building blocks, attributes, levels; Accreditors' words: findings, reports; Other terms: general terms), each kind on its own card with a count, a one-line purpose and its own add button where adding is allowed. Levels are ordinary rows like every other term: Edit renames a level (through the framework's level names), with Add a level / Remove the lowest level at the foot of the card; when the newest version is not a draft the card says to create a new version. Internal keys are no longer shown.
