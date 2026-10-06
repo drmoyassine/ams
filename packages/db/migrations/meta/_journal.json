@@ -71,6 +71,13 @@
       "when": 1791205400961,
       "tag": "0009_m2_engagement_audit_read",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791265445516,
+      "tag": "0010_institution_branding",
+      "breakpoints": true
     }
   ]
 }

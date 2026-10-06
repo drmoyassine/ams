@@ -32,7 +32,9 @@ export const institution = pgTable('institution', {
   nameAr: text('name_ar'),
   country: text('country'),
   defaultLocale: text('default_locale').notNull().default('en'),
-});
+  /** Branding: the colour of primary buttons and highlights, `#rrggbb`; null keeps the built-in one. */
+  accentColor: text('accent_color'),
+}, (t) => [check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`)]);
 
 const ORG_UNIT_TYPES = ['college', 'school', 'department', 'admin_unit', 'other'] as const;
 export const orgUnit = pgTable('org_unit', {

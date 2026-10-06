@@ -11,8 +11,8 @@ generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:03.944Z'
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:31.524Z'
+  by: agent/claude-code
+  at: '2026-10-06T05:43:17.250Z'
 related_decisions:
   - id: DEC-002
     name: Accreditor frameworks are versioned configuration; no accreditor-specific code
@@ -21,6 +21,9 @@ related_roadmap_items:
   - id: ROADMAP-002
     name: M1 — Framework library
     url: /ROADMAP.md#ROADMAP-002
+  - id: ROADMAP-012
+    name: Settings, internal framework and glossary
+    url: /ROADMAP.md#ROADMAP-012
 ---
 # one-platform-many-frameworks — Accreditor frameworks are configuration, not code
 

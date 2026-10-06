@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthorityBadge, ReviewBadge } from '../../components/badges';
 import { ContentText } from '../../components/content-text';
+import { requirementLabel } from '../../lib/format';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDocument, type Version } from '../../lib/framework-api';
@@ -150,7 +151,7 @@ export function RequirementsTab({ api, version, me }: Props) {
           {rows.map((r) => (
             <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
               <button type="button" onClick={() => setSelected(r.id)} className={`w-full rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected === r.id ? 'bg-muted font-medium' : ''}`}>
-                <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{r.code} {r.title}</ContentText>
+                <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{requirementLabel(r.code, r.title)}</ContentText>
                 {r.reviewStatus !== 'approved' && <span className="ms-2 text-xs text-muted-foreground">({r.reviewStatus})</span>}
               </button>
             </li>
@@ -165,7 +166,7 @@ export function RequirementsTab({ api, version, me }: Props) {
             </div>
             <Input name="title" required placeholder="Title" aria-label="Title" dir="auto" />
             <select name="parent" aria-label="Parent" className="w-full rounded-md border border-border bg-background px-2 py-2 text-sm">
-              <option value="">Top level</option>{rows.map((r) => <option key={r.id} value={r.id}>{r.code} {r.title}</option>)}
+              <option value="">Top level</option>{rows.map((r) => <option key={r.id} value={r.id}>{requirementLabel(r.code, r.title)}</option>)}
             </select>
             <Button type="submit">Add requirement</Button>
           </form>

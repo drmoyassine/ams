@@ -764,4 +764,69 @@ related_tasks:
 
 Source: PRD §17, §18.1. (docs/PRD.md).
 
+---
+
+## DEC-016 — Internal quality framework and glossary unify terminology; mappings live on each external standard
+
+---
+title: Internal quality framework and glossary unify terminology; mappings live on each external standard
+status: accepted
+context: >-
+  Each accreditor uses its own words for levels (Standard, Criterion, CFR, Measure, Indicator), findings (Deficiency,
+  Recommendation, Condition) and responses. People inside the institution need one shared language while communication
+  with accreditors keeps theirs.
+decision: >-
+  The institution has its own internal quality framework, built as a framework version in the same library (owner: the
+  institution, levels it names, e.g. Standard to Sub-standard). A glossary maps internal terms to each external
+  standard's terms. External requirements map to internal nodes (covers, partly covers, related; never equivalent),
+  proposed by the AI or a person and approved by a person. Mappings are edited on each external standard's own page.
+  Evidence collected once on an internal node is offered as suggested links on mapped external requirements; each
+  accepted link still needs its own rationale and review. Internal screens and cross-standard lists use internal terms;
+  screens inside one standard and everything sent to an accreditor use that standard's words. Terms and mappings are
+  institution-owned data, not part of a published external version.
+rationale: >-
+  One shared language and one evidence base without altering the accreditor's frozen text or implying that anything is
+  met.
+consequences: >-
+  Pulls cross-framework crosswalks (PRD P2) into the MVP and shapes M3 evidence linking. The PRD is the owner's to
+  amend; this decision records the direction until then. Settings area hosts organization, programs, internal framework
+  and glossary.
+tags:
+  - ams
+id: DEC-016
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:18.860Z'
+related_roadmap_items:
+  - id: ROADMAP-012
+    name: Settings, internal framework and glossary
+    url: /ROADMAP.md#ROADMAP-012
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:40.035Z'
+related_tasks:
+  - id: TASK-032
+    name: Settings shell, organization identity and branding
+    url: /TASKS.md#TASK-032
+  - id: TASK-033
+    name: Org chart editor
+    url: /TASKS.md#TASK-033
+  - id: TASK-034
+    name: Programs in Settings
+    url: /TASKS.md#TASK-034
+  - id: TASK-035
+    name: Requirement tree shows each code once
+    url: /TASKS.md#TASK-035
+  - id: TASK-036
+    name: Glossary and term mapping
+    url: /TASKS.md#TASK-036
+  - id: TASK-037
+    name: Internal quality framework
+    url: /TASKS.md#TASK-037
+  - id: TASK-038
+    name: Mappings tab on each external standard
+    url: /TASKS.md#TASK-038
+---
+
 <!-- End VEF generated items. -->

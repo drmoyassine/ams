@@ -10,6 +10,8 @@ export const PERMISSIONS = [
   'framework:read', 'framework:write', 'framework:review', 'framework:publish',
   // Engagements (PRD 4, 8). `lead` is the narrow set only the lead and the admin hold: hand over the lead role, record
   // the decision, approve the final snapshot. `manage` is members, roadmap and assignments.
+  // The institution's identity and branding (Settings): admin only.
+  'institution:write',
   'engagement:read', 'engagement:create', 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -58,6 +60,17 @@ export const CreateProgramSchema = z.object({
   tags: z.array(z.string().trim().min(1)).default([]),
 });
 export type CreateProgram = z.infer<typeof CreateProgramSchema>;
+
+export const UpdateProgramSchema = z.object({
+  orgUnitId: z.uuid().optional(),
+  nameEn: z.string().trim().min(1).optional(),
+  nameAr: z.string().trim().nullable().optional(),
+  degreeLevel: z.enum(DEGREE_LEVELS).optional(),
+  discipline: z.string().trim().nullable().optional(),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  active: z.boolean().optional(),
+}).strict();
+export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
 
 export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify'] as const;
 export type JobType = (typeof JOB_TYPES)[number];

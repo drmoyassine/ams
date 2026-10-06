@@ -5,7 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import './i18n';
 import { createApi } from './lib/api';
-import { ProgramsPage } from './pages/programs';
+import { settingsApi } from './lib/settings-api';
+import { ProgramsSettingsPage } from './pages/settings/programs';
 
 afterEach(cleanup);
 
@@ -18,27 +19,36 @@ const wrap = (ui: React.ReactElement) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>
 );
 
-describe('ProgramsPage', () => {
+/** Answers by path, like the API would: the page asks for the caller, the programs and the org units. */
+const serve = (routes: Record<string, { status?: number; body: unknown }>) =>
+  vi.fn(async (input: RequestInfo | URL) => {
+    const hit = Object.entries(routes).find(([path]) => String(input).endsWith(path));
+    const r = hit?.[1] ?? { status: 404, body: {} };
+    return new Response(JSON.stringify(r.body), { status: r.status ?? 200, headers: { 'content-type': 'application/json' } });
+  });
+const me = { userId: 'u', institutionId: 'i', roles: ['viewer'], permissions: ['program:read', 'org:read'] };
+
+describe('Programs (in Settings)', () => {
   it('loads programs through the typed client with credentials, and lets content pick its direction', async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify(programs), { status: 200, headers: { 'content-type': 'application/json' } }));
-    render(wrap(<ProgramsPage api={createApi(fetcher as unknown as typeof fetch)} />));
+    const fetcher = serve({ '/api/me': { body: me }, '/api/programs': { body: programs }, '/api/org-units': { body: [] } });
+    render(wrap(<ProgramsSettingsPage api={settingsApi(createApi(fetcher as unknown as typeof fetch))} />));
     const names = await screen.findAllByTestId('program-name');
     expect(names.map((n) => n.textContent)).toEqual(['Computer Science', 'القانون']);
     expect(names.every((n) => n.getAttribute('dir') === 'auto')).toBe(true);
-    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
-    expect(String(url)).toMatch(/\/api\/programs$/);
-    expect(init.credentials).toBe('include');
+    const call = fetcher.mock.calls.find(([u]) => String(u).endsWith('/api/programs')) as unknown as [string, RequestInit];
+    expect(call[1].credentials).toBe('include');
+    expect(screen.queryByRole('button', { name: 'Add program' })).toBeNull(); // read-only without program:write
   });
 
   it('shows an empty state', async () => {
-    const fetcher = vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
-    render(wrap(<ProgramsPage api={createApi(fetcher as unknown as typeof fetch)} />));
+    const fetcher = serve({ '/api/me': { body: me }, '/api/programs': { body: [] }, '/api/org-units': { body: [] } });
+    render(wrap(<ProgramsSettingsPage api={settingsApi(createApi(fetcher as unknown as typeof fetch))} />));
     expect(await screen.findByText('No programs visible to you yet.')).toBeTruthy();
   });
 
   it('shows an error when the API refuses', async () => {
-    const fetcher = vi.fn(async () => new Response('{}', { status: 401, headers: { 'content-type': 'application/json' } }));
-    render(wrap(<ProgramsPage api={createApi(fetcher as unknown as typeof fetch)} />));
+    const fetcher = serve({ '/api/me': { body: me }, '/api/programs': { status: 401, body: {} }, '/api/org-units': { body: [] } });
+    render(wrap(<ProgramsSettingsPage api={settingsApi(createApi(fetcher as unknown as typeof fetch))} />));
     expect((await screen.findByRole('alert')).textContent).toBe('Could not load programs.');
   });
 });

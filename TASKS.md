@@ -1227,4 +1227,234 @@ modified:
 # M2 acceptance test
 The M2 done-when: both engagements, created from the published fixtures, produce the milestones and dates in Appendix A, and requirement counts match the applicability tags (Mechanical Program Criteria apply only to the ABET program tagged mechanical). Roadmap guardrails verified through the API.
 
+---
+
+## TASK-032 — Settings shell, organization identity and branding
+
+---
+title: Settings shell, organization identity and branding
+description: Settings area above Sign out; institution names and accent colour, applied across the app
+status: completed
+priority: P0
+id: TASK-032
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:30.363Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:52:16.654Z'
+---
+
+# Settings shell, organization identity and branding
+Settings sub-menu (Organization, Programs, Quality framework, Glossary). Institution names in English and Arabic, country, default locale, accent colour with a contrast check. Visible to people who can manage the organization. Logo upload waits for the storage service (M3).
+
+---
+
+## TASK-033 — Org chart editor
+
+---
+title: Org chart editor
+description: 'Tree editor over org units: add, rename, move, deactivate'
+status: completed
+priority: P0
+id: TASK-033
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:32.066Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-032
+    name: Settings shell, organization identity and branding
+    url: /TASKS.md#TASK-032
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:52:18.220Z'
+---
+
+# Org chart editor
+Units are college, school, department, admin unit, other. Moving cannot create a cycle. A unit with active children or programs cannot be deactivated.
+
+---
+
+## TASK-034 — Programs in Settings
+
+---
+title: Programs in Settings
+description: Programs list moves under Settings with add and edit
+status: completed
+priority: P0
+id: TASK-034
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:33.786Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-032
+    name: Settings shell, organization identity and branding
+    url: /TASKS.md#TASK-032
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:52:19.783Z'
+---
+
+# Programs in Settings
+Edit name (English and Arabic), degree level, discipline, tags, org unit, active. Read-only program pickers elsewhere stay. The old Programs home page goes.
+
+---
+
+## TASK-035 — Requirement tree shows each code once
+
+---
+title: Requirement tree shows each code once
+description: Fix duplicated codes in the requirement tree rows
+status: completed
+priority: P0
+id: TASK-035
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:35.311Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:52:21.412Z'
+---
+
+# Requirement tree shows each code once
+Show level, code and title, and the title only when it differs from the code, in the tree and pickers.
+
+---
+
+## TASK-036 — Glossary and term mapping
+
+---
+title: Glossary and term mapping
+description: Internal terms, definitions and the external terms they replace
+status: pending
+priority: P0
+id: TASK-036
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:36.840Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-032
+    name: Settings shell, organization identity and branding
+    url: /TASKS.md#TASK-032
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:36.840Z'
+---
+
+# Glossary and term mapping
+Terms for requirement levels and finding names first. Cross-standard screens use internal terms with the external term as a secondary label; screens inside one standard keep its words.
+
+---
+
+## TASK-037 — Internal quality framework
+
+---
+title: Internal quality framework
+description: The institution's own framework in the framework library
+status: pending
+priority: P0
+id: TASK-037
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:38.383Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-036
+    name: Glossary and term mapping
+    url: /TASKS.md#TASK-036
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:38.383Z'
+---
+
+# Internal quality framework
+Owner is the institution, levels named by the institution (e.g. Standard to Sub-standard), same tree editor, publish and freeze. Evidence attaches to its nodes in M3.
+
+---
+
+## TASK-038 — Mappings tab on each external standard
+
+---
+title: Mappings tab on each external standard
+description: Map external requirements to internal nodes, from the standard's own page
+status: pending
+priority: P0
+id: TASK-038
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:40.035Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-037
+    name: Internal quality framework
+    url: /TASKS.md#TASK-037
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T05:43:40.035Z'
+---
+
+# Mappings tab on each external standard
+Relation covers, partly covers or related; never equivalent. Proposed by a person or the AI, approved by a person. Institution-owned, not part of the published external version; carried to new versions.
+
 <!-- End VEF generated items. -->

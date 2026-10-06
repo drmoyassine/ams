@@ -7,8 +7,10 @@ import { EngagementsPage } from './pages/engagements';
 import { AppLayout, ComingSoon } from './pages/layout';
 import { FrameworksPage } from './pages/frameworks';
 import { LoginPage } from './pages/login';
-import { ProgramsPage } from './pages/programs';
 import { RequirementWorkspacePage } from './pages/requirement-workspace';
+import { OrganizationPage } from './pages/settings/organization';
+import { ProgramsSettingsPage } from './pages/settings/programs';
+import { SettingsLayout } from './pages/settings/layout';
 import { VersionPage } from './pages/version';
 
 export const queryClient = new QueryClient();
@@ -24,7 +26,12 @@ const appRoute = createRoute({
     if (!data) throw redirect({ to: '/login' });
   },
 });
-const programsRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: () => <ProgramsPage /> });
+// The home page is the list of engagements; programs live in Settings.
+const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/engagements' }); } });
+const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsLayout });
+const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/settings/organization' }); } });
+const organizationRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationPage /> });
+const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
 const frameworksRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', component: () => <FrameworksPage /> });
 const versionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', component: () => <VersionRoute /> });
 function VersionRoute() { const { versionId } = versionRoute.useParams(); return <VersionPage key={versionId} versionId={versionId} />; }
@@ -36,7 +43,7 @@ const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/eng
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
 const evidenceRoute = createRoute({ getParentRoute: () => appRoute, path: '/evidence', component: () => <ComingSoon title="Evidence" /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([programsRoute, frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

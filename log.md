@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Settings area, phase 1 (ROADMAP-012, DEC-016)
+
+Direction from the owner: a Settings entry above Sign out holding organization setup (names, branding, org chart), programs, the institution's own quality framework and the glossary; **mappings from external requirements to the internal framework live on each external standard's own page**, not in global settings (recorded in DEC-016). Built now: Settings shell with sub-menu (Quality framework and Glossary listed as coming soon), Organization (names in English and Arabic, country, default language, accent colour with a WCAG contrast check so buttons stay readable; the colour themes the app via `--primary`), org chart editor (add, rename, retype, move without cycles, deactivate only when nothing active is under the unit), Programs moved into Settings with add/edit/deactivate, the old Programs home replaced by a redirect to Engagements, new permission `institution:write` (admin only), migration 0010 (`institution.accent_color`). Requirement labels no longer repeat the code (`requirementLabel`). Defaults I chose while waiting for answers: one internal framework per institution; admins and accreditation leads edit it (framework:write); org units are structure only (heads later). Logo upload waits for the storage service (M3). Still to do under ROADMAP-012: TASK-036 glossary, TASK-037 internal framework, TASK-038 mappings tab on each external standard.
+
 ## 2026-10-06 — Frameworks tab becomes Standards (user feedback)
 
 "Frameworks" is "Standards" in the UI (nav, page title, route `/standards`; internal names and the API keep `framework`). Import and create forms moved off the page into a "New Standard" wizard (dialog: import a file, or start from scratch). Each card lists versions as "Version <edition>" with status, date (published or effective) and an Edit (draft or in review) or View (published or retired) icon link instead of a clickable badge. Other screens still say "framework" (engagement wizard, version page): rename together if wanted.

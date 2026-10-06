@@ -72,3 +72,37 @@ export const MeSchema = z.object({
   userId: z.string().nullable(), institutionId: z.string(), roles: z.array(z.enum(ROLES)), permissions: z.array(z.enum(PERMISSIONS)),
 });
 export type Me = z.infer<typeof MeSchema>;
+
+// ---- Settings: institution, org chart, programs -------------------------------------------------
+
+import { isReadableAccent } from './branding.js';
+
+export const InstitutionSchema = z.object({
+  id: z.string(), nameEn: z.string(), nameAr: z.string().nullable(), country: z.string().nullable(),
+  defaultLocale: z.string(), accentColor: z.string().nullable(),
+});
+export type Institution = z.infer<typeof InstitutionSchema>;
+
+export const UpdateInstitutionSchema = z.object({
+  nameEn: z.string().trim().min(1).optional(),
+  nameAr: z.string().trim().nullable().optional(),
+  country: z.string().trim().nullable().optional(),
+  defaultLocale: z.enum(['en', 'ar']).optional(),
+  accentColor: z.string().nullable().optional().refine((v) => v == null || isReadableAccent(v), { message: 'choose a darker colour: white text on it must reach a contrast of 4.5 (#rrggbb)' }),
+}).strict();
+export type UpdateInstitution = z.infer<typeof UpdateInstitutionSchema>;
+
+export const ORG_UNIT_TYPES = ['college', 'school', 'department', 'admin_unit', 'other'] as const;
+export const OrgUnitSchema = z.object({
+  id: z.string(), parentId: z.string().nullable(), type: z.enum(ORG_UNIT_TYPES), nameEn: z.string(), nameAr: z.string().nullable(), active: z.boolean(),
+});
+export type OrgUnit = z.infer<typeof OrgUnitSchema>;
+export const CreateOrgUnitSchema = z.object({
+  parentId: z.uuid().nullable().default(null), type: z.enum(ORG_UNIT_TYPES), nameEn: z.string().trim().min(1), nameAr: z.string().trim().min(1).optional(),
+}).strict();
+export type CreateOrgUnit = z.infer<typeof CreateOrgUnitSchema>;
+export const UpdateOrgUnitSchema = z.object({
+  parentId: z.uuid().nullable().optional(), type: z.enum(ORG_UNIT_TYPES).optional(), nameEn: z.string().trim().min(1).optional(),
+  nameAr: z.string().trim().nullable().optional(), active: z.boolean().optional(),
+}).strict();
+export type UpdateOrgUnit = z.infer<typeof UpdateOrgUnitSchema>;

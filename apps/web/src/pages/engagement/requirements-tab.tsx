@@ -7,6 +7,7 @@ import { REQUIREMENT_STATUS, RequirementStatusBadge } from '../../components/bad
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { EngagementApi } from '../../lib/engagement-api';
+import { distinctTitle } from '../../lib/format';
 import { useAction } from '../../lib/use-action';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -78,7 +79,7 @@ export function RequirementsTab({ api, detail, canManage }: { api: EngagementApi
           <li key={i.id} className={`flex flex-wrap items-center gap-3 px-4 py-2 ${i.applicable ? '' : 'opacity-60'}`} style={{ paddingInlineStart: `${1 + (i.parentCode ? 1.25 : 0)}rem` }}>
             {canManage && i.applicable && <input type="checkbox" aria-label={`Select ${i.code}`} checked={picked.has(i.requirementId)} onChange={() => toggle(i.requirementId)} />}
             <Link to="/engagement-requirements/$id" params={{ id: i.id }} className="font-medium underline-offset-2 hover:underline"><ContentText>{i.code}</ContentText></Link>
-            <ContentText className="flex-1 text-sm">{i.title}</ContentText>
+            <ContentText className="flex-1 text-sm">{distinctTitle(i.code, i.title) ?? ''}</ContentText>
             {!i.applicable && <span className="rounded border border-border px-2 py-0.5 text-xs" title={i.naReason ?? undefined}>Not applicable</span>}
             {i.applicable && <RequirementStatusBadge status={i.status} />}
             <span className="w-28 text-end text-xs text-muted-foreground">{i.ownerId ? names.get(i.ownerId) ?? '' : 'Unassigned'}</span>

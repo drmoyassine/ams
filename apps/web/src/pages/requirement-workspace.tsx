@@ -8,6 +8,7 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { useEngagementApi, type EngagementApi } from '../lib/engagement-api';
 import { ApiError } from '../lib/framework-api';
+import { requirementLabel } from '../lib/format';
 import { useAction } from '../lib/use-action';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -41,7 +42,7 @@ export function RequirementWorkspacePage({ id, api: override }: { id: string; ap
       <p className="mb-2 text-sm"><Link to="/engagements/$id" params={{ id: item.engagementId }} className="underline">← Back to the engagement</Link></p>
       <header className="mb-4">
         <p className="text-sm text-muted-foreground">{r.path.map((p) => p.code).join(' › ')}{r.path.length > 0 && ' ›'}</p>
-        <h1 className="text-2xl font-semibold"><ContentText>{r.code}</ContentText> — <ContentText>{r.title}</ContentText></h1>
+        <h1 className="text-2xl font-semibold"><ContentText>{requirementLabel(r.code, r.title, ' — ')}</ContentText></h1>
         <p className="mt-1 flex items-center gap-2 text-sm">{item.applicable ? <RequirementStatusBadge status={item.status} /> : <span className="rounded border border-border px-2 py-0.5">Not applicable{item.naReason ? `: ${item.naReason}` : ''}</span>}</p>
       </header>
       {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
