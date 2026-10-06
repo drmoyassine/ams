@@ -30,7 +30,7 @@ export function VersionPage({ versionId, api: apiProp, onOpenVersion }: { versio
   if (!version) return <p>Loading…</p>;
   return (
     <section className="space-y-4">
-      <p className="text-sm"><Link to="/frameworks" className="underline">Frameworks</Link></p>
+      <p className="text-sm"><Link to="/standards" className="underline">Standards</Link></p>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">Edition {version.edition}</h1>
         <VersionStatusBadge status={version.status} />

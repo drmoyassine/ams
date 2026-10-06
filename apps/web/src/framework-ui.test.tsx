@@ -54,6 +54,13 @@ const file = (edition = '2023') => ({
   ],
 });
 
+/** New Standard opens a wizard; importing is its first choice. */
+async function openImport(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'New Standard' }));
+  const dialog = await screen.findByRole('dialog', { name: 'New Standard' });
+  await user.click(within(dialog).getByRole('button', { name: /Import a file/ }));
+}
+
 async function importAs(who: Who, edition: string, autoApprove = false) {
   return apiFor(who).importFile({ file: file(edition), edition, ...(autoApprove ? { autoApprove } : {}) });
 }
@@ -82,14 +89,15 @@ afterAll(async () => { await pool.end(); await db.close(); });
 describe('frameworks page', () => {
   it('lets a viewer read but not import; shows the empty state', async () => {
     render(wrap(<FrameworksPage api={apiFor('viewer')} />));
-    expect(await screen.findByText(/No frameworks yet/)).toBeTruthy();
-    expect(screen.queryByText('Import a framework file')).toBeNull();
+    expect(await screen.findByText(/No standards yet/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'New Standard' })).toBeNull();
   });
 
   it('imports a pasted file, reports counts, and lists the new framework with its draft', async () => {
     const user = userEvent.setup();
     render(wrap(<FrameworksPage api={apiFor('lead')} />));
-    const box = await screen.findByLabelText('Framework JSON');
+    await openImport(user);
+    const box = await screen.findByLabelText('Standard JSON');
     await user.click(box);
     await user.paste(JSON.stringify(file('2023')));
     await user.click(screen.getByRole('button', { name: 'Import' }));
@@ -98,10 +106,47 @@ describe('frameworks page', () => {
     expect(await screen.findByText(/2023/)).toBeTruthy();
   });
 
+  it('shows each version as "Version <edition>" with its status and date, and an Edit icon for a draft', async () => {
+    render(wrap(<FrameworksPage api={apiFor('lead')} />));
+    const rows = await screen.findAllByTestId('version-row');
+    const row = rows.find((r) => /Version 2023/.test(r.textContent ?? ''))!;
+    expect(row.textContent).toMatch(/Draft/);
+    expect(row.textContent).toMatch(/Not published/);
+    const link = within(row).getByRole('link', { name: /Edit version 2023 of Institutional Guide/ });
+    expect(link.getAttribute('href')).toMatch(/^\/versions\//);
+  });
+
+  it('creates a standard from scratch through the wizard, which then closes', async () => {
+    const user = userEvent.setup();
+    render(wrap(<FrameworksPage api={apiFor('lead')} />));
+    await user.click(await screen.findByRole('button', { name: 'New Standard' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New Standard' });
+    await user.click(within(dialog).getByRole('button', { name: /Start from scratch/ }));
+    await user.type(within(dialog).getByLabelText('Accreditor name'), 'National Board');
+    await user.type(within(dialog).getByLabelText('Short name'), 'NB');
+    await user.type(within(dialog).getByLabelText('Standard name'), 'Quality Handbook');
+    await user.click(within(dialog).getByRole('button', { name: 'Create standard' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(await screen.findByText('Quality Handbook')).toBeTruthy();
+  });
+
+  it('closes the wizard with Escape and keeps the page free of import and create forms', async () => {
+    const user = userEvent.setup();
+    render(wrap(<FrameworksPage api={apiFor('lead')} />));
+    await screen.findByRole('button', { name: 'New Standard' });
+    expect(screen.queryByLabelText('Standard JSON')).toBeNull();
+    expect(screen.queryByText('Create a standard from scratch')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'New Standard' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('shows malformed JSON and every server-side problem', async () => {
     const user = userEvent.setup();
     render(wrap(<FrameworksPage api={apiFor('lead')} />));
-    const box = await screen.findByLabelText('Framework JSON');
+    await openImport(user);
+    const box = await screen.findByLabelText('Standard JSON');
     await user.click(box);
     await user.paste('{ nope');
     await user.click(screen.getByRole('button', { name: 'Import' }));

@@ -14,6 +14,10 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Frameworks tab becomes Standards (user feedback)
+
+"Frameworks" is "Standards" in the UI (nav, page title, route `/standards`; internal names and the API keep `framework`). Import and create forms moved off the page into a "New Standard" wizard (dialog: import a file, or start from scratch). Each card lists versions as "Version <edition>" with status, date (published or effective) and an Edit (draft or in review) or View (published or retired) icon link instead of a clickable badge. Other screens still say "framework" (engagement wizard, version page): rename together if wanted.
+
 ## 2026-10-05 — M2 complete (ROADMAP-003)
 
 Acceptance (`apps/api/src/m2-acceptance.test.ts`): WSCUC reaffirmation 2028 and ABET EAC initial 2027 (BS Mechanical) are created through the same endpoint with the same request shape and give the Appendix A roadmaps and dates (the WSCUC offsets checked independently with Python's date arithmetic; my first hand calculation of -150 days was off by one and the engine was right), locks on exactly the self-study deliverable and decision points, requirement counts that follow the tags (a civil program has the three Mechanical Program Criteria switched off), and the roadmap guardrails through the API. The engagement detail now returns milestones in phase order. Open items: the self-study report is not created with the engagement (M4); evidence-link copy-forward (M3) and feedback carry-forward (M5) are not done; requirements added in a newer framework version are not instantiated into running engagements; recurring milestones are not materialised until M6; the SPA has no Playwright browser test yet; Arabic UI strings still pending.

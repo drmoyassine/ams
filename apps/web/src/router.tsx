@@ -25,7 +25,7 @@ const appRoute = createRoute({
   },
 });
 const programsRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: () => <ProgramsPage /> });
-const frameworksRoute = createRoute({ getParentRoute: () => appRoute, path: '/frameworks', component: () => <FrameworksPage /> });
+const frameworksRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', component: () => <FrameworksPage /> });
 const versionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', component: () => <VersionRoute /> });
 function VersionRoute() { const { versionId } = versionRoute.useParams(); return <VersionPage key={versionId} versionId={versionId} />; }
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
