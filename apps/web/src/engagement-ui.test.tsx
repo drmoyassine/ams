@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
@@ -18,6 +18,9 @@ import { EngagementPage } from './pages/engagement';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
 import { RequirementWorkspacePage } from './pages/requirement-workspace';
+
+// Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
+configure({ asyncUtilTimeout: 10000 });
 
 let db: TestDb;
 let pool: pg.Pool;

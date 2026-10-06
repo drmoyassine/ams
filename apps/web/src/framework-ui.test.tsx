@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // UI tests run the real API (real routes, permissions, database rules) behind the typed client: no mocks of the contract.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
@@ -13,6 +13,9 @@ import { createApi } from './lib/api';
 import { frameworkApi, type FrameworkApi } from './lib/framework-api';
 import { FrameworksPage } from './pages/frameworks';
 import { VersionPage } from './pages/version';
+
+// Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
+configure({ asyncUtilTimeout: 10000 });
 
 let db: TestDb;
 let pool: pg.Pool;

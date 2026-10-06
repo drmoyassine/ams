@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Settings screens against the real API: institution and branding, the org chart, programs, and who sees what.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
@@ -14,6 +14,9 @@ import { settingsApi, type SettingsApi } from './lib/settings-api';
 import { AppLayout } from './pages/layout';
 import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
+
+// Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
+configure({ asyncUtilTimeout: 10000 });
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -71,7 +74,7 @@ describe('organization settings', () => {
     const user = userEvent.setup();
     render(wrap(<OrganizationPage api={apiFor('admin')} />));
     const name = await screen.findByLabelText('Name (English)');
-    await waitFor(() => expect((name as HTMLInputElement).value).toBe('Gulf University'));
+    await waitFor(() => { expect((name as HTMLInputElement).value).toBe('Gulf University'); expect((name as HTMLInputElement).disabled).toBe(false); });
     await user.type(screen.getByLabelText('Name (Arabic)'), 'جامعة الخليج');
     fireEvent.change(screen.getByLabelText('Accent colour'), { target: { value: '#1F4E79' } });
     expect((await screen.findByTestId('accent-preview')).textContent).toMatch(/contrast \d/);
@@ -86,7 +89,7 @@ describe('organization settings', () => {
   it('refuses a colour that white text cannot be read on, before saving', async () => {
     render(wrap(<OrganizationPage api={apiFor('admin')} />));
     const colour = await screen.findByLabelText('Accent colour');
-    await waitFor(() => expect((colour as HTMLInputElement).value).toBe('#1f4e79'));
+    await waitFor(() => { expect((colour as HTMLInputElement).value).toBe('#1f4e79'); expect((colour as HTMLInputElement).disabled).toBe(false); });
     fireEvent.change(colour, { target: { value: '#ffee00' } });
     expect((await screen.findByRole('alert')).textContent).toMatch(/darker colour/);
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);

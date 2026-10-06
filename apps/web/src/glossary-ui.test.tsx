@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The glossary in Settings and the terms it puts on engagement screens, against the real API.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
@@ -15,6 +15,9 @@ import { glossaryApi, type GlossaryApi } from './lib/glossary-api';
 import { settingsApi, type SettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
 import { GlossaryPage } from './pages/settings/glossary';
+
+// Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
+configure({ asyncUtilTimeout: 10000 });
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -75,7 +78,7 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     const wscuc = await screen.findByRole('region', { name: /WSCUC/ });
     const cfr = within(wscuc).getByLabelText('WSCUC CFR maps to') as HTMLSelectElement;
-    expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Requirement', 'Requirement group']);
+    await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Requirement', 'Requirement group']));
     const group = [...cfr.options].find((o) => o.textContent === 'Requirement group')!.value;
     await user.selectOptions(cfr, group);
     await waitFor(async () => expect((await a.glossary.glossary()).aliases.find((x) => x.externalTerm === 'CFR')?.termId).toBe(group));

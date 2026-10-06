@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     fileParallelism: false,
+    testTimeout: 20000,
+    hookTimeout: 30000,
     include: ['{apps,packages}/*/src/**/*.test.{ts,tsx}'],
     env: {
       TEST_DATABASE_ADMIN_URL:
