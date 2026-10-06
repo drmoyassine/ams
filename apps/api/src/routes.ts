@@ -3,6 +3,7 @@ import { createProgram, listPrograms, listUsers, myAccess } from '@ams/core';
 import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { engagementRoutes } from './routes/engagements.js';
+import { evidenceRoutes } from './routes/evidence.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { glossaryRoutes } from './routes/glossary.js';
 import { mappingRoutes } from './routes/mappings.js';
@@ -63,7 +64,8 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     // Settings: institution, org chart, program edits.
     .route('/', settingsRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))
-    .route('/', mappingRoutes(registry, deps, options));
+    .route('/', mappingRoutes(registry, deps, options))
+    .route('/', evidenceRoutes(registry, deps, options));
 }
 
 export type ApiRoutes = ReturnType<typeof buildRoutes>;

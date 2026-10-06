@@ -2,7 +2,7 @@ import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
 import { withIdentity, type Identity } from '@ams/db';
-import { isPermitted, type Ctx, type JobQueue } from '@ams/core';
+import { isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
 import type { Permission, Scope } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
@@ -42,6 +42,8 @@ export interface ChainDeps {
   pool: pg.Pool;
   queue: JobQueue;
   authenticate: Authenticator;
+  /** Evidence file storage; absent when not configured (uploads then answer 409). */
+  store?: ObjectStore;
 }
 
 const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
@@ -66,7 +68,7 @@ const transactionStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c
   let committed = true;
   try {
     await withIdentity(deps.pool, caller, async (tx) => {
-      c.set('ctx', { tx, caller, queue: deps.queue, afterCommit: (fn) => { hooks.push(fn); } });
+      c.set('ctx', { tx, caller, queue: deps.queue, afterCommit: (fn) => { hooks.push(fn); }, ...(deps.store ? { store: deps.store } : {}) });
       await next();
       if (c.error || c.res.status >= 400) throw new Rollback();
     });

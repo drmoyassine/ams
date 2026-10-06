@@ -130,6 +130,8 @@ export async function getWorkspace(ctx: Ctx, id: string): Promise<Workspace> {
     allowedStatuses: allowedStatuses(row.status, access, row.applicable, e.status === 'active'),
     canAssign: access.manage && e.status === 'active',
     canEdit: access.work && row.applicable && e.status === 'active',
+    canLinkEvidence: e.status === 'active' && row.applicable && await isPermitted(ctx.tx, 'engagement:work', scope(row.engagementId)),
+    canReviewEvidence: e.status === 'active' && await isPermitted(ctx.tx, 'engagement:review', scope(row.engagementId)),
     reports: [],
     history,
   };

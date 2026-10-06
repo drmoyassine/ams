@@ -1,0 +1,126 @@
+// M3 evidence (PRD 9, DEC-016): stored once, attached to the internal framework, offered to every accreditor
+// requirement mapped there, linked to each with its own reason, versions kept, newer versions and staleness shown.
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
+import { buildWorld, type World } from '../engagement/test-support.js';
+import { listEngagementRequirements } from '../engagement/workspace.js';
+import { setUpQualityFramework } from '../framework/internal.js';
+import { listRequirements, reviewRequirement } from '../framework/requirements.js';
+import { publishVersion, submitForReview } from '../framework/versions.js';
+import { createMapping, reviewMapping } from '../mapping/mapping.js';
+import {
+  addFileVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal,
+  listEvidence, readVersionFile, removeLink, reviewLink, suggestionsFor,
+} from './evidence.js';
+
+let w: World;
+const ids: Record<string, string> = {};
+const bytes = (s: string) => new TextEncoder().encode(s);
+
+beforeAll(async () => {
+  w = await buildWorld('evidencesvc');
+  // The internal framework from the template, published.
+  const qf = await w.as('admin', (c) => setUpQualityFramework(c, { template: true }));
+  const qv = qf.versions[0]!.id;
+  const items = await w.as('admin', (c) => listRequirements(c, qv));
+  for (const r of items) await w.as('admin', (c) => reviewRequirement(c, r.id, 'approved'));
+  await w.as('admin', (c) => submitForReview(c, qv));
+  await w.as('admin', (c) => publishVersion(c, qv));
+  ids.assessment = items.find((r) => r.title === 'Assessment of learning')!.id;
+
+  // An ABET program engagement (led by coord) and a WSCUC institutional one (led by alo).
+  ids.abetEng = (await w.create('alo', { subjectType: 'program', subjectId: w.ids.mech!, kind: 'initial' })).engagement.id;
+  ids.wscucEng = (await w.create('alo', { frameworkVersionId: w.ids.wscuc!, subjectType: 'institution', subjectId: w.ids.inst!, kind: 'reaffirmation', reviewYear: 2028, leadUserId: w.ids.alo!, keyDates: { submission_date: '2028-03-01' } })).engagement.id;
+  const pick = async (who: string, eng: string) => (await w.as(who, (c) => listEngagementRequirements(c, eng))).items.find((i) => i.applicable)!;
+  const abetItem = await pick('coord', ids.abetEng);
+  const wscucItem = await pick('alo', ids.wscucEng);
+  ids.abetER = abetItem.id; ids.wscucER = wscucItem.id;
+
+  // Both requirements are mapped (and the mappings approved) onto "Assessment of learning".
+  for (const [version, item] of [[w.ids.abet!, abetItem], [w.ids.wscuc!, wscucItem]] as const) {
+    const m = await w.as('alo', (c) => createMapping(c, version, { externalRequirementId: item.requirementId, internalRequirementId: ids.assessment!, relation: 'covers' }));
+    await w.as('admin', (c) => reviewMapping(c, m.id, 'approved'));
+  }
+}, 120000);
+afterAll(() => w.close());
+
+describe('the repository', () => {
+  it('stores a file once as version 1, with its size and hash, and serves it back', async () => {
+    await expect(w.as('outsider', (c) => listEvidence(c))).rejects.toThrow(ForbiddenError);
+    const item = await w.as('contrib', (c) => createEvidence(c, { title: 'Course review minutes', type: 'minutes', periodLabel: 'AY2025-26', tags: ['assessment'] }));
+    ids.minutes = item.id;
+    const v1 = await w.as('contrib', (c) => addFileVersion(c, item.id, { fileName: 'minutes.pdf', mime: 'application/pdf', bytes: bytes('first') }));
+    expect(v1).toMatchObject({ versionNo: 1, fileName: 'minutes.pdf', size: 5 });
+    expect(v1.sha256).toMatch(/^[0-9a-f]{64}$/);
+    ids.v1 = v1.id;
+    const file = await w.as('alo', (c) => readVersionFile(c, v1.id));
+    expect(new TextDecoder().decode(file.bytes)).toBe('first');
+    await expect(w.as('contrib', (c) => addFileVersion(c, item.id, { fileName: 'x', mime: 'text/plain', bytes: new Uint8Array() }))).rejects.toThrow(ValidationError);
+    expect((await w.as('alo', (c) => listEvidence(c, { q: 'assessment' }))).map((e) => e.title)).toEqual(['Course review minutes']);
+  });
+
+  it('keeps versions as they were uploaded', async () => {
+    await expect(w.db.su.query(`update evidence_version set file_name = 'changed.pdf' where id = $1`, [ids.v1])).rejects.toThrow(/kept as they were uploaded/);
+    await expect(w.db.su.query(`delete from evidence_version where id = $1`, [ids.v1])).rejects.toThrow(/kept as they were uploaded/);
+  });
+
+  it('shows a restricted item only to institution-wide roles and its owner', async () => {
+    const secret = await w.as('alo', (c) => createEvidence(c, { title: 'Salary survey', type: 'dataset', confidentiality: 'restricted' }));
+    expect((await w.as('alo', (c) => listEvidence(c))).map((e) => e.id)).toContain(secret.id);
+    expect((await w.as('contrib', (c) => listEvidence(c))).map((e) => e.id)).not.toContain(secret.id);
+  });
+});
+
+describe('attached once to the internal framework, offered to every mapped requirement', () => {
+  it('attaches evidence to an internal item with a reason, for review', async () => {
+    await expect(w.as('contrib', (c) => linkToInternal(c, ids.assessment!, { evidenceVersionId: ids.v1!, rationale: '  ' }))).rejects.toThrow();
+    const link = await w.as('contrib', (c) => linkToInternal(c, ids.assessment!, { evidenceVersionId: ids.v1!, rationale: 'Minutes of the annual course review' }));
+    expect(link).toMatchObject({ reviewStatus: 'proposed', target: { kind: 'internal', title: 'Assessment of learning' } });
+    await expect(w.as('contrib', (c) => linkToInternal(c, ids.assessment!, { evidenceVersionId: ids.v1!, rationale: 'again' }))).rejects.toThrow(ConflictError);
+    await expect(w.as('contrib', (c) => reviewLink(c, link.id, { decision: 'approved' }))).rejects.toThrow(ForbiddenError);
+    // proposed links are not offered yet
+    expect(await w.as('coord', (c) => suggestionsFor(c, ids.abetER!))).toEqual([]);
+    await w.as('admin', (c) => reviewLink(c, link.id, { decision: 'approved' }));
+    expect((await w.as('contrib', (c) => linksForInternal(c, ids.assessment!))).map((l) => l.reviewStatus)).toEqual(['approved']);
+  });
+
+  it('offers it to the ABET and the WSCUC requirement, each linked with its own reason', async () => {
+    const abet = await w.as('coord', (c) => suggestionsFor(c, ids.abetER!));
+    expect(abet).toEqual([expect.objectContaining({ title: 'Course review minutes', internalTitle: 'Assessment of learning', relation: 'covers', versionNo: 1 })]);
+    expect(await w.as('alo', (c) => suggestionsFor(c, ids.wscucER!))).toHaveLength(1);
+
+    await expect(w.as('contrib', (c) => linkToEngagementRequirement(c, ids.wscucER!, { evidenceVersionId: ids.v1!, rationale: 'x' }))).rejects.toThrow(); // not their engagement: they cannot even see it
+    const a = await w.as('coord', (c) => linkToEngagementRequirement(c, ids.abetER!, { evidenceVersionId: ids.v1!, rationale: 'Shows the program reviews assessment results every year' }));
+    const b = await w.as('alo', (c) => linkToEngagementRequirement(c, ids.wscucER!, { evidenceVersionId: ids.v1!, rationale: 'Evidence of institution-wide assessment of learning' }));
+    expect(a.rationale).not.toBe(b.rationale);
+    expect(a).toMatchObject({ reviewStatus: 'proposed', target: { kind: 'engagement', engagementId: ids.abetEng } });
+    expect(await w.as('coord', (c) => suggestionsFor(c, ids.abetER!))).toEqual([]); // linked now, so no longer offered
+    await w.as('coord', (c) => reviewLink(c, a.id, { decision: 'approved', comment: 'Good' }));
+    ids.abetLink = a.id;
+  });
+
+  it('shows "newer version available" on every link once the file is uploaded again', async () => {
+    await w.as('contrib', (c) => addFileVersion(c, ids.minutes!, { fileName: 'minutes-v2.pdf', mime: 'application/pdf', bytes: bytes('second') }));
+    for (const [who, er] of [['coord', ids.abetER!], ['alo', ids.wscucER!]] as const) {
+      const [link] = await w.as(who, (c) => linksForEngagementRequirement(c, er));
+      expect(link).toMatchObject({ versionNo: 1, latestVersionNo: 2, newerVersionAvailable: true, stale: false });
+    }
+    const detail = await w.as('alo', (c) => getEvidence(c, ids.minutes!));
+    expect(detail.versions.map((v) => v.versionNo)).toEqual([2, 1]);
+    expect(detail.links.map((l) => l.target.kind).sort()).toEqual(['engagement', 'engagement', 'internal']);
+  });
+
+  it('flags evidence older than the review year allows as stale', async () => {
+    const old = await w.as('contrib', (c) => createEvidence(c, { title: 'Old policy', type: 'policy', periodLabel: 'AY2019-20' }));
+    const v = await w.as('contrib', (c) => addFileVersion(c, old.id, { fileName: 'p.pdf', mime: 'application/pdf', bytes: bytes('old') }));
+    await w.as('coord', (c) => linkToEngagementRequirement(c, ids.abetER!, { evidenceVersionId: v.id, rationale: 'Policy in force at the time' }));
+    const links = await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!));
+    expect(links.find((l) => l.evidenceTitle === 'Old policy')!.stale).toBe(true); // 2019 < 2027 - 3
+  });
+
+  it('removes a proposed link, but an approved one only by someone who reviews', async () => {
+    await expect(w.as('contrib', (c) => removeLink(c, ids.abetLink!))).rejects.toThrow(ForbiddenError);
+    await w.as('coord', (c) => removeLink(c, ids.abetLink!));
+    expect((await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!))).map((l) => l.evidenceTitle)).toEqual(['Old policy']);
+  });
+});

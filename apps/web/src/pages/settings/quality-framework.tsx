@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import type { FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
+import type { EvidenceApi } from '../../lib/evidence-api';
 import type { GlossaryApi } from '../../lib/glossary-api';
 import type { SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
@@ -48,7 +49,7 @@ function LevelsLine({ labels: saved, editable, onSave }: { labels: string[]; edi
  * The institution's own quality framework (AMS/QMS): its standards, named and levelled as the institution chooses.
  * It is edited, reviewed and published like any standard, and external standards are mapped onto it.
  */
-export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi }) {
+export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidence }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi; evidence?: EvidenceApi }) {
   const api = useApi(apiProp);
   const me = useMe(api);
   const qc = useQueryClient();
@@ -133,7 +134,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
                     <Button type="button" onClick={() => act(() => api.applyQualityTemplate(current!.id))}>Start from the generic template</Button>
                   </div>
                 )}
-                <RequirementsTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} />
+                <RequirementsTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} {...(evidence ? { evidence } : {})} />
               </div>
             )}
             {tab === 'terms' && <GlossaryPage api={glossary} settings={settings} embedded />}

@@ -3,11 +3,11 @@ id: ROADMAP-004
 title: M3 — Evidence and datasets
 description: Evidence items, versions, reasoned links, review, stale flag, copy-forward, dataset items with manual upload
 quarter: Q1
-status: Deferred
+status: In Progress
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-06'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:34.350Z'
@@ -20,8 +20,15 @@ related_decisions:
     name: Dataset evidence with a source adapter; governed-metric integration optional
     url: /DECISIONS.md#DEC-014
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:34.350Z'
+  by: agent/claude-code
+  at: '2026-10-06T12:47:48.797Z'
+related_tasks:
+  - id: TASK-039
+    name: Evidence repository, versions and reasoned links
+    url: /TASKS.md#TASK-039
+  - id: TASK-040
+    name: Datasets with manual upload, templates and data requests
+    url: /TASKS.md#TASK-040
 ---
 # ROADMAP-004 — M3 — Evidence and datasets
 

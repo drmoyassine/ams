@@ -8,6 +8,7 @@ import { createTestDb, type TestDb } from '@ams/db/test-db';
 import type { CreateEngagement } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { importVersion, publishVersion, submitForReview } from '../framework/index.js';
+import { MemoryStore } from '../evidence/memory-store.js';
 import { createEngagement } from './engagements.js';
 
 const FIXTURES = resolve(import.meta.dirname, '../../../db/fixtures');
@@ -17,6 +18,7 @@ export interface World {
   db: TestDb;
   pool: pg.Pool;
   ids: Record<string, string>;
+  store: MemoryStore;
   as<T>(who: string, fn: (ctx: Ctx) => Promise<T>): Promise<T>;
   create(who: string, over: Partial<CreateEngagement> & Pick<CreateEngagement, 'subjectType' | 'subjectId' | 'kind'>): ReturnType<typeof createEngagement>;
   close(): Promise<void>;
@@ -27,6 +29,7 @@ export async function buildWorld(label: string): Promise<World> {
   const db = await createTestDb(label);
   const pool = new pg.Pool({ connectionString: db.url });
   const ids: Record<string, string> = {};
+  const store = new MemoryStore();
   const one = async (sql: string, p: unknown[] = []) => (await db.su.query(sql, p)).rows[0].id as string;
   ids.inst = await one(`insert into institution (name_en) values ('Gulf University') returning id`);
   for (const n of ['admin', 'alo', 'coord', 'contrib', 'second', 'outsider']) {
@@ -43,7 +46,7 @@ export async function buildWorld(label: string): Promise<World> {
 
   const as: World['as'] = (who, fn) => {
     const caller = { userId: ids[who]!, institutionId: ids.inst!, requestId: crypto.randomUUID(), actorType: 'user' as const };
-    return withIdentity(pool, caller, (tx) => fn({ tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined }));
+    return withIdentity(pool, caller, (tx) => fn({ tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined, store }));
   };
   for (const [key, name] of [['abet', 'abet-eac-2027-28'], ['wscuc', 'wscuc-2023'], ['puc', 'puc-2019']] as const) {
     ids[key] = await as('admin', async (ctx) => {
@@ -54,7 +57,7 @@ export async function buildWorld(label: string): Promise<World> {
     });
   }
   return {
-    db, pool, ids, as,
+    db, pool, ids, as, store,
     create: (who, over) => as(who, (ctx) => createEngagement(ctx, { frameworkVersionId: ids.abet!, reviewYear: 2027, leadUserId: ids.coord!, ...over })),
     close: async () => { await pool.end(); await db.close(); },
   };

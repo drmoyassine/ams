@@ -10,6 +10,7 @@ import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
 import { createAuth, sessionAuthenticator } from './auth.js';
+import { s3Store } from './s3-store.js';
 import { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
 
 const env = loadEnv();
@@ -34,7 +35,7 @@ if (env.SEED_DEMO_FRAMEWORKS) {
   if (g.terms || g.mapped) console.log(JSON.stringify({ level: 'info', msg: 'seeded glossary', ...g }));
 }
 
-const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue: pgBossQueue(boss) });
+const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue: pgBossQueue(boss), store: s3Store(env) });
 
 const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
 if (existsSync(webRoot)) {

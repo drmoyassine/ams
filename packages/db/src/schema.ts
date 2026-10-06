@@ -463,3 +463,73 @@ export const requirementMapping = pgTable('requirement_mapping', {
   oneOf('requirement_mapping_origin_check', t.origin, ORIGINS),
   oneOf('requirement_mapping_review_status_check', t.reviewStatus, REVIEW_STATUSES),
 ]);
+
+// ---- 6.5 Evidence (M3) ----------------------------------------------------------------------------------------
+
+export const EVIDENCE_TYPES = ['document', 'dataset', 'url', 'minutes', 'policy', 'report', 'other'] as const;
+export const CONFIDENTIALITY = ['public', 'internal', 'restricted'] as const;
+/** A piece of evidence owned by the institution, not by an engagement: stored once, linked many times. */
+export const evidenceItem = pgTable('evidence_item', {
+  ...base(), ...tenant(),
+  title: text('title').notNull(),
+  description: text('description'),
+  type: text('type', { enum: EVIDENCE_TYPES }).notNull(),
+  ownerUnitId: uuid('owner_unit_id').references(() => orgUnit.id),
+  ownerUserId: uuid('owner_user_id').references(() => appUser.id),
+  periodLabel: text('period_label'),
+  confidentiality: text('confidentiality', { enum: CONFIDENTIALITY }).notNull().default('internal'),
+  containsStudentData: boolean('contains_student_data').notNull().default(false),
+  tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
+}, (t) => [
+  oneOf('evidence_item_type_check', t.type, EVIDENCE_TYPES),
+  oneOf('evidence_item_confidentiality_check', t.confidentiality, CONFIDENTIALITY),
+  oneOf('evidence_item_status_check', t.status, ['active', 'archived']),
+]);
+
+/** One upload (or registered link) of an evidence item. New upload → new version; versions are never changed. */
+export const evidenceVersion = pgTable('evidence_version', {
+  ...base(), ...tenant(),
+  evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
+  versionNo: integer('version_no').notNull(),
+  filePath: text('file_path'),
+  url: text('url'),
+  sha256: text('sha256'),
+  fileName: text('file_name'),
+  mime: text('mime'),
+  size: integer('size'),
+  asOfDate: date('as_of_date'),
+  notes: text('notes'),
+  data: jsonb('data'),
+  lineage: jsonb('lineage'),
+}, (t) => [
+  uniqueIndex('evidence_version_no_idx').on(t.evidenceItemId, t.versionNo),
+  check('evidence_version_content', sql`(${t.filePath} is not null and ${t.sha256} is not null) or ${t.url} is not null or ${t.data} is not null`),
+]);
+
+export const LINK_REVIEW = ['proposed', 'approved', 'rejected'] as const;
+/**
+ * Evidence version → what it supports, with the reason (required). The target is either a requirement of an
+ * engagement (what goes to the accreditor) or an item of the institution's own framework, keyed by code within that
+ * framework so it carries over to new versions of it (DEC-016). Exactly one target.
+ */
+export const evidenceLink = pgTable('evidence_link', {
+  ...base(), ...tenant(),
+  evidenceVersionId: uuid('evidence_version_id').notNull().references(() => evidenceVersion.id),
+  engagementRequirementId: uuid('engagement_requirement_id').references(() => engagementRequirement.id),
+  internalFrameworkId: uuid('internal_framework_id').references(() => framework.id),
+  internalCode: text('internal_code'),
+  rationale: text('rationale').notNull(),
+  linkedBy: uuid('linked_by').references(() => appUser.id),
+  reviewStatus: text('review_status', { enum: LINK_REVIEW }).notNull().default('proposed'),
+  reviewedBy: uuid('reviewed_by').references(() => appUser.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  reviewComment: text('review_comment'),
+}, (t) => [
+  index('evidence_link_version_idx').on(t.evidenceVersionId),
+  index('evidence_link_er_idx').on(t.engagementRequirementId),
+  index('evidence_link_internal_idx').on(t.internalFrameworkId, t.internalCode),
+  oneOf('evidence_link_review_check', t.reviewStatus, LINK_REVIEW),
+  check('evidence_link_rationale', sql`length(trim(${t.rationale})) > 0`),
+  check('evidence_link_one_target', sql`(${t.engagementRequirementId} is not null) <> (${t.internalFrameworkId} is not null and ${t.internalCode} is not null)`),
+]);

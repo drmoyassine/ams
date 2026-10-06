@@ -1,0 +1,119 @@
+import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
+import {
+  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
+  linkToInternal, listEvidence, MAX_UPLOAD_BYTES, readVersionFile, removeLink, reviewLink, suggestionsFor, updateEvidence, ValidationError,
+} from '@ams/core';
+import {
+  CreateEvidenceSchema, EvidenceDetailSchema, EvidenceItemSchema, EvidenceLinkSchema, EvidenceSuggestionSchema, EvidenceVersionSchema,
+  LinkEvidenceSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
+} from '@ams/shared';
+import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
+import { errors, idParam, json } from './common.js';
+
+/** Shown in the browser rather than downloaded. */
+const INLINE = /^(application\/pdf|image\/(png|jpeg|gif|webp))$/;
+
+export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options: { defaultHook: Hook<unknown, AppEnv, string, unknown> }) {
+  const tag = ['evidence'];
+  return new OpenAPIHono<AppEnv>(options)
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/evidence', access: requires('evidence:read'), tags: tag,
+      request: { query: z.object({ q: z.string().optional() }) },
+      responses: { 200: { description: 'The evidence the caller may see, newest first', ...json(z.array(EvidenceItemSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(EvidenceItemSchema), await listEvidence(c.get('ctx'), c.req.valid('query'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence', access: requires('evidence:write'), tags: tag,
+      request: { body: { required: true, ...json(CreateEvidenceSchema) } },
+      responses: { 201: { description: 'Created', ...json(EvidenceItemSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceItemSchema, await createEvidence(c.get('ctx'), c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/evidence/{id}', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The item, its versions and everything it is linked to', ...json(EvidenceDetailSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceDetailSchema, await getEvidence(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'patch', path: '/api/evidence/{id}', access: requires('evidence:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(UpdateEvidenceSchema) } },
+      responses: { 200: { description: 'Updated', ...json(EvidenceItemSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceItemSchema, await updateEvidence(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence/{id}/files', access: requires('evidence:write'), tags: tag,
+      description: 'The request body is the file itself; its Content-Type is recorded. Stored as the next version.',
+      request: { params: idParam, query: z.object({ fileName: z.string().min(1), asOfDate: z.string().optional(), notes: z.string().optional() }) },
+      responses: { 201: { description: 'Stored as a new version', ...json(EvidenceVersionSchema) }, ...errors },
+    }), async (c) => {
+      const declared = Number(c.req.header('content-length') ?? 0);
+      if (declared > MAX_UPLOAD_BYTES) throw new ValidationError(`the file is larger than ${Math.round(MAX_UPLOAD_BYTES / 1048576)} MB`);
+      const { fileName, asOfDate, notes } = c.req.valid('query');
+      const bytes = new Uint8Array(await c.req.arrayBuffer());
+      const mime = (c.req.header('content-type') ?? 'application/octet-stream').split(';')[0]!.trim();
+      return c.json(toDto(EvidenceVersionSchema, await addFileVersion(c.get('ctx'), c.req.valid('param').id, {
+        fileName, mime, bytes, ...(asOfDate ? { asOfDate } : {}), ...(notes ? { notes } : {}),
+      })), 201);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence/{id}/links-to-documents', access: requires('evidence:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(z.object({ url: z.url(), asOfDate: z.string().optional(), notes: z.string().optional() })) } },
+      responses: { 201: { description: 'The address registered as a new version', ...json(EvidenceVersionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceVersionSchema, await addUrlVersion(c.get('ctx'), c.req.valid('param').id, c.req.valid('json') as { url: string })), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/evidence-versions/{id}/file', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The stored file', content: { 'application/octet-stream': { schema: z.string() } } }, ...errors },
+    }), async (c) => {
+      const f = await readVersionFile(c.get('ctx'), c.req.valid('param').id);
+      const disposition = `${INLINE.test(f.mime) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.fileName)}`;
+      return c.body(f.bytes as unknown as ArrayBuffer, 200, { 'content-type': f.mime, 'content-disposition': disposition, 'x-content-type-options': 'nosniff' }) as never;
+    })
+
+    // ---- Links ------------------------------------------------------------------------------------------------
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/requirements/{id}/evidence-links', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Evidence attached to an item of the internal framework', ...json(z.array(EvidenceLinkSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(EvidenceLinkSchema), await linksForInternal(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/evidence-links', access: requires('evidence:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(LinkEvidenceSchema) } },
+      responses: { 201: { description: 'Attached, for review', ...json(EvidenceLinkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceLinkSchema, await linkToInternal(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/engagement-requirements/{id}/evidence-links', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Evidence linked to an engagement requirement', ...json(z.array(EvidenceLinkSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(EvidenceLinkSchema), await linksForEngagementRequirement(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/engagement-requirements/{id}/evidence-links', access: requires('engagement:work'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(LinkEvidenceSchema) } },
+      responses: { 201: { description: 'Linked, for review', ...json(EvidenceLinkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceLinkSchema, await linkToEngagementRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/engagement-requirements/{id}/evidence-suggestions', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Evidence on the internal items this requirement is mapped to, not yet linked here', ...json(z.array(EvidenceSuggestionSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(EvidenceSuggestionSchema), await suggestionsFor(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence-links/{id}/review', access: requires('evidence:read'), tags: tag,
+      description: 'Engagement links need engagement:review on the engagement; internal links need evidence:review (checked in the service).',
+      request: { params: idParam, body: { required: true, ...json(ReviewLinkSchema) } },
+      responses: { 200: { description: 'Reviewed', ...json(EvidenceLinkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceLinkSchema, await reviewLink(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'delete', path: '/api/evidence-links/{id}', access: requires('evidence:read'), tags: tag,
+      description: 'Who may remove a link is checked in the service: the linking or reviewing permission of its target.',
+      request: { params: idParam },
+      responses: { 204: { description: 'Removed' }, ...errors },
+    }), async (c) => { await removeLink(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); });
+}

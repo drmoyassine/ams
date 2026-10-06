@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type JobQueue } from '@ams/core';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type JobQueue, type ObjectStore } from '@ams/core';
 import { ZodError } from 'zod';
 import {
   assertAllRoutesDeclared, rawPublicRoute, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
@@ -12,6 +12,8 @@ export interface AppOptions {
   authenticate: Authenticator;
   /** Where services publish background jobs (pg-boss in production). */
   queue?: JobQueue;
+  /** Where evidence files are kept (S3 in production, in memory in tests). */
+  store?: ObjectStore;
   /** Better Auth's request handler, mounted at /api/auth/*. */
   authHandler?: (req: Request) => Response | Promise<Response>;
   /** Extra route modules, registered before the startup check (used by tests to prove the check bites). */
@@ -23,7 +25,7 @@ const noQueue: JobQueue = { send: async () => { throw new Error('No job queue co
 /** Builds the API. Throws if any route lacks a permission declaration. */
 export function createApp(opts: AppOptions) {
   const registry = new RouteRegistry();
-  const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate, queue: opts.queue ?? noQueue };
+  const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate, queue: opts.queue ?? noQueue, ...(opts.store ? { store: opts.store } : {}) };
   const app = buildRoutes(registry, deps, {
     defaultHook: (result, c) => {
       if (!result.success) return c.json({ error: 'invalid_request', issues: result.error.issues }, 400);

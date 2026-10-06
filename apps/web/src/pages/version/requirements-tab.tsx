@@ -7,9 +7,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDocument, type Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
+import { EvidenceLinkList, LinkEvidenceForm } from '../../components/evidence-links';
+import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { Me } from '@ams/shared';
 
-type Props = { api: FrameworkApi; version: Version; me: Me | undefined };
+type Props = { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi };
 
 function useAction(onError: (m: string) => void, invalidate: () => Promise<unknown>) {
   return useMutation({
@@ -73,7 +75,25 @@ function AddNote({ api, requirementId, docs, invalidate, setError }: { api: Fram
   );
 }
 
-function Detail({ api, version, req, me, docs, setError, invalidateTree }: Props & { req: Requirement; docs: SourceDocument[]; setError: (m: string) => void; invalidateTree: () => Promise<unknown> }) {
+/** Evidence attached to an item of the internal framework: offered from here to every requirement mapped onto it. */
+function InternalEvidence({ requirementId, me, evidence }: { requirementId: string; me: Me | undefined; evidence?: EvidenceApi }) {
+  const api = useEvidenceApi(evidence);
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+  const links = useQuery({ queryKey: ['internal-evidence', requirementId], queryFn: () => api.internalLinks(requirementId) });
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['internal-evidence', requirementId] }); };
+  return (
+    <section aria-label="Evidence" className="space-y-2 border-t border-border pt-3">
+      <h4 className="font-medium">Evidence</h4>
+      <p className="text-xs text-muted-foreground">Attach evidence here once. Every accreditor requirement mapped to this item is offered it.</p>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      <EvidenceLinkList links={links.data ?? []} api={api} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')} onChange={refresh} setError={setError} />
+      {can(me, 'evidence:write') && <LinkEvidenceForm api={api} label="Attach evidence" onLink={(evidenceVersionId, rationale) => api.linkInternal(requirementId, { evidenceVersionId, rationale }).then(refresh, (e: Error) => setError(e.message))} />}
+    </section>
+  );
+}
+
+function Detail({ api, version, req, me, docs, setError, invalidateTree, evidence }: Props & { req: Requirement; docs: SourceDocument[]; setError: (m: string) => void; invalidateTree: () => Promise<unknown> }) {
   const qc = useQueryClient();
   const editable = version.status === 'draft';
   const canWrite = editable && can(me, 'framework:write');
@@ -119,11 +139,12 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree }: Props
         {detail.data?.notes.length === 0 && <li className="text-sm text-muted-foreground">No notes.</li>}
       </ul>
       {canWrite && <AddNote api={api} requirementId={req.id} docs={docs} invalidate={invalidate} setError={setError} />}
+      {version.internal && <InternalEvidence requirementId={req.id} me={me} {...(evidence ? { evidence } : {})} />}
     </div>
   );
 }
 
-export function RequirementsTab({ api, version, me }: Props) {
+export function RequirementsTab({ api, version, me, evidence }: Props) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -178,7 +199,7 @@ export function RequirementsTab({ api, version, me }: Props) {
           </form>
         )}
       </div>
-      <div>{current ? <Detail api={api} version={version} req={current} me={me} docs={docs.data ?? []} setError={setError} invalidateTree={invalidateTree} /> : <p className="text-sm text-muted-foreground">Select a requirement.</p>}</div>
+      <div>{current ? <Detail api={api} version={version} req={current} me={me} docs={docs.data ?? []} setError={setError} invalidateTree={invalidateTree} {...(evidence ? { evidence } : {})} /> : <p className="text-sm text-muted-foreground">Select a requirement.</p>}</div>
     </div>
   );
 }

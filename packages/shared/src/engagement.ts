@@ -200,6 +200,9 @@ export const WorkspaceSchema = z.object({
   allowedStatuses: z.array(z.enum(ENGAGEMENT_REQUIREMENT_STATUSES)),
   canAssign: z.boolean(),
   canEdit: z.boolean(),
+  /** May link evidence to this requirement, and may approve or reject those links (PRD 9.2). */
+  canLinkEvidence: z.boolean(),
+  canReviewEvidence: z.boolean(),
   /** Report sections that cite this requirement: filled in when reports exist (M4). */
   reports: z.array(z.object({ reportId: z.string(), title: z.string(), sectionKey: z.string() })),
   history: z.array(z.object({ at: z.string(), actorName: z.string().nullable(), action: z.string(), changes: z.record(z.string(), z.object({ from: z.unknown(), to: z.unknown() })) })),

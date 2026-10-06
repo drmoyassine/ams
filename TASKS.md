@@ -1457,4 +1457,71 @@ modified:
 # Mappings tab on each external standard
 Relation covers, partly covers or related; never equivalent. Proposed by a person or the AI, approved by a person. Institution-owned, not part of the published external version; carried to new versions.
 
+---
+
+## TASK-039 — Evidence repository, versions and reasoned links
+
+---
+id: TASK-039
+title: Evidence repository, versions and reasoned links
+description: >-
+  Evidence stored once and versioned; attached to the internal framework; offered to mapped accreditor requirements;
+  linked with a reason and reviewed
+status: completed
+priority: P0
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T12:47:45.227Z'
+roadmap_item:
+  id: ROADMAP-004
+  name: M3 — Evidence and datasets
+  url: /ROADMAP.md#ROADMAP-004
+related_decisions:
+  - id: DEC-016
+    name: Internal quality framework and glossary unify terminology; mappings live on each external standard
+    url: /DECISIONS.md#DEC-016
+  - id: DEC-013
+    name: AI processing approved for framework source documents; evidence not sent in the MVP
+    url: /DECISIONS.md#DEC-013
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T12:47:45.227Z'
+---
+
+Evidence items, immutable versions (file through the API into S3-compatible storage, or a link), restricted items, links to internal framework items (by code) and to engagement requirements, each with a required rationale and a person's review; "newer version available"; stale flag; suggestions on engagement requirements from evidence approved on the internal items they are mapped to.
+
+---
+
+## TASK-040 — Datasets with manual upload, templates and data requests
+
+---
+id: TASK-040
+title: Datasets with manual upload, templates and data requests
+description: Dataset evidence with a dataset spec, generated XLSX/CSV templates, validated uploads as versions, data request tasks
+status: pending
+priority: P0
+last_updated: '2026-10-06'
+generated:
+  by: agent/claude-code
+  at: '2026-10-06T12:47:47.135Z'
+roadmap_item:
+  id: ROADMAP-004
+  name: M3 — Evidence and datasets
+  url: /ROADMAP.md#ROADMAP-004
+depends_on:
+  - id: TASK-039
+    name: Evidence repository, versions and reasoned links
+    url: /TASKS.md#TASK-039
+related_decisions:
+  - id: DEC-014
+    name: Dataset evidence with a source adapter; governed-metric integration optional
+    url: /DECISIONS.md#DEC-014
+modified:
+  by: agent/claude-code
+  at: '2026-10-06T12:47:47.135Z'
+---
+
+PRD 9.4 and 9.6: dataset_spec (definition, columns, grain, periods, data owner, source manual_upload), template generated from the columns, upload validated against column types into a new version with supplied_by and as_of, data request to the data owner. Bound report tables come with M4.
+
 <!-- End VEF generated items. -->

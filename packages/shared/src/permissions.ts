@@ -13,19 +13,21 @@ export const PERMISSIONS = [
   // The institution's identity and branding (Settings): admin only.
   'institution:write',
   'engagement:read', 'engagement:create', 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review',
+  // Evidence (PRD 9): read the repository, add evidence and propose links, approve or reject links.
+  'evidence:read', 'evidence:write', 'evidence:review',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const READ: Permission[] = ['org:read', 'program:read', 'framework:read', 'engagement:read'];
+const READ: Permission[] = ['org:read', 'program:read', 'framework:read', 'engagement:read', 'evidence:read'];
 
 /** Role × permission. Where a role applies is decided by its scope (institution, org_unit, program, engagement). */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review', 'engagement:create'],
-  engagement_lead: [...READ, 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review'],
-  co_lead: [...READ, 'engagement:manage', 'engagement:work', 'engagement:review'],
-  contributor: [...READ, 'engagement:work'],
-  reviewer: [...READ, 'framework:review', 'engagement:review'],
+  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review', 'engagement:create', 'evidence:write', 'evidence:review'],
+  engagement_lead: [...READ, 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review'],
+  co_lead: [...READ, 'engagement:manage', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review'],
+  contributor: [...READ, 'engagement:work', 'evidence:write'],
+  reviewer: [...READ, 'framework:review', 'engagement:review', 'evidence:review'],
   viewer: READ,
   external_reviewer: ['program:read'],  // read-only, one snapshot (P1); framework library is not exposed
 };

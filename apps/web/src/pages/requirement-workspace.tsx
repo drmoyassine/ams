@@ -7,7 +7,9 @@ import { TermModeSelect } from '../components/term-mode';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { EvidenceLinkList, LinkEvidenceForm } from '../components/evidence-links';
 import { useEngagementApi, type EngagementApi } from '../lib/engagement-api';
+import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { ApiError } from '../lib/framework-api';
 import { requirementLabel } from '../lib/format';
 import { useLevelLabel } from '../lib/glossary-api';
@@ -16,8 +18,57 @@ import { useAction } from '../lib/use-action';
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const NOTE_TYPE = { guidance: 'Guidance', evidence_expectation: 'Evidence expected', data_request: 'Data requested', quantitative_norm: 'Quantitative norm' } as const;
 
-/** One page per engagement requirement (PRD 8.4): context, work, reporting, history. */
-export function RequirementWorkspacePage({ id, api: override }: { id: string; api?: EngagementApi }) {
+const RELATION = { covers: 'covers', partly_covers: 'partly covers', related: 'is related to' } as const;
+
+/**
+ * Evidence on this requirement (PRD 9.2, DEC-016): what is linked, with its reason and review; what the internal
+ * framework already holds for it through the mappings, offered to link with this requirement's own reason; and any
+ * other evidence from the repository.
+ */
+function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string; canLink: boolean; canReview: boolean; evidence?: EvidenceApi }) {
+  const api = useEvidenceApi(evidence);
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const links = useQuery({ queryKey: ['er-evidence', id], queryFn: () => api.requirementLinks(id) });
+  const suggestions = useQuery({ queryKey: ['er-suggestions', id], queryFn: () => api.suggestions(id) });
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['er-evidence', id] }); void qc.invalidateQueries({ queryKey: ['er-suggestions', id] }); };
+  const link = (evidenceVersionId: string, rationale: string) => api.linkRequirement(id, { evidenceVersionId, rationale }).then(refresh, (e: Error) => setError(e.message));
+  return (
+    <Card>
+      <section aria-label="Evidence">
+      <h2 className="mb-2 text-lg font-semibold">Evidence</h2>
+      {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
+      <EvidenceLinkList links={links.data ?? []} api={api} canReview={canReview} canRemove={canLink} onChange={refresh} setError={setError} />
+      {(suggestions.data ?? []).length > 0 && (
+        <section aria-label="Suggested from your framework" className="mt-4 space-y-2">
+          <h3 className="font-medium">Suggested from your framework</h3>
+          <p className="text-xs text-muted-foreground">Evidence already attached to the internal items this requirement is mapped to. Linking it here needs this requirement's own reason.</p>
+          <ul className="space-y-2">
+            {suggestions.data!.map((s) => (
+              <li key={s.evidenceVersionId} className="rounded-md border border-dashed border-border p-2 text-sm" data-testid="evidence-suggestion">
+                <p><a className="font-medium underline" href={api.fileUrl(s.evidenceVersionId)} target="_blank" rel="noreferrer"><ContentText>{s.title}</ContentText></a> <span className="text-xs text-muted-foreground">v{s.versionNo}{s.periodLabel ? ` · ${s.periodLabel}` : ''}</span></p>
+                <p className="text-xs text-muted-foreground">On internal {s.internalCode}{s.internalTitle ? ` · ${s.internalTitle}` : ''}, which {RELATION[s.relation]} this requirement: “<ContentText>{s.internalRationale}</ContentText>”</p>
+                {canLink && (
+                  <form className="mt-1 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); const r = (reasons[s.evidenceVersionId] ?? '').trim(); if (r) void link(s.evidenceVersionId, r); }}>
+                    <Input aria-label={`Why ${s.title} supports this requirement`} placeholder="Why it supports this requirement (required)" dir="auto" className="min-w-64 flex-1"
+                      value={reasons[s.evidenceVersionId] ?? ''} onChange={(e) => { const v = e.target.value; setReasons((x) => ({ ...x, [s.evidenceVersionId]: v })); }} />
+                    <Button type="submit" disabled={!(reasons[s.evidenceVersionId] ?? '').trim()}>Link</Button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {canLink && <div className="mt-4"><LinkEvidenceForm api={api} label="Link other evidence" onLink={link} /></div>}
+      </section>
+    </Card>
+  );
+}
+
+/** One page per engagement requirement (PRD 8.4): context, work, evidence, reporting, history. */
+export function RequirementWorkspacePage({ id, api: override, evidence }: { id: string; api?: EngagementApi; evidence?: EvidenceApi }) {
   const api = useEngagementApi(override);
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +175,8 @@ export function RequirementWorkspacePage({ id, api: override }: { id: string; ap
             </form>
           )}
         </Card>
+
+        <RequirementEvidence id={id} canLink={ws.canLinkEvidence} canReview={ws.canReviewEvidence} {...(evidence ? { evidence } : {})} />
 
         <Card aria-label="Reporting">
           <h2 className="mb-2 text-lg font-semibold">Reporting</h2>

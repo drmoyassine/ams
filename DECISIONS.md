@@ -665,7 +665,7 @@ rationale: Unblocks the compiler and OCR.
 consequences: P2 AI features require a further decision.
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-06'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:25.681Z'
@@ -674,12 +674,16 @@ related_vision:
     name: Official, suggested and inferred are always distinguishable
     url: /VISION.md#trustworthy-traceability
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:41.356Z'
+  by: agent/claude-code
+  at: '2026-10-06T12:47:45.227Z'
 related_roadmap_items:
   - id: ROADMAP-009
     name: M7 — Framework compiler
     url: /ROADMAP.md#ROADMAP-009
+related_tasks:
+  - id: TASK-039
+    name: Evidence repository, versions and reasoned links
+    url: /TASKS.md#TASK-039
 ---
 
 Source: PRD §20. (docs/PRD.md).
@@ -702,7 +706,7 @@ rationale: AMS works standalone; switching to governed metrics changes no report
 consequences: Manual mode has weaker lineage until the integration exists.
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-06'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:27.144Z'
@@ -711,8 +715,8 @@ related_vision:
     name: Evidence and data belong to the institution
     url: /VISION.md#one-evidence-base
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:44.328Z'
+  by: agent/claude-code
+  at: '2026-10-06T12:47:47.135Z'
 related_roadmap_items:
   - id: ROADMAP-004
     name: M3 — Evidence and datasets
@@ -720,6 +724,10 @@ related_roadmap_items:
   - id: ROADMAP-011
     name: 'M9 — P1: governed-metric adapter'
     url: /ROADMAP.md#ROADMAP-011
+related_tasks:
+  - id: TASK-040
+    name: Datasets with manual upload, templates and data requests
+    url: /TASKS.md#TASK-040
 ---
 
 Source: PRD §9.4–9.6, invariant 14. (docs/PRD.md).
@@ -804,7 +812,7 @@ related_roadmap_items:
     url: /ROADMAP.md#ROADMAP-012
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:40.035Z'
+  at: '2026-10-06T12:47:45.227Z'
 related_tasks:
   - id: TASK-032
     name: Settings shell, organization identity and branding
@@ -827,6 +835,9 @@ related_tasks:
   - id: TASK-038
     name: Mappings tab on each external standard
     url: /TASKS.md#TASK-038
+  - id: TASK-039
+    name: Evidence repository, versions and reasoned links
+    url: /TASKS.md#TASK-039
 ---
 
 <!-- End VEF generated items. -->

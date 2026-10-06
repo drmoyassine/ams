@@ -13,3 +13,5 @@ export * from './org/units.js';
 export * from './glossary/defaults.js';
 export * from './glossary/glossary.js';
 export * from './mapping/mapping.js';
+export * from './evidence/evidence.js';
+export * from './evidence/memory-store.js';
