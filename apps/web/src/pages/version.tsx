@@ -7,14 +7,15 @@ import { type GlossaryApi } from '../lib/glossary-api';
 import { useApi, useMe } from '../lib/me';
 import { ConfigTab } from './version/config-tab';
 import { TerminologyTab } from './version/terminology-tab';
+import { CycleTab } from './version/cycle-tab';
 import { MappingsTab } from './version/mappings-tab';
 import { PublishTab } from './version/publish-tab';
 import { RequirementsTab } from './version/requirements-tab';
 import { SourcesTab } from './version/sources-tab';
 import { TemplatesTab } from './version/templates-tab';
 
-const INTERNAL_TABS = ['requirements', 'publish'];
-const EXTERNAL_ONLY_TABS = ['mappings', 'terminology'];
+const INTERNAL_TABS = ['requirements', 'cycle', 'publish'];
+const INTERNAL_ONLY_TABS = ['cycle'];
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'config', label: 'Lifecycle and vocabularies' },
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'sources', label: 'Sources' },
   { id: 'mappings', label: 'Mappings' },
   { id: 'terminology', label: 'Terminology' },
+  { id: 'cycle', label: 'Cycle' },
   { id: 'publish', label: 'Review and publish' },
 ] as const;
 
@@ -48,7 +50,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }
         {version.supersedesId && <span className="text-sm text-muted-foreground">supersedes an earlier version</span>}
       </div>
       <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
-        {TABS.filter((t) => (version.internal ? INTERNAL_TABS.includes(t.id) : true) && !(version.internal && EXTERNAL_ONLY_TABS.includes(t.id))).map((t) => (
+        {TABS.filter((t) => (version.internal ? INTERNAL_TABS.includes(t.id) : !INTERNAL_ONLY_TABS.includes(t.id))).map((t) => (
           <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
             className={`px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
         ))}
@@ -60,6 +62,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }
         {tab === 'mappings' && <MappingsTab api={api} version={version} me={me.data} />}
         {tab === 'terminology' && <TerminologyTab version={version} me={me.data} glossary={glossary} />}
         {tab === 'sources' && <SourcesTab api={api} version={version} me={me.data} />}
+        {tab === 'cycle' && <CycleTab api={api} version={version} me={me.data} />}
         {tab === 'publish' && <PublishTab api={api} version={version} me={me.data} onOpenVersion={open} />}
       </div>
     </section>

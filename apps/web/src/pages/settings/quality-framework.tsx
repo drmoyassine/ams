@@ -10,6 +10,7 @@ import type { SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { GlossaryPage } from './glossary';
 import { DATE, STATUS_LABEL } from '../frameworks';
+import { CycleTab } from '../version/cycle-tab';
 import { PublishTab } from '../version/publish-tab';
 import { RequirementsTab } from '../version/requirements-tab';
 
@@ -45,8 +46,9 @@ function LevelsEditor({ latest, canWrite, onSave }: { latest: Version; canWrite:
 }
 
 const TABS = [
-  { id: 'requirements', label: 'Requirements' },
   { id: 'definitions', label: 'Definitions' },
+  { id: 'requirements', label: 'Requirements' },
+  { id: 'cycle', label: 'Cycle' },
   { id: 'publish', label: 'Review and publish' },
 ] as const;
 
@@ -60,7 +62,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [pick, setPick] = useState<string | null>(null);
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('definitions');
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
   // Its levels are the glossary's level terms, so the terms below change with it.
   const refresh = () => Promise.all(['quality-framework', 'glossary', 'external-terms', 'version', 'requirements', 'validation'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
@@ -126,11 +128,12 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
             ))}
           </div>
           <div role="tabpanel">
-            {tab === 'requirements' && <RequirementsTab key={current!.id} api={api} version={current!} me={me.data} />}
+            {tab === 'requirements' && <RequirementsTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} />}
             {tab === 'definitions' && (
               <GlossaryPage api={glossary} settings={settings} embedded
                 levelsEditor={<LevelsEditor key={`${latest.id}|${JSON.stringify(latest.levelLabels)}`} latest={latest} canWrite={canWrite} onSave={(labels) => act(() => api.setQualityLevels(labels))} />} />
             )}
+            {tab === 'cycle' && <CycleTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} />}
             {tab === 'publish' && <PublishTab key={current!.id} api={api} version={current!} me={me.data} onOpenVersion={(id) => { setPick(id); void refresh(); setTab('requirements'); }} />}
           </div>
         </div>

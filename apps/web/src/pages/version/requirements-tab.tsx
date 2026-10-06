@@ -106,6 +106,10 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree }: Props
             <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewRequirement(req.id, 'approved'))}>Approve</Button>
             <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewRequirement(req.id, 'rejected'))}>Reject</Button>
           </>}
+          {canWrite && version.internal && <>
+            <Button type="button" variant="ghost" aria-label="Indent" title="Move under the item above it (one level deeper)" onClick={() => act.mutate(() => api.indentRequirement(req.id))}>Indent →</Button>
+            <Button type="button" variant="ghost" aria-label="Outdent" title="Move out to follow its parent (one level up)" onClick={() => act.mutate(() => api.outdentRequirement(req.id))}>← Outdent</Button>
+          </>}
           {canWrite && <Button type="button" variant="ghost" onClick={() => del.mutate(() => api.deleteRequirement(req.id))}>Delete</Button>}
         </div>
       </form>
@@ -137,7 +141,9 @@ export function RequirementsTab({ api, version, me }: Props) {
     const f = new FormData(e.currentTarget);
     const parent = String(f.get('parent'));
     add.mutate(() => api.createRequirement(version.id, {
-      code: String(f.get('code')), title: String(f.get('title')), levelLabel: String(f.get('level')),
+      code: String(f.get('code')), title: String(f.get('title')),
+      // In the internal framework the level is the depth; the server names it from the parent.
+      levelLabel: version.internal ? (labels[0] ?? 'Level 1') : String(f.get('level')),
       ...(parent ? { parentId: parent } : {}),
     }));
     e.currentTarget.reset();
@@ -162,11 +168,11 @@ export function RequirementsTab({ api, version, me }: Props) {
           <form onSubmit={create} className="mt-4 space-y-2 rounded border border-dashed border-border p-3" aria-label="Add requirement">
             <div className="grid grid-cols-2 gap-2">
               <Input name="code" required placeholder="Code, e.g. CFR 1.1" aria-label="Code" />
-              <select name="level" aria-label="Level" className="rounded-md border border-border bg-background px-2 py-2 text-sm">{labels.map((l) => <option key={l}>{l}</option>)}{labels.length === 0 && <option>Standard</option>}</select>
+              {!version.internal && <select name="level" aria-label="Level" className="rounded-md border border-border bg-background px-2 py-2 text-sm">{labels.map((l) => <option key={l}>{l}</option>)}{labels.length === 0 && <option>Standard</option>}</select>}
             </div>
             <Input name="title" required placeholder="Title" aria-label="Title" dir="auto" />
             <select name="parent" aria-label="Parent" className="w-full rounded-md border border-border bg-background px-2 py-2 text-sm">
-              <option value="">Top level</option>{rows.map((r) => <option key={r.id} value={r.id}>{requirementLabel(r.code, r.title)}</option>)}
+              <option value="">{version.internal ? `Top level (${labels[0] ?? 'Level 1'})` : 'Top level'}</option>{rows.map((r) => <option key={r.id} value={r.id}>{requirementLabel(r.code, r.title)}</option>)}
             </select>
             <Button type="submit">Add requirement</Button>
           </form>

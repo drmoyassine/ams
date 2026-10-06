@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Definitions, levels by depth and the quality cycle
+
+The internal framework page now has Definitions (first), Requirements, Cycle, and Review and publish. Definitions holds fixed building blocks the institution names, defines and can switch off (Policy, Objective, Risk, Opportunity, Measure / KPI, Procedure, Evidence, Internal review, Management review, Corrective action), the attributes every item carries (Owner, Scope), level names by depth, words for accreditor findings and reports, and other terms. Blocks are glossary terms of kind `block`/`attribute` (migration 0018 widens the kind check and moves "Evidence" from general to block); they cannot be added or deleted, because the system will give each one behaviour. In the internal framework a requirement's level is its depth: no level picker, Indent/Outdent buttons (`/api/requirements/{id}/indent|outdent`), and every label follows depth and the level names ("Level n" past the named ones); renaming levels no longer resets review. The Cycle tab edits stages, blocks per stage and flows as data (`framework_version.qms_cycle`, versioned and frozen with the version; default Plan, Do, Check, Act) and draws it with Mermaid (lazy, strict security, one import point `lib/diagram.ts`); `GET /api/framework-versions/{id}/qms-model` returns blocks, attributes, levels, cycle and Mermaid text for people and agents, and the tab downloads it as JSON. Mermaid lines list each block's arrows to later stages first, so the layout breaks the loop at the arrows that go back and stages read left to right (checked by rendering in Chromium).
+
+---
+
 ## 2026-10-06 — Internal Quality Framework page is the editor
 
 Settings → Internal Quality Framework no longer lists versions on a card with a link to another page: it is the editor itself, with a version picker and three tabs: Requirements (the tree editor), Definitions (the terms, with the level-name form) and Review and publish (check, submit, publish, export, new version). The old `/versions/{id}` page still opens for an internal version (same tabs minus Definitions) and links back here.

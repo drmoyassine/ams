@@ -195,6 +195,8 @@ export const frameworkVersion = pgTable('framework_version', {
   findingVocab: jsonb('finding_vocab').notNull().default(sql`'[]'::jsonb`),
   responseVocab: jsonb('response_vocab').notNull().default(sql`'[]'::jsonb`),
   ratingMethod: jsonb('rating_method'),
+  /** The quality management cycle of the institution's own framework (stages, blocks, flows); null elsewhere. */
+  qmsCycle: jsonb('qms_cycle'),
   changeSummary: text('change_summary'),
   publishedBy: uuid('published_by').references((): AnyPgColumn => appUser.id),
   publishedAt: timestamp('published_at', { withTimezone: true }),
@@ -405,7 +407,7 @@ export const engagementRequirement = pgTable('engagement_requirement', {
 
 // ---- Glossary: the institution's own terms and the external terms they stand for (DEC-016) -----------------------
 
-export const GLOSSARY_KINDS = ['level', 'finding', 'report', 'general'] as const;
+export const GLOSSARY_KINDS = ['block', 'attribute', 'level', 'finding', 'report', 'general'] as const;
 export const ALIAS_SOURCES = ['level_label', 'finding_code', 'report_template'] as const;
 
 /** An internal term: one shared word for what each accreditor calls differently. Owned by the institution, so it can change without touching a published standard. */

@@ -71,9 +71,9 @@ describe('glossary settings', () => {
     cleanup();
     await fw('lead').setUpQualityFramework({ levelLabels: ['Standard', 'Sub-standard'] });
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    const levels = await screen.findByRole('region', { name: 'Requirement levels' });
+    const levels = await screen.findByRole('region', { name: 'Levels' });
     expect(within(levels).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Standard'), expect.stringContaining('Sub-standard')]);
-    expect(levels.textContent).toMatch(/rename them there/);
+    expect(levels.textContent).toMatch(/Named by depth/);
     expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull(); // it lives on each standard
     expect(screen.queryByText(/How each standard's words map/)).toBeNull();
   });
@@ -113,7 +113,7 @@ describe('glossary settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Add term' }));
     await user.type(screen.getByLabelText('New term'), 'Quality cycle');
     await user.click(screen.getByRole('button', { name: 'Add' }));
-    const general = await screen.findByRole('region', { name: 'General terms' });
+    const general = await screen.findByRole('region', { name: 'Other terms' });
     await user.click(await within(general).findByLabelText('Edit Quality cycle'));
     await user.type(await screen.findByLabelText('Term (Arabic)'), 'دورة الجودة');
     await user.type(screen.getByLabelText('Definition (English)'), 'One turn of plan, do, check, act.');
@@ -125,7 +125,7 @@ describe('glossary settings', () => {
   it('is read-only for someone who cannot edit', async () => {
     const a = apis('viewer');
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    await screen.findByRole('region', { name: 'Requirement levels' });
+    await screen.findByRole('region', { name: 'Levels' });
     expect(screen.queryByRole('button', { name: /Edit / })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add term' })).toBeNull();
     cleanup();

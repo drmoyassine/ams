@@ -66,19 +66,21 @@ describe('quality framework settings', () => {
     await user.click(screen.getByRole('button', { name: 'Set up' }));
     const version = (await screen.findByLabelText('Version')) as HTMLSelectElement;
     expect(version.selectedOptions[0]!.textContent).toBe('1 · Draft');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Definitions', 'Review and publish']);
-    // the versions' own editor is this page: the requirements tab is open first, with the add form
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Definitions', 'Requirements', 'Cycle', 'Review and publish']);
+    // the versions' own editor is this page: Definitions first, then the requirements with their add form
+    await user.click(screen.getByRole('tab', { name: 'Requirements' }));
     expect(await screen.findByRole('form', { name: 'Add requirement' })).toBeTruthy();
+    expect(screen.queryByLabelText('Level')).toBeNull(); // the level is the depth, not a choice
     await user.click(screen.getByRole('tab', { name: 'Definitions' }));
     // the definitions are part of this page: its level terms are the levels just chosen
-    const levelTerms = await screen.findByRole('region', { name: 'Requirement levels' });
+    const levelTerms = await screen.findByRole('region', { name: 'Levels' });
     await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
     // levels are renamed where the terms are, and the terms follow
     const level1 = screen.getByLabelText('Level 1 name');
     await user.clear(level1);
     await user.type(level1, 'Theme');
     await user.click(screen.getByRole('button', { name: 'Save level names' }));
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Requirement levels' })).getAllByTestId('term').map((t) => t.textContent?.match(/^(Theme|Pillar|Standard|Indicator)/)?.[1])).toEqual(['Theme', 'Standard', 'Indicator']));
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Levels' })).getAllByTestId('term').map((t) => t.textContent?.match(/^(Theme|Pillar|Standard|Indicator)/)?.[1])).toEqual(['Theme', 'Standard', 'Indicator']));
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {
@@ -87,8 +89,33 @@ describe('quality framework settings', () => {
     render(wrap(<VersionPage versionId={versions[0]!.id} api={api} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { name: 'Version 1' })).toBeTruthy();
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
-    expect(tabs).toEqual(['Requirements', 'Review and publish']);
+    expect(tabs).toEqual(['Requirements', 'Cycle', 'Review and publish']);
     expect(screen.getByRole('link', { name: 'Internal Quality Framework' })).toBeTruthy();
+  });
+});
+
+describe('cycle tab', () => {
+  it('shows the Plan, Do, Check, Act cycle, edits it and saves it for agents to read', async () => {
+    const user = userEvent.setup();
+    await extra('lead').glossary.seedDefaults(); // the blocks' names come from Definitions
+    render(wrap(<QualityFrameworkPage api={apiFor('lead')} {...extra('lead')} />));
+    await user.click(await screen.findByRole('tab', { name: 'Cycle' }));
+    await waitFor(() => expect(screen.getAllByTestId('stage')).toHaveLength(4));
+    expect(screen.getAllByTestId('flow')).toHaveLength(12);
+    expect(screen.getByLabelText('Mermaid text').textContent).toContain('subgraph plan["Plan"]');
+    await user.click(screen.getByRole('button', { name: 'Remove Opportunity from Plan' }));
+    expect(screen.getAllByTestId('flow')).toHaveLength(11); // its flow goes with it
+    const stage4 = screen.getByLabelText('Stage 4 name');
+    await user.clear(stage4);
+    await user.type(stage4, 'Improve');
+    await user.click(screen.getByRole('button', { name: 'Save cycle' }));
+    const { versions } = await apiFor('lead').qualityFramework();
+    await waitFor(async () => {
+      const model = await apiFor('viewer').qmsModel(versions[versions.length - 1]!.id);
+      expect(model.cycleIsDefault).toBe(false);
+      expect(model.cycle.stages.map((s) => s.name)).toEqual(['Plan', 'Do', 'Check', 'Improve']);
+      expect(model.mermaid).not.toContain('opportunity');
+    });
   });
 });
 

@@ -1,11 +1,11 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { requirement, requirementNote } from '@ams/db';
+import { frameworkVersion, requirement, requirementNote } from '@ams/db';
 import { AppliesWhenSchema } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
-import { assertHuman, getDraftVersion, getRequirement, getVersion, require_, unreviewed } from './common.js';
+import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_, unreviewed } from './common.js';
 
 const Text = z.string().trim().min(1);
 
@@ -51,7 +51,8 @@ export async function createRequirement(ctx: Ctx, input: z.input<typeof CreateRe
     weight: data.weight === undefined ? null : String(data.weight),
     origin: 'manual',
   }).returning());
-  return row!;
+  await relabelByDepth(ctx, data.versionId);
+  return getRequirement(ctx, row!.id);
 }
 
 const UpdateRequirementSchema = CreateRequirementSchema.omit({ versionId: true, parentId: true }).partial().strict();
@@ -92,10 +93,11 @@ export async function moveRequirement(ctx: Ctx, id: string, newParentId: string 
       select id from sub where id = ${newParentId}`);
     if (res.rows.length > 0) throw new ConflictError('a requirement cannot be moved under itself or its own descendant');
   }
-  const [row] = await ctx.tx.update(requirement)
+  await ctx.tx.update(requirement)
     .set({ parentId: newParentId, ...(displayOrder === undefined ? {} : { displayOrder }) })
-    .where(eq(requirement.id, id)).returning();
-  return row!;
+    .where(eq(requirement.id, id));
+  await relabelByDepth(ctx, current.frameworkVersionId);
+  return getRequirement(ctx, id);
 }
 
 /** Deletes a leaf requirement together with its notes; a requirement with children must be emptied first. */
@@ -141,4 +143,22 @@ export async function getRequirementWithNotes(ctx: Ctx, id: string) {
   const r = await getRequirement(ctx, id);
   const notes = await ctx.tx.select().from(requirementNote).where(and(eq(requirementNote.requirementId, id))).orderBy(asc(requirementNote.createdAt));
   return { requirement: r, notes };
+}
+
+/** The name of the level at a depth (0 = top): the institution's name for it, or "Level n" past the named ones. */
+export const levelNameAt = (labels: string[], depth: number) => labels[depth] ?? `Level ${depth + 1}`;
+
+/**
+ * In the institution's own framework a requirement's level is its depth in the tree: indenting or outdenting it changes
+ * its level. Sets every requirement's level label from its depth and the version's level names. A naming change, not a
+ * change of content, so review states are left alone. External standards keep the levels their source gives them.
+ */
+export async function relabelByDepth(ctx: Ctx, versionId: string) {
+  if (!(await isInternalVersion(ctx, versionId))) return;
+  const [v] = await ctx.tx.select({ levelLabels: frameworkVersion.levelLabels }).from(frameworkVersion).where(eq(frameworkVersion.id, versionId));
+  const labels = (v?.levelLabels as string[] | undefined) ?? [];
+  for (const r of await listRequirements(ctx, versionId)) {
+    const want = levelNameAt(labels, r.depth);
+    if (r.levelLabel !== want) await ctx.tx.update(requirement).set({ levelLabel: want }).where(eq(requirement.id, r.id));
+  }
 }

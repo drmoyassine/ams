@@ -1,7 +1,7 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
-  moveRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement,
+  indentRequirement, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement,
 } from '@ams/core';
 import { NoteSchema, RequirementDetailSchema, RequirementSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -41,6 +41,18 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       request: { params: idParam, body: { required: true, ...json(CreateRequirementSchema.omit({ versionId: true, parentId: true }).partial()) } },
       responses: { 200: { description: 'Updated; returned to review', ...json(RequirementSchema) }, ...errors },
     }), async (c) => c.json(toDto(RequirementSchema, await updateRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/indent', access: requires('framework:write'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Indented under the item above it (internal quality framework); its level follows its depth', ...json(RequirementSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementSchema, await indentRequirement(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/outdent', access: requires('framework:write'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Outdented to follow its parent (internal quality framework); its level follows its depth', ...json(RequirementSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementSchema, await outdentRequirement(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/requirements/{id}/move', access: requires('framework:write'), tags: tag,

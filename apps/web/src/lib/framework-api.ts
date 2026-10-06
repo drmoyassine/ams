@@ -3,6 +3,7 @@ import type {
   ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
+import type { QmsCycle } from '@ams/shared';
 import { api as defaultApi, type createApi } from './api';
 
 export type Api = ReturnType<typeof createApi>;
@@ -20,6 +21,13 @@ export type NewVersionResult = z.infer<typeof NewVersionResultSchema>;
 export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Mappings = z.infer<typeof MappingsSchema>;
 export type Mapping = z.infer<typeof MappingSchema>;
+type Definition = { key: string; name: string; nameAr: string | null; definition: string | null; definitionAr: string | null; active: boolean };
+/** The quality management model of an internal framework version, as the API gives it to people and agents. */
+export type QmsModel = {
+  framework: string; version: string; status: Version['status'];
+  levels: { depth: number; name: string }[]; blocks: Definition[]; attributes: Definition[];
+  cycle: QmsCycle; cycleIsDefault: boolean; mermaid: string;
+};
 export type Issue = { path: string; message: string };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
@@ -83,6 +91,10 @@ export function frameworkApi(api: Api = defaultApi) {
       api.api.requirements[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Requirement>(r)),
     moveRequirement: (id: string, json: { parentId: string | null; displayOrder?: number }) =>
       api.api.requirements[':id'].move.$post({ param: { id }, json }).then((r) => unwrap<Requirement>(r)),
+    indentRequirement: (id: string) => api.api.requirements[':id'].indent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
+    outdentRequirement: (id: string) => api.api.requirements[':id'].outdent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
+    qmsModel: (versionId: string) => v[':id']['qms-model'].$get({ param: { id: versionId } }).then((r) => unwrap<QmsModel>(r)),
+    setQmsCycle: (versionId: string, json: QmsCycle) => v[':id']['qms-cycle'].$put({ param: { id: versionId }, json }).then((r) => unwrap<Version>(r)),
     deleteRequirement: (id: string) => api.api.requirements[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     reviewRequirement: (id: string, decision: 'approved' | 'rejected') =>
       api.api.requirements[':id'].review.$post({ param: { id }, json: { decision } }).then((r) => unwrap<Requirement>(r)),
