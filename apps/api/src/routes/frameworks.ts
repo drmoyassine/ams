@@ -1,7 +1,7 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
-  getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setUpQualityFramework, submitForReview,
+  getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
 import {
@@ -41,6 +41,12 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { body: { required: true, ...json(z.object({ name: z.string().optional(), levelLabels: z.array(z.string()).optional() })) } },
       responses: { 201: { description: 'Set up', ...json(QualityFrameworkSchema) }, ...errors },
     }), async (c) => c.json(toDto(QualityFrameworkSchema, await setUpQualityFramework(c.get('ctx'), c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/quality-framework/levels', access: requires('framework:write'), tags: tag,
+      request: { body: { required: true, ...json(z.object({ levelLabels: z.array(z.string()) })) } },
+      responses: { 200: { description: 'The level names, top first, set on the newest draft version', ...json(QualityFrameworkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(QualityFrameworkSchema, await setQualityLevels(c.get('ctx'), c.req.valid('json').levelLabels)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/accreditors', access: requires('framework:write'), tags: tag,

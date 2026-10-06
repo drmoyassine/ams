@@ -1,8 +1,8 @@
-import { asc, eq } from 'drizzle-orm';
-import { accreditor, framework, frameworkVersion } from '@ams/db';
+import { and, asc, eq } from 'drizzle-orm';
+import { accreditor, framework, frameworkVersion, requirement } from '@ams/db';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
-import { ConflictError } from '../ctx.js';
+import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
 import { require_ } from './common.js';
@@ -14,7 +14,7 @@ import { require_ } from './common.js';
 export const DEFAULT_INTERNAL_LEVELS = ['Standard', 'Sub-standard'];
 
 export const SetUpQualityFrameworkSchema = z.object({
-  name: z.string().trim().min(1).default('Quality framework'),
+  name: z.string().trim().min(1).default('Internal Quality Framework'),
   levelLabels: z.array(z.string().trim().min(1)).min(1).default(DEFAULT_INTERNAL_LEVELS),
 });
 
@@ -46,4 +46,35 @@ export async function setUpQualityFramework(ctx: Ctx, input: z.input<typeof SetU
   }).returning();
   await syncLevelTerms(ctx);
   return { framework: { id: fw!.id, name: fw!.name }, versions: [version!] };
+}
+
+/**
+ * Sets the level names of the quality framework, top first, on its newest version, which must still be a draft. A level
+ * renamed in place renames what the requirements of that version carry; levels can only be dropped from the bottom, and
+ * only when no requirement is at them. The glossary's level terms follow (see `syncLevelTerms`).
+ */
+export async function setQualityLevels(ctx: Ctx, levelLabels: string[]) {
+  await require_(ctx, 'framework:write');
+  const labels = z.array(z.string().trim().min(1)).min(1).parse(levelLabels);
+  if (new Set(labels.map((l) => l.toLowerCase())).size !== labels.length) throw new ValidationError('level names must be different from each other');
+  const { versions } = await getQualityFramework(ctx);
+  const latest = versions[versions.length - 1];
+  if (!latest) throw new ConflictError('set up the quality framework first');
+  if (latest.status !== 'draft') throw new ConflictError(`the newest version is ${latest.status.replace('_', ' ')}; create a new version to change the level names`);
+  const old = latest.levelLabels as string[];
+  for (const gone of old.slice(labels.length)) {
+    const [used] = await ctx.tx.select({ id: requirement.id }).from(requirement)
+      .where(and(eq(requirement.frameworkVersionId, latest.id), eq(requirement.levelLabel, gone))).limit(1);
+    if (used) throw new ConflictError(`"${gone}" is still used by requirements; move or delete them first`);
+  }
+  // Two passes through a placeholder, so that renaming A to B while B becomes C cannot rename a requirement twice.
+  const changed = old.flatMap((from, i) => (labels[i] !== undefined && labels[i] !== from ? [{ from, to: labels[i]!, tmp: `__renaming_${i}__` }] : []));
+  const move = (from: string, to: string) => ctx.tx.update(requirement)
+    .set({ levelLabel: to, reviewStatus: 'pending', reviewedBy: null, reviewedAt: null })
+    .where(and(eq(requirement.frameworkVersionId, latest.id), eq(requirement.levelLabel, from)));
+  for (const c of changed) await move(c.from, c.tmp);
+  for (const c of changed) await move(c.tmp, c.to);
+  await guardIntegrity(() => ctx.tx.update(frameworkVersion).set({ levelLabels: labels }).where(eq(frameworkVersion.id, latest.id)));
+  await syncLevelTerms(ctx);
+  return getQualityFramework(ctx);
 }

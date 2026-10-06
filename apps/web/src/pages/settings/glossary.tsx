@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GLOSSARY_KINDS, type GlossaryTerm } from '@ams/shared';
@@ -14,7 +14,7 @@ import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const KIND_LABEL = { level: 'Requirement levels', finding: 'Findings', report: 'Reports', general: 'General terms' } as const;
 
-/** A level term is named in the quality framework, not here. */
+/** A level term is named in the internal quality framework, not here. */
 const isLevelTerm = (key: string) => /^level_\d+$/.test(key);
 
 function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boolean; onSave: (patch: Partial<GlossaryTerm>) => void }) {
@@ -36,7 +36,7 @@ function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boole
       {term.definitionAr && <p className="mt-1 text-sm text-muted-foreground"><ContentText>{term.definitionAr}</ContentText></p>}
       {editing && (
         <form className="mt-2 grid gap-2 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); onSave({ labelEn, labelAr: labelAr || null, definitionEn: defEn || null, definitionAr: defAr || null }); setEditing(false); }}>
-          <label className="flex flex-col text-xs">Term (English)<Input aria-label="Term (English)" value={labelEn} onChange={(e) => setLabelEn(e.target.value)} required disabled={isLevelTerm(term.key)} title={isLevelTerm(term.key) ? 'Named in Settings → Quality framework' : undefined} /></label>
+          <label className="flex flex-col text-xs">Term (English)<Input aria-label="Term (English)" value={labelEn} onChange={(e) => setLabelEn(e.target.value)} required disabled={isLevelTerm(term.key)} title={isLevelTerm(term.key) ? 'Named in Settings → Internal Quality Framework' : undefined} /></label>
           <label className="flex flex-col text-xs">Term (Arabic)<Input aria-label="Term (Arabic)" dir="auto" value={labelAr} onChange={(e) => setLabelAr(e.target.value)} /></label>
           <label className="flex flex-col text-xs">Definition (English)<textarea aria-label="Definition (English)" rows={2} className="rounded-md border border-border p-2 text-sm" value={defEn} onChange={(e) => setDefEn(e.target.value)} /></label>
           <label className="flex flex-col text-xs">Definition (Arabic)<textarea aria-label="Definition (Arabic)" dir="auto" rows={2} className="rounded-md border border-border p-2 text-sm" value={defAr} onChange={(e) => setDefAr(e.target.value)} /></label>
@@ -50,8 +50,8 @@ function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boole
   );
 }
 
-/** The institution's own terms (DEC-016): shown inside Settings → Quality framework. Each standard's Terminology tab maps its words onto them. */
-export function GlossaryPage({ api: override, settings, embedded = false }: { api?: GlossaryApi; settings?: SettingsApi; embedded?: boolean }) {
+/** The institution's own terms (DEC-016): shown inside Settings → Internal Quality Framework. Each standard's Terminology tab maps its words onto them. */
+export function GlossaryPage({ api: override, settings, embedded = false, levelsEditor }: { api?: GlossaryApi; settings?: SettingsApi; embedded?: boolean; levelsEditor?: ReactNode }) {
   const api = useGlossaryApi(override);
   const qc = useQueryClient();
   const me = useMe(useSettingsApi(settings));
@@ -66,7 +66,8 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
   const refresh = async () => { await qc.invalidateQueries({ queryKey: ['glossary'] }); await qc.invalidateQueries({ queryKey: ['external-terms'] }); };
   const run = useMutation({ mutationFn: async (fn: () => Promise<unknown>) => { setError(null); setMessage(null); return act(fn); }, onSuccess: refresh });
   const terms = glossary.data?.terms ?? [];
-  const byKind = (k: string) => terms.filter((t) => t.kind === k);
+  // Switched-off level terms (the first release's starter levels) are history, not choices.
+  const byKind = (k: string) => terms.filter((t) => t.kind === k && (k !== 'level' || t.active));
 
   return (
     <div className="space-y-6">
@@ -99,11 +100,12 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
           </form>
         )}
         {terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}
-        {terms.length > 0 && byKind('level').filter((t) => t.active).length === 0 && <p className="text-sm text-muted-foreground">No level names yet: {embedded ? 'set up the framework above and its levels appear here.' : <><Link to="/settings/quality-framework" className="underline">set up your quality framework</Link> and its levels appear here.</>}</p>}
+        {terms.length > 0 && byKind('level').filter((t) => t.active).length === 0 && <p className="text-sm text-muted-foreground">No level names yet: {embedded ? 'set up the framework above and its levels appear here.' : <><Link to="/settings/quality-framework" className="underline">set up your internal quality framework</Link> and its levels appear here.</>}</p>}
         {GLOSSARY_KINDS.filter((k) => byKind(k).length).map((k) => (
           <section key={k} aria-label={KIND_LABEL[k]} className="mb-3">
             <h4 className="text-sm font-medium text-muted-foreground">{KIND_LABEL[k]}</h4>
-            {k === 'level' && <p className="text-xs text-muted-foreground">These are the level names of your {embedded ? 'quality framework' : <Link to="/settings/quality-framework" className="underline">quality framework</Link>}; rename them {embedded ? 'on its Level names tab' : 'there'}. You can add an Arabic name and a definition here.</p>}
+            {k === 'level' && levelsEditor}
+            {k === 'level' && <p className="text-xs text-muted-foreground">These are the level names of your {embedded ? 'internal quality framework' : <Link to="/settings/quality-framework" className="underline">internal quality framework</Link>}; rename them {embedded ? 'here' : 'there'}. You can add an Arabic name and a definition here.</p>}
             <ul className="divide-y divide-border">
               {byKind(k).map((t) => <TermRow key={t.id} term={t} canEdit={canEdit} onSave={(patch) => run.mutate(() => api.updateTerm(t.id, { ...(patch.labelEn !== undefined ? { labelEn: patch.labelEn } : {}), ...('labelAr' in patch ? { labelAr: patch.labelAr ?? null } : {}), ...('definitionEn' in patch ? { definitionEn: patch.definitionEn ?? null } : {}), ...('definitionAr' in patch ? { definitionAr: patch.definitionAr ?? null } : {}), ...(patch.active !== undefined ? { active: patch.active } : {}) }))} />)}
             </ul>

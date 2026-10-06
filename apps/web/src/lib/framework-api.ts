@@ -61,6 +61,7 @@ export function frameworkApi(api: Api = defaultApi) {
     reviewMapping: (id: string, decision: 'approved' | 'rejected') =>
       api.api.mappings[':id'].review.$post({ param: { id }, json: { decision } }).then((r) => unwrap<Mapping>(r)),
     deleteMapping: (id: string) => api.api.mappings[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    setQualityLevels: (levelLabels: string[]) => api.api['quality-framework'].levels.$put({ json: { levelLabels } }).then((r) => unwrap<QualityFramework>(r)),
     importFile: (json: { file: unknown; edition?: string; autoApprove?: boolean }) =>
       v.import.$post({ json }).then((r) => unwrap<ImportResult>(r)),
     version: (id: string) => v[':id'].$get({ param: { id } }).then((r) => unwrap<Version>(r)),

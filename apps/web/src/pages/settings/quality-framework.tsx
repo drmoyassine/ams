@@ -4,13 +4,44 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import type { FrameworkApi } from '../../lib/framework-api';
+import type { FrameworkApi, Version } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
 import type { GlossaryApi } from '../../lib/glossary-api';
 import type { SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { GlossaryPage } from './glossary';
 import { DATE, EyeIcon, PencilIcon, STATUS_LABEL } from '../frameworks';
+
+/** The level names, top first, edited where the terms are: they are the framework's levels and the glossary's level terms. */
+function LevelsEditor({ latest, canWrite, onSave }: { latest: Version; canWrite: boolean; onSave: (labels: string[]) => void }) {
+  const saved = (latest.levelLabels as string[] | undefined) ?? [];
+  const [labels, setLabels] = useState(saved);
+  const editable = canWrite && latest.status === 'draft';
+  const dirty = JSON.stringify(labels.map((l) => l.trim())) !== JSON.stringify(saved);
+  const valid = labels.length > 0 && labels.every((l) => l.trim());
+  if (!editable) {
+    return canWrite && latest.status !== 'draft'
+      ? <p className="mb-2 text-xs text-muted-foreground">The newest version is {latest.status.replace('_', ' ')}. Create a new version to change the level names.</p>
+      : null;
+  }
+  return (
+    <form aria-label="Level names" className="mb-3 space-y-2 rounded border border-dashed border-border p-3"
+      onSubmit={(e) => { e.preventDefault(); if (valid && dirty) onSave(labels.map((l) => l.trim())); }}>
+      <p className="text-xs text-muted-foreground">Name your levels from the top, e.g. Standard then Sub-standard.</p>
+      {labels.map((l, i) => (
+        <label key={i} className="flex items-center gap-2 text-sm">
+          <span className="w-16 text-xs text-muted-foreground">Level {i + 1}</span>
+          <Input aria-label={`Level ${i + 1} name`} value={l} dir="auto" onChange={(e) => { const v = e.target.value; setLabels(labels.map((x, j) => (j === i ? v : x))); }} />
+        </label>
+      ))}
+      <div className="flex gap-2">
+        <Button type="button" variant="ghost" onClick={() => setLabels([...labels, ''])}>Add a level</Button>
+        {labels.length > 1 && <Button type="button" variant="ghost" onClick={() => setLabels(labels.slice(0, -1))}>Remove the lowest level</Button>}
+        <Button type="submit" disabled={!valid || !dirty}>Save level names</Button>
+      </div>
+    </form>
+  );
+}
 
 /**
  * The institution's own quality framework (AMS/QMS): its standards, named and levelled as the institution chooses.
@@ -29,7 +60,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
   const act = (fn: () => Promise<unknown>) => { setError(''); void run(fn).then(refresh); };
   const canWrite = can(me.data, 'framework:write');
 
-  if (isError) return <p role="alert">Could not load the quality framework.</p>;
+  if (isError) return <p role="alert">Could not load the internal quality framework.</p>;
   if (!data) return <p>Loading…</p>;
 
   const setUp = (e: FormEvent<HTMLFormElement>) => {
@@ -47,28 +78,28 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Quality framework</h2>
+        <h2 className="text-lg font-semibold">Internal Quality Framework</h2>
         <p className="text-sm text-muted-foreground">Your institution's own standards and the words you use for them. You choose how many levels it has and what they are called, for example Standard then Sub-standard. External standards are mapped onto it from each standard's own page; evidence attaches to its items.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
       {!data.framework && (canWrite ? (
         <Card>
-          <form onSubmit={setUp} aria-label="Set up the quality framework" className="space-y-3 p-4">
-            <label className="flex flex-col text-sm">Name<Input name="name" aria-label="Name" defaultValue="Quality framework" dir="auto" /></label>
+          <form onSubmit={setUp} aria-label="Set up the internal quality framework" className="space-y-3 p-4">
+            <label className="flex flex-col text-sm">Name<Input name="name" aria-label="Name" defaultValue="Internal Quality Framework" dir="auto" /></label>
             <label className="flex flex-col text-sm">Level names, from the top, separated by commas
               <Input name="levels" aria-label="Level names" defaultValue="Standard, Sub-standard" dir="auto" required />
             </label>
             <Button type="submit">Set up</Button>
           </form>
         </Card>
-      ) : <p className="text-sm text-muted-foreground">The quality framework has not been set up yet. An administrator or accreditation lead can set it up.</p>)}
+      ) : <p className="text-sm text-muted-foreground">The internal quality framework has not been set up yet. An administrator or accreditation lead can set it up.</p>)}
 
       {data.framework && (
         <Card>
           <div className="space-y-3 p-4">
             <h3 className="font-medium">{data.framework.name}</h3>
-            <ul aria-label="Versions of the quality framework" className="divide-y divide-border rounded-md border border-border">
+            <ul aria-label="Versions of the internal quality framework" className="divide-y divide-border rounded-md border border-border">
               {versions.map((v) => {
                 const editable = v.status === 'draft' || v.status === 'in_review';
                 const labels = (v.levelLabels as string[] | undefined) ?? [];
@@ -81,7 +112,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
                     </span>
                     <span className="flex items-center gap-3 text-sm text-muted-foreground">
                       <span>{v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : 'Not published'}</span>
-                      <Link to="/versions/$versionId" params={{ versionId: v.id }} aria-label={`${editable ? 'Edit' : 'View'} version ${v.edition} of the quality framework`}
+                      <Link to="/versions/$versionId" params={{ versionId: v.id }} aria-label={`${editable ? 'Edit' : 'View'} version ${v.edition} of the internal quality framework`}
                         className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted">
                         {editable ? <PencilIcon /> : <EyeIcon />}<span className="text-xs">{editable ? 'Edit' : 'View'}</span>
                       </Link>
@@ -101,7 +132,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
         </Card>
       )}
       <hr className="border-border" />
-      <GlossaryPage api={glossary} settings={settings} embedded />
+      <GlossaryPage api={glossary} settings={settings} embedded levelsEditor={latest ? <LevelsEditor key={`${latest.id}|${JSON.stringify(latest.levelLabels)}`} latest={latest} canWrite={canWrite} onSave={(labels) => act(() => api.setQualityLevels(labels))} /> : null} />
     </div>
   );
 }

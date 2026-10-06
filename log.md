@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Internal Quality Framework, levels edited with the terms
+
+Renamed in the UI to "Internal Quality Framework" (default name of the framework too; migration 0017 renames the one already set up). The separate "Level names" JSON tab is gone from its version page: level names are edited in the Terms section of Settings → Internal Quality Framework (a form above the level terms: rename, add a level, remove the lowest), through `PUT /api/quality-framework/levels` (`setQualityLevels`). It acts on the newest version while it is a draft; renaming a level renames what that version's requirements carry (back to pending review), levels are dropped only from the bottom and only when unused, and once the newest version is published the editor says to create a new version. Switched-off level terms from the first release no longer show in the list.
+
+---
+
 ## 2026-10-06 — Glossary folded into the quality framework page
 
 One Settings item instead of two: Settings → Quality framework now holds the framework (versions, level names) and, beneath it, its terms (levels, findings, report types, general terms). The Glossary menu item is gone and `/settings/glossary` redirects. Setting up the framework refreshes the terms below it, level terms list in framework order (top first), and the Terminology tab on each standard now points to the quality framework page.

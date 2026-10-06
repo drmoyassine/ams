@@ -67,7 +67,7 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     expect(await screen.findByText('No terms yet.')).toBeTruthy();
     await user.click(await screen.findByRole('button', { name: 'Add starter terms' }));
-    expect(await screen.findByText(/No level names yet/)).toBeTruthy(); // levels come from the quality framework
+    expect(await screen.findByText(/No level names yet/)).toBeTruthy(); // levels come from the internal quality framework
     cleanup();
     await fw('lead').setUpQualityFramework({ levelLabels: ['Standard', 'Sub-standard'] });
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));

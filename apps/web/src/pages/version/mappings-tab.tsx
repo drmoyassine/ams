@@ -40,7 +40,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
   if (internalOptions.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        There is no quality framework to map onto yet. <Link to="/settings/quality-framework" className="underline">Set up your quality framework</Link> in Settings and add its standards first.
+        There is no quality framework to map onto yet. <Link to="/settings/quality-framework" className="underline">Set up your internal quality framework</Link> in Settings and add its standards first.
       </p>
     );
   }
@@ -59,8 +59,8 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div>
-        <p className="mb-2 text-sm text-muted-foreground">Choose a requirement, then say which items of your quality framework answer it. Mappings are yours: they stay when this standard gets a new version.</p>
-        {stale.length > 0 && <p role="status" className="mb-2 text-sm text-amber-800">{stale.length} mapping{stale.length === 1 ? '' : 's'} point at something that no longer exists in this version or in your quality framework.</p>}
+        <p className="mb-2 text-sm text-muted-foreground">Choose a requirement, then say which items of your internal quality framework answer it. Mappings are yours: they stay when this standard gets a new version.</p>
+        {stale.length > 0 && <p role="status" className="mb-2 text-sm text-amber-800">{stale.length} mapping{stale.length === 1 ? '' : 's'} point at something that no longer exists in this version or in your internal quality framework.</p>}
         <ul role="tree" aria-label="Requirements to map" className="space-y-1">
           {rows.map((r) => (
             <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
@@ -78,7 +78,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
         {current && (
           <section aria-label={`Mappings of ${current.code}`} className="space-y-3">
             <h3 className="font-medium"><ContentText>{requirementLabel(current.code, current.title)}</ContentText></h3>
-            {mine.length === 0 && <p className="text-sm text-muted-foreground">Not mapped to your quality framework yet.</p>}
+            {mine.length === 0 && <p className="text-sm text-muted-foreground">Not mapped to your internal quality framework yet.</p>}
             <ul className="space-y-2">
               {mine.map((m) => (
                 <li key={m.id} className="rounded-md border border-border p-3 text-sm" data-testid="mapping">
@@ -102,8 +102,8 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
               ))}
             </ul>
             {canWrite && (
-              <form onSubmit={propose} aria-label="Map to a quality framework item" className="space-y-2 rounded border border-dashed border-border p-3">
-                <select name="internal" aria-label="Quality framework item" required className={`${select} w-full`} defaultValue="">
+              <form onSubmit={propose} aria-label="Map to an internal quality framework item" className="space-y-2 rounded border border-dashed border-border p-3">
+                <select name="internal" aria-label="Internal Quality Framework item" required className={`${select} w-full`} defaultValue="">
                   <option value="" disabled>Choose an item…</option>
                   {internalOptions.map((o) => <option key={o.id} value={o.id}>{' '.repeat(o.depth)}{requirementLabel(o.code, o.title)}</option>)}
                 </select>

@@ -55,7 +55,7 @@ describe('quality framework settings', () => {
     const user = userEvent.setup();
     const { unmount } = render(wrap(<QualityFrameworkPage api={apiFor('viewer')} {...extra('viewer')} />));
     expect(await screen.findByText(/has not been set up yet/)).toBeTruthy();
-    expect(screen.queryByRole('form', { name: 'Set up the quality framework' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Set up the internal quality framework' })).toBeNull();
     unmount();
 
     render(wrap(<QualityFrameworkPage api={apiFor('lead')} {...extra('lead')} />));
@@ -64,14 +64,20 @@ describe('quality framework settings', () => {
     await user.clear(levels);
     await user.type(levels, 'Pillar, Standard, Indicator');
     await user.click(screen.getByRole('button', { name: 'Set up' }));
-    const list = await screen.findByRole('list', { name: 'Versions of the quality framework' });
+    const list = await screen.findByRole('list', { name: 'Versions of the internal quality framework' });
     expect(list.textContent).toContain('Version 1');
     expect(list.textContent).toContain('Draft');
     expect(list.textContent).toContain('Pillar › Standard › Indicator');
-    expect(screen.getByRole('link', { name: /Edit version 1 of the quality framework/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Edit version 1 of the internal quality framework/ })).toBeTruthy();
     // the glossary is part of this page: its level terms are the levels just chosen
     const levelTerms = await screen.findByRole('region', { name: 'Requirement levels' });
     await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
+    // levels are renamed where the terms are, and the terms follow
+    const level1 = screen.getByLabelText('Level 1 name');
+    await user.clear(level1);
+    await user.type(level1, 'Theme');
+    await user.click(screen.getByRole('button', { name: 'Save level names' }));
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Requirement levels' })).getAllByTestId('term').map((t) => t.textContent?.match(/^(Theme|Pillar|Standard|Indicator)/)?.[1])).toEqual(['Theme', 'Standard', 'Indicator']));
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {
@@ -80,13 +86,13 @@ describe('quality framework settings', () => {
     render(wrap(<VersionPage versionId={versions[0]!.id} api={api} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { name: 'Version 1' })).toBeTruthy();
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
-    expect(tabs).toEqual(['Requirements', 'Level names', 'Review and publish']);
-    expect(screen.getByRole('link', { name: 'Quality framework' })).toBeTruthy();
+    expect(tabs).toEqual(['Requirements', 'Review and publish']);
+    expect(screen.getByRole('link', { name: 'Internal Quality Framework' })).toBeTruthy();
   });
 });
 
 describe('mappings tab', () => {
-  it('maps a requirement of a standard onto an item of the quality framework, and an approver reviews it', async () => {
+  it('maps a requirement of a standard onto an item of the internal quality framework, and an approver reviews it', async () => {
     const user = userEvent.setup();
     const admin = apiFor('admin');
     const { versions } = await admin.qualityFramework();
@@ -106,9 +112,9 @@ describe('mappings tab', () => {
     await user.click(await screen.findByRole('tab', { name: 'Mappings' }));
     const tree = await screen.findByRole('tree', { name: 'Requirements to map' });
     await user.click(await within(tree).findByRole('button', { name: new RegExp(target.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
-    expect(await screen.findByText('Not mapped to your quality framework yet.')).toBeTruthy();
+    expect(await screen.findByText('Not mapped to your internal quality framework yet.')).toBeTruthy();
 
-    const item = await screen.findByLabelText('Quality framework item');
+    const item = await screen.findByLabelText('Internal Quality Framework item');
     await waitFor(() => expect((item as HTMLSelectElement).options.length).toBe(3));
     await user.selectOptions(item, [...(item as HTMLSelectElement).options].find((o) => o.textContent?.includes('Course review'))!.value);
     await user.selectOptions(screen.getByLabelText('Relation'), 'partly_covers');
@@ -136,6 +142,6 @@ describe('mappings tab', () => {
     await user.click(await within(tree).findByRole('button', { name: new RegExp(target.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
     expect(await screen.findByTestId('mapping')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(screen.queryByRole('form', { name: 'Map to a quality framework item' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Map to an internal quality framework item' })).toBeNull();
   });
 });
