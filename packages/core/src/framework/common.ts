@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { frameworkVersion, requirement, sourceDocument } from '@ams/db';
+import { framework, frameworkVersion, requirement, sourceDocument } from '@ams/db';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
@@ -50,3 +50,10 @@ export async function getSourceDocument(ctx: Ctx, id: string) {
 
 /** Any edit to approved content returns it to review. */
 export const unreviewed = { reviewStatus: 'pending' as const, reviewedBy: null, reviewedAt: null };
+
+/** True when the version belongs to the institution's own quality framework rather than an external standard. */
+export async function isInternalVersion(ctx: Ctx, versionId: string): Promise<boolean> {
+  const [row] = await ctx.tx.select({ internal: framework.internal }).from(frameworkVersion)
+    .innerJoin(framework, eq(framework.id, frameworkVersion.frameworkId)).where(eq(frameworkVersion.id, versionId));
+  return row?.internal ?? false;
+}

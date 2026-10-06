@@ -113,6 +113,7 @@ export async function createEngagement(ctx: Ctx, input: CreateEngagement) {
     .where(eq(frameworkVersion.id, input.frameworkVersionId));
   if (!v) throw new NotFoundError(`framework version ${input.frameworkVersionId}`);
   if (v.v.status !== 'published') throw new ConflictError(`framework version is ${v.v.status}; an engagement needs a published version`);
+  if (v.f.internal) throw new ConflictError('an engagement cannot be built on the institution\'s own quality framework');
   if (v.f.scope !== 'both' && v.f.scope !== input.subjectType) throw new ValidationError(`this framework is for ${v.f.scope} reviews, not ${input.subjectType} reviews`);
 
   const parsed = LifecycleTemplateSchema.safeParse(v.v.lifecycleTemplate);

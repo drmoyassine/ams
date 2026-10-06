@@ -1,7 +1,7 @@
 ---
 title: Internal quality framework
 description: The institution's own framework in the framework library
-status: pending
+status: completed
 priority: P0
 id: TASK-037
 last_updated: '2026-10-06'
@@ -22,7 +22,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-016
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:38.383Z'
+  at: '2026-10-06T06:46:13.319Z'
 ---
 # TASK-037 — Internal quality framework
 

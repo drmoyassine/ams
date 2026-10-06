@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
-  getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, submitForReview,
+  getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
 import {
-  AccreditorSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, ValidationResultSchema, VersionSchema,
+  AccreditorSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, QualityFrameworkSchema, ValidationResultSchema, VersionSchema,
   toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -30,6 +30,17 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       method: 'get', path: '/api/frameworks', access: requires('framework:read'), tags: tag,
       responses: { 200: { description: 'Frameworks', ...json(z.array(FrameworkListItemSchema)) }, ...errors },
     }), async (c) => c.json(toDto(z.array(FrameworkListItemSchema), await listFrameworks(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/quality-framework', access: requires('framework:read'), tags: tag,
+      responses: { 200: { description: 'The institution\'s own quality framework and its versions', ...json(QualityFrameworkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(QualityFrameworkSchema, await getQualityFramework(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/quality-framework', access: requires('framework:write'), tags: tag,
+      request: { body: { required: true, ...json(z.object({ name: z.string().optional(), levelLabels: z.array(z.string()).optional() })) } },
+      responses: { 201: { description: 'Set up', ...json(QualityFrameworkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(QualityFrameworkSchema, await setUpQualityFramework(c.get('ctx'), c.req.valid('json'))), 201))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/accreditors', access: requires('framework:write'), tags: tag,

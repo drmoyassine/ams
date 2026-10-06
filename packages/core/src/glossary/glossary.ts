@@ -74,7 +74,7 @@ export async function updateTerm(ctx: Ctx, id: string, patch: UpdateTerm): Promi
 async function latestVersions(ctx: Ctx) {
   const rows = await ctx.tx.select({ v: frameworkVersion, f: framework, a: accreditor }).from(frameworkVersion)
     .innerJoin(framework, eq(framework.id, frameworkVersion.frameworkId)).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId))
-    .orderBy(desc(frameworkVersion.createdAt));
+    .where(eq(framework.internal, false)).orderBy(desc(frameworkVersion.createdAt));
   const best = new Map<string, (typeof rows)[number]>();
   for (const r of rows) {
     const cur = best.get(r.f.id);

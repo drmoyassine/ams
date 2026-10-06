@@ -122,6 +122,19 @@ describe('engagement rules', () => {
     await expect(makeEngagement({ subjectType: 'institution', subjectId: ids.inst, lead: ids.leadA, title: 'x', version: ids.draft })).rejects.toThrow(/published framework version/);
   });
 
+  it('is never built on the institution\'s own quality framework, of which there is one', async () => {
+    const acc = await one(`select id from accreditor limit 1`);
+    const mk = (name: string) => db.su.query(
+      `insert into framework (institution_id, accreditor_id, name, scope, internal) values ($1, $2, $3, 'both', true) returning id`, [ids.inst, acc, name]);
+    const own = (await mk('Quality')).rows[0].id as string;
+    await expect(mk('Another')).rejects.toThrow(/framework_one_internal_idx/);
+    const v = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, '1') returning id`, [ids.inst, own]);
+    await db.su.query(`insert into requirement (institution_id, framework_version_id, code, level_label, title, review_status) values ($1, $2, 'Q1', 'Standard', 'T', 'approved')`, [ids.inst, v]);
+    await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [v]);
+    await db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [v, ids.leadA]);
+    await expect(makeEngagement({ subjectType: 'institution', subjectId: ids.inst, lead: ids.leadA, title: 'x', version: v })).rejects.toThrow(/own quality framework/);
+  });
+
   it('fixes the version, subject and kind, and is never deleted', async () => {
     await fails(`update engagement set framework_version_id = $2 where id = $1`, [ids.engP1, ids.otherVersion], /cannot change/);
     await fails(`update engagement set kind = 'initial' where id = $1`, [ids.engP1], /cannot change/);

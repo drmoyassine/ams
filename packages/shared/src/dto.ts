@@ -31,6 +31,12 @@ export const VersionSchema = z.object({
   status: z.enum(['draft', 'in_review', 'published', 'retired']),
   levelLabels: z.unknown(), lifecycleTemplate: z.unknown(), decisionVocab: z.unknown(), findingVocab: z.unknown(), responseVocab: z.unknown(), ratingMethod: z.unknown(),
   changeSummary: z.string().nullable(), publishedBy: z.string().nullable(), publishedAt: iso.nullable(), supersedesId: z.string().nullable(),
+  /** Set on the detail of a version of the institution's own quality framework. */
+  internal: z.boolean().optional(),
+});
+export const QualityFrameworkSchema = z.object({
+  framework: z.object({ id: z.string(), name: z.string() }).nullable(),
+  versions: z.array(VersionSchema),
 });
 export const RequirementSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), parentId: z.string().nullable(), code: z.string(), levelLabel: z.string(), title: z.string(),

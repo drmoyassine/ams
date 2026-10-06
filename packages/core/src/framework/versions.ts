@@ -8,7 +8,7 @@ import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
-import { assertHuman, getDraftVersion, getVersion, require_ } from './common.js';
+import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
 
 const ROW_META = ['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'] as const;
 /** A row without its identity and audit stamps, ready to be inserted as a copy. */
@@ -54,7 +54,7 @@ export async function listFrameworks(ctx: Ctx) {
   return ctx.tx.select({
     id: framework.id, name: framework.name, scope: framework.scope, commission: framework.commission,
     accreditorId: accreditor.id, accreditorShortName: accreditor.shortName,
-  }).from(framework).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).orderBy(asc(accreditor.shortName), asc(framework.name));
+  }).from(framework).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).where(eq(framework.internal, false)).orderBy(asc(accreditor.shortName), asc(framework.name));
 }
 
 // ---- Versions ------------------------------------------------------------------------------------
@@ -81,7 +81,8 @@ export async function listVersions(ctx: Ctx, frameworkId: string) {
 
 export async function getVersionDetail(ctx: Ctx, id: string) {
   await require_(ctx, 'framework:read');
-  return getVersion(ctx, id);
+  const v = await getVersion(ctx, id);
+  return { ...v, internal: await isInternalVersion(ctx, id) };
 }
 
 const ConfigPatchSchema = z.object({
@@ -126,8 +127,13 @@ export async function loadConfig(ctx: Ctx, versionId: string): Promise<unknown> 
   };
 }
 
-export async function validateVersion(ctx: Ctx, versionId: string): Promise<{ ok: true; config: FrameworkConfig } | { ok: false; issues: { path: string; message: string }[] }> {
+export async function validateVersion(ctx: Ctx, versionId: string): Promise<{ ok: true; config?: FrameworkConfig } | { ok: false; issues: { path: string; message: string }[] }> {
   await require_(ctx, 'framework:read');
+  if (await isInternalVersion(ctx, versionId)) {
+    // The institution's own framework has no accreditor lifecycle, vocabularies or report templates: only its level names.
+    const labels = LevelLabelsSchema.safeParse((await getVersion(ctx, versionId)).levelLabels);
+    return labels.success ? { ok: true } : { ok: false, issues: [{ path: 'level_labels', message: 'name at least one level, e.g. Standard' }] };
+  }
   const raw = await loadConfig(ctx, versionId) as Record<string, unknown>;
   if (raw.rating_method === null) delete raw.rating_method;
   return validateFrameworkConfig(raw);

@@ -173,7 +173,13 @@ export const framework = pgTable('framework', {
   commission: text('commission'),
   scope: text('scope', { enum: FRAMEWORK_SCOPES }).notNull(),
   description: text('description'),
-}, (t) => [index('framework_accreditor_idx').on(t.accreditorId), oneOf('framework_scope_check', t.scope, FRAMEWORK_SCOPES)]);
+  /** The institution's own quality framework (DEC-016): at most one per institution, never the basis of an engagement. */
+  internal: boolean('internal').notNull().default(false),
+}, (t) => [
+  index('framework_accreditor_idx').on(t.accreditorId),
+  uniqueIndex('framework_one_internal_idx').on(t.institutionId).where(sql`${t.internal}`),
+  oneOf('framework_scope_check', t.scope, FRAMEWORK_SCOPES),
+]);
 
 export const FRAMEWORK_VERSION_STATUSES = ['draft', 'in_review', 'published', 'retired'] as const;
 export const frameworkVersion = pgTable('framework_version', {

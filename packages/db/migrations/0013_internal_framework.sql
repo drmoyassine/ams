@@ -1,0 +1,2 @@
+ALTER TABLE "framework" ADD COLUMN "internal" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "framework_one_internal_idx" ON "framework" USING btree ("institution_id") WHERE "framework"."internal";

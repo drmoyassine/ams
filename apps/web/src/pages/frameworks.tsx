@@ -9,13 +9,13 @@ import { Input } from '../components/ui/input';
 import { ApiError, type FrameworkApi, type FrameworkListItem, type Issue } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
 
-const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
+export const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+export const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
 
-const EyeIcon = () => (
+export const EyeIcon = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>
 );
-const PencilIcon = () => (
+export const PencilIcon = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
 );
 

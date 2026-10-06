@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type {
   ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
-  SourcePageSchema, TemplateSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
+  SourcePageSchema, TemplateSchema, QualityFrameworkSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { api as defaultApi, type createApi } from './api';
 
@@ -17,6 +17,7 @@ export type RequirementDetail = z.infer<typeof RequirementDetailSchema>;
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 export type ImportResult = z.infer<typeof ImportResultSchema>;
 export type NewVersionResult = z.infer<typeof NewVersionResultSchema>;
+export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Issue = { path: string; message: string };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
@@ -47,6 +48,9 @@ export function frameworkApi(api: Api = defaultApi) {
       api.api.frameworks.$post({ json }).then((r) => unwrap<{ id: string }>(r)),
     createVersion: (frameworkId: string, json: { edition: string; changeSummary?: string }) =>
       api.api.frameworks[':id'].versions.$post({ param: { id: frameworkId }, json }).then((r) => unwrap<Version>(r)),
+    qualityFramework: () => api.api['quality-framework'].$get().then((r) => unwrap<QualityFramework>(r)),
+    setUpQualityFramework: (json: { name?: string; levelLabels?: string[] }) =>
+      api.api['quality-framework'].$post({ json }).then((r) => unwrap<QualityFramework>(r)),
     importFile: (json: { file: unknown; edition?: string; autoApprove?: boolean }) =>
       v.import.$post({ json }).then((r) => unwrap<ImportResult>(r)),
     version: (id: string) => v[':id'].$get({ param: { id } }).then((r) => unwrap<Version>(r)),

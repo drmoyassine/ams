@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Internal quality framework (TASK-037)
+
+The institution's own framework lives in the framework library: `framework.internal` (migration 0013, at most one per institution via a partial unique index) and a trigger rule (0014) that refuses an engagement built on it. It stands on a placeholder accreditor "Internal" and is hidden from the Standards list and the glossary's external terms. Levels are named by the institution (default Standard, Sub-standard) in `levelLabels`; a version needs only level names and one approved requirement to publish (no accreditor lifecycle, vocabularies or report templates), then freezes like any version and changes via a new version. API `GET/POST /api/quality-framework`; Settings → Quality framework sets it up and lists versions; its version page shows only Requirements, Level names and Review and publish. Next: TASK-038, the Mappings tab on each external standard's page, onto this framework.
+
+---
+
 ## 2026-10-06 — Glossary (TASK-036)
 
 Institution-owned `glossary_term` (kinds level, finding, report, general) and `glossary_alias` (standard + level label, finding code or report template key, mapped to a term of the right kind; enforced by a trigger), migrations 0011-0012. Starter terms: Requirement group, Requirement, Required action, Observation, report types, Evidence, Engagement. Suggestions are structural, never by accreditor name: a level label is a group when it only sits at the top, labels headings, or always has requirements below it, otherwise a requirement; a finding that needs action is a required action; report templates map by kind. `seedGlossary` runs on every start (adds missing starter terms, maps only unmapped terms, never overwrites an edit). Settings → Glossary edits terms (English and Arabic) and each standard's mapping. Engagement screens show the institution's word beside the standard's with a Terms choice (ours / the standard's / both), remembered per viewer. Fixed a real race: the institution form reset what an admin was typing when a refetch landed; the form is now keyed by the saved values. Remaining in ROADMAP-012: TASK-037 internal framework, TASK-038 mappings tab on each external standard.
