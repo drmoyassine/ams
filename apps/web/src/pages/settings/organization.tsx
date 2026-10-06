@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { contrastWithWhite, isReadableAccent, ORG_UNIT_TYPES, type OrgUnit } from '@ams/shared';
+import { contrastWithWhite, isReadableAccent, ORG_UNIT_TYPES, type Institution, type OrgUnit } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -12,27 +12,32 @@ import { useAction } from '../../lib/use-action';
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const TYPE_LABEL = { college: 'College', school: 'School', department: 'Department', admin_unit: 'Administrative unit', other: 'Other' } as const;
 
+/**
+ * Loads the institution, then hands it to the form. The form is keyed by the saved values, so a background refetch that
+ * returns the same data never resets what someone is typing, and a save (or another admin's change) refreshes it.
+ */
 function InstitutionCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
-  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['institution'], queryFn: () => api.institution() });
-  const [nameEn, setNameEn] = useState('');
-  const [nameAr, setNameAr] = useState('');
-  const [country, setCountry] = useState('');
-  const [locale, setLocale] = useState<'en' | 'ar'>('en');
-  const [accent, setAccent] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  if (!data) return <Card><p className="text-sm text-muted-foreground">Loading…</p></Card>;
+  return <InstitutionForm key={JSON.stringify(data)} api={api} canEdit={canEdit} initial={data} saved={saved} onSaved={setSaved} />;
+}
+
+function InstitutionForm({ api, canEdit, initial, saved, onSaved }: { api: SettingsApi; canEdit: boolean; initial: Institution; saved: boolean; onSaved: (v: boolean) => void }) {
+  const qc = useQueryClient();
+  const [nameEn, setNameEn] = useState(initial.nameEn);
+  const [nameAr, setNameAr] = useState(initial.nameAr ?? '');
+  const [country, setCountry] = useState(initial.country ?? '');
+  const [locale, setLocale] = useState<'en' | 'ar'>(initial.defaultLocale === 'ar' ? 'ar' : 'en');
+  const [accent, setAccent] = useState(initial.accentColor ?? '');
+  const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
-  useEffect(() => {
-    if (!data) return;
-    setNameEn(data.nameEn); setNameAr(data.nameAr ?? ''); setCountry(data.country ?? ''); setLocale(data.defaultLocale === 'ar' ? 'ar' : 'en'); setAccent(data.accentColor ?? '');
-  }, [data]);
   const accentOk = accent === '' || isReadableAccent(accent);
   const save = useMutation({
     mutationFn: async () => {
-      setError(null); setSaved(false);
+      setError(null); onSaved(false);
       const r = await act(() => api.updateInstitution({ nameEn, nameAr: nameAr || null, country: country || null, defaultLocale: locale, accentColor: accent || null }));
-      if (r) { setSaved(true); await qc.invalidateQueries({ queryKey: ['institution'] }); }
+      if (r) { onSaved(true); await qc.invalidateQueries({ queryKey: ['institution'] }); }
     },
   });
   const submit = (e: FormEvent) => { e.preventDefault(); if (accentOk) save.mutate(); };

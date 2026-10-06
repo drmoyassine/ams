@@ -3,12 +3,14 @@ import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthorityBadge, REQUIREMENT_STATUS, RequirementStatusBadge } from '../components/badges';
 import { ContentText } from '../components/content-text';
+import { TermModeSelect } from '../components/term-mode';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { useEngagementApi, type EngagementApi } from '../lib/engagement-api';
 import { ApiError } from '../lib/framework-api';
 import { requirementLabel } from '../lib/format';
+import { useLevelLabel } from '../lib/glossary-api';
 import { useAction } from '../lib/use-action';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -25,6 +27,8 @@ export function RequirementWorkspacePage({ id, api: override }: { id: string; ap
   const act = useAction(setError);
   const { data: ws, isError, error: loadError } = useQuery({ queryKey: ['workspace', id], queryFn: () => api.workspace(id) });
   const engagementId = ws?.item.engagementId;
+  const levelLabel = useLevelLabel(api);
+  const engagement = useQuery({ queryKey: ['engagement', ws?.item.engagementId], queryFn: () => api.get(ws!.item.engagementId), enabled: !!ws });
   const members = useQuery({ queryKey: ['members', engagementId], queryFn: () => api.members(engagementId!), enabled: !!engagementId });
   const run = useMutation({
     mutationFn: async (fn: () => Promise<unknown>) => { setError(null); return act(fn); },
@@ -39,8 +43,12 @@ export function RequirementWorkspacePage({ id, api: override }: { id: string; ap
 
   return (
     <section>
-      <p className="mb-2 text-sm"><Link to="/engagements/$id" params={{ id: item.engagementId }} className="underline">← Back to the engagement</Link></p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm"><Link to="/engagements/$id" params={{ id: item.engagementId }} className="underline">← Back to the engagement</Link></p>
+        <TermModeSelect />
+      </div>
       <header className="mb-4">
+        {engagement.data && <p className="text-xs text-muted-foreground" data-testid="level">{levelLabel(engagement.data.engagement.frameworkId, r.levelLabel)}</p>}
         <p className="text-sm text-muted-foreground">{r.path.map((p) => p.code).join(' › ')}{r.path.length > 0 && ' ›'}</p>
         <h1 className="text-2xl font-semibold"><ContentText>{requirementLabel(r.code, r.title, ' — ')}</ContentText></h1>
         <p className="mt-1 flex items-center gap-2 text-sm">{item.applicable ? <RequirementStatusBadge status={item.status} /> : <span className="rounded border border-border px-2 py-0.5">Not applicable{item.naReason ? `: ${item.naReason}` : ''}</span>}</p>

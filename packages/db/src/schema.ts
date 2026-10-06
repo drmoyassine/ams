@@ -396,3 +396,37 @@ export const engagementRequirement = pgTable('engagement_requirement', {
   index('engagement_requirement_owner_idx').on(t.ownerId),
   oneOf('engagement_requirement_status_check', t.status, ENGAGEMENT_REQUIREMENT_STATUSES),
 ]);
+
+// ---- Glossary: the institution's own terms and the external terms they stand for (DEC-016) -----------------------
+
+export const GLOSSARY_KINDS = ['level', 'finding', 'report', 'general'] as const;
+export const ALIAS_SOURCES = ['level_label', 'finding_code', 'report_template'] as const;
+
+/** An internal term: one shared word for what each accreditor calls differently. Owned by the institution, so it can change without touching a published standard. */
+export const glossaryTerm = pgTable('glossary_term', {
+  ...base(), ...tenant(),
+  key: text('key').notNull(),
+  kind: text('kind', { enum: GLOSSARY_KINDS }).notNull(),
+  labelEn: text('label_en').notNull(),
+  labelAr: text('label_ar'),
+  definitionEn: text('definition_en'),
+  definitionAr: text('definition_ar'),
+  active: boolean('active').notNull().default(true),
+}, (t) => [
+  uniqueIndex('glossary_term_key_idx').on(t.institutionId, t.key),
+  oneOf('glossary_term_kind_check', t.kind, GLOSSARY_KINDS),
+  check('glossary_term_key_format', sql`${t.key} ~ '^[a-z][a-z0-9_]*$'`),
+]);
+
+/** What an external standard calls it: a level label ("CFR"), a finding code ("deficiency") or a report template key, mapped to an internal term. Keyed by the standard (framework), not a version. */
+export const glossaryAlias = pgTable('glossary_alias', {
+  ...base(), ...tenant(),
+  termId: uuid('term_id').notNull().references(() => glossaryTerm.id),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  source: text('source', { enum: ALIAS_SOURCES }).notNull(),
+  externalTerm: text('external_term').notNull(),
+}, (t) => [
+  uniqueIndex('glossary_alias_unique_idx').on(t.frameworkId, t.source, t.externalTerm),
+  index('glossary_alias_term_idx').on(t.termId),
+  oneOf('glossary_alias_source_check', t.source, ALIAS_SOURCES),
+]);

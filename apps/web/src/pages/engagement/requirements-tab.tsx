@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { EngagementApi } from '../../lib/engagement-api';
 import { distinctTitle } from '../../lib/format';
+import { useLevelLabel } from '../../lib/glossary-api';
 import { useAction } from '../../lib/use-action';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -26,6 +27,8 @@ export function RequirementsTab({ api, detail, canManage }: { api: EngagementApi
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const people = (roles: string[]) => detail.members.filter((m) => roles.includes(m.role));
+  const levelLabel = useLevelLabel(api);
+  const frameworkId = detail.engagement.frameworkId;
   const names = useMemo(() => new Map(detail.members.map((m) => [m.userId, m.fullName])), [detail.members]);
 
   const assign = useMutation({
@@ -78,6 +81,7 @@ export function RequirementsTab({ api, detail, canManage }: { api: EngagementApi
         {items.map((i) => (
           <li key={i.id} className={`flex flex-wrap items-center gap-3 px-4 py-2 ${i.applicable ? '' : 'opacity-60'}`} style={{ paddingInlineStart: `${1 + (i.parentCode ? 1.25 : 0)}rem` }}>
             {canManage && i.applicable && <input type="checkbox" aria-label={`Select ${i.code}`} checked={picked.has(i.requirementId)} onChange={() => toggle(i.requirementId)} />}
+            <span className="w-32 shrink-0 text-xs text-muted-foreground" data-testid="level">{levelLabel(frameworkId, i.levelLabel)}</span>
             <Link to="/engagement-requirements/$id" params={{ id: i.id }} className="font-medium underline-offset-2 hover:underline"><ContentText>{i.code}</ContentText></Link>
             <ContentText className="flex-1 text-sm">{distinctTitle(i.code, i.title) ?? ''}</ContentText>
             {!i.applicable && <span className="rounded border border-border px-2 py-0.5 text-xs" title={i.naReason ?? undefined}>Not applicable</span>}

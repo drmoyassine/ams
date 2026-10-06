@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ContentText } from '../components/content-text';
+import { TermModeSelect } from '../components/term-mode';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -61,7 +62,10 @@ export function EngagementPage({ id, api: override }: { id: string; api?: Engage
   return (
     <section>
       <header className="mb-4">
-        <h1 className="text-2xl font-semibold"><ContentText>{e.title}</ContentText></h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold"><ContentText>{e.title}</ContentText></h1>
+          <TermModeSelect />
+        </div>
         <p className="text-sm text-muted-foreground">
           {e.accreditorShortName} {e.edition} · {e.kind} · review year {e.reviewYear} · lead <ContentText>{e.leadName}</ContentText>
           {!active && <span className="ms-2 rounded bg-muted px-2 py-0.5">{e.status}</span>}

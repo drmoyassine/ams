@@ -84,7 +84,7 @@ export const EngagementSchema = z.object({
   reviewYear: z.number(), keyDates: z.record(z.string(), z.string().nullable()),
   currentPhase: z.enum(PHASE_TYPES).nullable(),
   subjectType: z.enum(ENGAGEMENT_SUBJECT_TYPES), subjectId: z.string(), subjectName: z.string(),
-  frameworkVersionId: z.string(), frameworkName: z.string(), accreditorShortName: z.string(), edition: z.string(),
+  frameworkVersionId: z.string(), frameworkId: z.string(), frameworkName: z.string(), accreditorShortName: z.string(), edition: z.string(),
   leadUserId: z.string(), leadName: z.string(),
   previousEngagementId: z.string().nullable(), templateSyncedVersionId: z.string().nullable(),
   createdAt: iso,

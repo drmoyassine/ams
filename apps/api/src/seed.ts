@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type pg from 'pg';
-import { importVersion, publishVersion, submitForReview, validateVersion, type Ctx } from '@ams/core';
+import { autoMapStandards, importVersion, publishVersion, seedDefaultGlossary, submitForReview, validateVersion, type Ctx } from '@ams/core';
 import { FrameworkExportSchema } from '@ams/shared';
 import { fixturesFolder, withIdentity } from '@ams/db';
 import type { Env } from '@ams/shared';
@@ -78,4 +78,22 @@ export async function seedFrameworks(pool: pg.Pool, folder: string = fixturesFol
     added.push(name);
   }
   return added;
+}
+
+/**
+ * Starter glossary: the default internal terms, and a structural suggestion for how each standard's words map onto them,
+ * applied only to what is not mapped yet (edits are never overwritten). Runs as the institution's administrator on every start.
+ */
+export async function seedGlossary(pool: pg.Pool): Promise<{ terms: number; mapped: number }> {
+  const { rows: [who] } = await pool.query(
+    `select u.id as user_id, u.institution_id from app_user u join role_assignment r on r.user_id = u.id
+      where r.role = 'admin' and r.scope_type = 'institution' order by u.created_at limit 1`);
+  if (!who) return { terms: 0, mapped: 0 };
+  const caller = { userId: who.user_id as string, institutionId: who.institution_id as string, requestId: crypto.randomUUID(), actorType: 'user' as const };
+  return withIdentity(pool, caller, async (tx) => {
+    const ctx: Ctx = { tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined };
+    const { added } = await seedDefaultGlossary(ctx);
+    const { mapped } = await autoMapStandards(ctx);
+    return { terms: added, mapped };
+  });
 }

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  Me, AddMember, AddMilestone, ApplyTemplateUpdate, AssignRequirements, CreateEngagement, CreateEngagementResultSchema, EngagementDetail, Engagement, Handover,
+  Glossary, Me, AddMember, AddMilestone, ApplyTemplateUpdate, AssignRequirements, CreateEngagement, CreateEngagementResultSchema, EngagementDetail, Engagement, Handover,
   Member, Milestone, ProgramSchema, ReorderMilestones, RequirementList, SetApplicability, TemplateUpdate, UpdateEngagement, UpdateMilestone,
   UpdateRequirementWork, UserSummary, Workspace,
 } from '@ams/shared';
@@ -16,6 +16,7 @@ export function engagementApi(api: Api = defaultApi) {
   const e = api.api.engagements;
   return {
     me: () => api.api.me.$get().then((r) => unwrap<Me>(r)),
+    glossary: () => api.api.glossary.$get().then((r) => unwrap<Glossary>(r)),
     list: () => e.$get().then((r) => unwrap<Engagement[]>(r)),
     create: (json: CreateEngagement) => e.$post({ json }).then((r) => unwrap<CreateResult>(r)),
     get: (id: string) => e[':id'].$get({ param: { id } }).then((r) => unwrap<EngagementDetail>(r)),

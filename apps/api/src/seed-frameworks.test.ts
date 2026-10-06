@@ -2,7 +2,7 @@
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
-import { seedFrameworks } from './seed.js';
+import { seedFrameworks, seedGlossary } from './seed.js';
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -29,5 +29,15 @@ describe('seedFrameworks', () => {
 
     expect(await seedFrameworks(pool)).toEqual([]);
     expect((await db.su.query(`select count(*)::int as n from framework_version`)).rows[0].n).toBe(3);
+  });
+
+  it('seeds the starter glossary and the structural mapping, once, never overwriting an edit', async () => {
+    const first = await seedGlossary(pool);
+    expect(first.terms).toBeGreaterThanOrEqual(8);
+    expect(first.mapped).toBeGreaterThan(20);
+    await db.su.query(`update glossary_alias set term_id = (select id from glossary_term where key = 'requirement_group') where external_term = 'CFR'`);
+    expect(await seedGlossary(pool)).toEqual({ terms: 0, mapped: 0 });
+    const { rows } = await db.su.query(`select t.key from glossary_alias a join glossary_term t on t.id = a.term_id where a.external_term = 'CFR'`);
+    expect(rows).toEqual([{ key: 'requirement_group' }]); // the edit stands
   });
 });

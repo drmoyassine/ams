@@ -43,7 +43,7 @@ export async function toEngagements(ctx: Ctx, rows: EngagementRow[]): Promise<En
       keyDates: r.keyDates as Record<string, string | null>, currentPhase: r.currentPhase,
       subjectType: r.subjectType, subjectId: r.subjectId,
       subjectName: r.subjectType === 'program' ? programName.get(r.subjectId) ?? '' : inst?.name ?? '',
-      frameworkVersionId: r.frameworkVersionId, frameworkName: v?.f.name ?? '', accreditorShortName: v?.a.shortName ?? '', edition: v?.v.edition ?? '',
+      frameworkVersionId: r.frameworkVersionId, frameworkId: v?.f.id ?? '', frameworkName: v?.f.name ?? '', accreditorShortName: v?.a.shortName ?? '', edition: v?.v.edition ?? '',
       leadUserId: r.leadUserId, leadName: userName.get(r.leadUserId) ?? '',
       previousEngagementId: r.previousEngagementId, templateSyncedVersionId: r.templateSyncedVersionId,
       createdAt: r.createdAt.toISOString(),

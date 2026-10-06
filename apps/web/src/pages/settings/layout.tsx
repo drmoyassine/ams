@@ -3,10 +3,10 @@ import { Link, Outlet } from '@tanstack/react-router';
 const ITEMS = [
   { to: '/settings/organization', label: 'Organization', hint: 'Names, branding and org chart' },
   { to: '/settings/programs', label: 'Programs', hint: 'Add and edit programs' },
+  { to: '/settings/glossary', label: 'Glossary', hint: 'Internal terms and their external names' },
 ] as const;
 const COMING = [
   { label: 'Quality framework', hint: 'The institution\'s own standards' },
-  { label: 'Glossary', hint: 'Internal terms and their external names' },
 ] as const;
 
 /** Settings: its own sub-menu beside the page. Items still to come are listed, not linked. */

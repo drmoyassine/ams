@@ -106,3 +106,56 @@ export const UpdateOrgUnitSchema = z.object({
   nameAr: z.string().trim().nullable().optional(), active: z.boolean().optional(),
 }).strict();
 export type UpdateOrgUnit = z.infer<typeof UpdateOrgUnitSchema>;
+
+// ---- Glossary (DEC-016) -------------------------------------------------------------------------
+
+export const GLOSSARY_KINDS = ['level', 'finding', 'report', 'general'] as const;
+export const ALIAS_SOURCES = ['level_label', 'finding_code', 'report_template'] as const;
+
+export const GlossaryTermSchema = z.object({
+  id: z.string(), key: z.string(), kind: z.enum(GLOSSARY_KINDS), labelEn: z.string(), labelAr: z.string().nullable(),
+  definitionEn: z.string().nullable(), definitionAr: z.string().nullable(), active: z.boolean(),
+});
+export type GlossaryTerm = z.infer<typeof GlossaryTermSchema>;
+
+export const GlossaryAliasSchema = z.object({
+  id: z.string(), termId: z.string(), frameworkId: z.string(), source: z.enum(ALIAS_SOURCES), externalTerm: z.string(),
+});
+export type GlossaryAlias = z.infer<typeof GlossaryAliasSchema>;
+
+export const GlossarySchema = z.object({ terms: z.array(GlossaryTermSchema), aliases: z.array(GlossaryAliasSchema) });
+export type Glossary = z.infer<typeof GlossarySchema>;
+
+export const CreateTermSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'lower-case letters, digits and _').optional(),
+  kind: z.enum(GLOSSARY_KINDS),
+  labelEn: z.string().trim().min(1),
+  labelAr: z.string().trim().min(1).optional(),
+  definitionEn: z.string().trim().min(1).optional(),
+  definitionAr: z.string().trim().min(1).optional(),
+}).strict();
+export type CreateTerm = z.infer<typeof CreateTermSchema>;
+
+export const UpdateTermSchema = z.object({
+  labelEn: z.string().trim().min(1).optional(),
+  labelAr: z.string().trim().nullable().optional(),
+  definitionEn: z.string().trim().nullable().optional(),
+  definitionAr: z.string().trim().nullable().optional(),
+  active: z.boolean().optional(),
+}).strict();
+export type UpdateTerm = z.infer<typeof UpdateTermSchema>;
+
+/** One external term of one standard, with the internal term it is mapped to (null: not mapped yet). */
+export const ExternalTermSchema = z.object({
+  source: z.enum(ALIAS_SOURCES), externalTerm: z.string(), detail: z.string(),
+  termId: z.string().nullable(), suggestedKey: z.string().nullable(),
+});
+export const ExternalStandardSchema = z.object({
+  frameworkId: z.string(), accreditorShortName: z.string(), name: z.string(), edition: z.string(), terms: z.array(ExternalTermSchema),
+});
+export type ExternalStandard = z.infer<typeof ExternalStandardSchema>;
+
+export const SetAliasSchema = z.object({
+  frameworkId: z.uuid(), source: z.enum(ALIAS_SOURCES), externalTerm: z.string().min(1), termId: z.uuid().nullable(),
+}).strict();
+export type SetAlias = z.infer<typeof SetAliasSchema>;

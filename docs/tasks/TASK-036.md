@@ -1,7 +1,7 @@
 ---
 title: Glossary and term mapping
 description: Internal terms, definitions and the external terms they replace
-status: pending
+status: completed
 priority: P0
 id: TASK-036
 last_updated: '2026-10-06'
@@ -22,7 +22,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-016
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:36.840Z'
+  at: '2026-10-06T06:10:59.652Z'
 ---
 # TASK-036 — Glossary and term mapping
 
