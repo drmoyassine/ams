@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Evidence uploads failed on the deployment
+
+Uploads failed in production. The likely cause: AWS SDK v3 (3.729 onwards) adds CRC checksums to every request by default, which Garage 1.0.1 (our Compose storage) does not accept; the S3 client now sends and checks them only when the S3 API requires it (`requestChecksumCalculation` / `responseChecksumValidation: 'WHEN_REQUIRED'`). Not reproduced locally (Garage could not be downloaded into the build environment), so a refused upload now also reports the storage service's answer (error name, status, message) to the user and the logs instead of a bare 500.
+
+---
+
 ## 2026-10-06 — M3 slice 1: evidence repository and reasoned links (TASK-039)
 
 `evidence_item`, `evidence_version`, `evidence_link` (migrations 0020-0021). Items belong to the institution; restricted items are visible only to institution-wide roles, roles on the owner unit (or an ancestor) and the owner (policy decided from the row's own columns, so it also holds for the row being inserted). Versions are numbered one after another and never changed or deleted (trigger). A link carries a required rationale and a person's review (proposed → approved/rejected); its target is either an engagement requirement or an item of the internal framework keyed by code (DEC-016), exactly one, fixed. Engagement links need `engagement:work` to propose and `engagement:review` to review; internal ones `evidence:write` / `evidence:review` (new permissions). Links show "newer version available" and stale (period year before review year − 3, PRD 9.3). Suggestions: an engagement requirement is offered evidence approved on the internal items it is mapped to by approved mappings; linking still needs its own reason and review. Storage: `ObjectStore` in core, S3 implementation (AWS SDK v3 client, any S3-compatible service) in the API, in-memory store for tests. **Deviation from PRD 9.1:** files pass through the API (limit `EVIDENCE_MAX_UPLOAD_MB`, default 50) instead of a presigned browser upload, because the Compose storage endpoint is not reachable from browsers; direct upload needs a public S3 endpoint with CORS and is a follow-up. UI: Evidence page (search, add with file or link, versions, new version, where it is linked), Evidence on each internal framework item (attach with a reason, review), Evidence card in the requirement workspace (links with flags and review, "Suggested from your framework", link other evidence). Next: TASK-040 datasets.

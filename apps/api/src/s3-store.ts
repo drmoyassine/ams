@@ -9,6 +9,10 @@ export function s3Store(env: Pick<Env, 'S3_ENDPOINT' | 'S3_REGION' | 'S3_BUCKET'
   const client = new S3Client({
     endpoint: env.S3_ENDPOINT, region: env.S3_REGION, forcePathStyle: env.S3_FORCE_PATH_STYLE,
     credentials: { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY },
+    // Recent SDK versions add CRC checksums to every request by default; many S3-compatible services (Garage 1.0 among
+    // them) reject those. Send and check them only where the S3 API requires it.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   return {
     async put(key, body, mime) {

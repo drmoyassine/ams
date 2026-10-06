@@ -59,6 +59,15 @@ describe('the repository', () => {
     expect((await w.as('alo', (c) => listEvidence(c, { q: 'assessment' }))).map((e) => e.title)).toEqual(['Course review minutes']);
   });
 
+  it('says what the storage service answered when it refuses a file', async () => {
+    const put = w.store.put.bind(w.store);
+    w.store.put = async () => { throw Object.assign(new Error('Bad request'), { name: 'InvalidRequest', $metadata: { httpStatusCode: 400 } }); };
+    try {
+      await expect(w.as('contrib', (c) => addFileVersion(c, ids.minutes!, { fileName: 'x.pdf', mime: 'application/pdf', bytes: bytes('x') })))
+        .rejects.toThrow('the file could not be stored (InvalidRequest 400 Bad request)');
+    } finally { w.store.put = put; }
+  });
+
   it('keeps versions as they were uploaded', async () => {
     await expect(w.db.su.query(`update evidence_version set file_name = 'changed.pdf' where id = $1`, [ids.v1])).rejects.toThrow(/kept as they were uploaded/);
     await expect(w.db.su.query(`delete from evidence_version where id = $1`, [ids.v1])).rejects.toThrow(/kept as they were uploaded/);

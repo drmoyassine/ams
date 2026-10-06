@@ -123,7 +123,15 @@ export async function addFileVersion(ctx: Ctx, itemId: string, file: { fileName:
   const versionNo = (last?.n ?? 0) + 1;
   const fileName = safeName(file.fileName);
   const key = `${ctx.caller.institutionId}/evidence/${itemId}/${versionNo}-${crypto.randomUUID()}/${fileName}`;
-  const stored = await ctx.store.put(key, file.bytes, file.mime || 'application/octet-stream');
+  let stored: { size: number; sha256: string };
+  try {
+    stored = await ctx.store.put(key, file.bytes, file.mime || 'application/octet-stream');
+  } catch (e) {
+    // Say what the storage service answered, so a misconfiguration can be seen and fixed rather than guessed at.
+    const err = e as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+    console.error(JSON.stringify({ level: 'error', msg: 'evidence upload: storage refused the file', name: err.name, status: err.$metadata?.httpStatusCode, detail: err.message }));
+    throw new ConflictError(`the file could not be stored (${[err.name, err.$metadata?.httpStatusCode, err.message].filter(Boolean).join(' ')})`);
+  }
   const [v] = await guardIntegrity(() => ctx.tx.insert(evidenceVersion).values({
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo, filePath: key, sha256: stored.sha256, fileName,
     mime: file.mime || 'application/octet-stream', size: stored.size, asOfDate: file.asOfDate ?? null, notes: file.notes ?? null,
