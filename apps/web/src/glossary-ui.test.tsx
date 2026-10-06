@@ -15,6 +15,8 @@ import { glossaryApi, type GlossaryApi } from './lib/glossary-api';
 import { settingsApi, type SettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
 import { GlossaryPage } from './pages/settings/glossary';
+import { VersionPage } from './pages/version';
+import { frameworkApi } from './lib/framework-api';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -32,6 +34,11 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
 const apis = (who: string): { glossary: GlossaryApi; settings: SettingsApi; engagement: EngagementApi } => {
   const a = createApi(fetchAs(who));
   return { glossary: glossaryApi(a), settings: settingsApi(a), engagement: engagementApi(a) };
+};
+const fw = (who: string) => frameworkApi(createApi(fetchAs(who)));
+const versionOf = async (short: string) => {
+  const f = fw('admin');
+  return (await f.versions((await f.frameworks()).find((x) => x.accreditorShortName === short)!.id))[0]!.id;
 };
 function wrap(ui: React.ReactElement) {
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
@@ -54,7 +61,7 @@ afterEach(() => { cleanup(); try { localStorage.clear(); } catch { /* ignore */ 
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('glossary settings', () => {
-  it('starts empty for an editor, adds the starter terms, and then maps every standard automatically', async () => {
+  it('starts empty for an editor and adds the starter terms', async () => {
     const user = userEvent.setup();
     const a = apis('lead');
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
@@ -62,22 +69,32 @@ describe('glossary settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Add starter terms' }));
     const levels = await screen.findByRole('region', { name: 'Requirement levels' });
     expect(within(levels).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Requirement'), expect.stringContaining('Requirement group')]);
-    await user.click(screen.getByRole('button', { name: 'Map unmapped terms automatically' }));
+    expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull(); // it lives on each standard
+    expect(screen.queryByText(/How each standard's words map/)).toBeNull();
+  });
+
+  it('maps a standard\'s own words on that standard\'s Terminology tab, automatically', async () => {
+    const user = userEvent.setup();
+    const a = apis('lead');
+    render(wrap(<VersionPage versionId={await versionOf('ABET')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
+    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
+    await user.click(await screen.findByRole('button', { name: 'Map unmapped terms automatically' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/\d+ term\(s\) mapped/);
-    const abet = await screen.findByRole('region', { name: /ABET/ });
-    const chosen = (label: string) => (within(abet).getByLabelText(label) as HTMLSelectElement).selectedOptions[0]!.textContent;
+    const table = await screen.findByRole('table', { name: 'Terminology of ABET' });
+    const chosen = (label: string) => (within(table).getByLabelText(label) as HTMLSelectElement).selectedOptions[0]!.textContent;
     await waitFor(() => expect(chosen('ABET Criterion maps to')).toBe('Requirement group'));
     expect(chosen('ABET Item maps to')).toBe('Requirement');
     expect(chosen('ABET deficiency maps to')).toBe('Required action');
     expect(chosen('ABET readiness maps to')).toBe('Not mapped');
+    expect(within(table).queryByLabelText('WSCUC CFR maps to')).toBeNull(); // only this standard's words
   });
 
   it('offers only terms of the right kind for each external word, and remaps one', async () => {
     const user = userEvent.setup();
     const a = apis('lead');
-    render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    const wscuc = await screen.findByRole('region', { name: /WSCUC/ });
-    const cfr = within(wscuc).getByLabelText('WSCUC CFR maps to') as HTMLSelectElement;
+    render(wrap(<VersionPage versionId={await versionOf('WSCUC')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
+    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
+    const cfr = (await screen.findByLabelText('WSCUC CFR maps to')) as HTMLSelectElement;
     await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Requirement', 'Requirement group']));
     const group = [...cfr.options].find((o) => o.textContent === 'Requirement group')!.value;
     await user.selectOptions(cfr, group);
@@ -106,7 +123,12 @@ describe('glossary settings', () => {
     await screen.findByRole('region', { name: 'Requirement levels' });
     expect(screen.queryByRole('button', { name: /Edit / })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add term' })).toBeNull();
+    cleanup();
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={await versionOf('ABET')} api={fw('viewer')} glossary={a.glossary} onOpenVersion={() => undefined} />));
+    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
     expect(((await screen.findByLabelText('ABET Criterion maps to')) as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull();
   });
 });
 

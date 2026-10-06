@@ -12,8 +12,6 @@ import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const KIND_LABEL = { level: 'Requirement levels', finding: 'Findings', report: 'Reports', general: 'General terms' } as const;
-const KIND_OF_SOURCE = { level_label: 'level', finding_code: 'finding', report_template: 'report' } as const;
-const SOURCE_LABEL = { level_label: 'Level', finding_code: 'Finding', report_template: 'Report' } as const;
 
 function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boolean; onSave: (patch: Partial<GlossaryTerm>) => void }) {
   const [editing, setEditing] = useState(false);
@@ -55,7 +53,6 @@ export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; s
   const me = useMe(useSettingsApi(settings));
   const canEdit = can(me.data, 'framework:write');
   const glossary = useQuery({ queryKey: ['glossary'], queryFn: () => api.glossary() });
-  const external = useQuery({ queryKey: ['external-terms'], queryFn: () => api.externalTerms() });
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -71,7 +68,7 @@ export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; s
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Glossary</h2>
-        <p className="text-sm text-muted-foreground">One shared language inside the institution. Each accreditor's own words stay on its standard and on everything sent to it; here they are mapped onto the institution's terms.</p>
+        <p className="text-sm text-muted-foreground">One shared language inside the institution. Each accreditor's own words stay on its standard and on everything sent to it; each standard's page has a Terminology tab that maps them onto these terms.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
@@ -106,41 +103,6 @@ export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; s
             </ul>
           </section>
         ))}
-      </Card>
-
-      <Card>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-semibold">How each standard's words map</h3>
-          {canEdit && <Button type="button" variant="ghost" onClick={() => run.mutate(async () => { const r = await api.autoMap(); setMessage(`${r.mapped} term(s) mapped from their structure.`); })}>Map unmapped terms automatically</Button>}
-        </div>
-        <p className="mb-3 text-sm text-muted-foreground">Suggestions come from where a term sits in the standard (a level that holds other requirements is a group; a finding that needs action is a required action). Nothing you set is overwritten.</p>
-        {(external.data ?? []).map((s) => (
-          <section key={s.frameworkId} aria-label={`${s.accreditorShortName} ${s.name}`} className="mb-4">
-            <h4 className="text-sm font-medium"><ContentText>{s.accreditorShortName} · {s.name}</ContentText> <span className="text-muted-foreground">edition {s.edition}</span></h4>
-            <table className="mt-1 w-full text-sm">
-              <thead className="text-start text-xs text-muted-foreground"><tr><th className="py-1 text-start">Standard's word</th><th className="text-start">Kind</th><th className="text-start">Internal term</th></tr></thead>
-              <tbody>
-                {s.terms.map((t) => {
-                  const options = terms.filter((x) => x.kind === KIND_OF_SOURCE[t.source] && (x.active || x.id === t.termId));
-                  return (
-                    <tr key={`${t.source}|${t.externalTerm}`} className="border-t border-border" data-testid="external-term">
-                      <td className="py-1"><ContentText>{t.externalTerm}</ContentText> <span className="text-xs text-muted-foreground">{t.detail}</span></td>
-                      <td>{SOURCE_LABEL[t.source]}</td>
-                      <td>
-                        <select aria-label={`${s.accreditorShortName} ${t.externalTerm} maps to`} className={select} disabled={!canEdit} value={t.termId ?? ''}
-                          onChange={(e) => { const termId = e.target.value || null; run.mutate(() => api.setAlias({ frameworkId: s.frameworkId, source: t.source, externalTerm: t.externalTerm, termId })); }}>
-                          <option value="">Not mapped</option>
-                          {options.map((x) => <option key={x.id} value={x.id}>{x.labelEn}</option>)}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
-        ))}
-        {external.data?.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
       </Card>
     </div>
   );

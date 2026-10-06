@@ -3,8 +3,10 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { VersionStatusBadge } from '../components/badges';
 import { type FrameworkApi } from '../lib/framework-api';
+import { type GlossaryApi } from '../lib/glossary-api';
 import { useApi, useMe } from '../lib/me';
 import { ConfigTab } from './version/config-tab';
+import { TerminologyTab } from './version/terminology-tab';
 import { MappingsTab } from './version/mappings-tab';
 import { PublishTab } from './version/publish-tab';
 import { RequirementsTab } from './version/requirements-tab';
@@ -12,17 +14,18 @@ import { SourcesTab } from './version/sources-tab';
 import { TemplatesTab } from './version/templates-tab';
 
 const INTERNAL_TABS = ['requirements', 'config', 'publish'];
-const EXTERNAL_ONLY_TABS = ['mappings'];
+const EXTERNAL_ONLY_TABS = ['mappings', 'terminology'];
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'config', label: 'Lifecycle and vocabularies' },
   { id: 'templates', label: 'Report templates' },
   { id: 'sources', label: 'Sources' },
   { id: 'mappings', label: 'Mappings' },
+  { id: 'terminology', label: 'Terminology' },
   { id: 'publish', label: 'Review and publish' },
 ] as const;
 
-export function VersionPage({ versionId, api: apiProp, onOpenVersion }: { versionId: string; api?: FrameworkApi; onOpenVersion?: (id: string) => void }) {
+export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }: { versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void }) {
   const api = useApi(apiProp);
   const me = useMe(api);
   const navigate = useNavigate();
@@ -55,6 +58,7 @@ export function VersionPage({ versionId, api: apiProp, onOpenVersion }: { versio
         {tab === 'config' && <ConfigTab api={api} version={version} me={me.data} />}
         {tab === 'templates' && <TemplatesTab api={api} version={version} me={me.data} />}
         {tab === 'mappings' && <MappingsTab api={api} version={version} me={me.data} />}
+        {tab === 'terminology' && <TerminologyTab version={version} me={me.data} glossary={glossary} />}
         {tab === 'sources' && <SourcesTab api={api} version={version} me={me.data} />}
         {tab === 'publish' && <PublishTab api={api} version={version} me={me.data} onOpenVersion={open} />}
       </div>

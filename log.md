@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Term mapping moved onto each standard
+
+Correction after review: the table of "how each standard's words map" still sat in Settings → Glossary, against the decision that anything mapping an external standard belongs on that standard's own page. It is now a Terminology tab on each external standard's version page (that standard's words only, with its own "Map unmapped terms automatically"); Settings → Glossary keeps only the institution's own terms and points to the tab. Both mapping kinds (terminology, requirements) now live on the standard.
+
+---
+
 ## 2026-10-06 — Mappings on each standard (TASK-038)
 
 `requirement_mapping` (migrations 0015-0016): an external requirement mapped onto an item of the institution's quality framework, keyed by requirement code within each framework (not by version) so it carries over to new versions of either side and is not part of any frozen version. Relation is covers, partly covers or related, never "equivalent", with an optional rationale. A person with framework:write proposes or edits (an edit returns it to pending), a person with framework:review approves or rejects; the worker role can only read. Triggers: the external side must be an external standard, the internal side the quality framework, and the pair cannot change. A mapping whose requirement no longer exists is flagged. UI: a Mappings tab on each external standard's version page (not in global Settings): pick a requirement, see its mapped items, propose, approve, change relation, remove; points to Settings when the quality framework is empty. API under `/api/framework-versions/{id}/mappings` and `/api/mappings/{id}`. Evidence on internal items will be offered as suggested links on mapped requirements in M3. ROADMAP-012 is complete.
