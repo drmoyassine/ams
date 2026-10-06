@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -10,7 +9,9 @@ import type { GlossaryApi } from '../../lib/glossary-api';
 import type { SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { GlossaryPage } from './glossary';
-import { DATE, EyeIcon, PencilIcon, STATUS_LABEL } from '../frameworks';
+import { DATE, STATUS_LABEL } from '../frameworks';
+import { PublishTab } from '../version/publish-tab';
+import { RequirementsTab } from '../version/requirements-tab';
 
 /** The level names, top first, edited where the terms are: they are the framework's levels and the glossary's level terms. */
 function LevelsEditor({ latest, canWrite, onSave }: { latest: Version; canWrite: boolean; onSave: (labels: string[]) => void }) {
@@ -43,6 +44,12 @@ function LevelsEditor({ latest, canWrite, onSave }: { latest: Version; canWrite:
   );
 }
 
+const TABS = [
+  { id: 'requirements', label: 'Requirements' },
+  { id: 'definitions', label: 'Definitions' },
+  { id: 'publish', label: 'Review and publish' },
+] as const;
+
 /**
  * The institution's own quality framework (AMS/QMS): its standards, named and levelled as the institution chooses.
  * It is edited, reviewed and published like any standard, and external standards are mapped onto it.
@@ -52,13 +59,21 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
   const me = useMe(api);
   const qc = useQueryClient();
   const [error, setError] = useState('');
-  const [edition, setEdition] = useState('');
+  const [pick, setPick] = useState<string | null>(null);
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
   // Its levels are the glossary's level terms, so the terms below change with it.
-  const refresh = () => Promise.all(['quality-framework', 'glossary', 'external-terms'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  const refresh = () => Promise.all(['quality-framework', 'glossary', 'external-terms', 'version', 'requirements', 'validation'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); void run(fn).then(refresh); };
   const canWrite = can(me.data, 'framework:write');
+
+  const versions = data?.versions ?? [];
+  const latest = versions[versions.length - 1];
+  const listed = versions.find((v) => v.id === pick) ?? latest;
+  // The list carries the same fields as the version page; the query keeps the open version fresh after a save or publish.
+  const detail = useQuery({ queryKey: ['version', listed?.id], queryFn: () => api.version(listed!.id), enabled: !!listed });
+  const current = detail.data ?? listed;
 
   if (isError) return <p role="alert">Could not load the internal quality framework.</p>;
   if (!data) return <p>Loading…</p>;
@@ -71,9 +86,6 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
     act(() => api.setUpQualityFramework({ ...(name ? { name } : {}), levelLabels }));
   };
 
-  const versions = data.versions;
-  const latest = versions[versions.length - 1];
-  const draftOpen = versions.some((v) => v.status === 'draft' || v.status === 'in_review');
 
   return (
     <div className="space-y-4">
@@ -95,44 +107,34 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
         </Card>
       ) : <p className="text-sm text-muted-foreground">The internal quality framework has not been set up yet. An administrator or accreditation lead can set it up.</p>)}
 
-      {data.framework && (
-        <Card>
-          <div className="space-y-3 p-4">
+      {data.framework && latest && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
             <h3 className="font-medium">{data.framework.name}</h3>
-            <ul aria-label="Versions of the internal quality framework" className="divide-y divide-border rounded-md border border-border">
-              {versions.map((v) => {
-                const editable = v.status === 'draft' || v.status === 'in_review';
-                const labels = (v.levelLabels as string[] | undefined) ?? [];
-                return (
-                  <li key={v.id} className="flex items-center justify-between gap-3 px-3 py-2" data-testid="version-row">
-                    <span className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-medium">Version {v.edition}</span>
-                      <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{STATUS_LABEL[v.status]}</span>
-                      <span className="text-xs text-muted-foreground">{labels.join(' › ')}</span>
-                    </span>
-                    <span className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span>{v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : 'Not published'}</span>
-                      <Link to="/versions/$versionId" params={{ versionId: v.id }} aria-label={`${editable ? 'Edit' : 'View'} version ${v.edition} of the internal quality framework`}
-                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted">
-                        {editable ? <PencilIcon /> : <EyeIcon />}<span className="text-xs">{editable ? 'Edit' : 'View'}</span>
-                      </Link>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            {canWrite && latest && !draftOpen && (
-              <form className="flex flex-wrap items-end gap-2" aria-label="New version"
-                onSubmit={(e) => { e.preventDefault(); const ed = edition.trim(); if (ed) act(async () => { await api.newVersion(latest.id, { edition: ed }); setEdition(''); }); }}>
-                <label className="flex flex-col text-sm">New version<Input aria-label="Version name" value={edition} onChange={(e) => setEdition(e.target.value)} className="w-40" placeholder="e.g. 2" /></label>
-                <Button type="submit" variant="ghost">Create new version</Button>
-              </form>
-            )}
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">Version
+              <select aria-label="Version" className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground" value={current!.id}
+                onChange={(e) => { const id = e.target.value; setPick(id); }}>
+                {versions.map((v) => <option key={v.id} value={v.id}>{v.edition} · {STATUS_LABEL[v.status]}</option>)}
+              </select>
+            </label>
+            {current!.publishedAt && <span className="text-sm text-muted-foreground">Published {DATE.format(new Date(current!.publishedAt))}</span>}
           </div>
-        </Card>
+          <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
+            {TABS.map((t) => (
+              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+                className={`px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
+            ))}
+          </div>
+          <div role="tabpanel">
+            {tab === 'requirements' && <RequirementsTab key={current!.id} api={api} version={current!} me={me.data} />}
+            {tab === 'definitions' && (
+              <GlossaryPage api={glossary} settings={settings} embedded
+                levelsEditor={<LevelsEditor key={`${latest.id}|${JSON.stringify(latest.levelLabels)}`} latest={latest} canWrite={canWrite} onSave={(labels) => act(() => api.setQualityLevels(labels))} />} />
+            )}
+            {tab === 'publish' && <PublishTab key={current!.id} api={api} version={current!} me={me.data} onOpenVersion={(id) => { setPick(id); void refresh(); setTab('requirements'); }} />}
+          </div>
+        </div>
       )}
-      <hr className="border-border" />
-      <GlossaryPage api={glossary} settings={settings} embedded levelsEditor={latest ? <LevelsEditor key={`${latest.id}|${JSON.stringify(latest.levelLabels)}`} latest={latest} canWrite={canWrite} onSave={(labels) => act(() => api.setQualityLevels(labels))} /> : null} />
     </div>
   );
 }

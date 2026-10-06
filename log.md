@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Internal Quality Framework page is the editor
+
+Settings → Internal Quality Framework no longer lists versions on a card with a link to another page: it is the editor itself, with a version picker and three tabs: Requirements (the tree editor), Definitions (the terms, with the level-name form) and Review and publish (check, submit, publish, export, new version). The old `/versions/{id}` page still opens for an internal version (same tabs minus Definitions) and links back here.
+
+---
+
 ## 2026-10-06 — Internal Quality Framework, levels edited with the terms
 
 Renamed in the UI to "Internal Quality Framework" (default name of the framework too; migration 0017 renames the one already set up). The separate "Level names" JSON tab is gone from its version page: level names are edited in the Terms section of Settings → Internal Quality Framework (a form above the level terms: rename, add a level, remove the lowest), through `PUT /api/quality-framework/levels` (`setQualityLevels`). It acts on the newest version while it is a draft; renaming a level renames what that version's requirements carry (back to pending review), levels are dropped only from the bottom and only when unused, and once the newest version is published the editor says to create a new version. Switched-off level terms from the first release no longer show in the list.

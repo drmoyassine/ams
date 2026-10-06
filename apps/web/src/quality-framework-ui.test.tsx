@@ -64,12 +64,13 @@ describe('quality framework settings', () => {
     await user.clear(levels);
     await user.type(levels, 'Pillar, Standard, Indicator');
     await user.click(screen.getByRole('button', { name: 'Set up' }));
-    const list = await screen.findByRole('list', { name: 'Versions of the internal quality framework' });
-    expect(list.textContent).toContain('Version 1');
-    expect(list.textContent).toContain('Draft');
-    expect(list.textContent).toContain('Pillar › Standard › Indicator');
-    expect(screen.getByRole('link', { name: /Edit version 1 of the internal quality framework/ })).toBeTruthy();
-    // the glossary is part of this page: its level terms are the levels just chosen
+    const version = (await screen.findByLabelText('Version')) as HTMLSelectElement;
+    expect(version.selectedOptions[0]!.textContent).toBe('1 · Draft');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Definitions', 'Review and publish']);
+    // the versions' own editor is this page: the requirements tab is open first, with the add form
+    expect(await screen.findByRole('form', { name: 'Add requirement' })).toBeTruthy();
+    await user.click(screen.getByRole('tab', { name: 'Definitions' }));
+    // the definitions are part of this page: its level terms are the levels just chosen
     const levelTerms = await screen.findByRole('region', { name: 'Requirement levels' });
     await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
     // levels are renamed where the terms are, and the terms follow
