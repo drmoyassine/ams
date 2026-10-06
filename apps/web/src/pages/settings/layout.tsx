@@ -3,8 +3,7 @@ import { Link, Outlet } from '@tanstack/react-router';
 const ITEMS = [
   { to: '/settings/organization', label: 'Organization', hint: 'Names, branding and org chart' },
   { to: '/settings/programs', label: 'Programs', hint: 'Add and edit programs' },
-  { to: '/settings/quality-framework', label: 'Quality framework', hint: 'The institution\'s own standards' },
-  { to: '/settings/glossary', label: 'Glossary', hint: 'Internal terms and their external names' },
+  { to: '/settings/quality-framework', label: 'Quality framework', hint: 'The institution\'s own standards and terms' },
 ] as const;
 const COMING = [] as readonly { label: string; hint: string }[];
 

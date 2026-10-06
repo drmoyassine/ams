@@ -117,7 +117,7 @@ describe('level terms follow the quality framework', () => {
     const before = await termId('level_2');
     await w.as('admin', (c) => updateVersionConfig(c, v.id, { levelLabels: ['Pillar', 'Standard', 'Indicator'] }));
     let g = await w.as('contrib', (c) => getGlossary(c));
-    expect(g.terms.filter((t) => t.kind === 'level' && t.active).map((t) => t.labelEn)).toEqual(['Indicator', 'Pillar', 'Standard']);
+    expect(g.terms.filter((t) => t.kind === 'level' && t.active).map((t) => t.labelEn)).toEqual(['Pillar', 'Standard', 'Indicator']);
     expect(await termId('level_2')).toBe(before); // renamed in place, so what mapped to it still does
     expect(g.terms.find((t) => t.key === 'level_2')!.labelEn).toBe('Standard');
     await w.as('alo', (c) => autoMapStandards(c));

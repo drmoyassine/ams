@@ -11,6 +11,8 @@ import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
 import { createApi } from './lib/api';
 import { frameworkApi } from './lib/framework-api';
+import { glossaryApi } from './lib/glossary-api';
+import { settingsApi } from './lib/settings-api';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
 import { VersionPage } from './pages/version';
 import { within } from '@testing-library/react';
@@ -22,11 +24,13 @@ let pool: pg.Pool;
 let app: ReturnType<typeof createApp>['app'];
 const ids = {} as Record<string, string>;
 const one = async (sql: string, p: unknown[] = []) => (await db.su.query(sql, p)).rows[0].id as string;
-const apiFor = (who: string) => frameworkApi(createApi(((input: RequestInfo | URL, init?: RequestInit) => {
+const apiOf = (who: string) => createApi(((input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers);
   headers.set('x-test-user', `${ids[who]}:${ids.inst}`);
   return app.request(input as string, { ...init, headers });
-}) as typeof fetch));
+}) as typeof fetch);
+const apiFor = (who: string) => frameworkApi(apiOf(who));
+const extra = (who: string) => ({ glossary: glossaryApi(apiOf(who)), settings: settingsApi(apiOf(who)) });
 function wrap(ui: React.ReactElement) {
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>;
@@ -49,12 +53,12 @@ afterAll(async () => { await pool.end(); await db.close(); });
 describe('quality framework settings', () => {
   it('is set up by an editor with the level names they choose, and a viewer only reads it', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(wrap(<QualityFrameworkPage api={apiFor('viewer')} />));
+    const { unmount } = render(wrap(<QualityFrameworkPage api={apiFor('viewer')} {...extra('viewer')} />));
     expect(await screen.findByText(/has not been set up yet/)).toBeTruthy();
     expect(screen.queryByRole('form', { name: 'Set up the quality framework' })).toBeNull();
     unmount();
 
-    render(wrap(<QualityFrameworkPage api={apiFor('lead')} />));
+    render(wrap(<QualityFrameworkPage api={apiFor('lead')} {...extra('lead')} />));
     const levels = await screen.findByLabelText('Level names');
     await waitFor(() => expect((levels as HTMLInputElement).value).toBe('Standard, Sub-standard'));
     await user.clear(levels);
@@ -65,6 +69,9 @@ describe('quality framework settings', () => {
     expect(list.textContent).toContain('Draft');
     expect(list.textContent).toContain('Pillar › Standard › Indicator');
     expect(screen.getByRole('link', { name: /Edit version 1 of the quality framework/ })).toBeTruthy();
+    // the glossary is part of this page: its level terms are the levels just chosen
+    const levelTerms = await screen.findByRole('region', { name: 'Requirement levels' });
+    await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {

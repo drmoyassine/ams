@@ -50,8 +50,8 @@ function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boole
   );
 }
 
-/** Settings → Glossary: the institution's own terms, and how each standard's words map onto them (DEC-016). */
-export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; settings?: SettingsApi }) {
+/** The institution's own terms (DEC-016): shown inside Settings → Quality framework. Each standard's Terminology tab maps its words onto them. */
+export function GlossaryPage({ api: override, settings, embedded = false }: { api?: GlossaryApi; settings?: SettingsApi; embedded?: boolean }) {
   const api = useGlossaryApi(override);
   const qc = useQueryClient();
   const me = useMe(useSettingsApi(settings));
@@ -71,7 +71,7 @@ export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; s
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Glossary</h2>
+        {embedded ? <h3 className="text-base font-semibold">Terms</h3> : <h2 className="text-lg font-semibold">Glossary</h2>}
         <p className="text-sm text-muted-foreground">One shared language inside the institution. Each accreditor's own words stay on its standard and on everything sent to it; each standard's page has a Terminology tab that maps them onto these terms.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -99,11 +99,11 @@ export function GlossaryPage({ api: override, settings }: { api?: GlossaryApi; s
           </form>
         )}
         {terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}
-        {terms.length > 0 && byKind('level').filter((t) => t.active).length === 0 && <p className="text-sm text-muted-foreground">No level names yet: <Link to="/settings/quality-framework" className="underline">set up your quality framework</Link> and its levels appear here.</p>}
+        {terms.length > 0 && byKind('level').filter((t) => t.active).length === 0 && <p className="text-sm text-muted-foreground">No level names yet: {embedded ? 'set up the framework above and its levels appear here.' : <><Link to="/settings/quality-framework" className="underline">set up your quality framework</Link> and its levels appear here.</>}</p>}
         {GLOSSARY_KINDS.filter((k) => byKind(k).length).map((k) => (
           <section key={k} aria-label={KIND_LABEL[k]} className="mb-3">
             <h4 className="text-sm font-medium text-muted-foreground">{KIND_LABEL[k]}</h4>
-            {k === 'level' && <p className="text-xs text-muted-foreground">These are the level names of your <Link to="/settings/quality-framework" className="underline">quality framework</Link>; rename them there. You can add an Arabic name and a definition here.</p>}
+            {k === 'level' && <p className="text-xs text-muted-foreground">These are the level names of your {embedded ? 'quality framework' : <Link to="/settings/quality-framework" className="underline">quality framework</Link>}; rename them {embedded ? 'on its Level names tab' : 'there'}. You can add an Arabic name and a definition here.</p>}
             <ul className="divide-y divide-border">
               {byKind(k).map((t) => <TermRow key={t.id} term={t} canEdit={canEdit} onSave={(patch) => run.mutate(() => api.updateTerm(t.id, { ...(patch.labelEn !== undefined ? { labelEn: patch.labelEn } : {}), ...('labelAr' in patch ? { labelAr: patch.labelAr ?? null } : {}), ...('definitionEn' in patch ? { definitionEn: patch.definitionEn ?? null } : {}), ...('definitionAr' in patch ? { definitionAr: patch.definitionAr ?? null } : {}), ...(patch.active !== undefined ? { active: patch.active } : {}) }))} />)}
             </ul>

@@ -9,7 +9,6 @@ import { QualityFrameworkPage } from './pages/settings/quality-framework';
 import { FrameworksPage } from './pages/frameworks';
 import { LoginPage } from './pages/login';
 import { RequirementWorkspacePage } from './pages/requirement-workspace';
-import { GlossaryPage } from './pages/settings/glossary';
 import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
 import { SettingsLayout } from './pages/settings/layout';
@@ -33,7 +32,8 @@ const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', befor
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsLayout });
 const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/settings/organization' }); } });
 const organizationRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationPage /> });
-const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', component: () => <GlossaryPage /> });
+// The glossary lives inside the quality framework page; the old address still works.
+const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });
 const qualityRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-framework', component: () => <QualityFrameworkPage /> });
 const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
 const frameworksRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', component: () => <FrameworksPage /> });

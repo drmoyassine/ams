@@ -17,7 +17,10 @@ const canEdit = (ctx: Ctx) => assertPermitted(ctx, 'framework:write', { type: 'i
 /** The institution's terms and every mapping from an external standard's words onto them. Readable by everyone in the institution. */
 export async function getGlossary(ctx: Ctx): Promise<Glossary> {
   await assertPermitted(ctx, 'org:read', { type: 'any' });
-  const terms = await ctx.tx.select().from(glossaryTerm).orderBy(asc(glossaryTerm.kind), asc(glossaryTerm.labelEn));
+  const rows = await ctx.tx.select().from(glossaryTerm).orderBy(asc(glossaryTerm.kind), asc(glossaryTerm.labelEn));
+  // Levels read in the order of the quality framework, top first; every other kind alphabetically.
+  const rank = (t: TermRow) => Number(LEVEL_KEY.exec(t.key)?.[1] ?? 0);
+  const terms = [...rows].sort((a, b) => (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : rank(a) - rank(b) || (a.labelEn < b.labelEn ? -1 : a.labelEn > b.labelEn ? 1 : 0)));
   const aliases = await ctx.tx.select().from(glossaryAlias);
   return { terms: terms.map(termDto), aliases: aliases.map(aliasDto) };
 }

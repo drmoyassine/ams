@@ -15,7 +15,7 @@ const SOURCE_LABEL = { level_label: 'Level', finding_code: 'Finding', report_tem
 
 /**
  * How this standard's own words (level names, finding names, report types) map onto the institution's glossary terms
- * (DEC-016). It belongs to the standard, not to global Settings; the terms themselves are edited in Settings → Glossary.
+ * (DEC-016). It belongs to the standard, not to global Settings; the terms themselves are edited in Settings → Quality framework.
  */
 export function TerminologyTab({ version, me, glossary: override }: { version: Version; me: Me | undefined; glossary?: GlossaryApi }) {
   const api = useGlossaryApi(override);
@@ -39,14 +39,14 @@ export function TerminologyTab({ version, me, glossary: override }: { version: V
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">What this standard calls things, and the institution's term for each. Suggestions come from where a word sits in the standard; nothing you set is overwritten. Edit the terms themselves in <Link to="/settings/glossary" className="underline">Settings → Glossary</Link>.</p>
+        <p className="text-sm text-muted-foreground">What this standard calls things, and the institution's term for each. Suggestions come from where a word sits in the standard; nothing you set is overwritten. Edit the terms themselves in <Link to="/settings/quality-framework" className="underline">Settings → Quality framework</Link>.</p>
         {canEdit && terms.length > 0 && (
           <Button type="button" variant="ghost" className="shrink-0" onClick={() => void run(async () => { const r = await api.autoMap(version.frameworkId); setMessage(`${r.mapped} term(s) mapped from their structure.`); })}>Map unmapped terms automatically</Button>
         )}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
-      {terms.length === 0 && <p className="text-sm text-muted-foreground">The institution has no glossary terms yet. Add the starter terms in <Link to="/settings/glossary" className="underline">Settings → Glossary</Link> first.</p>}
+      {terms.length === 0 && <p className="text-sm text-muted-foreground">The institution has no glossary terms yet. Add the starter terms in <Link to="/settings/quality-framework" className="underline">Settings → Quality framework</Link> first.</p>}
       {terms.length > 0 && !terms.some((t) => t.kind === 'level' && t.active) && (
         <p className="text-sm text-amber-800">Your levels come from your quality framework. <Link to="/settings/quality-framework" className="underline">Set it up</Link> to map this standard's level names.</p>
       )}

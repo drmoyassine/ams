@@ -6,21 +6,25 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import type { FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
+import type { GlossaryApi } from '../../lib/glossary-api';
+import type { SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
+import { GlossaryPage } from './glossary';
 import { DATE, EyeIcon, PencilIcon, STATUS_LABEL } from '../frameworks';
 
 /**
  * The institution's own quality framework (AMS/QMS): its standards, named and levelled as the institution chooses.
  * It is edited, reviewed and published like any standard, and external standards are mapped onto it.
  */
-export function QualityFrameworkPage({ api: apiProp }: { api?: FrameworkApi }) {
+export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi }) {
   const api = useApi(apiProp);
   const me = useMe(api);
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [edition, setEdition] = useState('');
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
-  const refresh = () => qc.invalidateQueries({ queryKey: ['quality-framework'] });
+  // Its levels are the glossary's level terms, so the terms below change with it.
+  const refresh = () => Promise.all(['quality-framework', 'glossary', 'external-terms'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); void run(fn).then(refresh); };
   const canWrite = can(me.data, 'framework:write');
@@ -44,7 +48,7 @@ export function QualityFrameworkPage({ api: apiProp }: { api?: FrameworkApi }) {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Quality framework</h2>
-        <p className="text-sm text-muted-foreground">Your institution's own standards. You choose how many levels it has and what they are called, for example Standard then Sub-standard. External standards are mapped onto it from each standard's own page; evidence attaches to its items.</p>
+        <p className="text-sm text-muted-foreground">Your institution's own standards and the words you use for them. You choose how many levels it has and what they are called, for example Standard then Sub-standard. External standards are mapped onto it from each standard's own page; evidence attaches to its items.</p>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
@@ -96,6 +100,8 @@ export function QualityFrameworkPage({ api: apiProp }: { api?: FrameworkApi }) {
           </div>
         </Card>
       )}
+      <hr className="border-border" />
+      <GlossaryPage api={glossary} settings={settings} embedded />
     </div>
   );
 }
