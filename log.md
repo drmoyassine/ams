@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Definitions laid out in groups
+
+Definitions was one long card with the level names as a separate form. Now three titled groups (Your quality system: building blocks, attributes, levels; Accreditors' words: findings, reports; Other terms: general terms), each kind on its own card with a count, a one-line purpose and its own add button where adding is allowed. Levels are ordinary rows like every other term: Edit renames a level (through the framework's level names), with Add a level / Remove the lowest level at the foot of the card; when the newest version is not a draft the card says to create a new version. Internal keys are no longer shown.
+
+---
+
 ## 2026-10-06 — Definitions, levels by depth and the quality cycle
 
 The internal framework page now has Definitions (first), Requirements, Cycle, and Review and publish. Definitions holds fixed building blocks the institution names, defines and can switch off (Policy, Objective, Risk, Opportunity, Measure / KPI, Procedure, Evidence, Internal review, Management review, Corrective action), the attributes every item carries (Owner, Scope), level names by depth, words for accreditor findings and reports, and other terms. Blocks are glossary terms of kind `block`/`attribute` (migration 0018 widens the kind check and moves "Evidence" from general to block); they cannot be added or deleted, because the system will give each one behaviour. In the internal framework a requirement's level is its depth: no level picker, Indent/Outdent buttons (`/api/requirements/{id}/indent|outdent`), and every label follows depth and the level names ("Level n" past the named ones); renaming levels no longer resets review. The Cycle tab edits stages, blocks per stage and flows as data (`framework_version.qms_cycle`, versioned and frozen with the version; default Plan, Do, Check, Act) and draws it with Mermaid (lazy, strict security, one import point `lib/diagram.ts`); `GET /api/framework-versions/{id}/qms-model` returns blocks, attributes, levels, cycle and Mermaid text for people and agents, and the tab downloads it as JSON. Mermaid lines list each block's arrows to later stages first, so the layout breaks the loop at the arrows that go back and stages read left to right (checked by rendering in Chromium).

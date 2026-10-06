@@ -76,11 +76,16 @@ describe('quality framework settings', () => {
     const levelTerms = await screen.findByRole('region', { name: 'Levels' });
     await waitFor(() => expect(within(levelTerms).getAllByTestId('term').map((t) => t.textContent?.match(/^(Pillar|Standard|Indicator)/)?.[1])).toEqual(['Pillar', 'Standard', 'Indicator']));
     // levels are renamed where the terms are, and the terms follow
-    const level1 = screen.getByLabelText('Level 1 name');
+    await user.click(within(levelTerms).getByRole('button', { name: 'Edit Pillar' }));
+    const level1 = within(levelTerms).getByLabelText('Term (English)');
     await user.clear(level1);
     await user.type(level1, 'Theme');
-    await user.click(screen.getByRole('button', { name: 'Save level names' }));
+    await user.click(within(levelTerms).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Levels' })).getAllByTestId('term').map((t) => t.textContent?.match(/^(Theme|Pillar|Standard|Indicator)/)?.[1])).toEqual(['Theme', 'Standard', 'Indicator']));
+    // the definitions show as groups, each kind on its own card
+    for (const g of ['Your quality system', 'Accreditors\' words', 'Other terms']) expect(screen.getByRole('heading', { name: g })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Add a level' }));
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Levels' })).getAllByTestId('term')).toHaveLength(4));
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {

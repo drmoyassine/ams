@@ -110,10 +110,10 @@ describe('glossary settings', () => {
     const user = userEvent.setup();
     const a = apis('lead');
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
-    await user.click(await screen.findByRole('button', { name: 'Add term' }));
+    await user.click(await screen.findByRole('button', { name: 'Add a term' }));
     await user.type(screen.getByLabelText('New term'), 'Quality cycle');
     await user.click(screen.getByRole('button', { name: 'Add' }));
-    const general = await screen.findByRole('region', { name: 'Other terms' });
+    const general = await screen.findByRole('region', { name: 'General terms' });
     await user.click(await within(general).findByLabelText('Edit Quality cycle'));
     await user.type(await screen.findByLabelText('Term (Arabic)'), 'دورة الجودة');
     await user.type(screen.getByLabelText('Definition (English)'), 'One turn of plan, do, check, act.');
@@ -127,7 +127,7 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     await screen.findByRole('region', { name: 'Levels' });
     expect(screen.queryByRole('button', { name: /Edit / })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add term' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a term' })).toBeNull();
     cleanup();
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={await versionOf('ABET')} api={fw('viewer')} glossary={a.glossary} onOpenVersion={() => undefined} />));

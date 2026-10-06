@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import type { FrameworkApi, Version } from '../../lib/framework-api';
+import type { FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
 import type { GlossaryApi } from '../../lib/glossary-api';
 import type { SettingsApi } from '../../lib/settings-api';
@@ -13,37 +13,6 @@ import { DATE, STATUS_LABEL } from '../frameworks';
 import { CycleTab } from '../version/cycle-tab';
 import { PublishTab } from '../version/publish-tab';
 import { RequirementsTab } from '../version/requirements-tab';
-
-/** The level names, top first, edited where the terms are: they are the framework's levels and the glossary's level terms. */
-function LevelsEditor({ latest, canWrite, onSave }: { latest: Version; canWrite: boolean; onSave: (labels: string[]) => void }) {
-  const saved = (latest.levelLabels as string[] | undefined) ?? [];
-  const [labels, setLabels] = useState(saved);
-  const editable = canWrite && latest.status === 'draft';
-  const dirty = JSON.stringify(labels.map((l) => l.trim())) !== JSON.stringify(saved);
-  const valid = labels.length > 0 && labels.every((l) => l.trim());
-  if (!editable) {
-    return canWrite && latest.status !== 'draft'
-      ? <p className="mb-2 text-xs text-muted-foreground">The newest version is {latest.status.replace('_', ' ')}. Create a new version to change the level names.</p>
-      : null;
-  }
-  return (
-    <form aria-label="Level names" className="mb-3 space-y-2 rounded border border-dashed border-border p-3"
-      onSubmit={(e) => { e.preventDefault(); if (valid && dirty) onSave(labels.map((l) => l.trim())); }}>
-      <p className="text-xs text-muted-foreground">Name your levels from the top, e.g. Standard then Sub-standard.</p>
-      {labels.map((l, i) => (
-        <label key={i} className="flex items-center gap-2 text-sm">
-          <span className="w-16 text-xs text-muted-foreground">Level {i + 1}</span>
-          <Input aria-label={`Level ${i + 1} name`} value={l} dir="auto" onChange={(e) => { const v = e.target.value; setLabels(labels.map((x, j) => (j === i ? v : x))); }} />
-        </label>
-      ))}
-      <div className="flex gap-2">
-        <Button type="button" variant="ghost" onClick={() => setLabels([...labels, ''])}>Add a level</Button>
-        {labels.length > 1 && <Button type="button" variant="ghost" onClick={() => setLabels(labels.slice(0, -1))}>Remove the lowest level</Button>}
-        <Button type="submit" disabled={!valid || !dirty}>Save level names</Button>
-      </div>
-    </form>
-  );
-}
 
 const TABS = [
   { id: 'definitions', label: 'Definitions' },
@@ -130,8 +99,12 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings }: { api
           <div role="tabpanel">
             {tab === 'requirements' && <RequirementsTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} />}
             {tab === 'definitions' && (
-              <GlossaryPage api={glossary} settings={settings} embedded
-                levelsEditor={<LevelsEditor key={`${latest.id}|${JSON.stringify(latest.levelLabels)}`} latest={latest} canWrite={canWrite} onSave={(labels) => act(() => api.setQualityLevels(labels))} />} />
+              <GlossaryPage api={glossary} settings={settings} embedded levels={{
+                labels: (latest.levelLabels as string[] | undefined) ?? [],
+                editable: canWrite && latest.status === 'draft',
+                ...(latest.status !== 'draft' ? { lockedNote: `The newest version is ${latest.status.replace('_', ' ')}. Create a new version to change the levels.` } : {}),
+                set: async (labels) => { await api.setQualityLevels(labels); await refresh(); },
+              }} />
             )}
             {tab === 'cycle' && <CycleTab key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} />}
             {tab === 'publish' && <PublishTab key={current!.id} api={api} version={current!} me={me.data} onOpenVersion={(id) => { setPick(id); void refresh(); setTab('requirements'); }} />}
