@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type pg from 'pg';
-import { autoMapStandards, importVersion, publishVersion, seedDefaultGlossary, submitForReview, validateVersion, type Ctx } from '@ams/core';
+import { autoMapStandards, getQualityFramework, importVersion, publishVersion, seedDefaultGlossary, setUpQualityFramework, submitForReview, validateVersion, type Ctx } from '@ams/core';
 import { FrameworkExportSchema } from '@ams/shared';
 import { fixturesFolder, withIdentity } from '@ams/db';
 import type { Env } from '@ams/shared';
@@ -92,6 +92,9 @@ export async function seedGlossary(pool: pg.Pool): Promise<{ terms: number; mapp
   const caller = { userId: who.user_id as string, institutionId: who.institution_id as string, requestId: crypto.randomUUID(), actorType: 'user' as const };
   return withIdentity(pool, caller, async (tx) => {
     const ctx: Ctx = { tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined };
+    // The glossary's level terms are the quality framework's level names, so an empty framework with default levels
+    // is set up first when there is none; the institution renames and fills it in Settings.
+    if (!(await getQualityFramework(ctx)).framework) await setUpQualityFramework(ctx);
     const { added } = await seedDefaultGlossary(ctx);
     const { mapped } = await autoMapStandards(ctx);
     return { terms: added, mapped };

@@ -40,6 +40,7 @@ describe('glossary API', () => {
 
   it('lets a lead seed, map and edit, and everyone read', async () => {
     expect((await call('viewer', 'POST', '/api/glossary/seed-defaults')).status).toBe(403);
+    expect((await call('lead', 'POST', '/api/quality-framework', {})).status).toBe(201); // its levels become the glossary's level terms
     expect((await call('lead', 'POST', '/api/glossary/seed-defaults')).body.added).toBeGreaterThanOrEqual(8);
     const mapped = await call('lead', 'POST', '/api/glossary/auto-map', {});
     expect(mapped.body.mapped).toBeGreaterThan(20);
@@ -50,7 +51,7 @@ describe('glossary API', () => {
     const ext = (await call('viewer', 'GET', '/api/glossary/external-terms')).body as { accreditorShortName: string; frameworkId: string; terms: { externalTerm: string; termId: string | null }[] }[];
     expect(ext.map((s) => s.accreditorShortName)).toEqual(['ABET', 'PUC', 'WSCUC']);
     const wscuc = ext.find((s) => s.accreditorShortName === 'WSCUC')!;
-    const group = g.terms.find((t: { key: string }) => t.key === 'requirement_group').id;
+    const group = g.terms.find((t: { key: string }) => t.key === 'level_1').id;
     expect((await call('lead', 'PUT', '/api/glossary/aliases', { frameworkId: wscuc.frameworkId, source: 'level_label', externalTerm: 'CFR', termId: group })).status).toBe(204);
     const after = (await call('viewer', 'GET', '/api/glossary/external-terms')).body.find((s: { accreditorShortName: string }) => s.accreditorShortName === 'WSCUC');
     expect(after.terms.find((t: { externalTerm: string }) => t.externalTerm === 'CFR').termId).toBe(group);

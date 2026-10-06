@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
+import { syncLevelTerms } from '../glossary/glossary.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
 
 const ROW_META = ['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'] as const;
@@ -106,6 +107,7 @@ export async function updateVersionConfig(ctx: Ctx, versionId: string, patch: z.
     throw new ValidationError('invalid configuration', parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })));
   }
   const [row] = await guardIntegrity(() => ctx.tx.update(frameworkVersion).set(parsed.data).where(eq(frameworkVersion.id, versionId)).returning());
+  if (parsed.data.levelLabels && await isInternalVersion(ctx, versionId)) await syncLevelTerms(ctx);
   return row!;
 }
 

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
+import { syncLevelTerms } from '../glossary/glossary.js';
 import { require_ } from './common.js';
 
 /**
@@ -43,5 +44,6 @@ export async function setUpQualityFramework(ctx: Ctx, input: z.input<typeof SetU
   const [version] = await ctx.tx.insert(frameworkVersion).values({
     institutionId, frameworkId: fw!.id, edition: '1', levelLabels: data.levelLabels,
   }).returning();
+  await syncLevelTerms(ctx);
   return { framework: { id: fw!.id, name: fw!.name }, versions: [version!] };
 }

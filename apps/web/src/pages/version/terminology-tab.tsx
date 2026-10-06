@@ -47,6 +47,9 @@ export function TerminologyTab({ version, me, glossary: override }: { version: V
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
       {terms.length === 0 && <p className="text-sm text-muted-foreground">The institution has no glossary terms yet. Add the starter terms in <Link to="/settings/glossary" className="underline">Settings → Glossary</Link> first.</p>}
+      {terms.length > 0 && !terms.some((t) => t.kind === 'level' && t.active) && (
+        <p className="text-sm text-amber-800">Your levels come from your quality framework. <Link to="/settings/quality-framework" className="underline">Set it up</Link> to map this standard's level names.</p>
+      )}
       {standard && terms.length > 0 && (
         <table className="w-full text-sm" aria-label={`Terminology of ${standard.accreditorShortName}`}>
           <thead className="text-xs text-muted-foreground"><tr><th className="py-1 text-start">Standard's word</th><th className="text-start">Kind</th><th className="text-start">Internal term</th></tr></thead>

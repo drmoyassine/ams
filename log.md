@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-06 — Level terms come from the quality framework
+
+The glossary and the quality framework both named requirement levels, unconnected. Now the quality framework's level names are the glossary's level terms: level N of the framework is the term `level_N`, kept in step on set-up, on any change to the framework's level names and at start-up (`syncLevelTerms`). Renaming a level there renames it everywhere, mappings stay, a level that goes away moves its mappings to the lowest remaining level, and the first release's starter terms "Requirement group" and "Requirement" are retired onto the top and lowest level. Level terms cannot be typed in or renamed in the glossary (Arabic name and definitions can). The structural suggestion maps a standard's group-like levels to the top level and requirement-like levels to the lowest. The start-up seed sets up an empty quality framework with default levels (Standard, Sub-standard) when none exists, so the glossary has levels straight away. The glossary now holds only findings, report types and general terms besides those levels.
+
+---
+
 ## 2026-10-06 — Term mapping moved onto each standard
 
 Correction after review: the table of "how each standard's words map" still sat in Settings → Glossary, against the decision that anything mapping an external standard belongs on that standard's own page. It is now a Terminology tab on each external standard's version page (that standard's words only, with its own "Map unmapped terms automatically"); Settings → Glossary keeps only the institution's own terms and points to the tab. Both mapping kinds (terminology, requirements) now live on the standard.

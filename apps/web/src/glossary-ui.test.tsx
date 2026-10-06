@@ -67,8 +67,13 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     expect(await screen.findByText('No terms yet.')).toBeTruthy();
     await user.click(await screen.findByRole('button', { name: 'Add starter terms' }));
+    expect(await screen.findByText(/No level names yet/)).toBeTruthy(); // levels come from the quality framework
+    cleanup();
+    await fw('lead').setUpQualityFramework({ levelLabels: ['Standard', 'Sub-standard'] });
+    render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     const levels = await screen.findByRole('region', { name: 'Requirement levels' });
-    expect(within(levels).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Requirement'), expect.stringContaining('Requirement group')]);
+    expect(within(levels).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Standard'), expect.stringContaining('Sub-standard')]);
+    expect(levels.textContent).toMatch(/rename them there/);
     expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull(); // it lives on each standard
     expect(screen.queryByText(/How each standard's words map/)).toBeNull();
   });
@@ -82,8 +87,8 @@ describe('glossary settings', () => {
     expect((await screen.findByRole('status')).textContent).toMatch(/\d+ term\(s\) mapped/);
     const table = await screen.findByRole('table', { name: 'Terminology of ABET' });
     const chosen = (label: string) => (within(table).getByLabelText(label) as HTMLSelectElement).selectedOptions[0]!.textContent;
-    await waitFor(() => expect(chosen('ABET Criterion maps to')).toBe('Requirement group'));
-    expect(chosen('ABET Item maps to')).toBe('Requirement');
+    await waitFor(() => expect(chosen('ABET Criterion maps to')).toBe('Standard'));
+    expect(chosen('ABET Item maps to')).toBe('Sub-standard');
     expect(chosen('ABET deficiency maps to')).toBe('Required action');
     expect(chosen('ABET readiness maps to')).toBe('Not mapped');
     expect(within(table).queryByLabelText('WSCUC CFR maps to')).toBeNull(); // only this standard's words
@@ -95,8 +100,8 @@ describe('glossary settings', () => {
     render(wrap(<VersionPage versionId={await versionOf('WSCUC')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
     await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
     const cfr = (await screen.findByLabelText('WSCUC CFR maps to')) as HTMLSelectElement;
-    await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Requirement', 'Requirement group']));
-    const group = [...cfr.options].find((o) => o.textContent === 'Requirement group')!.value;
+    await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Standard', 'Sub-standard']));
+    const group = [...cfr.options].find((o) => o.textContent === 'Standard')!.value;
     await user.selectOptions(cfr, group);
     await waitFor(async () => expect((await a.glossary.glossary()).aliases.find((x) => x.externalTerm === 'CFR')?.termId).toBe(group));
   });
@@ -142,10 +147,10 @@ describe('terms on engagement screens', () => {
     render(wrap(<EngagementPage id={created.engagement.id} api={a.engagement} />));
     await user.click(await screen.findByRole('tab', { name: 'Requirements' }));
     const levelOf = async (code: string) => (await screen.findByText(code)).closest('li')!.querySelector('[data-testid="level"]')!.textContent;
-    await waitFor(async () => expect(await levelOf('Criterion 1')).toBe('Requirement group · Criterion'));
-    expect(await levelOf('Criterion 5(a)')).toBe('Requirement · Item');
+    await waitFor(async () => expect(await levelOf('Criterion 1')).toBe('Standard · Criterion'));
+    expect(await levelOf('Criterion 5(a)')).toBe('Sub-standard · Item');
     await user.selectOptions(screen.getByLabelText('Terms'), 'internal');
-    await waitFor(async () => expect(await levelOf('Criterion 1')).toBe('Requirement group'));
+    await waitFor(async () => expect(await levelOf('Criterion 1')).toBe('Standard'));
     await user.selectOptions(screen.getByLabelText('Terms'), 'standard');
     await waitFor(async () => expect(await levelOf('Criterion 1')).toBe('Criterion'));
   });

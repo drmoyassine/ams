@@ -35,9 +35,9 @@ describe('seedFrameworks', () => {
     const first = await seedGlossary(pool);
     expect(first.terms).toBeGreaterThanOrEqual(8);
     expect(first.mapped).toBeGreaterThan(20);
-    await db.su.query(`update glossary_alias set term_id = (select id from glossary_term where key = 'requirement_group') where external_term = 'CFR'`);
+    await db.su.query(`update glossary_alias set term_id = (select id from glossary_term where key = 'level_1') where external_term = 'CFR'`);
     expect(await seedGlossary(pool)).toEqual({ terms: 0, mapped: 0 });
     const { rows } = await db.su.query(`select t.key from glossary_alias a join glossary_term t on t.id = a.term_id where a.external_term = 'CFR'`);
-    expect(rows).toEqual([{ key: 'requirement_group' }]); // the edit stands
+    expect(rows).toEqual([{ key: 'level_1' }]); // the edit stands
   });
 });

@@ -2,9 +2,14 @@
 // which accreditor a standard belongs to (DEC-002): a term is classified by where its requirements sit in the tree.
 import type { CreateTerm } from '@ams/shared';
 
+/**
+ * Level terms are not starter terms: they are the level names of the institution's quality framework, kept in step with
+ * it (see `syncLevelTerms`). Level N of the framework is the term `level_N`.
+ */
+export const LEVEL_KEY = /^level_(\d+)$/;
+export const levelKey = (position: number) => `level_${position}`;
+
 export const DEFAULT_TERMS: (CreateTerm & { key: string })[] = [
-  { key: 'requirement_group', kind: 'level', labelEn: 'Requirement group', definitionEn: 'A heading level that holds other requirements: a standard, criterion, measure or heading.' },
-  { key: 'requirement', kind: 'level', labelEn: 'Requirement', definitionEn: 'A single thing to be addressed and evidenced: a CFR, indicator or item.' },
   { key: 'required_action', kind: 'finding', labelEn: 'Required action', definitionEn: 'A finding the institution must act on and answer: a deficiency, weakness, concern, recommendation or condition.' },
   { key: 'observation', kind: 'finding', labelEn: 'Observation', definitionEn: 'A finding that needs no action: a commendation or an observation.' },
   { key: 'self_study_report', kind: 'report', labelEn: 'Self-study report', definitionEn: 'The main report that describes the institution or program against the standard.' },

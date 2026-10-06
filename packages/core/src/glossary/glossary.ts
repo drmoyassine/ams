@@ -6,7 +6,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
-import { classifyLevel, DEFAULT_TERMS, findingTermKey, REPORT_TERM_BY_KIND, type LevelStats } from './defaults.js';
+import { classifyLevel, DEFAULT_TERMS, findingTermKey, LEVEL_KEY, levelKey, REPORT_TERM_BY_KIND, type LevelStats } from './defaults.js';
 
 type TermRow = typeof glossaryTerm.$inferSelect;
 type AliasRow = typeof glossaryAlias.$inferSelect;
@@ -33,6 +33,7 @@ export async function seedDefaultGlossary(ctx: Ctx): Promise<{ added: number }> 
       institutionId: ctx.caller.institutionId, key: t.key, kind: t.kind, labelEn: t.labelEn, definitionEn: t.definitionEn ?? null,
     })));
   }
+  await syncLevelTermsAs(ctx);
   return { added: missing.length };
 }
 
@@ -41,6 +42,7 @@ const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]
 export async function createTerm(ctx: Ctx, input: CreateTerm): Promise<GlossaryTerm> {
   assertHuman(ctx);
   await canEdit(ctx);
+  if (input.kind === 'level') throw new ValidationError('requirement levels are named in your quality framework');
   const key = input.key ?? slug(input.labelEn);
   if (!/^[a-z][a-z0-9_]*$/.test(key)) throw new ValidationError('give the term a key of lower-case letters, digits and _');
   const [row] = await guardIntegrity(() => ctx.tx.insert(glossaryTerm).values({
@@ -56,10 +58,14 @@ export async function updateTerm(ctx: Ctx, id: string, patch: UpdateTerm): Promi
   const [current] = await ctx.tx.select().from(glossaryTerm).where(eq(glossaryTerm.id, id));
   if (!current) throw new NotFoundError(`term ${id}`);
   const set: Partial<typeof glossaryTerm.$inferInsert> = {};
-  if (patch.labelEn !== undefined) set.labelEn = patch.labelEn;
+  if (patch.labelEn !== undefined && patch.labelEn !== current.labelEn) {
+    if (LEVEL_KEY.test(current.key)) throw new ConflictError('this level is named in your quality framework; rename it there');
+    set.labelEn = patch.labelEn;
+  }
   if (patch.labelAr !== undefined) set.labelAr = patch.labelAr || null;
   if (patch.definitionEn !== undefined) set.definitionEn = patch.definitionEn || null;
   if (patch.definitionAr !== undefined) set.definitionAr = patch.definitionAr || null;
+  if (patch.active !== undefined && LEVEL_KEY.test(current.key)) throw new ConflictError('levels follow your quality framework and cannot be switched off here');
   if (patch.active === false && current.active) {
     const used = await ctx.tx.select({ id: glossaryAlias.id }).from(glossaryAlias).where(eq(glossaryAlias.termId, id)).limit(1);
     if (used.length) throw new ConflictError('standards still map to this term; map them elsewhere first');
@@ -68,6 +74,54 @@ export async function updateTerm(ctx: Ctx, id: string, patch: UpdateTerm): Promi
   if (Object.keys(set).length === 0) return termDto(current);
   const [row] = await ctx.tx.update(glossaryTerm).set(set).where(eq(glossaryTerm.id, id)).returning();
   return termDto(row!);
+}
+
+/**
+ * Keeps the glossary's level terms in step with the level names of the quality framework (DEC-016): level N of the
+ * framework is the term `level_N`, so renaming a level there renames it everywhere and mappings stay. Levels that
+ * disappear are switched off and what mapped to them moves to the lowest remaining level. The starter terms of the
+ * first release ("Requirement group", "Requirement") are retired the same way, onto the top and lowest level.
+ */
+export async function syncLevelTerms(ctx: Ctx): Promise<void> {
+  const [fw] = await ctx.tx.select({ id: framework.id }).from(framework).where(eq(framework.internal, true));
+  if (!fw) return;
+  const [latest] = await ctx.tx.select({ levelLabels: frameworkVersion.levelLabels }).from(frameworkVersion)
+    .where(eq(frameworkVersion.frameworkId, fw.id)).orderBy(desc(frameworkVersion.createdAt)).limit(1);
+  const labels = ((latest?.levelLabels as string[] | undefined) ?? []).filter((l) => typeof l === 'string' && l.trim());
+  if (labels.length === 0) return;
+
+  const existing = await ctx.tx.select().from(glossaryTerm);
+  const byKey = new Map(existing.map((t) => [t.key, t]));
+  for (const [i, label] of labels.entries()) {
+    const key = levelKey(i + 1);
+    const have = byKey.get(key);
+    if (!have) {
+      const [row] = await ctx.tx.insert(glossaryTerm).values({ institutionId: ctx.caller.institutionId, key, kind: 'level', labelEn: label }).returning();
+      byKey.set(key, row!);
+    } else if (have.labelEn !== label || !have.active) {
+      await ctx.tx.update(glossaryTerm).set({ labelEn: label, active: true }).where(eq(glossaryTerm.id, have.id));
+    }
+  }
+  const top = byKey.get(levelKey(1))!.id;
+  const lowest = byKey.get(levelKey(labels.length))!.id;
+  const retire = async (key: string, into: string) => {
+    const old = byKey.get(key);
+    if (!old) return;
+    await ctx.tx.update(glossaryAlias).set({ termId: into }).where(eq(glossaryAlias.termId, old.id));
+    if (old.active) await ctx.tx.update(glossaryTerm).set({ active: false }).where(eq(glossaryTerm.id, old.id));
+  };
+  await retire('requirement_group', top);
+  await retire('requirement', lowest);
+  for (const t of existing) {
+    const m = LEVEL_KEY.exec(t.key);
+    if (m && Number(m[1]) > labels.length) await retire(t.key, lowest);
+  }
+}
+
+/** Same, for a caller who may edit the glossary (start-up and the starter-terms action). */
+export async function syncLevelTermsAs(ctx: Ctx): Promise<void> {
+  await canEdit(ctx);
+  await syncLevelTerms(ctx);
 }
 
 /** The newest published version of a standard, or its newest version when none is published. */
@@ -97,6 +151,9 @@ export function levelStats(reqs: { id: string; parentId: string | null; levelLab
 export async function listExternalTerms(ctx: Ctx): Promise<ExternalStandard[]> {
   await assertPermitted(ctx, 'org:read', { type: 'any' });
   const terms = new Map((await ctx.tx.select().from(glossaryTerm)).map((t) => [t.key, t]));
+  // A level label is a group (the top level of the quality framework) or a requirement (its lowest level).
+  const levels = [...terms.values()].filter((t) => t.active && LEVEL_KEY.test(t.key)).sort((x, y) => Number(LEVEL_KEY.exec(x.key)![1]) - Number(LEVEL_KEY.exec(y.key)![1]));
+  const levelSuggestion = (kind: 'requirement_group' | 'requirement') => (kind === 'requirement_group' ? levels[0] : levels[levels.length - 1])?.key;
   const termByKey = (k: string | undefined) => (k ? terms.get(k)?.key ?? null : null);
   const aliases = await ctx.tx.select().from(glossaryAlias);
   const mapped = new Map(aliases.map((a) => [`${a.frameworkId}|${a.source}|${a.externalTerm}`, a.termId]));
@@ -111,7 +168,7 @@ export async function listExternalTerms(ctx: Ctx): Promise<ExternalStandard[]> {
     out.push({
       frameworkId: f.id, accreditorShortName: a.shortName, name: f.name, edition: v.edition,
       terms: [
-        ...levelStats(reqs).map((s) => row('level_label', s.label, `${reqs.filter((r) => r.levelLabel === s.label).length} requirements`, classifyLevel(s))),
+        ...levelStats(reqs).map((s) => row('level_label', s.label, `${reqs.filter((r) => r.levelLabel === s.label).length} requirements`, levelSuggestion(classifyLevel(s)))),
         ...findings.map((x) => row('finding_code', x.code, `${x.label}${x.requires_action ? ' (needs action)' : ' (no action)'}`, findingTermKey(x.requires_action))),
         ...templates.map((t) => row('report_template', t.key, `${t.name} (${t.kind.replace('_', '-')})`, REPORT_TERM_BY_KIND[t.kind])),
       ],
