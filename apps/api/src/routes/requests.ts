@@ -68,7 +68,7 @@ export function requestRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       method: 'get', path: '/api/response-links/{token}', access: responseLink(), tags: tag,
       request: { params: tokenParam },
       responses: { 200: { description: 'The request this link opens', ...json(RequestByLinkSchema) }, ...errors },
-    }), async (c) => c.json(toDto(RequestByLinkSchema, await requestByLink(c.get('ctx'), c.get('linkRequestId'))), 200))
+    }), async (c) => c.json(toDto(RequestByLinkSchema, await requestByLink(c.get('ctx'), c.get('linkTargetId'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/response-links/{token}/answer', access: responseLink(), tags: tag,
@@ -77,7 +77,7 @@ export function requestRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       responses: { 204: { description: 'Received' }, ...errors },
     }), async (c) => {
       const { fileName, note } = c.req.valid('query');
-      await answerByLink(c.get('ctx'), c.get('linkRequestId'), await readUpload(c, fileName), note);
+      await answerByLink(c.get('ctx'), c.get('linkTargetId'), await readUpload(c, fileName), note);
       return c.body(null, 204);
     });
 }

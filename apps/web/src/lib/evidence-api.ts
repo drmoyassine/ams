@@ -1,4 +1,5 @@
 import type {
+  DataForm, DataResponse, PublicForm, SubmitResponse,
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
@@ -47,6 +48,21 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     saveDataDefinition: (id: string, json: SaveDatasetSpec) => ev[':id']['data-definition'].$put({ param: { id }, json }).then((r) => unwrap<DatasetSpec>(r)),
     saveData: (id: string, json: SaveDatasetRows) => ev[':id'].data.$post({ param: { id }, json }).then((r) => unwrap<EvidenceVersion>(r)),
     versionData: (versionId: string) => api.api['evidence-versions'][':id'].data.$get({ param: { id: versionId } }).then((r) => unwrap<DatasetData>(r)),
+
+    // Forms (DEC-020)
+    form: (id: string) => ev[':id'].form.$get({ param: { id } }).then((r) => unwrap<DataForm>(r)),
+    setFormOpen: (id: string, open: boolean) => ev[':id'].form.open.$put({ param: { id }, json: { open } }).then((r) => unwrap<DataForm>(r)),
+    newFormLink: (id: string) => ev[':id'].form.link.$post({ param: { id } }).then((r) => unwrap<DataForm>(r)),
+    removeFormLink: (id: string) => ev[':id'].form.link.$delete({ param: { id } }).then((r) => unwrap<DataForm>(r)),
+    formQuestions: (id: string) => ev[':id'].form.questions.$get({ param: { id } }).then((r) => unwrap<PublicForm>(r)),
+    submitResponse: (id: string, json: SubmitResponse) => ev[':id'].form.responses.$post({ param: { id }, json }).then((r) => unwrap<void>(r)),
+    responses: (id: string) => ev[':id'].responses.$get({ param: { id } }).then((r) => unwrap<DataResponse[]>(r)),
+    addResponsesToData: (id: string) => ev[':id'].responses['add-to-data'].$post({ param: { id } }).then((r) => unwrap<EvidenceVersion>(r)),
+    /** Public form link: no account, so plain fetch against the link's own routes. */
+    formByLink: (token: string) => fetcher(`/api/form-links/${encodeURIComponent(token)}`).then((r) => unwrap<PublicForm>(r)),
+    submitByFormLink: (token: string, json: SubmitResponse) => fetcher(`/api/form-links/${encodeURIComponent(token)}/responses`, {
+      method: 'POST', body: JSON.stringify(json), headers: { 'content-type': 'application/json' },
+    }).then((r) => unwrap<void>(r)),
 
     // Requests (DEC-018)
     internalRequests: (requirementId: string) => api.api.requirements[':id']['evidence-requests'].$get({ param: { id: requirementId } }).then((r) => unwrap<EvidenceRequest[]>(r)),

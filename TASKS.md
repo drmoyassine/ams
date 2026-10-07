@@ -1564,4 +1564,41 @@ modified:
 
 Built: evidence_request (migrations 0024-0025) with tenant RLS, audit, a trigger that keeps the target fixed and closed requests closed, and `app_resolve_request_link`, the only lookup made before an institution is known. The one-time link's secret is random (32 bytes), stored only as its SHA-256, expires after 30 days, and stops working once used, cancelled or replaced. The API's third access kind, `responseLink()`, authenticates and scopes by the link and still runs the transaction step; the route coverage test allows it only on `/api/response-links/{token}`. The answer becomes a document with a proposed link to the internal item, which a reviewer approves. UI: "Request evidence" in a standard's ⋯ menu, Requests on the expanded card, a Requests page (Asked of me / All requests), and `/respond/{token}` outside the signed-in app. No email is sent yet: the requester copies the link (SMTP later).
 
+---
+
+## TASK-042 — Form builder for data items, with form and sheet views
+
+---
+id: TASK-042
+title: Form builder for data items, with form and sheet views
+description: >-
+  A data item's columns are its form's questions; answers from AMS users or a public link are kept as responses and
+  added to the data as a version
+status: completed
+priority: P0
+last_updated: '2026-10-07'
+generated:
+  by: agent/claude-code
+  at: '2026-10-07T10:29:21.873Z'
+roadmap_item:
+  id: ROADMAP-004
+  name: M3 — Evidence and datasets
+  url: /ROADMAP.md#ROADMAP-004
+depends_on:
+  - id: TASK-040
+    name: Datasets with manual upload, templates and data requests
+    url: /TASKS.md#TASK-040
+related_decisions:
+  - id: DEC-020
+    name: >-
+      Data can be collected through forms, with an optional public link; responses join the data only when a person adds
+      them
+    url: /DECISIONS.md#DEC-020
+modified:
+  by: agent/claude-code
+  at: '2026-10-07T10:29:21.873Z'
+---
+
+Built: `dataset_spec.form_open` and `form_link_token`, and `dataset_response` (migrations 0028-0029: visible with the item, audited; answers never change and a response is added to one version only). `app_resolve_form_link` finds an open form of an active, non-restricted item. The API's link access now names its target (`responseLink()` for requests, `formLink()` for forms); the route coverage test allows link access only on `/api/response-links/{token}` and `/api/form-links/{token}`. Answers are checked with the sheet's cell rules in the browser and on the server. "Add N responses to the data" saves the latest rows plus the new responses as the next version. UI: Sheet | Form | Responses tabs on a data item; the Form tab opens or closes the form, shows the AMS link (`/forms/{id}`) and creates, replaces or turns off the public link (`/f/{token}`), with a preview; questions take help text in the definition.
+
 <!-- End VEF generated items. -->

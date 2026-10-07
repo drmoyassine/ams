@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Form builder: form and sheet views (DEC-020)
+
+A data item now works like Google Forms: its columns are the questions (with help text), and it has Sheet, Form and Responses views. The Form view opens or closes the form and gives two ways to answer: a link for AMS users, who sign in, and an optional public link for anyone. The public link takes any number of answers until it is turned off, replaced, or the form is closed (DEC-020). Answers are checked with the same cell rules as the sheet and kept as responses. They join the data only when someone with edit rights clicks "Add N responses to the data", which saves the next version. Next: the BI connector, when the warehouse exists; the deferred items (reporting frequency, IQF tab layout) stay open.
+
+---
+
 ## 2026-10-07 — Data evidence: definition and an online sheet
 
 A data item now has a definition: what it means, what one row is, and its columns, each with a type (text, number, whole number, percent, date, choice, yes/no), an optional unit, whether it is required, and the choices of a choice column. Its data lives in an online sheet that we built ourselves, following the grid trial. You can type into it or paste a block from Excel. A cell that doesn't fit its column turns red and says why, and Arabic digits and d/m/yyyy dates are accepted. Saving checks every cell again on the server, using the same rules from `@ams/shared`. The result is kept as the next version, along with the columns it was saved with, so later changes to the definition never alter saved data. The Excel template carries the column rules as data validation and opens right-to-left when the titles are Arabic. Import of Excel or CSV (comma, semicolon, tab) matches headers by name and loads the rows into the sheet to check before saving. ExcelJS and Papa Parse load on demand from one module. TASK-040 is complete. Next: the form builder (form and sheet views).

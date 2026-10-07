@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
-import { resolveRequestLink, withIdentity, type Identity } from '@ams/db';
+import { resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
 import { hashLinkToken, isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
 import type { Permission, Scope } from '@ams/shared';
 
@@ -9,8 +9,8 @@ import type { Permission, Scope } from '@ams/shared';
 export type Authenticator = (req: Request) => Promise<{ userId: string; institutionId: string } | null>;
 
 export interface AppEnv {
-  /** `linkRequestId`: on one-time link routes, the one request the link opens. */
-  Variables: { caller: Identity; ctx: Ctx; linkRequestId: string };
+  /** `linkTargetId`: on link routes, the one request (or data item) the link opens. */
+  Variables: { caller: Identity; ctx: Ctx; linkTargetId: string };
 }
 export type AppContext = Context<AppEnv>;
 
@@ -18,16 +18,18 @@ export type AppContext = Context<AppEnv>;
 export type Access =
   | { kind: 'public' }
   | { kind: 'permission'; permission: Permission; scope: (c: AppContext) => Scope }
-  | { kind: 'link' };
+  | { kind: 'link'; target: 'request' | 'form' };
 
 export const requires = (permission: Permission, scope: (c: AppContext) => Scope = () => ({ type: 'any' })): Access =>
   ({ kind: 'permission', permission, scope });
 export const publicRoute = (): Access => ({ kind: 'public' });
 /**
  * A one-time response link (DEC-018): the `{token}` path parameter is the credential, and it grants exactly one
- * request, whose id the handler reads from `linkRequestId`. No account is involved.
+ * request, whose id the handler reads from `linkTargetId`. No account is involved.
  */
-export const responseLink = (): Access => ({ kind: 'link' });
+export const responseLink = (): Access => ({ kind: 'link', target: 'request' });
+/** A public form link (DEC-020): the `{token}` opens one open form; the data item's id is in `linkTargetId`. */
+export const formLink = (): Access => ({ kind: 'link', target: 'form' });
 
 export const scopeFrom = {
   institution: (): Scope => ({ type: 'institution' }),
@@ -61,12 +63,17 @@ const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (
 };
 
 /** Authenticates and authorizes a one-time link at once: the link resolves to one open request, or to nothing. */
-const linkStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
+const linkStep = (deps: ChainDeps, target: 'request' | 'form'): MiddlewareHandler<AppEnv> => async (c, next) => {
   const token = c.req.param('token') ?? '';
-  const found = token.length >= 20 ? await resolveRequestLink(deps.pool, hashLinkToken(token)) : null;
-  if (!found) return c.json({ error: 'this link has been used, has expired or is not valid' }, 404);
+  const found = token.length < 20 ? null
+    : target === 'request'
+      ? await resolveRequestLink(deps.pool, hashLinkToken(token)).then((f) => f && { id: f.requestId, institutionId: f.institutionId })
+      : await resolveFormLink(deps.pool, token).then((f) => f && { id: f.itemId, institutionId: f.institutionId });
+  if (!found) {
+    return c.json({ error: target === 'request' ? 'this link has been used, has expired or is not valid' : 'this form is closed or the link is no longer valid' }, 404);
+  }
   c.set('caller', { userId: null, institutionId: found.institutionId, requestId: crypto.randomUUID(), actorType: 'system' });
-  c.set('linkRequestId', found.requestId);
+  c.set('linkTargetId', found.id);
   await next();
 };
 
@@ -121,7 +128,7 @@ export function secured<P extends string, C extends Omit<SecureRouteConfig, 'pat
   const middleware: MiddlewareHandler<AppEnv>[] = access.kind === 'public'
     ? []
     : access.kind === 'link'
-      ? [linkStep(deps), transactionStep(deps)]
+      ? [linkStep(deps, access.target), transactionStep(deps)]
       : [authenticateStep(deps), authorizeStep(deps, access), transactionStep(deps)];
   return createRoute({ ...route, middleware } as unknown as Omit<C, 'access'> & { middleware: MiddlewareHandler<AppEnv>[] });
 }

@@ -12,6 +12,7 @@ import { LoginPage } from './pages/login';
 import { RequirementWorkspacePage } from './pages/requirement-workspace';
 import { RequestsPage } from './pages/requests';
 import { RespondPage } from './pages/respond';
+import { AnswerFormPage, PublicFormPage } from './pages/answer-form';
 import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
 import { SettingsLayout } from './pages/settings/layout';
@@ -24,6 +25,9 @@ const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login'
 // A one-time response link (DEC-018): outside the signed-in app, no session needed.
 const respondRoute = createRoute({ getParentRoute: () => rootRoute, path: '/respond/$token', component: () => <RespondRoute /> });
 function RespondRoute() { const { token } = respondRoute.useParams(); return <RespondPage key={token} token={token} />; }
+// A public form link (DEC-020): outside the signed-in app.
+const publicFormRoute = createRoute({ getParentRoute: () => rootRoute, path: '/f/$token', component: () => <PublicFormRoute /> });
+function PublicFormRoute() { const { token } = publicFormRoute.useParams(); return <PublicFormPage key={token} token={token} />; }
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
@@ -52,9 +56,11 @@ function EngagementRoute() { const { id } = engagementRoute.useParams(); return 
 const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagement-requirements/$id', component: () => <WorkspaceRoute /> });
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
 const evidenceRoute = createRoute({ getParentRoute: () => appRoute, path: '/evidence', component: () => <EvidencePage /> });
+const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/forms/$id', component: () => <AnswerFormRoute /> });
+function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, glossaryRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, glossaryRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

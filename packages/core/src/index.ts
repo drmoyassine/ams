@@ -16,4 +16,5 @@ export * from './mapping/mapping.js';
 export * from './evidence/evidence.js';
 export * from './evidence/requests.js';
 export * from './evidence/dataset.js';
+export * from './evidence/forms.js';
 export * from './evidence/memory-store.js';

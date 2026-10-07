@@ -580,7 +580,28 @@ export const datasetSpec = pgTable('dataset_spec', {
   columns: jsonb('columns').notNull().default(sql`'[]'::jsonb`),
   sourceKind: text('source_kind', { enum: DATASET_SOURCE_KINDS }).notNull().default('manual_upload'),
   sourceConfig: jsonb('source_config'),
+  /** The form (DEC-020): whether it takes responses, and the public link's secret when there is one. */
+  formOpen: boolean('form_open').notNull().default(false),
+  formLinkToken: text('form_link_token'),
 }, (t) => [
   uniqueIndex('dataset_spec_item_idx').on(t.evidenceItemId),
+  uniqueIndex('dataset_spec_form_link_idx').on(t.formLinkToken),
   oneOf('dataset_spec_source_check', t.sourceKind, DATASET_SOURCE_KINDS),
+]);
+
+export const RESPONSE_VIA = ['ams', 'link'] as const;
+/**
+ * One answer to a data item's form (DEC-020): a row, checked against the columns when it was given. It joins the data
+ * when someone adds it, which saves the next version (`includedInVersionId`); its answers never change.
+ */
+export const datasetResponse = pgTable('dataset_response', {
+  ...base(), ...tenant(),
+  evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
+  answers: jsonb('answers').notNull(),
+  via: text('via', { enum: RESPONSE_VIA }).notNull(),
+  submittedBy: uuid('submitted_by').references(() => appUser.id),
+  includedInVersionId: uuid('included_in_version_id').references(() => evidenceVersion.id),
+}, (t) => [
+  index('dataset_response_item_idx').on(t.evidenceItemId),
+  oneOf('dataset_response_via_check', t.via, RESPONSE_VIA),
 ]);

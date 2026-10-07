@@ -68,18 +68,15 @@ export const resolveIdentity = (pool: pg.Pool, authUserId: string): Promise<Reso
 export const linkIdentity = (pool: pg.Pool, authUserId: string, email: string): Promise<Resolved> =>
   asApp(pool, 'select user_id, institution_id from app_link_identity($1, $2)', [authUserId, email]);
 
-/**
- * Finds the request a one-time response link opens (DEC-018), given the SHA-256 hex of the link's secret. Runs as the
- * API's role before any institution is known; returns null for a used, expired, cancelled or unknown link.
- */
-export async function resolveRequestLink(pool: pg.Pool, tokenHash: string): Promise<{ requestId: string; institutionId: string } | null> {
+/** Runs one lookup function as the API's role before any institution is known (the link routes). */
+async function resolveLink<T>(pool: pg.Pool, sqlText: string, arg: string, map: (row: Record<string, string>) => T): Promise<T | null> {
   const client = await pool.connect();
   try {
     await client.query('begin');
     await client.query('set local role ams_app');
-    const { rows } = await client.query<{ request_id: string; institution_id: string }>('select * from app_resolve_request_link($1)', [tokenHash]);
+    const { rows } = await client.query<Record<string, string>>(sqlText, [arg]);
     await client.query('commit');
-    return rows[0] ? { requestId: rows[0].request_id, institutionId: rows[0].institution_id } : null;
+    return rows[0] ? map(rows[0]) : null;
   } catch (e) {
     await client.query('rollback').catch(() => undefined);
     throw e;
@@ -87,3 +84,14 @@ export async function resolveRequestLink(pool: pg.Pool, tokenHash: string): Prom
     client.release();
   }
 }
+
+/**
+ * Finds the request a one-time response link opens (DEC-018), given the SHA-256 hex of the link's secret; null for a
+ * used, expired, cancelled or unknown link.
+ */
+export const resolveRequestLink = (pool: pg.Pool, tokenHash: string) =>
+  resolveLink(pool, 'select * from app_resolve_request_link($1)', tokenHash, (r) => ({ requestId: r.request_id!, institutionId: r.institution_id! }));
+
+/** Finds the data item whose open form a public link answers (DEC-020); null when the form is closed or the link off. */
+export const resolveFormLink = (pool: pg.Pool, token: string) =>
+  resolveLink(pool, 'select * from app_resolve_form_link($1)', token, (r) => ({ itemId: r.evidence_item_id!, institutionId: r.institution_id! }));

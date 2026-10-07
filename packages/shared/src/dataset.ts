@@ -16,6 +16,8 @@ export const DataColumnSchema = z.object({
   unit: z.string().trim().min(1).nullable().optional(),
   required: z.boolean().default(false),
   choices: z.array(z.string().trim().min(1)).optional(),
+  /** Shown under the question in the form. */
+  help: z.string().trim().min(1).optional(),
 }).superRefine((c, ctx) => {
   if (c.type === 'choice' && !c.choices?.length) ctx.addIssue({ code: 'custom', path: ['choices'], message: `list the choices for ${c.label}` });
 });
@@ -141,3 +143,25 @@ export function formatCell(col: Pick<DataColumn, 'type'>, v: CellValue | undefin
   if (col.type === 'yes_no' && typeof v === 'boolean') return v ? 'Yes' : 'No';
   return String(v);
 }
+
+// ---- Forms (DEC-020) ------------------------------------------------------------------------------------------------
+
+/** The form of a data item: whether it takes responses, its public link, and its responses waiting to be added. */
+export const DataFormSchema = z.object({ open: z.boolean(), linkToken: z.string().nullable(), pending: z.number(), included: z.number() });
+export type DataForm = z.infer<typeof DataFormSchema>;
+export const SetFormOpenSchema = z.object({ open: z.boolean() }).strict();
+
+/** What someone answering sees: the questions and what they are for, nothing else of the institution. */
+export const PublicFormSchema = z.object({
+  title: z.string(), definition: z.string().nullable(), institutionName: z.string(), columns: z.array(DataColumnSchema),
+});
+export type PublicForm = z.infer<typeof PublicFormSchema>;
+
+export const SubmitResponseSchema = z.object({ answers: z.record(z.string(), CellSchema) }).strict();
+export type SubmitResponse = z.infer<typeof SubmitResponseSchema>;
+
+export const DataResponseSchema = z.object({
+  id: z.string(), answers: z.record(z.string(), CellSchema), via: z.enum(['ams', 'link']), submittedByName: z.string().nullable(),
+  createdAt: z.string(), includedInVersionNo: z.number().nullable(),
+});
+export type DataResponse = z.infer<typeof DataResponseSchema>;

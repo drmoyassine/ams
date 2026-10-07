@@ -4,7 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import { datasetSpec, evidenceVersion } from '@ams/db';
 import {
   DatasetDataSchema, SaveDatasetRowsSchema, SaveDatasetSpecSchema, validateRows,
-  type DataColumn, type DatasetData, type DatasetSpec, type EvidenceVersion, type SaveDatasetRows, type SaveDatasetSpec,
+  type DataColumn, type DataRow, type DatasetData, type DatasetSpec, type EvidenceVersion, type SaveDatasetRows, type SaveDatasetSpec,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { NotFoundError, ValidationError } from '../ctx.js';
@@ -21,7 +21,7 @@ const specDto = (r: SpecRow | undefined): DatasetSpec => ({
   sourceKind: r?.sourceKind ?? 'manual_upload', updatedAt: r?.updatedAt.toISOString() ?? null,
 });
 
-async function dataItem(ctx: Ctx, itemId: string) {
+export async function dataItem(ctx: Ctx, itemId: string) {
   const item = await getItem(ctx, itemId);
   if (item.type !== 'data') throw new ValidationError('only data evidence has a data definition');
   return item;
@@ -66,12 +66,17 @@ export async function saveDatasetRows(ctx: Ctx, itemId: string, input: SaveDatas
     throw new ValidationError(`${issues.length} cell${issues.length === 1 ? ' needs' : 's need'} attention`, issues.slice(0, 200).map((i) => ({ path: `rows.${i.row}.${i.key}`, message: i.message })));
   }
   if (!rows.length) throw new ValidationError('there are no rows to save');
-  const [last] = await ctx.tx.select({ n: evidenceVersion.versionNo }).from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, item.id)).orderBy(desc(evidenceVersion.versionNo)).limit(1);
+  return insertDataVersion(ctx, item.id, columns, rows, { notes: d.notes ?? null, sourceKind: spec!.sourceKind });
+}
+
+/** Stores checked rows as the item's next version, with the columns and where they came from. */
+export async function insertDataVersion(ctx: Ctx, itemId: string, columns: DataColumn[], rows: DataRow[], opts: { notes: string | null; sourceKind: string; extra?: Record<string, unknown> }) {
+  const [last] = await ctx.tx.select({ n: evidenceVersion.versionNo }).from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, itemId)).orderBy(desc(evidenceVersion.versionNo)).limit(1);
   const data: DatasetData = { columns, rows };
   const [v] = await guardIntegrity(() => ctx.tx.insert(evidenceVersion).values({
-    institutionId: ctx.caller.institutionId, evidenceItemId: item.id, versionNo: (last?.n ?? 0) + 1, data, notes: d.notes ?? null,
+    institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo: (last?.n ?? 0) + 1, data, notes: opts.notes,
     asOfDate: new Date().toISOString().slice(0, 10),
-    lineage: { source_kind: spec!.sourceKind, supplied_by: ctx.caller.userId, saved_at: new Date().toISOString() },
+    lineage: { source_kind: opts.sourceKind, supplied_by: ctx.caller.userId, saved_at: new Date().toISOString(), ...opts.extra },
   }).returning());
   return versionDto(v!);
 }

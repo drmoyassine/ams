@@ -28,9 +28,14 @@ related_decisions:
   - id: DEC-019
     name: Evidence may be shared with a connected BI product whose AI may process it
     url: /DECISIONS.md#DEC-019
+  - id: DEC-020
+    name: >-
+      Data can be collected through forms, with an optional public link; responses join the data only when a person adds
+      them
+    url: /DECISIONS.md#DEC-020
 modified:
   by: agent/claude-code
-  at: '2026-10-07T09:55:21.170Z'
+  at: '2026-10-07T10:29:21.873Z'
 related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links
@@ -41,6 +46,9 @@ related_tasks:
   - id: TASK-041
     name: Evidence requests with one-time links
     url: /TASKS.md#TASK-041
+  - id: TASK-042
+    name: Form builder for data items, with form and sheet views
+    url: /TASKS.md#TASK-042
 ---
 # ROADMAP-004 — M3 — Evidence and datasets
 
