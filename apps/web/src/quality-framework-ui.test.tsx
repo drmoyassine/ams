@@ -65,11 +65,13 @@ describe('quality framework settings', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Terms']);
     const standards = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(standards.textContent).toContain('Mission and governance'));
-    // each standard is a closed accordion, labelled "Standard 1.0"; opening it shows its sub-standards ("Standard 3.2")
+    // each standard is a closed accordion labelled "Standard 1.0", with its sub-standards ("Standard 3.2") listed right under it, indented
+    const subs3 = within(standards).getByRole('list', { name: 'Sub-standards of Standard 3.0' });
+    expect(within(subs3).getByRole('region', { name: 'Standard 3.2' }).textContent).toContain('Assessment of learning');
     const s3 = within(standards).getByRole('region', { name: 'Standard 3.0' });
-    expect(within(s3).queryByText('Assessment of learning')).toBeNull();
+    expect(within(s3).queryByText('Assessment of learning')).toBeNull(); // not inside the standard's own card
     await user.click(within(s3).getByRole('button', { name: /Standard 3\.0\s*Teaching and learning/ }));
-    expect(within(s3).getByRole('region', { name: 'Standard 3.2' }).textContent).toContain('Assessment of learning');
+    expect(within(s3).getByText('Description')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Publish this version' })).toBeNull(); // a lead edits; the admin publishes
     // hovering a closed card shows its details without opening it
     await user.hover(within(standards).getByRole('button', { name: /Standard 1\.0\s*Mission and governance/ }));
@@ -94,7 +96,8 @@ describe('quality framework settings', () => {
     expect((within(sub).getByLabelText('Code') as HTMLInputElement).value).toBe('9.1');
     await user.type(within(sub).getByLabelText('Title'), 'Student mobility');
     await user.click(within(sub).getByRole('button', { name: 'Save as draft' }));
-    expect((await within(s9).findByRole('region', { name: 'Standard 9.1' })).textContent).toContain('Student mobility');
+    const subs9 = await screen.findByRole('list', { name: 'Sub-standards of Standard 9.0' });
+    expect((await within(subs9).findByRole('region', { name: 'Standard 9.1' })).textContent).toContain('Student mobility');
     // a code places the item: a standard typed as 9.2 lands under Standard 9.0
     await user.click(screen.getByRole('button', { name: '+ Standard' }));
     const placed = await screen.findByRole('dialog');
@@ -102,7 +105,7 @@ describe('quality framework settings', () => {
     await user.type(within(placed).getByLabelText('Code'), '9.2');
     await user.type(within(placed).getByLabelText('Title'), 'Recognition');
     await user.click(within(placed).getByRole('button', { name: 'Save as draft' }));
-    expect(await within(s9).findByRole('region', { name: 'Standard 9.2' })).toBeTruthy();
+    expect(await within(screen.getByRole('list', { name: 'Sub-standards of Standard 9.0' })).findByRole('region', { name: 'Standard 9.2' })).toBeTruthy();
     const rows = await apiFor('lead').requirements(version.value);
     expect(rows.find((r) => r.code === '9')!.officialText).toBe('Partnerships, mobility and international recognition.');
     expect(rows.find((r) => r.code === '9.1')!.levelLabel).toBe('Sub-standard');

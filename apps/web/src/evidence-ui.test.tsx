@@ -96,8 +96,7 @@ describe('evidence', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
-    await user.click(await screen.findByRole('button', { name: /Teaching and learning/ }));
-    const item = await screen.findByRole('region', { name: 'Standard 3.2' });
+    const item = await screen.findByRole('region', { name: 'Standard 3.2' }); // listed under Standard 3.0 without opening it
     await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.2' }));
     await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
     const dialog = await screen.findByRole('dialog');
@@ -117,7 +116,6 @@ describe('evidence', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
-    await user.click(await screen.findByRole('button', { name: /Teaching and learning/ }));
     const item = await screen.findByRole('region', { name: 'Standard 3.1' });
     await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.1' }));
     await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));

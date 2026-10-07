@@ -123,7 +123,7 @@ interface ItemProps {
   onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
 }
 
-/** One standard or sub-standard as a full-width accordion card. Sub-standards are indented under their standard. */
+/** One standard or sub-standard as a full-width accordion card: opening it shows its description and linked evidence. */
 function Item(p: ItemProps) {
   const { api, evidence, r, all, me, editable, open, toggle, act } = p;
   const qc = useQueryClient();
@@ -165,15 +165,6 @@ function Item(p: ItemProps) {
             <EvidenceLinkList links={links.data ?? []} api={evidence} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')}
               onChange={() => void qc.invalidateQueries({ queryKey: ['internal-evidence', r.id] })} setError={setLinkError} />
           </div>
-          {!r.parentId && (
-            <div className="space-y-2">
-              <Shaded>Sub-standards</Shaded>
-              {children.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
-              <div className="ms-6 space-y-2">
-                {children.map((c) => <Item key={c.id} {...p} r={c} />)}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </section>
@@ -182,7 +173,8 @@ function Item(p: ItemProps) {
 
 /**
  * The internal framework's requirements: standards and their sub-standards as full-width accordions, each with a
- * description and its evidence. A card's ⋯ menu links evidence, adds a sub-standard, edits or deletes it.
+ * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu links evidence,
+ * adds a sub-standard, edits or deletes it.
  */
 export function IqfRequirements({ api, version, me, evidence: evidenceOverride }: { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi }) {
   const evidence = useEvidenceApi(evidenceOverride);
@@ -198,6 +190,12 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
   const standards = all.filter((r) => !r.parentId);
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const close = () => { setDialog(null); setError(''); };
+  const itemProps = {
+    api, evidence, all, me, editable, open, toggle, act,
+    onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }),
+    onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
+    onLink: (item: Requirement) => setDialog({ kind: 'link', item }),
+  };
   /** Saves through the API; on success opens what was saved (and its standard) and closes the dialog. */
   const saveItem = async (save: () => Promise<Requirement>) => {
     setError('');
@@ -220,9 +218,13 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
       {rows.data && standards.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
       <div className="space-y-2" aria-label="Standards" role="list">
         {standards.map((s) => (
-          <div role="listitem" key={s.id}>
-            <Item api={api} evidence={evidence} r={s} all={all} me={me} editable={editable} open={open} toggle={toggle} act={act}
-              onAddChild={(parent) => setDialog({ kind: 'add', parent })} onEdit={(item) => setDialog({ kind: 'edit', item })} onLink={(item) => setDialog({ kind: 'link', item })} />
+          <div role="listitem" key={s.id} className="space-y-2">
+            <Item {...itemProps} r={s} />
+            {all.some((c) => c.parentId === s.id) && (
+              <div role="list" aria-label={`Sub-standards of ${tag(s)}`} className="ms-8 space-y-2 border-s-2 border-border ps-3">
+                {all.filter((c) => c.parentId === s.id).map((c) => <div role="listitem" key={c.id}><Item {...itemProps} r={c} /></div>)}
+              </div>
+            )}
           </div>
         ))}
       </div>
