@@ -466,7 +466,8 @@ export const requirementMapping = pgTable('requirement_mapping', {
 
 // ---- 6.5 Evidence (M3) ----------------------------------------------------------------------------------------
 
-export const EVIDENCE_TYPES = ['document', 'dataset', 'url', 'minutes', 'policy', 'report', 'other'] as const;
+/** Kept simple for now: a document (a file people read) or data (figures the system reads). Kinds come later as sub-types. */
+export const EVIDENCE_TYPES = ['document', 'data'] as const;
 export const CONFIDENTIALITY = ['public', 'internal', 'restricted'] as const;
 /** A piece of evidence owned by the institution, not by an engagement: stored once, linked many times. */
 export const evidenceItem = pgTable('evidence_item', {
@@ -474,6 +475,8 @@ export const evidenceItem = pgTable('evidence_item', {
   title: text('title').notNull(),
   description: text('description'),
   type: text('type', { enum: EVIDENCE_TYPES }).notNull(),
+  /** The kind within the type (policy, minutes, report …): kept for the sub-types to come, not shown yet. */
+  subtype: text('subtype'),
   ownerUnitId: uuid('owner_unit_id').references(() => orgUnit.id),
   ownerUserId: uuid('owner_user_id').references(() => appUser.id),
   periodLabel: text('period_label'),

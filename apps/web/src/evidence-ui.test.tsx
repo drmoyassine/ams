@@ -79,12 +79,16 @@ describe('evidence', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await user.click(await screen.findByRole('button', { name: 'Add evidence' }));
-    const form = screen.getByRole('form', { name: 'Add evidence' });
+    await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
+    const form = await screen.findByRole('dialog', { name: 'New evidence' });
+    // kept simple: a title, document or data, an optional description, the file
+    expect(within(form).queryByLabelText('Period')).toBeNull();
+    expect(within(form).queryByLabelText('Confidentiality')).toBeNull();
     await user.type(within(form).getByLabelText('Title'), 'Course review minutes');
-    await user.type(within(form).getByLabelText('Period'), 'AY2025-26');
+    expect((within(form).getByLabelText('Document') as HTMLInputElement).checked).toBe(true);
+    await user.type(within(form).getByLabelText('Description'), 'Minutes of the course review committee');
     await user.upload(within(form).getByLabelText('File'), new File(['minutes v1'], 'minutes.pdf', { type: 'application/pdf' }));
-    await user.click(within(form).getByRole('button', { name: 'Add evidence' }));
+    await user.click(within(form).getByRole('button', { name: 'Create evidence' }));
     const detail = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
     await waitFor(() => expect(within(detail).getAllByTestId('evidence-version').map((v) => v.textContent)).toEqual([expect.stringMatching(/^v1minutes\.pdf/)]));
     await user.upload(within(detail).getByLabelText('Upload a new version'), new File(['minutes v2'], 'minutes-2.pdf', { type: 'application/pdf' }));
@@ -162,6 +166,6 @@ describe('evidence', () => {
     cleanup();
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await screen.findByText('Course review minutes');
-    expect(screen.queryByRole('button', { name: 'Add evidence' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ Evidence' })).toBeNull();
   });
 });

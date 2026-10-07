@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Evidence kept simple: document or data
+
+At the owner's request evidence type is just Document or Data (migration 0023: datasets become data, everything else a document, the earlier kind kept in a new `subtype` column for the sub-types to come). The New evidence dialog, now also behind "+ Evidence" on the Evidence page, asks only for a title, document or data, an optional description and the file. Period, tags, confidentiality, link-instead-of-file and the student-data flag stay in the model with their defaults but are not shown. Next to design together: how data is collected (manual upload, request to an owner, or from the BI warehouse).
+
+---
+
 ## 2026-10-07 — The AMS and the warehouse stay separate (DEC-017)
 
 Uploads confirmed working on the deployment. The owner's institutional data warehouse (AI-native BI on PostgreSQL and S3 with a governed metric layer) is a separate product: each keeps its own storage, the AMS consumes metrics from the warehouse through an optional adapter, and either works without the other. Recorded as DEC-017; it confirms DEC-014, so datasets keep the source switch (manual upload now, governed metric when a warehouse is connected) and nothing built moves.

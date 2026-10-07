@@ -28,7 +28,7 @@ const versionDto = (v: VersionRow): EvidenceVersion => ({
   asOfDate: v.asOfDate, notes: v.notes, createdAt: v.createdAt.toISOString(),
 });
 const itemDto = (r: ItemRow, latest: VersionRow | null, linkCount: number): EvidenceItem => ({
-  id: r.id, title: r.title, description: r.description, type: r.type, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId,
+  id: r.id, title: r.title, description: r.description, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId,
   periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags,
   status: r.status, latest: latest ? versionDto(latest) : null, linkCount,
 });
@@ -58,7 +58,7 @@ export async function createEvidence(ctx: Ctx, input: CreateEvidence): Promise<E
   await assertPermitted(ctx, 'evidence:write', any);
   const d = CreateEvidenceSchema.parse(input);
   const [row] = await guardIntegrity(() => ctx.tx.insert(evidenceItem).values({
-    institutionId: ctx.caller.institutionId, title: d.title, description: d.description ?? null, type: d.type,
+    institutionId: ctx.caller.institutionId, title: d.title, description: d.description ?? null, type: d.type, subtype: d.subtype ?? null,
     ownerUnitId: d.ownerUnitId ?? null, ownerUserId: ctx.caller.userId, periodLabel: d.periodLabel ?? null,
     confidentiality: d.confidentiality, containsStudentData: d.containsStudentData, tags: d.tags,
   }).returning());

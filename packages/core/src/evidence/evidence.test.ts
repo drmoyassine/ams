@@ -47,7 +47,7 @@ afterAll(() => w.close());
 describe('the repository', () => {
   it('stores a file once as version 1, with its size and hash, and serves it back', async () => {
     await expect(w.as('outsider', (c) => listEvidence(c))).rejects.toThrow(ForbiddenError);
-    const item = await w.as('contrib', (c) => createEvidence(c, { title: 'Course review minutes', type: 'minutes', periodLabel: 'AY2025-26', tags: ['assessment'] }));
+    const item = await w.as('contrib', (c) => createEvidence(c, { title: 'Course review minutes', type: 'document', periodLabel: 'AY2025-26', tags: ['assessment'] }));
     ids.minutes = item.id;
     const v1 = await w.as('contrib', (c) => addFileVersion(c, item.id, { fileName: 'minutes.pdf', mime: 'application/pdf', bytes: bytes('first') }));
     expect(v1).toMatchObject({ versionNo: 1, fileName: 'minutes.pdf', size: 5 });
@@ -74,7 +74,7 @@ describe('the repository', () => {
   });
 
   it('shows a restricted item only to institution-wide roles and its owner', async () => {
-    const secret = await w.as('alo', (c) => createEvidence(c, { title: 'Salary survey', type: 'dataset', confidentiality: 'restricted' }));
+    const secret = await w.as('alo', (c) => createEvidence(c, { title: 'Salary survey', type: 'data', confidentiality: 'restricted' }));
     expect((await w.as('alo', (c) => listEvidence(c))).map((e) => e.id)).toContain(secret.id);
     expect((await w.as('contrib', (c) => listEvidence(c))).map((e) => e.id)).not.toContain(secret.id);
   });
@@ -120,7 +120,7 @@ describe('attached once to the internal framework, offered to every mapped requi
   });
 
   it('flags evidence older than the review year allows as stale', async () => {
-    const old = await w.as('contrib', (c) => createEvidence(c, { title: 'Old policy', type: 'policy', periodLabel: 'AY2019-20' }));
+    const old = await w.as('contrib', (c) => createEvidence(c, { title: 'Old policy', type: 'document', periodLabel: 'AY2019-20' }));
     const v = await w.as('contrib', (c) => addFileVersion(c, old.id, { fileName: 'p.pdf', mime: 'application/pdf', bytes: bytes('old') }));
     await w.as('coord', (c) => linkToEngagementRequirement(c, ids.abetER!, { evidenceVersionId: v.id, rationale: 'Policy in force at the time' }));
     const links = await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!));

@@ -1,7 +1,8 @@
 // Evidence (PRD 6.5, 9): items owned by the institution, versions that are never changed, links with a reason.
 import { z } from 'zod';
 
-export const EVIDENCE_TYPES = ['document', 'dataset', 'url', 'minutes', 'policy', 'report', 'other'] as const;
+/** A document (a file people read) or data (figures the system reads). Kinds within each come later as sub-types. */
+export const EVIDENCE_TYPES = ['document', 'data'] as const;
 export const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'restricted'] as const;
 const iso = z.string();
 
@@ -12,7 +13,7 @@ export const EvidenceVersionSchema = z.object({
 export type EvidenceVersion = z.infer<typeof EvidenceVersionSchema>;
 
 export const EvidenceItemSchema = z.object({
-  id: z.string(), title: z.string(), description: z.string().nullable(), type: z.enum(EVIDENCE_TYPES),
+  id: z.string(), title: z.string(), description: z.string().nullable(), type: z.enum(EVIDENCE_TYPES), subtype: z.string().nullable(),
   ownerUnitId: z.string().nullable(), ownerUserId: z.string().nullable(), periodLabel: z.string().nullable(),
   confidentiality: z.enum(CONFIDENTIALITY_LEVELS), containsStudentData: z.boolean(), tags: z.array(z.string()),
   status: z.enum(['active', 'archived']), latest: EvidenceVersionSchema.nullable(), linkCount: z.number(),
@@ -45,7 +46,7 @@ export const EvidenceSuggestionSchema = z.object({
 export type EvidenceSuggestion = z.infer<typeof EvidenceSuggestionSchema>;
 
 export const CreateEvidenceSchema = z.object({
-  title: z.string().trim().min(1), description: z.string().trim().optional(), type: z.enum(EVIDENCE_TYPES),
+  title: z.string().trim().min(1), description: z.string().trim().optional(), type: z.enum(EVIDENCE_TYPES), subtype: z.string().trim().min(1).optional(),
   ownerUnitId: z.uuid().optional(), periodLabel: z.string().trim().min(1).optional(),
   confidentiality: z.enum(CONFIDENTIALITY_LEVELS).default('internal'), containsStudentData: z.boolean().default(false),
   tags: z.array(z.string().trim().min(1)).default([]),

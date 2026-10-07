@@ -1,12 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CONFIDENTIALITY_LEVELS, EVIDENCE_TYPES, type EvidenceItem } from '@ams/shared';
+import type { EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
-const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
-const TYPE_LABEL = { document: 'Document', dataset: 'Dataset', url: 'Link', minutes: 'Minutes', policy: 'Policy', report: 'Report', other: 'Other' } as const;
 
 function Modal({ labelledBy, onClose, children, z = 'z-50' }: { labelledBy: string; onClose: () => void; children: React.ReactNode; z?: string }) {
   useEffect(() => {
@@ -21,28 +19,23 @@ function Modal({ labelledBy, onClose, children, z = 'z-50' }: { labelledBy: stri
   );
 }
 
-/** Adds a piece of evidence to the repository (a file or a link), then hands it back. */
+/** Adds a piece of evidence to the repository: a title, document or data, an optional description, and the file. */
 export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose }: {
   api: EvidenceApi; initialTitle?: string; onCreated: (item: EvidenceItem) => void; onClose: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [type, setType] = useState<EvidenceItem['type']>('document');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!file) { setError('Choose the file.'); return; }
     const f = new FormData(e.currentTarget);
-    const url = String(f.get('url') ?? '').trim();
-    if (!file && !url) { setError('Choose a file or give a link.'); return; }
     setBusy(true); setError('');
     try {
-      const period = String(f.get('period') ?? '').trim();
-      const tags = String(f.get('tags') ?? '').split(',').map((t) => t.trim()).filter(Boolean);
-      const item = await api.create({
-        title: String(f.get('title')).trim(), type: String(f.get('type')) as EvidenceItem['type'],
-        confidentiality: String(f.get('confidentiality')) as EvidenceItem['confidentiality'], tags,
-        ...(period ? { periodLabel: period } : {}), ...(!file && url ? { url } : {}),
-      });
-      if (file) await api.upload(item.id, file);
+      const description = String(f.get('description') ?? '').trim();
+      const item = await api.create({ title: String(f.get('title')).trim(), type, ...(description ? { description } : {}) });
+      await api.upload(item.id, file);
       onCreated((await api.get(item.id)).item);
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   };
@@ -52,16 +45,18 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose }
         <h2 id="new-evidence-title" className="text-xl font-semibold">New evidence</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-      <form onSubmit={(e) => void submit(e)} className="grid gap-3 sm:grid-cols-2" aria-label="New evidence">
-        <label className="flex flex-col text-sm sm:col-span-2">Title<Input name="title" aria-label="Title" required defaultValue={initialTitle} dir="auto" /></label>
-        <label className="flex flex-col text-sm">Type<select name="type" aria-label="Type" className={select} defaultValue="document">{EVIDENCE_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</select></label>
-        <label className="flex flex-col text-sm">Period<Input name="period" aria-label="Period" placeholder="e.g. AY2025-26" /></label>
-        <label className="flex flex-col text-sm">Confidentiality<select name="confidentiality" aria-label="Confidentiality" className={select} defaultValue="internal">{CONFIDENTIALITY_LEVELS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}</select></label>
-        <label className="flex flex-col text-sm">Tags<Input name="tags" aria-label="Tags" placeholder="comma separated" /></label>
+      <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="New evidence">
+        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" required defaultValue={initialTitle} dir="auto" /></label>
+        <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
+          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'document'} onChange={() => setType('document')} /> Document</label>
+          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'data'} onChange={() => setType('data')} /> Data</label>
+        </div>
+        <label className="flex flex-col text-sm">Description (optional)
+          <textarea name="description" aria-label="Description" rows={3} dir="auto" className="rounded-md border border-border p-2 text-sm" />
+        </label>
         <label className="flex flex-col text-sm">File<input aria-label="File" type="file" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
-        <label className="flex flex-col text-sm">or a link to it<Input name="url" aria-label="Link" type="url" placeholder="https://…" /></label>
-        {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{error}</p>}
-        <div className="flex justify-end gap-2 sm:col-span-2">
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
           <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Create evidence'}</Button>
         </div>

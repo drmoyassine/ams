@@ -64,7 +64,7 @@ describe('evidence API', () => {
   });
 
   it('registers a link to a document kept elsewhere as a version', async () => {
-    const item = await call('lead', 'POST', '/api/evidence', { title: 'Faculty handbook', type: 'policy', url: 'https://intranet.example.edu/handbook' });
+    const item = await call('lead', 'POST', '/api/evidence', { title: 'Faculty handbook', type: 'document', url: 'https://intranet.example.edu/handbook' });
     const detail = await call('viewer', 'GET', `/api/evidence/${item.body.id}`);
     expect(detail.body.versions).toEqual([expect.objectContaining({ versionNo: 1, url: 'https://intranet.example.edu/handbook' })]);
     expect((await call('lead', 'POST', `/api/evidence/${item.body.id}/links-to-documents`, { url: 'https://intranet.example.edu/handbook-2026' })).body.versionNo).toBe(2);
