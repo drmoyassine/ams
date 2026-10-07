@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Link evidence: one search, create from it, justification
+
+The Link evidence dialog is a single search box with a results dropdown (no "repository / new" switch, no permanent list box). The dropdown always ends with "+ Create new evidence", which opens a second dialog (title prefilled from the search; type, period, confidentiality, tags, file or link) and returns with the new evidence chosen. The reason field is called Justification and appears only once evidence is chosen. The same dialog now serves the requirement workspace ("+ Link other evidence") and the older version page; the inline link form is gone. Reporting frequency stays with engagements (accreditors' cycles); an evidence refresh frequency on internal items belongs with the review cycle, later.
+
+---
+
 ## 2026-10-07 — Requirements cards: placement by code, ⋯ menu, link-evidence dialog, hover details
 
 An item's place now follows its code (`addQualityItem` / `editQualityItem`): 1 (or 1.0) is a standard, 1.2 sits under Standard 1.0, a code without its standard is refused, changing a code moves the item, renumbering a standard renumbers its sub-standards; migration 0022 moves items already added at the top level with a code like 1.2 under their standard (drafts only). Cards: sub-standards listed under their standard on the page itself (always visible, indented with a rule), not inside the standard's card; shaded "Description", "Linked evidence" and "Sub-standards" labels; a ⋯ menu (Link evidence, Add sub-standard, Edit, Delete) instead of in-card forms; editing in the same dialog as adding. Link evidence is a dialog: choose from the repository (search) or create new evidence (file or link) on the spot, with the required reason. Hovering a closed card shows its title, description and linked evidence.

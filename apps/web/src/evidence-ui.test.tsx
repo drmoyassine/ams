@@ -100,10 +100,11 @@ describe('evidence', () => {
     await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.2' }));
     await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
     const dialog = await screen.findByRole('dialog');
-    const pick = within(dialog).getByLabelText('Evidence', { selector: 'select' }) as HTMLSelectElement;
-    await waitFor(() => expect(pick.options.length).toBeGreaterThan(0));
-    await user.selectOptions(pick, within(dialog).getByRole('option', { name: /Course review minutes/ }));
-    await user.type(within(dialog).getByLabelText('Why it supports this'), 'Minutes of the annual course review');
+    expect(within(dialog).queryByLabelText('Justification')).toBeNull(); // only once evidence is chosen
+    await user.type(within(dialog).getByRole('combobox', { name: 'Search evidence' }), 'Course review');
+    await user.click(await within(dialog).findByRole('option', { name: /Course review minutes/ }));
+    expect(within(dialog).getByTestId('chosen-evidence').textContent).toContain('Course review minutes');
+    await user.type(within(dialog).getByLabelText('Justification'), 'Minutes of the annual course review');
     await user.click(within(dialog).getByRole('button', { name: 'Link evidence' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const link = await within(item).findByTestId('evidence-link');
@@ -120,10 +121,16 @@ describe('evidence', () => {
     await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.1' }));
     await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByLabelText('New evidence'));
-    await user.type(within(dialog).getByLabelText('New evidence title'), 'Teaching observation reports');
-    await user.upload(within(dialog).getByLabelText('File'), new File(['observations'], 'observations.pdf', { type: 'application/pdf' }));
-    await user.type(within(dialog).getByLabelText('Why it supports this'), 'Peer observation of teaching each semester');
+    await user.type(within(dialog).getByRole('combobox', { name: 'Search evidence' }), 'Teaching observation reports');
+    expect(await within(dialog).findByText('No evidence matches "Teaching observation reports".')).toBeTruthy();
+    await user.click(within(dialog).getByRole('option', { name: '+ Create new evidence "Teaching observation reports"' }));
+    const create = await screen.findByRole('dialog', { name: 'New evidence' });
+    expect((within(create).getByLabelText('Title') as HTMLInputElement).value).toBe('Teaching observation reports');
+    await user.upload(within(create).getByLabelText('File'), new File(['observations'], 'observations.pdf', { type: 'application/pdf' }));
+    await user.click(within(create).getByRole('button', { name: 'Create evidence' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New evidence' })).toBeNull());
+    expect((await within(dialog).findByTestId('chosen-evidence')).textContent).toContain('Teaching observation reports');
+    await user.type(within(dialog).getByLabelText('Justification'), 'Peer observation of teaching each semester');
     await user.click(within(dialog).getByRole('button', { name: 'Link evidence' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect((await within(item).findByTestId('evidence-link')).textContent).toContain('Teaching observation reports');
@@ -137,7 +144,7 @@ describe('evidence', () => {
     const card = await screen.findByRole('region', { name: 'Evidence' });
     const suggestion = await within(card).findByTestId('evidence-suggestion');
     expect(suggestion.textContent).toMatch(/Course review minutes.*Assessment of learning.*covers this requirement/s);
-    await user.type(within(suggestion).getByLabelText(/Why Course review minutes supports this requirement/), 'Shows the program reviews assessment results every year');
+    await user.type(within(suggestion).getByLabelText('Justification for Course review minutes'), 'Shows the program reviews assessment results every year');
     await user.click(within(suggestion).getByRole('button', { name: 'Link' }));
     const link = await within(card).findByTestId('evidence-link');
     expect(link.textContent).toMatch(/Proposed.*Shows the program reviews assessment results every year/s);

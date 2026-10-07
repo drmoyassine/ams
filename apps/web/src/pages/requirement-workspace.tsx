@@ -7,7 +7,8 @@ import { TermModeSelect } from '../components/term-mode';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { EvidenceLinkList, LinkEvidenceForm } from '../components/evidence-links';
+import { EvidenceLinkList } from '../components/evidence-links';
+import { LinkEvidenceDialog } from '../components/link-evidence-dialog';
 import { useEngagementApi, type EngagementApi } from '../lib/engagement-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { ApiError } from '../lib/framework-api';
@@ -30,6 +31,7 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [linking, setLinking] = useState(false);
   const links = useQuery({ queryKey: ['er-evidence', id], queryFn: () => api.requirementLinks(id) });
   const suggestions = useQuery({ queryKey: ['er-suggestions', id], queryFn: () => api.suggestions(id) });
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['er-evidence', id] }); void qc.invalidateQueries({ queryKey: ['er-suggestions', id] }); };
@@ -43,7 +45,7 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
       {(suggestions.data ?? []).length > 0 && (
         <section aria-label="Suggested from your framework" className="mt-4 space-y-2">
           <h3 className="font-medium">Suggested from your framework</h3>
-          <p className="text-xs text-muted-foreground">Evidence already attached to the internal items this requirement is mapped to. Linking it here needs this requirement's own reason.</p>
+          <p className="text-xs text-muted-foreground">Evidence already attached to the internal items this requirement is mapped to. Linking it here needs this requirement's own justification.</p>
           <ul className="space-y-2">
             {suggestions.data!.map((s) => (
               <li key={s.evidenceVersionId} className="rounded-md border border-dashed border-border p-2 text-sm" data-testid="evidence-suggestion">
@@ -51,7 +53,7 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
                 <p className="text-xs text-muted-foreground">On internal {s.internalCode}{s.internalTitle ? ` · ${s.internalTitle}` : ''}, which {RELATION[s.relation]} this requirement: “<ContentText>{s.internalRationale}</ContentText>”</p>
                 {canLink && (
                   <form className="mt-1 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); const r = (reasons[s.evidenceVersionId] ?? '').trim(); if (r) void link(s.evidenceVersionId, r); }}>
-                    <Input aria-label={`Why ${s.title} supports this requirement`} placeholder="Why it supports this requirement (required)" dir="auto" className="min-w-64 flex-1"
+                    <Input aria-label={`Justification for ${s.title}`} placeholder="Justification: why it supports this requirement (required)" dir="auto" className="min-w-64 flex-1"
                       value={reasons[s.evidenceVersionId] ?? ''} onChange={(e) => { const v = e.target.value; setReasons((x) => ({ ...x, [s.evidenceVersionId]: v })); }} />
                     <Button type="submit" disabled={!(reasons[s.evidenceVersionId] ?? '').trim()}>Link</Button>
                   </form>
@@ -61,7 +63,8 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
           </ul>
         </section>
       )}
-      {canLink && <div className="mt-4"><LinkEvidenceForm api={api} label="Link other evidence" onLink={link} /></div>}
+      {canLink && <div className="mt-4"><Button type="button" variant="ghost" onClick={() => setLinking(true)}>+ Link other evidence</Button></div>}
+      {linking && <LinkEvidenceDialog api={api} title="this requirement" onClose={() => setLinking(false)} onLink={(v, j) => api.linkRequirement(id, { evidenceVersionId: v, rationale: j }).then(refresh)} />}
       </section>
     </Card>
   );

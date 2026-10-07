@@ -1,14 +1,10 @@
-import { useState, type FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import type { EvidenceLink } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { ContentText } from './content-text';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 
 const REVIEW = { proposed: 'Proposed', approved: 'Approved', rejected: 'Rejected' } as const;
 const REVIEW_CLS = { proposed: 'bg-muted text-muted-foreground', approved: 'bg-emerald-50 text-emerald-900', rejected: 'bg-red-50 text-red-900' } as const;
-const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 
 /** Evidence links with their reason, review state and the flags the PRD asks for (newer version, stale). */
 export function EvidenceLinkList({ links, api, canReview, canRemove, onChange, setError, showTarget = false }: {
@@ -39,29 +35,5 @@ export function EvidenceLinkList({ links, api, canReview, canRemove, onChange, s
         </li>
       ))}
     </ul>
-  );
-}
-
-/** Pick an evidence item (its newest version) and say why it supports this. */
-export function LinkEvidenceForm({ api, onLink, label = 'Link evidence' }: { api: EvidenceApi; onLink: (evidenceVersionId: string, rationale: string) => Promise<unknown>; label?: string }) {
-  const list = useQuery({ queryKey: ['evidence', ''], queryFn: () => api.list() });
-  const [rationale, setRationale] = useState('');
-  const usable = (list.data ?? []).filter((e) => e.latest && e.status === 'active');
-  const submit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const version = String(new FormData(form).get('version'));
-    if (!version || !rationale.trim()) return;
-    void onLink(version, rationale.trim()).then(() => { setRationale(''); form.reset(); });
-  };
-  return (
-    <form onSubmit={submit} aria-label={label} className="space-y-2 rounded border border-dashed border-border p-2">
-      <select name="version" aria-label="Evidence" required defaultValue="" className={`${select} w-full`}>
-        <option value="" disabled>{usable.length ? 'Choose evidence…' : 'No evidence yet: add some on the Evidence page'}</option>
-        {usable.map((e) => <option key={e.id} value={e.latest!.id}>{e.title} (v{e.latest!.versionNo}{e.periodLabel ? `, ${e.periodLabel}` : ''})</option>)}
-      </select>
-      <Input aria-label="Why it supports this" placeholder="Why it supports this (required)" value={rationale} onChange={(e) => setRationale(e.target.value)} dir="auto" />
-      <Button type="submit" disabled={!rationale.trim()}>{label}</Button>
-    </form>
   );
 }

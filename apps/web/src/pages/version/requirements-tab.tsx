@@ -7,7 +7,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDocument, type Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
-import { EvidenceLinkList, LinkEvidenceForm } from '../../components/evidence-links';
+import { EvidenceLinkList } from '../../components/evidence-links';
+import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { Me } from '@ams/shared';
 
@@ -81,6 +82,7 @@ export function InternalEvidence({ requirementId, me, evidence }: { requirementI
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const links = useQuery({ queryKey: ['internal-evidence', requirementId], queryFn: () => api.internalLinks(requirementId) });
+  const [linking, setLinking] = useState(false);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['internal-evidence', requirementId] }); };
   return (
     <section aria-label="Evidence" className="space-y-2 border-t border-border pt-3">
@@ -88,7 +90,8 @@ export function InternalEvidence({ requirementId, me, evidence }: { requirementI
       <p className="text-xs text-muted-foreground">Attach evidence here once. Every accreditor requirement mapped to this item is offered it.</p>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <EvidenceLinkList links={links.data ?? []} api={api} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')} onChange={refresh} setError={setError} />
-      {can(me, 'evidence:write') && <LinkEvidenceForm api={api} label="Attach evidence" onLink={(evidenceVersionId, rationale) => api.linkInternal(requirementId, { evidenceVersionId, rationale }).then(refresh, (e: Error) => setError(e.message))} />}
+      {can(me, 'evidence:write') && <Button type="button" variant="ghost" onClick={() => setLinking(true)}>+ Link evidence</Button>}
+      {linking && <LinkEvidenceDialog api={api} title="this item" onClose={() => setLinking(false)} onLink={(evidenceVersionId, rationale) => api.linkInternal(requirementId, { evidenceVersionId, rationale }).then(refresh)} />}
     </section>
   );
 }
