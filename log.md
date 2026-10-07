@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Internal framework: Requirements and Terms
+
+Simplified at the user's request to what it is for: standards and sub-standards (two fixed levels), each a code, a title and a description, with evidence attached. The page has two tabs, Requirements and Terms; the version picker and the actions sit in the header: "Publish this version" (admin; `publishQualityVersion` approves every item as the person publishing, submits and publishes, then the version is frozen) and "Start a new version" (`newQualityVersion`, numbered one up, items, mappings and evidence carry over by code). The Requirements tab lists standards with their sub-standards, numbers new ones (9, 9.1 …), edits code, title and description in place, and shows the item's evidence. Gone from this page: level-name editing, indent/outdent, accreditor-style notes and authority, per-item review, the separate Review and publish tab. New frameworks are set up with Standard and Sub-standard.
+
+---
+
 ## 2026-10-06 — Evidence uploads failed on the deployment
 
 Uploads failed in production. The likely cause: AWS SDK v3 (3.729 onwards) adds CRC checksums to every request by default, which Garage 1.0.1 (our Compose storage) does not accept; the S3 client now sends and checks them only when the S3 API requires it (`requestChecksumCalculation` / `responseChecksumValidation: 'WHEN_REQUIRED'`). Not reproduced locally (Garage could not be downloaded into the build environment), so a refused upload now also reports the storage service's answer (error name, status, message) to the user and the logs instead of a bare 500.

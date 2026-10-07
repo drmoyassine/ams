@@ -5,7 +5,8 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
-import { getDraftVersion, getRequirement, getVersion, isInternalVersion, require_ } from './common.js';
+import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_ } from './common.js';
+import { newVersionFrom, publishVersion, submitForReview } from './versions.js';
 import { INTERNAL_TEMPLATE } from './internal-template.js';
 import { createRequirement, listRequirements, moveRequirement, relabelByDepth } from './requirements.js';
 
@@ -123,4 +124,34 @@ export async function outdentRequirement(ctx: Ctx, id: string) {
   }
   await moveRequirement(ctx, id, parent.parentId ?? null, parent.displayOrder + 1);
   return getRequirement(ctx, id);
+}
+
+/**
+ * Publishes a draft of the internal framework in one step: the person publishing approves every item in it, then it is
+ * submitted and published, and from then on it is frozen like any published version. Only a person may do this.
+ */
+export async function publishQualityVersion(ctx: Ctx, versionId: string) {
+  await require_(ctx, 'framework:publish');
+  assertHuman(ctx);
+  await internalVersion(ctx, versionId);
+  const v = await getVersion(ctx, versionId);
+  if (v.status === 'draft') {
+    if ((await listRequirements(ctx, versionId)).length === 0) throw new ValidationError('add at least one standard before publishing');
+    await ctx.tx.update(requirement).set({ reviewStatus: 'approved', reviewedBy: ctx.caller.userId, reviewedAt: new Date() })
+      .where(eq(requirement.frameworkVersionId, versionId));
+    await submitForReview(ctx, versionId);
+  } else if (v.status !== 'in_review') throw new ConflictError(`this version is already ${v.status}`);
+  return publishVersion(ctx, versionId);
+}
+
+/** Starts the next draft from the newest version, numbered one up (1, 2, 3 …); its items, mappings and evidence carry over by code. */
+export async function newQualityVersion(ctx: Ctx) {
+  await require_(ctx, 'framework:write');
+  const { versions } = await getQualityFramework(ctx);
+  const latest = versions[versions.length - 1];
+  if (!latest) throw new ConflictError('set up the quality framework first');
+  if (latest.status === 'draft' || latest.status === 'in_review') throw new ConflictError('the newest version is still a draft; edit that one');
+  const next = Math.max(0, ...versions.map((x) => Number.parseInt(x.edition, 10)).filter((n) => Number.isFinite(n))) + 1;
+  const { version } = await newVersionFrom(ctx, latest.id, { edition: String(next) });
+  return version;
 }

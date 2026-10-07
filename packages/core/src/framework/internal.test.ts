@@ -5,7 +5,7 @@ import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { createEngagement } from '../engagement/engagements.js';
 import { listExternalTerms } from '../glossary/glossary.js';
-import { applyQualityTemplate, getQualityFramework, indentRequirement, outdentRequirement, setQualityLevels, setUpQualityFramework } from './internal.js';
+import { applyQualityTemplate, getQualityFramework, indentRequirement, newQualityVersion, publishQualityVersion, outdentRequirement, setQualityLevels, setUpQualityFramework } from './internal.js';
 import { createRequirement, listRequirements, reviewRequirement } from './requirements.js';
 import { getVersionDetail, listFrameworks, newVersionFrom, publishVersion, returnToDraft, submitForReview, validateVersion } from './versions.js';
 
@@ -107,5 +107,21 @@ describe('levels by depth', () => {
       await expect(w3.as('alo', (c) => applyQualityTemplate(c, set.versions[0]!.id))).rejects.toThrow(/already has items/);
       await expect(w3.as('alo', (c) => applyQualityTemplate(c, w3.ids.abet!))).rejects.toThrow(ValidationError);
     } finally { await w3.close(); }
+  });
+
+  it('publishes a draft in one step (a person approving all of it), then starts the next version from it', async () => {
+    const w4 = await buildWorld('internalpublish');
+    try {
+      const set = await w4.as('alo', (c) => setUpQualityFramework(c, { template: true }));
+      const v1 = set.versions[0]!.id;
+      await expect(w4.as('alo', (c) => publishQualityVersion(c, v1))).rejects.toThrow(ForbiddenError); // publishing is the admin's
+      expect((await w4.as('admin', (c) => publishQualityVersion(c, v1))).status).toBe('published');
+      expect((await w4.as('admin', (c) => listRequirements(c, v1))).every((r) => r.reviewStatus === 'approved')).toBe(true);
+      await expect(w4.as('admin', (c) => publishQualityVersion(c, v1))).rejects.toThrow(/already published/);
+      const v2 = await w4.as('alo', (c) => newQualityVersion(c));
+      expect(v2).toMatchObject({ edition: '2', status: 'draft' });
+      expect((await w4.as('alo', (c) => listRequirements(c, v2.id))).length).toBe((await w4.as('alo', (c) => listRequirements(c, v1))).length);
+      await expect(w4.as('alo', (c) => newQualityVersion(c))).rejects.toThrow(/still a draft/);
+    } finally { await w4.close(); }
   });
 });

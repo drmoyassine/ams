@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  applyQualityTemplate, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
+  applyQualityTemplate, newQualityVersion, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
@@ -47,6 +47,17 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { params: idParam },
       responses: { 200: { description: 'An empty draft of the internal framework filled with the generic starting template', ...json(z.array(RequirementSchema)) }, ...errors },
     }), async (c) => c.json(toDto(z.array(RequirementSchema), await applyQualityTemplate(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/framework-versions/{id}/publish-quality', access: requires('framework:publish'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The internal framework draft approved and published in one step', ...json(VersionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(VersionSchema, await publishQualityVersion(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/quality-framework/versions', access: requires('framework:write'), tags: tag,
+      responses: { 201: { description: 'The next draft, copied from the newest version', ...json(VersionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(VersionSchema, await newQualityVersion(c.get('ctx'))), 201))
 
     .openapi(secured(registry, deps, {
       method: 'put', path: '/api/quality-framework/levels', access: requires('framework:write'), tags: tag,

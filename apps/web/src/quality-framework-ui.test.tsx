@@ -51,7 +51,7 @@ afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('quality framework settings', () => {
-  it('is set up by an editor with the level names they choose, and a viewer only reads it', async () => {
+  it('is set up by an editor from the template: standards and sub-standards with a title and a description', async () => {
     const user = userEvent.setup();
     const { unmount } = render(wrap(<QualityFrameworkPage api={apiFor('viewer')} {...extra('viewer')} />));
     expect(await screen.findByText(/has not been set up yet/)).toBeTruthy();
@@ -59,30 +59,44 @@ describe('quality framework settings', () => {
     unmount();
 
     render(wrap(<QualityFrameworkPage api={apiFor('lead')} {...extra('lead')} />));
-    const levels = await screen.findByLabelText('Level names');
-    await waitFor(() => expect((levels as HTMLInputElement).value).toBe('Standard, Sub-standard'));
-    await user.clear(levels);
-    await user.type(levels, 'Pillar, Standard, Indicator');
-    await user.click(screen.getByRole('button', { name: 'Set up' }));
+    await user.click(await screen.findByRole('button', { name: 'Set up' }));
     const version = (await screen.findByLabelText('Version')) as HTMLSelectElement;
     expect(version.selectedOptions[0]!.textContent).toBe('1 · Draft');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Framework', 'Terms', 'Review and publish']);
-    // the framework tab: level names on one line, then the tree with its add form; the level is the depth, not a choice
-    expect(await screen.findByRole('form', { name: 'Add requirement' })).toBeTruthy();
-    expect(screen.queryByLabelText('Level')).toBeNull();
-    expect((screen.getByLabelText('Level 1 name') as HTMLInputElement).value).toBe('Pillar');
-    // set up with the template box ticked: the generic areas are there to rename
-    await waitFor(() => expect(screen.getByRole('tree', { name: 'Requirements' }).textContent).toContain('Mission and governance'));
-    expect(screen.queryByRole('button', { name: 'Start from the generic template' })).toBeNull(); // only offered on an empty draft
-    const level1 = screen.getByLabelText('Level 1 name');
-    await user.clear(level1);
-    await user.type(level1, 'Area');
-    await user.click(screen.getByRole('button', { name: 'Save levels' }));
-    await waitFor(() => expect(screen.getByRole('tree', { name: 'Requirements' }).textContent).toMatch(/Area\s*1 · Mission and governance|Area.*Mission and governance/));
-    // the terms tab is a short list: findings, reports, general terms, and no levels
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Terms']);
+    const standards = await screen.findByRole('list', { name: 'Standards' });
+    await waitFor(() => expect(standards.textContent).toContain('Mission and governance'));
+    expect(within(standards).getByRole('list', { name: 'Sub-standards of 3' }).textContent).toContain('Assessment of learning');
+    expect(screen.queryByRole('button', { name: 'Publish this version' })).toBeNull(); // a lead edits; the admin publishes
+
+    // a new standard, then a sub-standard under it, numbered for them, with a description
+    await user.type(screen.getByLabelText('Add standard: title'), 'Internationalisation');
+    await user.click(screen.getByRole('button', { name: 'Add standard' }));
+    const detail = await screen.findByTestId('iqf-detail');
+    await waitFor(() => expect((within(detail).getByLabelText('Code') as HTMLInputElement).value).toBe('9'));
+    await user.type(within(detail).getByLabelText('Description'), 'Partnerships, mobility and international recognition.');
+    await user.click(within(detail).getByRole('button', { name: 'Save' }));
+    await user.type(within(detail).getByLabelText('Add sub-standard: title'), 'Student mobility');
+    await user.click(within(detail).getByRole('button', { name: 'Add sub-standard' }));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Sub-standards of 9' })).getByText('9.1 Student mobility')).toBeTruthy());
+    const rows = await apiFor('lead').requirements(version.value);
+    expect(rows.find((r) => r.code === '9')!.officialText).toBe('Partnerships, mobility and international recognition.');
+    expect(rows.find((r) => r.code === '9.1')!.levelLabel).toBe('Sub-standard');
+
+    // the terms tab is a short list: findings, reports, general terms
     await user.click(screen.getByRole('tab', { name: 'Terms' }));
     expect(await screen.findByText(/each standard's Terminology tab maps its own words onto these/i)).toBeTruthy();
-    expect(screen.queryByRole('region', { name: 'Levels' })).toBeNull();
+  });
+
+  it('is published in one step by an administrator, then fixed until a new version is started', async () => {
+    const user = userEvent.setup();
+    render(wrap(<QualityFrameworkPage api={apiFor('admin')} {...extra('admin')} />));
+    await user.click(await screen.findByRole('button', { name: 'Publish this version' }));
+    await waitFor(() => expect((screen.getByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('1 · Published'));
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Add standard' })).toBeNull());
+    await user.click(screen.getByRole('button', { name: 'Start a new version' }));
+    await waitFor(() => expect((screen.getByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
+    expect(await screen.findByRole('form', { name: 'Add standard' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Standards' }).textContent).toContain('Internationalisation')); // carried over
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {
@@ -101,13 +115,10 @@ describe('mappings tab', () => {
     const user = userEvent.setup();
     const admin = apiFor('admin');
     const { versions } = await admin.qualityFramework();
-    const qv = versions[0]!.id;
-    const std = await admin.createRequirement(qv, { code: 'Q1', levelLabel: 'Pillar', title: 'Teaching quality' });
-    const sub = await admin.createRequirement(qv, { code: 'Q1.1', levelLabel: 'Standard', title: 'Course review', parentId: std.id });
-    for (const r of await admin.requirements(qv)) await admin.reviewRequirement(r.id, 'approved'); // the template's items too
-    void sub;
-    await admin.submit(qv);
-    await admin.publish(qv);
+    const qv = versions[versions.length - 1]!.id; // the draft started in the test above
+    const std = await admin.createRequirement(qv, { code: 'Q1', levelLabel: 'Standard', title: 'Teaching quality' });
+    await admin.createRequirement(qv, { code: 'Q1.1', levelLabel: 'Sub-standard', title: 'Course review', parentId: std.id });
+    await admin.publishQuality(qv);
 
     const abet = (await admin.frameworks()).find((f) => f.accreditorShortName === 'ABET')!;
     const abetVersion = (await admin.versions(abet.id))[0]!;

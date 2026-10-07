@@ -51,6 +51,8 @@ export function frameworkApi(api: Api = defaultApi) {
     createVersion: (frameworkId: string, json: { edition: string; changeSummary?: string }) =>
       api.api.frameworks[':id'].versions.$post({ param: { id: frameworkId }, json }).then((r) => unwrap<Version>(r)),
     qualityFramework: () => api.api['quality-framework'].$get().then((r) => unwrap<QualityFramework>(r)),
+    publishQuality: (versionId: string) => v[':id']['publish-quality'].$post({ param: { id: versionId } }).then((r) => unwrap<Version>(r)),
+    newQualityVersion: () => api.api['quality-framework'].versions.$post().then((r) => unwrap<Version>(r)),
     applyQualityTemplate: (versionId: string) => v[':id']['quality-template'].$post({ param: { id: versionId } }).then((r) => unwrap<Requirement[]>(r)),
     setUpQualityFramework: (json: { name?: string; levelLabels?: string[]; template?: boolean }) =>
       api.api['quality-framework'].$post({ json }).then((r) => unwrap<QualityFramework>(r)),

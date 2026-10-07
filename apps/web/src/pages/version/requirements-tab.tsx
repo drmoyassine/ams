@@ -76,7 +76,7 @@ function AddNote({ api, requirementId, docs, invalidate, setError }: { api: Fram
 }
 
 /** Evidence attached to an item of the internal framework: offered from here to every requirement mapped onto it. */
-function InternalEvidence({ requirementId, me, evidence }: { requirementId: string; me: Me | undefined; evidence?: EvidenceApi }) {
+export function InternalEvidence({ requirementId, me, evidence }: { requirementId: string; me: Me | undefined; evidence?: EvidenceApi }) {
   const api = useEvidenceApi(evidence);
   const qc = useQueryClient();
   const [error, setError] = useState('');
