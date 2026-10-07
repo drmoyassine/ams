@@ -10,7 +10,7 @@ void i18n.use(initReactI18next).init({
     en: {
       translation: {
         appName: 'AMS',
-        nav: { programs: 'Programs', engagements: 'Engagements', evidence: 'Evidence' },
+        nav: { programs: 'Programs', engagements: 'Engagements', evidence: 'Evidence', requests: 'Requests' },
         login: { title: 'Sign in', email: 'Email', password: 'Password', submit: 'Sign in', failed: 'Sign-in failed' },
         programs: { title: 'Programs', empty: 'No programs visible to you yet.', loadFailed: 'Could not load programs.' },
         soon: 'Coming in a later milestone.',

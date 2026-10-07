@@ -13,7 +13,11 @@ describe('route permission coverage', () => {
     const { app, registry } = createApp({ pool, authenticate });
     expect(app.routes.length).toBeGreaterThan(0);
     expect(() => assertAllRoutesDeclared(app, registry)).not.toThrow();
-    expect([...registry.declared.values()].every((a) => a.kind === 'public' || a.kind === 'permission')).toBe(true);
+    expect([...registry.declared.values()].every((a) => a.kind === 'public' || a.kind === 'permission' || a.kind === 'link')).toBe(true);
+    // Only the one-time response link routes take a link instead of a signed-in user (DEC-018).
+    const linkRoutes = [...registry.declared].filter(([, a]) => a.kind === 'link').map(([k]) => k);
+    expect(linkRoutes.length).toBeGreaterThan(0);
+    expect(linkRoutes.every((k) => k.includes('/api/response-links/:token'))).toBe(true);
   });
 
   it('startup fails when a route is registered without requires(...)', () => {

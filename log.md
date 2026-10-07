@@ -14,6 +14,14 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Evidence requests, with one-time links (DEC-018, DEC-019)
+
+First built-in collection source. From a standard's ⋯ menu, "Request evidence" asks a person by email for something specific, with an optional due date and message. An AMS user sees it under Requests → Asked of me and supplies the file there. Anyone else gets a one-time link (DEC-018) that opens a page with only that request. The link's secret is kept only as a hash, expires in 30 days, and stops working once used, replaced or cancelled. Either way the file becomes a document with a proposed link to the standard, which a reviewer approves. The API gained a third access kind, `responseLink()`, allowed only on `/api/response-links/{token}` (checked by the route coverage test). No mail is sent yet; the requester copies the link.
+
+The owner also approved sharing AMS evidence with the connected BI, whose AI may process it (DEC-019, amending DEC-013 for the connector only). The AMS still makes no AI calls on evidence files. Next: data definition with an online grid (ExcelJS and Papa Parse import/export), then the form builder.
+
+---
+
 ## 2026-10-07 — Evidence kept simple: document or data
 
 At the owner's request evidence type is just Document or Data (migration 0023: datasets become data, everything else a document, the earlier kind kept in a new `subtype` column for the sub-types to come). The New evidence dialog, now also behind "+ Evidence" on the Evidence page, asks only for a title, document or data, an optional description and the file. Period, tags, confidentiality, link-instead-of-file and the student-data flag stay in the model with their defaults but are not shown. Next to design together: how data is collected (manual upload, request to an owner, or from the BI warehouse).

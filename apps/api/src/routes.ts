@@ -4,6 +4,7 @@ import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from 
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { evidenceRoutes } from './routes/evidence.js';
+import { requestRoutes } from './routes/requests.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { glossaryRoutes } from './routes/glossary.js';
 import { mappingRoutes } from './routes/mappings.js';
@@ -65,7 +66,8 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', settingsRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))
     .route('/', mappingRoutes(registry, deps, options))
-    .route('/', evidenceRoutes(registry, deps, options));
+    .route('/', evidenceRoutes(registry, deps, options))
+    .route('/', requestRoutes(registry, deps, options));
 }
 
 export type ApiRoutes = ReturnType<typeof buildRoutes>;

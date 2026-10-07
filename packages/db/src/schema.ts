@@ -536,3 +536,33 @@ export const evidenceLink = pgTable('evidence_link', {
   check('evidence_link_rationale', sql`length(trim(${t.rationale})) > 0`),
   check('evidence_link_one_target', sql`(${t.engagementRequirementId} is not null) <> (${t.internalFrameworkId} is not null and ${t.internalCode} is not null)`),
 ]);
+
+export const REQUEST_STATUSES = ['open', 'supplied', 'cancelled'] as const;
+/**
+ * A request for evidence on an item of the internal framework, sent to a person by email address (DEC-018). An AMS
+ * user answers from their requests; anyone else through a one-time link, kept here only as a hash. The response becomes
+ * evidence with a proposed link (`evidenceLinkId`) that a reviewer approves or rejects.
+ */
+export const evidenceRequest = pgTable('evidence_request', {
+  ...base(), ...tenant(),
+  internalFrameworkId: uuid('internal_framework_id').notNull().references(() => framework.id),
+  internalCode: text('internal_code').notNull(),
+  title: text('title').notNull(),
+  message: text('message'),
+  assigneeEmail: text('assignee_email').notNull(),
+  assigneeUserId: uuid('assignee_user_id').references(() => appUser.id),
+  dueDate: date('due_date'),
+  status: text('status', { enum: REQUEST_STATUSES }).notNull().default('open'),
+  requestedBy: uuid('requested_by').references(() => appUser.id),
+  tokenHash: text('token_hash'),
+  tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }),
+  suppliedAt: timestamp('supplied_at', { withTimezone: true }),
+  suppliedNote: text('supplied_note'),
+  evidenceLinkId: uuid('evidence_link_id').references(() => evidenceLink.id, { onDelete: 'set null' }),
+}, (t) => [
+  index('evidence_request_internal_idx').on(t.internalFrameworkId, t.internalCode),
+  index('evidence_request_assignee_idx').on(t.assigneeUserId),
+  uniqueIndex('evidence_request_token_idx').on(t.tokenHash),
+  oneOf('evidence_request_status_check', t.status, REQUEST_STATUSES),
+  check('evidence_request_title', sql`length(trim(${t.title})) > 0`),
+]);

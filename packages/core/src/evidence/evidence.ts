@@ -111,9 +111,16 @@ export async function getEvidence(ctx: Ctx, id: string): Promise<EvidenceDetail>
 const safeName = (s: string) => [...s.normalize('NFC')].map((ch) => (ch === '/' || ch === '\\' || ch.charCodeAt(0) < 32 ? '_' : ch)).join('').slice(0, 200) || 'file';
 
 /** Stores an uploaded file as the item's next version. The stored size and SHA-256 are what the version records. */
-export async function addFileVersion(ctx: Ctx, itemId: string, file: { fileName: string; mime: string; bytes: Uint8Array; asOfDate?: string; notes?: string }) {
+export async function addFileVersion(ctx: Ctx, itemId: string, file: UploadedFile) {
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
+  return storeFileVersion(ctx, itemId, file);
+}
+
+export interface UploadedFile { fileName: string; mime: string; bytes: Uint8Array; asOfDate?: string; notes?: string }
+
+/** Stores the file as the item's next version; the caller has already decided who may do this. */
+export async function storeFileVersion(ctx: Ctx, itemId: string, file: UploadedFile) {
   if (!ctx.store) throw new ConflictError('file storage is not configured');
   const item = await getItem(ctx, itemId);
   if (item.status === 'archived') throw new ConflictError('this evidence is archived');
@@ -200,7 +207,7 @@ async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]>
 }
 
 /** Titles of the internal framework's items by code, from its newest published version (else its newest version). */
-async function internalTitlesByCode(ctx: Ctx) {
+export async function internalTitlesByCode(ctx: Ctx) {
   const [fw] = await ctx.tx.select({ id: framework.id }).from(framework).where(eq(framework.internal, true));
   if (!fw) return new Map<string, string>();
   const versions = await ctx.tx.select().from(frameworkVersion).where(eq(frameworkVersion.frameworkId, fw.id)).orderBy(desc(frameworkVersion.createdAt));
@@ -209,7 +216,7 @@ async function internalTitlesByCode(ctx: Ctx) {
   return new Map((await ctx.tx.select({ code: requirement.code, title: requirement.title }).from(requirement).where(eq(requirement.frameworkVersionId, v.id))).map((r) => [r.code, r.title]));
 }
 
-async function newLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferInsert, 'institutionId'>) {
+export async function newLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferInsert, 'institutionId'>) {
   const [row] = await guardIntegrity(() => ctx.tx.insert(evidenceLink).values({ ...values, institutionId: ctx.caller.institutionId, linkedBy: ctx.caller.userId }).returning());
   return (await describeLinks(ctx, [row!]))[0]!;
 }

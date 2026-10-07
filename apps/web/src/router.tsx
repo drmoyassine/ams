@@ -10,6 +10,8 @@ import { QualityFrameworkPage } from './pages/settings/quality-framework';
 import { FrameworksPage } from './pages/frameworks';
 import { LoginPage } from './pages/login';
 import { RequirementWorkspacePage } from './pages/requirement-workspace';
+import { RequestsPage } from './pages/requests';
+import { RespondPage } from './pages/respond';
 import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
 import { SettingsLayout } from './pages/settings/layout';
@@ -19,6 +21,9 @@ export const queryClient = new QueryClient();
 
 const rootRoute = createRootRoute({ component: Outlet });
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: () => <LoginPage /> });
+// A one-time response link (DEC-018): outside the signed-in app, no session needed.
+const respondRoute = createRoute({ getParentRoute: () => rootRoute, path: '/respond/$token', component: () => <RespondRoute /> });
+function RespondRoute() { const { token } = respondRoute.useParams(); return <RespondPage key={token} token={token} />; }
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
@@ -47,8 +52,9 @@ function EngagementRoute() { const { id } = engagementRoute.useParams(); return 
 const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagement-requirements/$id', component: () => <WorkspaceRoute /> });
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
 const evidenceRoute = createRoute({ getParentRoute: () => appRoute, path: '/evidence', component: () => <EvidencePage /> });
+const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, glossaryRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, glossaryRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

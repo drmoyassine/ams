@@ -1,26 +1,33 @@
 import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
-import { withIdentity, type Identity } from '@ams/db';
-import { isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
+import { resolveRequestLink, withIdentity, type Identity } from '@ams/db';
+import { hashLinkToken, isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
 import type { Permission, Scope } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
 export type Authenticator = (req: Request) => Promise<{ userId: string; institutionId: string } | null>;
 
 export interface AppEnv {
-  Variables: { caller: Identity; ctx: Ctx };
+  /** `linkRequestId`: on one-time link routes, the one request the link opens. */
+  Variables: { caller: Identity; ctx: Ctx; linkRequestId: string };
 }
 export type AppContext = Context<AppEnv>;
 
 /** Every route declares exactly one of these. There is no default. */
 export type Access =
   | { kind: 'public' }
-  | { kind: 'permission'; permission: Permission; scope: (c: AppContext) => Scope };
+  | { kind: 'permission'; permission: Permission; scope: (c: AppContext) => Scope }
+  | { kind: 'link' };
 
 export const requires = (permission: Permission, scope: (c: AppContext) => Scope = () => ({ type: 'any' })): Access =>
   ({ kind: 'permission', permission, scope });
 export const publicRoute = (): Access => ({ kind: 'public' });
+/**
+ * A one-time response link (DEC-018): the `{token}` path parameter is the credential, and it grants exactly one
+ * request, whose id the handler reads from `linkRequestId`. No account is involved.
+ */
+export const responseLink = (): Access => ({ kind: 'link' });
 
 export const scopeFrom = {
   institution: (): Scope => ({ type: 'institution' }),
@@ -50,6 +57,16 @@ const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (
   const who = await deps.authenticate(c.req.raw);
   if (!who) return c.json({ error: 'unauthenticated' }, 401);
   c.set('caller', { userId: who.userId, institutionId: who.institutionId, requestId: crypto.randomUUID() });
+  await next();
+};
+
+/** Authenticates and authorizes a one-time link at once: the link resolves to one open request, or to nothing. */
+const linkStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
+  const token = c.req.param('token') ?? '';
+  const found = token.length >= 20 ? await resolveRequestLink(deps.pool, hashLinkToken(token)) : null;
+  if (!found) return c.json({ error: 'this link has been used, has expired or is not valid' }, 404);
+  c.set('caller', { userId: null, institutionId: found.institutionId, requestId: crypto.randomUUID(), actorType: 'system' });
+  c.set('linkRequestId', found.requestId);
   await next();
 };
 
@@ -94,7 +111,7 @@ export function secured<P extends string, C extends Omit<SecureRouteConfig, 'pat
   registry: RouteRegistry, deps: ChainDeps, config: C,
 ) {
   const { access, ...route } = config;
-  if (!access || (access.kind !== 'public' && access.kind !== 'permission')) {
+  if (!access || (access.kind !== 'public' && access.kind !== 'permission' && access.kind !== 'link')) {
     throw new Error(`Route ${route.method.toUpperCase()} ${route.path} has no requires(...) or publicRoute() declaration`);
   }
   const key = registry.key(route.method, route.path);
@@ -103,7 +120,9 @@ export function secured<P extends string, C extends Omit<SecureRouteConfig, 'pat
 
   const middleware: MiddlewareHandler<AppEnv>[] = access.kind === 'public'
     ? []
-    : [authenticateStep(deps), authorizeStep(deps, access), transactionStep(deps)];
+    : access.kind === 'link'
+      ? [linkStep(deps), transactionStep(deps)]
+      : [authenticateStep(deps), authorizeStep(deps, access), transactionStep(deps)];
   return createRoute({ ...route, middleware } as unknown as Omit<C, 'access'> & { middleware: MiddlewareHandler<AppEnv>[] });
 }
 

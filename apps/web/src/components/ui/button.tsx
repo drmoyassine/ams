@@ -9,6 +9,7 @@ const button = cva(
       variant: {
         default: 'bg-primary text-primary-foreground hover:opacity-90',
         ghost: 'hover:bg-muted',
+        outline: 'border border-border hover:bg-muted',
       },
     },
     defaultVariants: { variant: 'default' },

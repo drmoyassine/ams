@@ -75,3 +75,37 @@ export const periodYear = (label: string | null | undefined): number | null => {
 };
 /** PRD 9.3: evidence is stale for an engagement when its period starts before the review year minus this many years. */
 export const STALE_AFTER_YEARS = 3;
+
+// ---- Requests (DEC-018) --------------------------------------------------------------------------------------------
+
+export const EVIDENCE_REQUEST_STATUSES = ['open', 'supplied', 'cancelled'] as const;
+/** Days a one-time response link stays valid. */
+export const REQUEST_LINK_DAYS = 30;
+
+export const EvidenceRequestSchema = z.object({
+  id: z.string(), internalCode: z.string(), internalTitle: z.string().nullable(), title: z.string(), message: z.string().nullable(),
+  assigneeEmail: z.string(), assigneeName: z.string().nullable(), assigneeHasAccount: z.boolean(), dueDate: z.string().nullable(),
+  status: z.enum(EVIDENCE_REQUEST_STATUSES), overdue: z.boolean(), requestedByName: z.string().nullable(), createdAt: z.string(),
+  suppliedAt: z.string().nullable(), suppliedNote: z.string().nullable(), linkExpiresAt: z.string().nullable(),
+  evidenceItemId: z.string().nullable(),
+});
+export type EvidenceRequest = z.infer<typeof EvidenceRequestSchema>;
+
+/** What a new request (or a new link for one) returns: the one-time link secret is shown once and never stored. */
+export const IssuedRequestSchema = z.object({ request: EvidenceRequestSchema, linkToken: z.string().nullable() });
+export type IssuedRequest = z.infer<typeof IssuedRequestSchema>;
+
+export const CreateEvidenceRequestSchema = z.object({
+  title: z.string().trim().min(1, 'say what is needed'),
+  assigneeEmail: z.email('enter an email address').trim().toLowerCase(),
+  message: z.string().trim().min(1).optional(),
+  dueDate: z.iso.date().optional(),
+}).strict();
+export type CreateEvidenceRequest = z.infer<typeof CreateEvidenceRequestSchema>;
+
+/** What the one-time link page shows: only this request. */
+export const RequestByLinkSchema = z.object({
+  title: z.string(), message: z.string().nullable(), dueDate: z.string().nullable(), internalCode: z.string(), internalTitle: z.string().nullable(),
+  requestedByName: z.string().nullable(), institutionName: z.string(),
+});
+export type RequestByLink = z.infer<typeof RequestByLinkSchema>;

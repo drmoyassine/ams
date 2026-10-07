@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import { EvidenceLinkList } from '../../components/evidence-links';
+import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -120,7 +121,7 @@ function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }
 interface ItemProps {
   api: FrameworkApi; evidence: EvidenceApi; r: Requirement; all: Requirement[]; me: Me | undefined; editable: boolean;
   open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
-  onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
+  onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void; onRequest: (r: Requirement) => void;
 }
 
 /** One standard or sub-standard as a full-width accordion card: opening it shows its description and linked evidence. */
@@ -132,9 +133,10 @@ function Item(p: ItemProps) {
   const isOpen = open.has(r.id);
   const children = all.filter((x) => x.parentId === r.id);
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
+  const requests = useQuery({ queryKey: ['internal-requests', r.id], queryFn: () => evidence.internalRequests(r.id), enabled: isOpen });
   const [linkError, setLinkError] = useState('');
   const menu = [
-    ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }] : []),
+    ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }, { label: 'Request evidence', onSelect: () => p.onRequest(r) }] : []),
     ...(editable && !r.parentId ? [{ label: 'Add sub-standard', onSelect: () => p.onAddChild(r) }] : []),
     ...(editable ? [{ label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
     ...(editable ? [{ label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${tag(r)} · ${r.title}?`)) void act(() => api.deleteRequirement(r.id)); } }] : []),
@@ -165,6 +167,13 @@ function Item(p: ItemProps) {
             <EvidenceLinkList links={links.data ?? []} api={evidence} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')}
               onChange={() => void qc.invalidateQueries({ queryKey: ['internal-evidence', r.id] })} setError={setLinkError} />
           </div>
+          {(requests.data?.length ?? 0) > 0 && (
+            <div className="space-y-1">
+              <Shaded>Requests</Shaded>
+              <RequestList requests={requests.data ?? []} api={evidence} canManage={can(me, 'evidence:write')} setError={setLinkError}
+                onChange={() => void qc.invalidateQueries({ queryKey: ['internal-requests', r.id] })} />
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -173,15 +182,15 @@ function Item(p: ItemProps) {
 
 /**
  * The internal framework's requirements: standards and their sub-standards as full-width accordions, each with a
- * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu links evidence,
- * adds a sub-standard, edits or deletes it.
+ * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu links or requests
+ * evidence, adds a sub-standard, edits or deletes it.
  */
 export function IqfRequirements({ api, version, me, evidence: evidenceOverride }: { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi }) {
   const evidence = useEvidenceApi(evidenceOverride);
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | { kind: 'request'; item: Requirement } | null>(null);
   const rows = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(() => qc.invalidateQueries({ queryKey: ['requirements', version.id] })); };
@@ -195,6 +204,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
     onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }),
     onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
     onLink: (item: Requirement) => setDialog({ kind: 'link', item }),
+    onRequest: (item: Requirement) => setDialog({ kind: 'request', item }),
   };
   /** Saves through the API; on success opens what was saved (and its standard) and closes the dialog. */
   const saveItem = async (save: () => Promise<Requirement>) => {
@@ -235,6 +245,15 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
       {dialog?.kind === 'edit' && (
         <ItemDialog editing={dialog.item} parent={null} code={dialog.item.code} error={error} onClose={close}
           onSave={({ code, title, description }) => saveItem(() => api.editQualityItem(dialog.item.id, { code, title, description }))} />
+      )}
+      {dialog?.kind === 'request' && (
+        <RequestEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} requirementId={dialog.item.id} onClose={close}
+          onDone={() => {
+            const id = dialog.item.id;
+            setOpen((s) => new Set([...s, id]));
+            void qc.invalidateQueries({ queryKey: ['internal-requests', id] });
+            void qc.invalidateQueries({ queryKey: ['evidence-requests'] });
+          }} />
       )}
       {dialog?.kind === 'link' && (
         <LinkEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} onClose={close}

@@ -308,9 +308,15 @@ related_decisions:
   - id: DEC-017
     name: The AMS and the institutional data warehouse are separate products, each with its own storage
     url: /DECISIONS.md#DEC-017
+  - id: DEC-018
+    name: Evidence requests can be answered through a one-time link by people without an AMS account
+    url: /DECISIONS.md#DEC-018
+  - id: DEC-019
+    name: Evidence may be shared with a connected BI product whose AI may process it
+    url: /DECISIONS.md#DEC-019
 modified:
   by: agent/claude-code
-  at: '2026-10-07T07:27:17.956Z'
+  at: '2026-10-07T09:55:21.170Z'
 related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links
@@ -318,6 +324,9 @@ related_tasks:
   - id: TASK-040
     name: Datasets with manual upload, templates and data requests
     url: /TASKS.md#TASK-040
+  - id: TASK-041
+    name: Evidence requests with one-time links
+    url: /TASKS.md#TASK-041
 ---
 
 Done when: one file supports WSCUC and ABET with different rationales; one dataset fills tables in two reports; re-upload after submission leaves the snapshot unchanged. PRD §18.4 M3.

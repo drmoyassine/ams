@@ -882,4 +882,87 @@ modified:
   at: '2026-10-07T07:27:17.956Z'
 ---
 
+---
+
+## DEC-018 — Evidence requests can be answered through a one-time link by people without an AMS account
+
+---
+id: DEC-018
+title: Evidence requests can be answered through a one-time link by people without an AMS account
+status: accepted
+context: >-
+  Evidence is often held by people outside the accreditation team (registrar staff, external partners) who have no AMS
+  account. Requests must still reach them without creating accounts.
+decision: >-
+  An evidence request can be sent to an AMS user or to an email address. For an email address the AMS issues a secret
+  one-time link (stored only as a hash, with an expiry) that opens a minimal page scoped to that single request: it
+  shows the request and accepts one response (a file and a note). Using the link closes it. The response becomes
+  evidence with a proposed link that a reviewer approves or rejects.
+rationale: Collects evidence from the people who hold it while keeping access narrow and every response reviewed.
+consequences: >-
+  The link page is the only unauthenticated write path; it is limited to one request, one response, a size cap and an
+  expiry, and is audited like any other write.
+tags:
+  - ams
+last_updated: '2026-10-07'
+generated:
+  by: agent/claude-code
+  at: '2026-10-07T09:44:54.752Z'
+related_roadmap_items:
+  - id: ROADMAP-004
+    name: M3 — Evidence and datasets
+    url: /ROADMAP.md#ROADMAP-004
+modified:
+  by: agent/claude-code
+  at: '2026-10-07T09:55:21.170Z'
+related_tasks:
+  - id: TASK-041
+    name: Evidence requests with one-time links
+    url: /TASKS.md#TASK-041
+---
+
+---
+
+## DEC-019 — Evidence may be shared with a connected BI product whose AI may process it
+
+---
+id: DEC-019
+title: Evidence may be shared with a connected BI product whose AI may process it
+status: accepted
+context: >-
+  DEC-013 kept institutional evidence files away from AI models in the MVP. The institution's separate AI-native BI
+  (DEC-017) finds documents and answers questions about them, and the owner wants evidence uploaded in the AMS to be
+  available to it.
+decision: >-
+  When a BI product is connected, evidence uploaded in the AMS may be shared with it and processed by its AI. The AMS
+  itself still makes no AI calls on evidence files; AI in the AMS stays limited to framework source documents and
+  accreditor letters.
+rationale: The owner approved it; it lets the BI find and reuse evidence without the AMS taking on a RAG pipeline.
+consequences: Amends DEC-013 for the BI connector only. Sharing is a setting of the connector, off until a BI is connected.
+tags:
+  - ams
+last_updated: '2026-10-07'
+generated:
+  by: agent/claude-code
+  at: '2026-10-07T09:44:56.488Z'
+related_roadmap_items:
+  - id: ROADMAP-004
+    name: M3 — Evidence and datasets
+    url: /ROADMAP.md#ROADMAP-004
+related_decisions:
+  - id: DEC-013
+    name: AI processing approved for framework source documents; evidence not sent in the MVP
+    url: /DECISIONS.md#DEC-013
+  - id: DEC-017
+    name: The AMS and the institutional data warehouse are separate products, each with its own storage
+    url: /DECISIONS.md#DEC-017
+modified:
+  by: agent/claude-code
+  at: '2026-10-07T09:55:21.170Z'
+related_tasks:
+  - id: TASK-041
+    name: Evidence requests with one-time links
+    url: /TASKS.md#TASK-041
+---
+
 <!-- End VEF generated items. -->

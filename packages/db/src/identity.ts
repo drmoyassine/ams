@@ -67,3 +67,23 @@ export const resolveIdentity = (pool: pg.Pool, authUserId: string): Promise<Reso
 /** Links a verified-email auth user to the app_user an administrator created for that address. */
 export const linkIdentity = (pool: pg.Pool, authUserId: string, email: string): Promise<Resolved> =>
   asApp(pool, 'select user_id, institution_id from app_link_identity($1, $2)', [authUserId, email]);
+
+/**
+ * Finds the request a one-time response link opens (DEC-018), given the SHA-256 hex of the link's secret. Runs as the
+ * API's role before any institution is known; returns null for a used, expired, cancelled or unknown link.
+ */
+export async function resolveRequestLink(pool: pg.Pool, tokenHash: string): Promise<{ requestId: string; institutionId: string } | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role ams_app');
+    const { rows } = await client.query<{ request_id: string; institution_id: string }>('select * from app_resolve_request_link($1)', [tokenHash]);
+    await client.query('commit');
+    return rows[0] ? { requestId: rows[0].request_id, institutionId: rows[0].institution_id } : null;
+  } catch (e) {
+    await client.query('rollback').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}

@@ -28,6 +28,7 @@ export function AppLayout({ api: override }: { api?: SettingsApi }) {
     { to: '/standards', label: t('nav.frameworks', 'Standards') },
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
+    { to: '/requests', label: t('nav.requests', 'Requests') },
   ] as const;
   return (
     <div className="flex min-h-screen">

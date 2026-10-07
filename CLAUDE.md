@@ -96,7 +96,7 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 6. **AI proposes, humans publish.** AI output goes to proposal tables/drafts only; the worker's DB role cannot approve, publish or set official status. `required` notes need a verified quote. (DEC-006)
 7. **One import point per heavy library**: liteparse only via `parseDocument()`, AI SDK only via `aiExtract`/`aiOcr`, governed metrics only via `datasetSource.fetch()`. No AI calls outside the worker; temperature 0; prompts versioned in the repo. (DEC-011, DEC-012)
 8. **Host-agnostic.** Only PostgreSQL, S3 API, OIDC/SAML, SMTP, HTTPS, configured by env. No provider-proprietary services or SDKs. (DEC-008)
-9. **Evidence files are never sent to AI models in the MVP.** Framework source documents and accreditor letters may be. (DEC-013)
+9. **The AMS never sends evidence files to AI models.** Framework source documents and accreditor letters may be. A connected BI may receive evidence and process it with its own AI (DEC-013, DEC-019).
 10. **Arabic is first-class content.** Store original text, NFC; render with `dir="auto"`; quote matching normalises on the AMS side only.
 11. **Migrations are forward-only SQL**, committed with the schema change that needs them.
 
