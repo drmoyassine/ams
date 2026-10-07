@@ -7,7 +7,7 @@ status: In Progress
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-06'
+last_updated: '2026-10-07'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:34.350Z'
@@ -19,9 +19,12 @@ related_decisions:
   - id: DEC-014
     name: Dataset evidence with a source adapter; governed-metric integration optional
     url: /DECISIONS.md#DEC-014
+  - id: DEC-017
+    name: The AMS and the institutional data warehouse are separate products, each with its own storage
+    url: /DECISIONS.md#DEC-017
 modified:
   by: agent/claude-code
-  at: '2026-10-06T12:47:48.797Z'
+  at: '2026-10-07T07:27:17.956Z'
 related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links

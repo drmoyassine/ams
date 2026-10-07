@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — The AMS and the warehouse stay separate (DEC-017)
+
+Uploads confirmed working on the deployment. The owner's institutional data warehouse (AI-native BI on PostgreSQL and S3 with a governed metric layer) is a separate product: each keeps its own storage, the AMS consumes metrics from the warehouse through an optional adapter, and either works without the other. Recorded as DEC-017; it confirms DEC-014, so datasets keep the source switch (manual upload now, governed metric when a warehouse is connected) and nothing built moves.
+
+---
+
 ## 2026-10-07 — Link evidence: one search, create from it, justification
 
 The Link evidence dialog is a single search box with a results dropdown (no "repository / new" switch, no permanent list box). The dropdown always ends with "+ Create new evidence", which opens a second dialog (title prefilled from the search; type, period, confidentiality, tags, file or link) and returns with the new evidence chosen. The reason field is called Justification and appears only once evidence is chosen. The same dialog now serves the requirement workspace ("+ Link other evidence") and the older version page; the inline link form is gone. Reporting frequency stays with engagements (accreditors' cycles); an evidence refresh frequency on internal items belongs with the review cycle, later.
