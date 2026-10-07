@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
+import { AccordionCard, HoverCard, Shaded, useEscape } from '../../components/accordion';
 import { ContentText } from '../../components/content-text';
 import { EvidenceLinkList } from '../../components/evidence-links';
 import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
@@ -23,15 +24,6 @@ function nextCode(rows: Requirement[], parent: Requirement | null): string {
 
 /** "Standard 1.0" for a standard, "Standard 1.1" for one of its sub-standards. */
 const tag = (r: Requirement) => `Standard ${!r.parentId && !r.code.includes('.') ? `${r.code}.0` : r.code}`;
-const Shaded = ({ children }: { children: string }) => <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{children}</span>;
-
-function useEscape(onClose: () => void) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-}
 
 /** Adds or edits a standard or a sub-standard. Where it sits follows from its code (1.2 goes under Standard 1.0). */
 function ItemDialog({ editing, parent, code, error, onSave, onClose }: {
@@ -75,46 +67,18 @@ function ItemDialog({ editing, parent, code, error, onSave, onClose }: {
   );
 }
 
-/** The ⋯ menu of an accordion card. */
-function ActionsMenu({ label, items }: { label: string; items: { label: string; onSelect: () => void }[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', away);
-    window.addEventListener('keydown', key);
-    return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', key); };
-  }, [open]);
-  if (items.length === 0) return null;
-  return (
-    <div ref={ref} className="relative">
-      <button type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}
-        className="rounded px-2 py-1 text-lg leading-none text-muted-foreground hover:bg-muted">⋯</button>
-      {open && (
-        <div role="menu" aria-label={label} className="absolute end-0 z-20 mt-1 min-w-44 rounded-md border border-border bg-background py-1 shadow-lg">
-          {items.map((i) => (
-            <button key={i.label} type="button" role="menuitem" className="block w-full px-3 py-1.5 text-start text-sm hover:bg-muted" onClick={() => { setOpen(false); i.onSelect(); }}>{i.label}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Shown on hover: title, description and linked evidence, without opening the card. */
 function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }) {
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id) });
   return (
-    <div role="tooltip" className="pointer-events-none absolute start-4 top-full z-30 mt-1 w-[min(32rem,90vw)] rounded-md border border-border bg-background p-3 text-sm shadow-lg">
+    <HoverCard>
       <p className="font-semibold"><ContentText>{`${tag(r)} · ${r.title}`}</ContentText></p>
       <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No description yet.'}</ContentText></p>
       <p className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked evidence</p>
       {links.data === undefined ? <p className="text-xs text-muted-foreground">…</p> : links.data.length === 0
         ? <p className="text-xs text-muted-foreground">None yet.</p>
         : <ul className="list-disc ps-4 text-xs">{links.data.map((l) => <li key={l.id}><ContentText>{l.evidenceTitle}</ContentText> <span className="text-muted-foreground">({l.reviewStatus})</span></li>)}</ul>}
-    </div>
+    </HoverCard>
   );
 }
 
@@ -128,8 +92,6 @@ interface ItemProps {
 function Item(p: ItemProps) {
   const { api, evidence, r, all, me, editable, open, toggle, act } = p;
   const qc = useQueryClient();
-  const [hover, setHover] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isOpen = open.has(r.id);
   const children = all.filter((x) => x.parentId === r.id);
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
@@ -142,41 +104,28 @@ function Item(p: ItemProps) {
     ...(editable ? [{ label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${tag(r)} · ${r.title}?`)) void act(() => api.deleteRequirement(r.id)); } }] : []),
   ];
   return (
-    <section aria-label={tag(r)} className={`rounded-lg border border-border ${r.parentId ? 'bg-background' : 'bg-muted/30'}`} data-testid={r.parentId ? 'iqf-substandard' : 'iqf-standard'}>
-      <div className="relative flex items-center gap-2 pe-2"
-        onMouseEnter={() => { timer.current = setTimeout(() => setHover(true), 400); }}
-        onMouseLeave={() => { clearTimeout(timer.current); setHover(false); }}>
-        <button type="button" aria-expanded={isOpen} onClick={() => toggle(r.id)} className="flex flex-1 items-center gap-3 px-4 py-3 text-start">
-          <Shaded>{tag(r)}</Shaded>
-          <span className={`flex-1 ${r.parentId ? '' : 'font-semibold'}`}><ContentText>{r.title}</ContentText></span>
-          {!r.parentId && children.length > 0 && <span className="text-xs text-muted-foreground">{children.length} sub-standard{children.length === 1 ? '' : 's'}</span>}
-          <span aria-hidden="true" className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span>
-        </button>
-        <ActionsMenu label={`Actions for ${tag(r)}`} items={menu} />
-        {hover && !isOpen && <HoverDetails r={r} evidence={evidence} />}
+    <AccordionCard label={tag(r)} tag={tag(r)} title={r.title} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}
+      open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tag(r)}`} menu={menu}
+      meta={!r.parentId && children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} sub-standard{children.length === 1 ? '' : 's'}</span> : undefined}
+      hover={<HoverDetails r={r} evidence={evidence} />}>
+      <div className="space-y-1">
+        <Shaded>Description</Shaded>
+        {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description yet.</p>}
       </div>
-      {isOpen && (
-        <div className="space-y-4 border-t border-border px-4 py-4">
-          <div className="space-y-1">
-            <Shaded>Description</Shaded>
-            {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description yet.</p>}
-          </div>
-          <div className="space-y-1">
-            <Shaded>Linked evidence</Shaded>
-            {linkError && <p role="alert" className="text-sm text-red-700">{linkError}</p>}
-            <EvidenceLinkList links={links.data ?? []} api={evidence} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')}
-              onChange={() => void qc.invalidateQueries({ queryKey: ['internal-evidence', r.id] })} setError={setLinkError} />
-          </div>
-          {(requests.data?.length ?? 0) > 0 && (
-            <div className="space-y-1">
-              <Shaded>Requests</Shaded>
-              <RequestList requests={requests.data ?? []} api={evidence} canManage={can(me, 'evidence:write')} setError={setLinkError}
-                onChange={() => void qc.invalidateQueries({ queryKey: ['internal-requests', r.id] })} />
-            </div>
-          )}
+      <div className="space-y-1">
+        <Shaded>Linked evidence</Shaded>
+        {linkError && <p role="alert" className="text-sm text-red-700">{linkError}</p>}
+        <EvidenceLinkList links={links.data ?? []} api={evidence} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')}
+          onChange={() => void qc.invalidateQueries({ queryKey: ['internal-evidence', r.id] })} setError={setLinkError} />
+      </div>
+      {(requests.data?.length ?? 0) > 0 && (
+        <div className="space-y-1">
+          <Shaded>Requests</Shaded>
+          <RequestList requests={requests.data ?? []} api={evidence} canManage={can(me, 'evidence:write')} setError={setLinkError}
+            onChange={() => void qc.invalidateQueries({ queryKey: ['internal-requests', r.id] })} />
         </div>
       )}
-    </section>
+    </AccordionCard>
   );
 }
 

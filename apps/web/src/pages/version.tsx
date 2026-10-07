@@ -9,6 +9,7 @@ import { ConfigTab } from './version/config-tab';
 import { TerminologyTab } from './version/terminology-tab';
 import { MappingsTab } from './version/mappings-tab';
 import { PublishTab } from './version/publish-tab';
+import { ExternalRequirements } from './version/external-requirements';
 import { RequirementsTab } from './version/requirements-tab';
 import { SourcesTab } from './version/sources-tab';
 import { TemplatesTab } from './version/templates-tab';
@@ -53,7 +54,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }
         ))}
       </div>
       <div role="tabpanel">
-        {tab === 'requirements' && <RequirementsTab api={api} version={version} me={me.data} />}
+        {tab === 'requirements' && (version.internal ? <RequirementsTab api={api} version={version} me={me.data} /> : <ExternalRequirements api={api} version={version} me={me.data} />)}
         {tab === 'config' && <ConfigTab api={api} version={version} me={me.data} />}
         {tab === 'templates' && <TemplatesTab api={api} version={version} me={me.data} />}
         {tab === 'mappings' && <MappingsTab api={api} version={version} me={me.data} />}

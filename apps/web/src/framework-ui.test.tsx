@@ -167,19 +167,18 @@ describe('frameworks page', () => {
 });
 
 describe('version page', () => {
-  it('shows the tree, notes with authority badges and verified quotes, and gives Arabic content its own direction', async () => {
+  it('shows requirements as cards, items indented under their parent, notes with authority badges and verified quotes, and gives Arabic content its own direction', async () => {
     const { version } = await importAs('lead', 'tree-view');
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    const tree = await screen.findByRole('tree', { name: 'Requirements' });
-    const items = await within(tree).findAllByRole('treeitem');
-    expect(items).toHaveLength(2);
-    expect(items[1]!.getAttribute('style')).toMatch(/padding-inline-start: 1.25rem/);
-    expect(items[0]!.querySelector('[dir="auto"]')?.textContent).toContain('الرسالة والأهداف');
-
-    await user.click(within(items[1]!).getByRole('button'));
-    const detail = await screen.findByTestId('requirement-detail');
-    const note = await within(detail).findByTestId('note');
+    const top = await screen.findByRole('region', { name: 'Standard 1' });
+    expect(await screen.findAllByTestId('requirement-card')).toHaveLength(2);
+    expect(top.querySelector('[dir="auto"]')?.textContent).toContain('الرسالة والأهداف');
+    const items = screen.getByRole('list', { name: 'Items of Standard 1' }); // listed under its parent, not inside it
+    expect(within(top).queryByText('Mission statement')).toBeNull();
+    const sub = within(items).getByRole('region', { name: 'Measure 1-1' });
+    await user.click(within(sub).getByRole('button', { name: /^Measure 1-1/ }));
+    const note = await within(sub).findByTestId('note');
     expect(within(note).getByTestId('authority').textContent).toBe('Required');
     expect(within(note).getByTestId('quote-state').textContent).toBe('Quote verified');
     expect(within(note).getByTestId('review').textContent).toBe('Pending review');
@@ -189,29 +188,53 @@ describe('version page', () => {
     const { version } = await importAs('admin', 'edit-flow', true);
     const user = userEvent.setup();
     const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    await user.click((await within(await screen.findByRole('tree')).findAllByRole('button'))[1]!);
-    const detail = await screen.findByTestId('requirement-detail');
-    expect(within(detail).getAllByTestId('review')[0]!.textContent).toBe('Reviewed: approved');
-    const title = within(detail).getByLabelText('Title');
+    const card = await screen.findByRole('region', { name: 'Measure 1-1' });
+    expect(within(card).getByTestId('review').textContent).toBe('Reviewed: approved');
+    await user.click(within(card).getByRole('button', { name: 'Actions for Measure 1-1' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    const title = within(dialog).getByLabelText('Title');
     await user.clear(title);
     await user.type(title, 'Mission statement (revised)');
-    await user.click(within(detail).getByRole('button', { name: /Save/ }));
-    await waitFor(() => expect(within(screen.getByTestId('requirement-detail')).getAllByTestId('review')[0]!.textContent).toBe('Pending review'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Measure 1-1' })).getByTestId('review').textContent).toBe('Pending review'));
+    expect(screen.getByRole('region', { name: 'Measure 1-1' }).textContent).toContain('Mission statement (revised)');
     unmount();
 
     render(wrap(<VersionPage versionId={version.id} api={apiFor('viewer')} onOpenVersion={() => undefined} />));
-    await user.click((await within(await screen.findByRole('tree')).findAllByRole('button'))[1]!);
-    const ro = await screen.findByTestId('requirement-detail');
-    expect(within(ro).queryByRole('button', { name: /Save/ })).toBeNull();
-    expect((within(ro).getByLabelText('Title') as HTMLInputElement).readOnly).toBe(true);
-    expect(screen.queryByRole('form', { name: 'Add requirement' })).toBeNull();
+    const ro = await screen.findByRole('region', { name: 'Measure 1-1' });
+    expect(screen.queryByRole('button', { name: /^Actions for/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ Requirement' })).toBeNull();
+    await user.click(within(ro).getByRole('button', { name: /^Measure 1-1/ }));
+    expect(within(ro).queryByRole('form', { name: 'Add note' })).toBeNull();
+  });
+
+  it('adds a requirement from a dialog, under a parent, at the next level', async () => {
+    const { version } = await importAs('lead', 'add-req');
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
+    const top = await screen.findByRole('region', { name: 'Standard 1' });
+    await user.click(within(top).getByRole('button', { name: 'Actions for Standard 1' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Add measure' }));
+    const dialog = await screen.findByRole('dialog');
+    expect((within(dialog).getByLabelText('Under') as HTMLSelectElement).selectedOptions[0]!.textContent).toContain('Standard 1');
+    expect((within(dialog).getByLabelText('Level') as HTMLSelectElement).value).toBe('Measure');
+    await user.type(within(dialog).getByLabelText('Code'), '1-2');
+    await user.type(within(dialog).getByLabelText('Title'), 'Vision statement');
+    await user.type(within(dialog).getByLabelText('Official text'), 'A vision is published.');
+    await user.click(within(dialog).getByRole('button', { name: 'Add requirement' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const added = await within(screen.getByRole('list', { name: 'Items of Standard 1' })).findByRole('region', { name: 'Measure 1-2' });
+    expect(added.textContent).toContain('Vision statement');
+    expect(added.getAttribute('aria-label')).toBe('Measure 1-2');
   });
 
   it('adds a note whose quote is verified against the stored page, and flags one that is not', async () => {
     const { version } = await importAs('lead', 'add-note');
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    await user.click((await within(await screen.findByRole('tree')).findAllByRole('button'))[0]!);
+    await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
     const form = await screen.findByRole('form', { name: 'Add note' });
     await user.type(within(form).getByLabelText('Note text'), 'Complete the worksheet');
     await user.selectOptions(within(form).getByLabelText('Authority'), 'required');
@@ -230,7 +253,7 @@ describe('version page', () => {
       `insert into requirement_note (institution_id, requirement_id, type, text, authority, origin) values ($1, $2, 'guidance', 'Inferred by the extractor', 'ai_suggested', 'ai')`, [ids.inst, reqs[0]!.id]);
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    await user.click((await within(await screen.findByRole('tree')).findAllByRole('button'))[0]!);
+    await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
     const notes = await screen.findAllByTestId('note');
     const ai = notes.find((n) => within(n).getByTestId('authority').textContent === 'AI-suggested')!;
     await user.click(within(ai).getByRole('button', { name: 'Promote to suggested' }));
@@ -298,10 +321,11 @@ describe('version page', () => {
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Published'));
 
     await user.click(screen.getByRole('tab', { name: 'Requirements' }));
-    await user.click((await within(await screen.findByRole('tree')).findAllByRole('button'))[0]!);
-    const detail = await screen.findByTestId('requirement-detail');
-    expect(within(detail).queryByRole('button', { name: /Save/ })).toBeNull();
-    expect(screen.queryByRole('form', { name: 'Add requirement' })).toBeNull();
+    await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
+    await screen.findByTestId('requirement-detail');
+    expect(screen.queryByRole('button', { name: /^Actions for/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ Requirement' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Add note' })).toBeNull();
     await user.click(screen.getByRole('tab', { name: 'Lifecycle and vocabularies' }));
     expect(screen.getByText(/configuration is read-only/)).toBeTruthy();
     expect((screen.getByLabelText('Lifecycle template') as HTMLTextAreaElement).readOnly).toBe(true);

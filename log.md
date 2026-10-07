@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — External requirements laid out like the internal ones
+
+An external standard's Requirements tab now follows the internal framework's: full-width closable cards with a shaded tag (the code, with the level in front when the code is only a number), items indented under their parent, a title, the level name and the review state on each card, and a hover tooltip. The ⋯ menu adds an item at the next level, edits, approves or rejects, and deletes while the version is a draft; "+ Requirement" opens a dialog (code, title, level, parent, official text, assessable). Inside a card: the official text and the notes with their authority badges, verified quotes and the add-note form. No evidence is linked here; it is linked once to the internal standards these map onto. Both screens now share one accordion component (`components/accordion.tsx`).
+
+---
+
 ## 2026-10-07 — External Standards move into Settings
 
 Standards are no longer in the main menu. Settings now has Organization, Programs, Internal Quality Framework and **External Standards**: the accreditors' standards, where you add one (import a file or start from scratch), edit its requirements while it is a draft, and publish it. A version opens at `/settings/versions/{id}` and keeps the Settings sub-menu. The old `/standards` and `/versions/{id}` addresses redirect. Settings now shows for anyone who can write or review frameworks, not only for org and program admins. The model stays: (1) Settings: define the internal standards and link evidence once; (2) map external to internal standards once; (3) accreditation cycle, collection and reporting in Engagements (still to build).

@@ -14,13 +14,13 @@ import type { Me } from '@ams/shared';
 
 type Props = { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi };
 
-function useAction(onError: (m: string) => void, invalidate: () => Promise<unknown>) {
+export function useAction(onError: (m: string) => void, invalidate: () => Promise<unknown>) {
   return useMutation({
     mutationFn: async (fn: () => Promise<unknown>) => { onError(''); try { await fn(); await invalidate(); } catch (e) { if (e instanceof ApiError) onError(e.message); else throw e; } },
   });
 }
 
-function NotePanel({ api, note, editable, canReview, invalidate, setError }: {
+export function NotePanel({ api, note, editable, canReview, invalidate, setError }: {
   api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
 }) {
   const act = useAction(setError, invalidate);
@@ -48,7 +48,7 @@ function NotePanel({ api, note, editable, canReview, invalidate, setError }: {
   );
 }
 
-function AddNote({ api, requirementId, docs, invalidate, setError }: { api: FrameworkApi; requirementId: string; docs: SourceDocument[]; invalidate: () => Promise<unknown>; setError: (m: string) => void }) {
+export function AddNote({ api, requirementId, docs, invalidate, setError }: { api: FrameworkApi; requirementId: string; docs: SourceDocument[]; invalidate: () => Promise<unknown>; setError: (m: string) => void }) {
   const act = useAction(setError, invalidate);
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
