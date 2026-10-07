@@ -116,7 +116,7 @@ describe('frameworks page', () => {
     expect(row.textContent).toMatch(/Draft/);
     expect(row.textContent).toMatch(/Not published/);
     const link = within(row).getByRole('link', { name: /Edit version 2023 of Institutional Guide/ });
-    expect(link.getAttribute('href')).toMatch(/^\/versions\//);
+    expect(link.getAttribute('href')).toMatch(/^\/settings\/versions\//);
   });
 
   it('creates a standard from scratch through the wizard, which then closes', async () => {

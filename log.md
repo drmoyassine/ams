@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — External Standards move into Settings
+
+Standards are no longer in the main menu. Settings now has Organization, Programs, Internal Quality Framework and **External Standards**: the accreditors' standards, where you add one (import a file or start from scratch), edit its requirements while it is a draft, and publish it. A version opens at `/settings/versions/{id}` and keeps the Settings sub-menu. The old `/standards` and `/versions/{id}` addresses redirect. Settings now shows for anyone who can write or review frameworks, not only for org and program admins. The model stays: (1) Settings: define the internal standards and link evidence once; (2) map external to internal standards once; (3) accreditation cycle, collection and reporting in Engagements (still to build).
+
+---
+
 ## 2026-10-07 — Requests connected to forms
 
 A request can now ask someone to fill in a data item's form instead of sending a file. From the Form tab, "Ask people to fill it in" takes one or more addresses, a due date and a message, and gives each person their own request. AMS users see "Fill in the form" under Requests; anyone else gets a one-time link that opens the form. The request itself is the permission, so it works even while the form is closed to everyone else. One answer closes the request, and the answer waits under Responses to be added to the data. Requests list form requests with a "Form" tag.

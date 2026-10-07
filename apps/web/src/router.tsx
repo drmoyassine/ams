@@ -46,8 +46,11 @@ const organizationRoute = createRoute({ getParentRoute: () => settingsRoute, pat
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });
 const qualityRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-framework', component: () => <QualityFrameworkPage /> });
 const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
-const frameworksRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', component: () => <FrameworksPage /> });
-const versionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', component: () => <VersionRoute /> });
+// External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
+const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/external-standards', component: () => <FrameworksPage /> });
+const versionRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute /> });
+const oldStandardsRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', beforeLoad: () => { throw redirect({ to: '/settings/external-standards' }); } });
+const oldVersionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', beforeLoad: ({ params }) => { throw redirect({ to: '/settings/versions/$versionId', params }); } });
 function VersionRoute() { const { versionId } = versionRoute.useParams(); return <VersionPage key={versionId} versionId={versionId} />; }
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
@@ -60,7 +63,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, glossaryRoute]), frameworksRoute, versionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

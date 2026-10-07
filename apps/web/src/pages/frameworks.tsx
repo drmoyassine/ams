@@ -36,7 +36,7 @@ function Versions({ api, framework }: { api: FrameworkApi; framework: FrameworkL
             <span className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{date}</span>
               <Link
-                to="/versions/$versionId" params={{ versionId: v.id }}
+                to="/settings/versions/$versionId" params={{ versionId: v.id }}
                 aria-label={`${editable ? 'Edit' : 'View'} version ${v.edition} of ${framework.name}`} title={editable ? 'Edit this version' : 'View this version'}
                 className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
               >
@@ -94,7 +94,7 @@ function ImportForm({ api, canReview }: { api: FrameworkApi; canReview: boolean 
       {issues.length > 0 && <ul aria-label="Import problems" className="mt-1 list-disc space-y-1 ps-5 text-sm text-red-700">{issues.map((i, n) => <li key={n}><code>{i.path}</code>: {i.message}</li>)}</ul>}
       {done && (
         <p role="status" className="mt-2 text-sm text-emerald-800">
-          Imported {done.counts}. <Link to="/versions/$versionId" params={{ versionId: done.id }} className="underline">Open the draft</Link>
+          Imported {done.counts}. <Link to="/settings/versions/$versionId" params={{ versionId: done.id }} className="underline">Open the draft</Link>
         </p>
       )}
     </Card>
@@ -186,10 +186,11 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t('framework.title', 'Standards')}</h1>
+        <h1 className="text-2xl font-semibold">{t('framework.title', 'External Standards')}</h1>
         {canWrite && <Button type="button" onClick={() => setCreating(true)}>New Standard</Button>}
       </div>
       {isError && <p role="alert">Could not load standards.</p>}
+      <p className="text-sm text-muted-foreground">Accreditors' standards. Add or import one, edit its requirements while it is a draft, then publish it; map its requirements to your internal standards in each version's Mappings tab.</p>
       {data?.length === 0 && <p className="text-muted-foreground">No standards yet.{canWrite ? ' Use New Standard to import one or start from scratch.' : ''}</p>}
       <ul className="space-y-3">
         {(data ?? []).map((f) => (

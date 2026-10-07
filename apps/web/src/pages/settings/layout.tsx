@@ -4,6 +4,7 @@ const ITEMS = [
   { to: '/settings/organization', label: 'Organization', hint: 'Names, branding and org chart' },
   { to: '/settings/programs', label: 'Programs', hint: 'Add and edit programs' },
   { to: '/settings/quality-framework', label: 'Internal Quality Framework', hint: 'The institution\'s own standards and terms' },
+  { to: '/settings/external-standards', label: 'External Standards', hint: 'Accreditors\' standards: add, import, edit and publish' },
 ] as const;
 const COMING = [] as readonly { label: string; hint: string }[];
 

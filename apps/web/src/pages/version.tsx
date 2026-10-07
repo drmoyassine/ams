@@ -30,7 +30,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }
   const navigate = useNavigate();
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
-  const open = onOpenVersion ?? ((id: string) => { void navigate({ to: '/versions/$versionId', params: { versionId: id } }); });
+  const open = onOpenVersion ?? ((id: string) => { void navigate({ to: '/settings/versions/$versionId', params: { versionId: id } }); });
 
   if (isError) return <p role="alert">Could not load this version.</p>;
   if (!version) return <p>Loading…</p>;
@@ -39,7 +39,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion }
       <p className="text-sm">
         {version.internal
           ? <Link to="/settings/quality-framework" className="underline">Internal Quality Framework</Link>
-          : <Link to="/standards" className="underline">Standards</Link>}
+          : <Link to="/settings/external-standards" className="underline">External Standards</Link>}
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">{version.internal ? `Version ${version.edition}` : `Edition ${version.edition}`}</h1>

@@ -23,9 +23,8 @@ export function AppLayout({ api: override }: { api?: SettingsApi }) {
     if (accent && isReadableAccent(accent)) root.style.setProperty('--primary', accent); else root.style.removeProperty('--primary');
     return () => { root.style.removeProperty('--primary'); };
   }, [accent]);
-  const canSettings = can(me.data, 'org:write') || can(me.data, 'program:write') || can(me.data, 'institution:write');
+  const canSettings = can(me.data, 'org:write') || can(me.data, 'program:write') || can(me.data, 'institution:write') || can(me.data, 'framework:write') || can(me.data, 'framework:review');
   const nav = [
-    { to: '/standards', label: t('nav.frameworks', 'Standards') },
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
     { to: '/requests', label: t('nav.requests', 'Requests') },
