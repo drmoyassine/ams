@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Data evidence: definition and an online sheet
+
+A data item now has a definition: what it means, what one row is, and its columns, each with a type (text, number, whole number, percent, date, choice, yes/no), an optional unit, whether it is required, and the choices of a choice column. Its data lives in an online sheet that we built ourselves, following the grid trial. You can type into it or paste a block from Excel. A cell that doesn't fit its column turns red and says why, and Arabic digits and d/m/yyyy dates are accepted. Saving checks every cell again on the server, using the same rules from `@ams/shared`. The result is kept as the next version, along with the columns it was saved with, so later changes to the definition never alter saved data. The Excel template carries the column rules as data validation and opens right-to-left when the titles are Arabic. Import of Excel or CSV (comma, semicolon, tab) matches headers by name and loads the rows into the sheet to check before saving. ExcelJS and Papa Parse load on demand from one module. TASK-040 is complete. Next: the form builder (form and sheet views).
+
+---
+
 ## 2026-10-07 — Evidence requests, with one-time links (DEC-018, DEC-019)
 
 First built-in collection source. From a standard's ⋯ menu, "Request evidence" asks a person by email for something specific, with an optional due date and message. An AMS user sees it under Requests → Asked of me and supplies the file there. Anyone else gets a one-time link (DEC-018) that opens a page with only that request. The link's secret is kept only as a hash, expires in 30 days, and stops working once used, replaced or cancelled. Either way the file becomes a document with a proposed link to the standard, which a reviewer approves. The API gained a third access kind, `responseLink()`, allowed only on `/api/response-links/{token}` (checked by the route coverage test). No mail is sent yet; the requester copies the link.

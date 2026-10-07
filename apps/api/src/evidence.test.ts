@@ -69,4 +69,16 @@ describe('evidence API', () => {
     expect(detail.body.versions).toEqual([expect.objectContaining({ versionNo: 1, url: 'https://intranet.example.edu/handbook' })]);
     expect((await call('lead', 'POST', `/api/evidence/${item.body.id}/links-to-documents`, { url: 'https://intranet.example.edu/handbook-2026' })).body.versionNo).toBe(2);
   });
+
+  it('saves data rows and names every cell it refuses', async () => {
+    const item = await call('lead', 'POST', '/api/evidence', { title: 'Headcount', type: 'data' });
+    expect((await call('lead', 'POST', `/api/evidence/${item.body.id}/data`, { rows: [{ n: '1' }] })).body.message).toBe('define the columns first');
+    expect((await call('lead', 'PUT', `/api/evidence/${item.body.id}/data-definition`, { columns: [{ key: 'n', label: 'Headcount', type: 'integer', required: true }] })).status).toBe(200);
+    const bad = await call('lead', 'POST', `/api/evidence/${item.body.id}/data`, { rows: [{ n: '12' }, { n: 'x' }] });
+    expect(bad.status).toBe(400);
+    expect(bad.body.issues).toEqual([{ path: 'rows.1.n', message: 'enter a number' }]);
+    const ok = await call('lead', 'POST', `/api/evidence/${item.body.id}/data`, { rows: [{ n: '12' }, { n: '1,200' }] });
+    expect(ok.body).toMatchObject({ versionNo: 1, rowCount: 2 });
+    expect((await call('viewer', 'GET', `/api/evidence-versions/${ok.body.id}/data`)).body.rows).toEqual([{ n: 12 }, { n: 1200 }]);
+  });
 });

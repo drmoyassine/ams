@@ -20,8 +20,10 @@ export function Modal({ labelledBy, onClose, children, z = 'z-50' }: { labelledB
 }
 
 /** Adds a piece of evidence to the repository: a title, document or data, an optional description, and the file. */
-export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose }: {
+export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, dataWithoutFile = false }: {
   api: EvidenceApi; initialTitle?: string; onCreated: (item: EvidenceItem) => void; onClose: () => void;
+  /** Data may be created without a file, to be entered in the online sheet afterwards. */
+  dataWithoutFile?: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [type, setType] = useState<EvidenceItem['type']>('document');
@@ -29,13 +31,14 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose }
   const [error, setError] = useState('');
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file) { setError('Choose the file.'); return; }
+    const fileOptional = dataWithoutFile && type === 'data';
+    if (!file && !fileOptional) { setError('Choose the file.'); return; }
     const f = new FormData(e.currentTarget);
     setBusy(true); setError('');
     try {
       const description = String(f.get('description') ?? '').trim();
       const item = await api.create({ title: String(f.get('title')).trim(), type, ...(description ? { description } : {}) });
-      await api.upload(item.id, file);
+      if (file) await api.upload(item.id, file);
       onCreated((await api.get(item.id)).item);
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   };
@@ -54,7 +57,8 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose }
         <label className="flex flex-col text-sm">Description (optional)
           <textarea name="description" aria-label="Description" rows={3} dir="auto" className="rounded-md border border-border p-2 text-sm" />
         </label>
-        <label className="flex flex-col text-sm">File<input aria-label="File" type="file" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+        <label className="flex flex-col text-sm">{dataWithoutFile && type === 'data' ? 'File (optional)' : 'File'}<input aria-label="File" type="file" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+        {dataWithoutFile && type === 'data' && <p className="-mt-2 text-xs text-muted-foreground">Or leave it empty: define the columns and enter or import the data in the online sheet.</p>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

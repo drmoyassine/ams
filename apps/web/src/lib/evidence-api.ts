@@ -1,4 +1,5 @@
 import type {
+  DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
 import { api as defaultApi } from './api';
@@ -40,6 +41,12 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     suggestions: (erId: string) => api.api['engagement-requirements'][':id']['evidence-suggestions'].$get({ param: { id: erId } }).then((r) => unwrap<EvidenceSuggestion[]>(r)),
     review: (linkId: string, json: ReviewLink) => api.api['evidence-links'][':id'].review.$post({ param: { id: linkId }, json }).then((r) => unwrap<EvidenceLink>(r)),
     remove: (linkId: string) => api.api['evidence-links'][':id'].$delete({ param: { id: linkId } }).then((r) => unwrap<void>(r)),
+
+    // Data (PRD 9.4)
+    dataDefinition: (id: string) => ev[':id']['data-definition'].$get({ param: { id } }).then((r) => unwrap<DatasetSpec>(r)),
+    saveDataDefinition: (id: string, json: SaveDatasetSpec) => ev[':id']['data-definition'].$put({ param: { id }, json }).then((r) => unwrap<DatasetSpec>(r)),
+    saveData: (id: string, json: SaveDatasetRows) => ev[':id'].data.$post({ param: { id }, json }).then((r) => unwrap<EvidenceVersion>(r)),
+    versionData: (versionId: string) => api.api['evidence-versions'][':id'].data.$get({ param: { id: versionId } }).then((r) => unwrap<DatasetData>(r)),
 
     // Requests (DEC-018)
     internalRequests: (requirementId: string) => api.api.requirements[':id']['evidence-requests'].$get({ param: { id: requirementId } }).then((r) => unwrap<EvidenceRequest[]>(r)),

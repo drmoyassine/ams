@@ -566,3 +566,21 @@ export const evidenceRequest = pgTable('evidence_request', {
   oneOf('evidence_request_status_check', t.status, REQUEST_STATUSES),
   check('evidence_request_title', sql`length(trim(${t.title})) > 0`),
 ]);
+
+export const DATASET_SOURCE_KINDS = ['manual_upload', 'governed_metric'] as const;
+/**
+ * The definition of a data item (PRD 9.4): what it means, its grain, its columns. One per data item. Each saved version
+ * keeps its own copy of the columns, so changing the definition never changes data already saved.
+ */
+export const datasetSpec = pgTable('dataset_spec', {
+  ...base(), ...tenant(),
+  evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
+  definition: text('definition'),
+  grain: text('grain'),
+  columns: jsonb('columns').notNull().default(sql`'[]'::jsonb`),
+  sourceKind: text('source_kind', { enum: DATASET_SOURCE_KINDS }).notNull().default('manual_upload'),
+  sourceConfig: jsonb('source_config'),
+}, (t) => [
+  uniqueIndex('dataset_spec_item_idx').on(t.evidenceItemId),
+  oneOf('dataset_spec_source_check', t.sourceKind, DATASET_SOURCE_KINDS),
+]);

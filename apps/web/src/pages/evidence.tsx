@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ContentText } from '../components/content-text';
+import { DatasetPanel } from '../components/dataset-panel';
 import { EvidenceLinkList } from '../components/evidence-links';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
 import { Button } from '../components/ui/button';
@@ -39,15 +40,18 @@ function Detail({ id, api, canWrite, setError }: { id: string; api: EvidenceApi;
             {versions.map((v) => (
               <li key={v.id} className="flex flex-wrap items-center gap-2 py-1.5" data-testid="evidence-version">
                 <span className="font-medium">v{v.versionNo}</span>
-                {v.url
-                  ? <a className="underline" href={v.url} target="_blank" rel="noreferrer">{v.url}</a>
-                  : <a className="underline" href={api.fileUrl(v.id)} target="_blank" rel="noreferrer"><ContentText>{v.fileName ?? 'file'}</ContentText></a>}
-                <span className="text-xs text-muted-foreground">{size(v.size)} · {new Date(v.createdAt).toLocaleDateString()}</span>
+                {v.rowCount !== null
+                  ? <span>{v.rowCount} row{v.rowCount === 1 ? '' : 's'} of data</span>
+                  : v.url
+                    ? <a className="underline" href={v.url} target="_blank" rel="noreferrer">{v.url}</a>
+                    : <a className="underline" href={api.fileUrl(v.id)} target="_blank" rel="noreferrer"><ContentText>{v.fileName ?? 'file'}</ContentText></a>}
+                <span className="text-xs text-muted-foreground">{v.rowCount === null ? `${size(v.size)} · ` : ''}{new Date(v.createdAt).toLocaleDateString()}</span>
+                {v.notes && <span className="text-xs text-muted-foreground" dir="auto">· {v.notes}</span>}
               </li>
             ))}
-            {versions.length === 0 && <li className="py-1.5 text-muted-foreground">No file yet.</li>}
+            {versions.length === 0 && <li className="py-1.5 text-muted-foreground">{item.type === 'data' ? 'No data saved yet.' : 'No file yet.'}</li>}
           </ul>
-          {canWrite && (
+          {canWrite && item.type === 'document' && (
             <label className="mt-2 flex items-center gap-2 text-sm">{busy ? 'Uploading…' : 'Upload a new version'}
               <input aria-label="Upload a new version" type="file" disabled={busy} className="text-sm" onChange={(e) => void upload(e.target.files?.[0])} />
             </label>
@@ -60,6 +64,12 @@ function Detail({ id, api, canWrite, setError }: { id: string; api: EvidenceApi;
       </section>
     </Card>
   );
+}
+
+/** For data evidence, the definition and the online sheet, full width under the list. */
+function SelectedData({ id, api, canWrite }: { id: string; api: EvidenceApi; canWrite: boolean }) {
+  const { data } = useQuery({ queryKey: ['evidence-item', id], queryFn: () => api.get(id) });
+  return data?.item.type === 'data' ? <DatasetPanel item={data.item} api={api} canWrite={canWrite} /> : null;
 }
 
 /** The evidence repository (PRD 9.1): stored once, versioned, linked many times. */
@@ -83,7 +93,7 @@ export function EvidencePage({ api: override, framework }: { api?: EvidenceApi; 
       </div>
       <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {adding && canWrite && <NewEvidenceDialog api={api} onClose={() => setAdding(false)} onCreated={(item) => { setAdding(false); setSelected(item.id); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />}
+      {adding && canWrite && <NewEvidenceDialog api={api} dataWithoutFile onClose={() => setAdding(false)} onCreated={(item) => { setAdding(false); setSelected(item.id); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <ul aria-label="Evidence" className="divide-y divide-border">
@@ -101,6 +111,7 @@ export function EvidencePage({ api: override, framework }: { api?: EvidenceApi; 
         </Card>
         {selected ? <Detail key={selected} id={selected} api={api} canWrite={canWrite} setError={setError} /> : <p className="text-sm text-muted-foreground">Select evidence to see its versions and links.</p>}
       </div>
+      {selected && <SelectedData key={selected} id={selected} api={api} canWrite={canWrite} />}
     </section>
   );
 }

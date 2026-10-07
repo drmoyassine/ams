@@ -9,6 +9,8 @@ const iso = z.string();
 export const EvidenceVersionSchema = z.object({
   id: z.string(), versionNo: z.number(), fileName: z.string().nullable(), mime: z.string().nullable(), size: z.number().nullable(),
   sha256: z.string().nullable(), url: z.string().nullable(), asOfDate: z.string().nullable(), notes: z.string().nullable(), createdAt: iso,
+  /** For data: how many rows this version holds; null for files and links. */
+  rowCount: z.number().nullable(),
 });
 export type EvidenceVersion = z.infer<typeof EvidenceVersionSchema>;
 

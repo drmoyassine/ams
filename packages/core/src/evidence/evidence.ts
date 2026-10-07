@@ -23,9 +23,10 @@ const any = { type: 'any' } as const;
 /** Largest file accepted (bytes); files pass through the API until storage is reachable from browsers. */
 export const MAX_UPLOAD_BYTES = Number(process.env.EVIDENCE_MAX_UPLOAD_MB ?? 50) * 1024 * 1024;
 
-const versionDto = (v: VersionRow): EvidenceVersion => ({
+export const versionDto = (v: VersionRow): EvidenceVersion => ({
   id: v.id, versionNo: v.versionNo, fileName: v.fileName, mime: v.mime, size: v.size, sha256: v.sha256, url: v.url,
   asOfDate: v.asOfDate, notes: v.notes, createdAt: v.createdAt.toISOString(),
+  rowCount: Array.isArray((v.data as { rows?: unknown } | null)?.rows) ? (v.data as { rows: unknown[] }).rows.length : null,
 });
 const itemDto = (r: ItemRow, latest: VersionRow | null, linkCount: number): EvidenceItem => ({
   id: r.id, title: r.title, description: r.description, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId,
@@ -33,7 +34,7 @@ const itemDto = (r: ItemRow, latest: VersionRow | null, linkCount: number): Evid
   status: r.status, latest: latest ? versionDto(latest) : null, linkCount,
 });
 
-async function getItem(ctx: Ctx, id: string) {
+export async function getItem(ctx: Ctx, id: string) {
   const [row] = await ctx.tx.select().from(evidenceItem).where(eq(evidenceItem.id, id));
   if (!row) throw new NotFoundError(`evidence ${id}`);
   return row;

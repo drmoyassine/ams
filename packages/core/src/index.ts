@@ -15,4 +15,5 @@ export * from './glossary/glossary.js';
 export * from './mapping/mapping.js';
 export * from './evidence/evidence.js';
 export * from './evidence/requests.js';
+export * from './evidence/dataset.js';
 export * from './evidence/memory-store.js';
