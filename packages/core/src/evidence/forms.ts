@@ -15,7 +15,7 @@ import { dataItem, insertDataVersion } from './dataset.js';
 
 const any = { type: 'any' } as const;
 
-async function specOf(ctx: Ctx, itemId: string) {
+export async function specOf(ctx: Ctx, itemId: string) {
   const item = await dataItem(ctx, itemId);
   const [spec] = await ctx.tx.select().from(datasetSpec).where(eq(datasetSpec.evidenceItemId, itemId));
   return { item, spec, columns: (spec?.columns ?? []) as DataColumn[] };
@@ -59,16 +59,18 @@ async function describeForm(ctx: Ctx, itemId: string): Promise<PublicForm> {
   return { title: item.title, definition: spec.definition, institutionName: inst?.name ?? '', columns };
 }
 
-async function insertResponse(ctx: Ctx, itemId: string, input: SubmitResponse, via: 'ams' | 'link') {
+/** Checks the answers against the columns and keeps them as a response; returns its id. Callers decide who may answer. */
+export async function insertResponse(ctx: Ctx, itemId: string, input: SubmitResponse, via: 'ams' | 'link'): Promise<string> {
   const { columns } = await specOf(ctx, itemId);
   const d = SubmitResponseSchema.parse(input);
   if (JSON.stringify(d.answers).length > 20_000) throw new ValidationError('the answers are too long');
   const { rows, issues } = validateRows(columns, [d.answers]);
   if (issues.length) throw new ValidationError('some answers need attention', issues.map((i) => ({ path: `answers.${i.key}`, message: i.message })));
   if (!rows.length) throw new ValidationError('answer at least one question');
-  await ctx.tx.insert(datasetResponse).values({
+  const [r] = await ctx.tx.insert(datasetResponse).values({
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, answers: rows[0]!, via, submittedBy: ctx.caller.userId,
-  });
+  }).returning({ id: datasetResponse.id });
+  return r!.id;
 }
 
 /** The form for a signed-in person to answer. */

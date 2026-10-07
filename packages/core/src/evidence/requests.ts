@@ -1,12 +1,13 @@
-// Evidence requests (DEC-018). Someone asks a person, by email address, for evidence on an item of the institution's
-// own framework. An AMS user answers from their requests; anyone else through a one-time link. The answer becomes
-// evidence with a proposed link, which a reviewer approves or rejects like any other.
+// Evidence requests (DEC-018). Someone asks a person, by email address, for a file on an item of the institution's own
+// framework, or to fill in a data item's form (DEC-020). An AMS user answers from their requests; anyone else through a
+// one-time link. A file becomes evidence with a proposed link, which a reviewer approves or rejects; a form answer
+// becomes a response, which joins the data when someone adds it.
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { appUser, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, frameworkVersion, institution } from '@ams/db';
 import {
-  CreateEvidenceRequestSchema, REQUEST_LINK_DAYS,
-  type CreateEvidenceRequest, type EvidenceRequest, type IssuedRequest, type RequestByLink,
+  CreateEvidenceRequestSchema, CreateFormRequestSchema, REQUEST_LINK_DAYS,
+  type CreateEvidenceRequest, type CreateFormRequest, type EvidenceRequest, type IssuedRequest, type PublicForm, type RequestByLink, type SubmitResponse,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
@@ -14,6 +15,7 @@ import { assertHuman, getRequirement, isInternalVersion } from '../framework/com
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { internalTitlesByCode, newLink, storeFileVersion, type UploadedFile } from './evidence.js';
+import { insertResponse, specOf } from './forms.js';
 
 type RequestRow = typeof evidenceRequest.$inferSelect;
 const any = { type: 'any' } as const;
@@ -37,15 +39,18 @@ async function describe(ctx: Ctx, rows: RequestRow[]): Promise<EvidenceRequest[]
   const items = new Map((linkIds.length ? await ctx.tx.select({ link: evidenceLink.id, item: evidenceVersion.evidenceItemId }).from(evidenceLink)
     .innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId)).where(inArray(evidenceLink.id, linkIds)) : []).map((x) => [x.link, x.item]));
   const titles = await internalTitlesByCode(ctx);
+  const dataIds = [...new Set(rows.map((r) => r.dataItemId).filter((x): x is string => !!x))];
+  const dataTitles = new Map((dataIds.length ? await ctx.tx.select({ id: evidenceItem.id, title: evidenceItem.title }).from(evidenceItem).where(inArray(evidenceItem.id, dataIds)) : []).map((x) => [x.id, x.title]));
   const now = today();
   return rows.map((r) => ({
-    id: r.id, internalCode: r.internalCode, internalTitle: titles.get(r.internalCode) ?? null, title: r.title, message: r.message,
+    id: r.id, internalCode: r.internalCode, internalTitle: r.internalCode ? titles.get(r.internalCode) ?? null : null,
+    dataItemId: r.dataItemId, dataItemTitle: r.dataItemId ? dataTitles.get(r.dataItemId) ?? null : null, title: r.title, message: r.message,
     assigneeEmail: r.assigneeEmail, assigneeName: r.assigneeUserId ? names.get(r.assigneeUserId) ?? null : null, assigneeHasAccount: !!r.assigneeUserId,
     dueDate: r.dueDate, status: r.status, overdue: r.status === 'open' && !!r.dueDate && r.dueDate < now,
     requestedByName: r.requestedBy ? names.get(r.requestedBy) ?? null : null, createdAt: r.createdAt.toISOString(),
     suppliedAt: r.suppliedAt?.toISOString() ?? null, suppliedNote: r.suppliedNote,
     linkExpiresAt: r.status === 'open' && r.tokenHash ? r.tokenExpiresAt?.toISOString() ?? null : null,
-    evidenceItemId: r.evidenceLinkId ? items.get(r.evidenceLinkId) ?? null : null,
+    evidenceItemId: r.dataItemId ?? (r.evidenceLinkId ? items.get(r.evidenceLinkId) ?? null : null),
   }));
 }
 
@@ -125,6 +130,7 @@ export async function renewRequestLink(ctx: Ctx, id: string): Promise<IssuedRequ
 /** The answer: the file becomes evidence, linked to the request's item as proposed, and the request is closed. */
 async function supply(ctx: Ctx, row: RequestRow, file: UploadedFile, note: string | undefined): Promise<EvidenceRequest> {
   if (row.status !== 'open') throw new ConflictError('this request is already closed');
+  if (row.dataItemId || !row.internalFrameworkId || !row.internalCode) throw new ConflictError('this request asks for the form to be filled in, not a file');
   const [item] = await guardIntegrity(() => ctx.tx.insert(evidenceItem).values({
     institutionId: ctx.caller.institutionId, title: row.title, type: 'document', ownerUserId: ctx.caller.userId,
   }).returning());
@@ -155,9 +161,10 @@ export async function requestByLink(ctx: Ctx, requestId: string): Promise<Reques
   const row = await getRequestRow(ctx, requestId);
   const [d] = await describe(ctx, [row]);
   const [inst] = await ctx.tx.select({ name: institution.nameEn }).from(institution).where(eq(institution.id, row.institutionId));
+  const form = row.dataItemId ? await specOf(ctx, row.dataItemId).then(({ spec, columns }) => ({ definition: spec?.definition ?? null, columns })) : null;
   return {
     title: row.title, message: row.message, dueDate: row.dueDate, internalCode: row.internalCode, internalTitle: d!.internalTitle,
-    requestedByName: d!.requestedByName, institutionName: inst?.name ?? '',
+    requestedByName: d!.requestedByName, institutionName: inst?.name ?? '', form,
   };
 }
 
@@ -166,4 +173,83 @@ export async function answerByLink(ctx: Ctx, requestId: string, file: UploadedFi
   const row = await getRequestRow(ctx, requestId);
   if (row.assigneeUserId) throw new ConflictError('this request is answered in the AMS');
   await supply(ctx, row, file, note);
+}
+
+// ---- Form requests (DEC-020) ---------------------------------------------------------------------------------------
+
+/**
+ * Asks each person to fill in a data item's form; each gets their own request (a one-time link if they have no AMS
+ * account). The request is what lets them answer, so the form need not be open to everyone.
+ */
+export async function createFormRequests(ctx: Ctx, dataItemId: string, input: CreateFormRequest): Promise<IssuedRequest[]> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'evidence:write', any);
+  const d = CreateFormRequestSchema.parse(input);
+  const { item, columns } = await specOf(ctx, dataItemId);
+  if (!columns.length) throw new ValidationError('define the columns first; they are the questions');
+  const out: IssuedRequest[] = [];
+  for (const email of [...new Set(d.assigneeEmails)]) {
+    const [user] = await ctx.tx.select({ id: appUser.id }).from(appUser).where(and(sql`lower(${appUser.email}) = ${email}`, eq(appUser.active, true)));
+    if (!user && item.confidentiality === 'restricted') throw new ValidationError(`${email} has no AMS account; restricted data is not collected through links`);
+    const link = user ? null : issueToken();
+    const [row] = await guardIntegrity(() => ctx.tx.insert(evidenceRequest).values({
+      institutionId: ctx.caller.institutionId, dataItemId, title: item.title, message: d.message ?? null, assigneeEmail: email,
+      assigneeUserId: user?.id ?? null, dueDate: d.dueDate ?? null, requestedBy: ctx.caller.userId,
+      tokenHash: link?.tokenHash ?? null, tokenExpiresAt: link?.tokenExpiresAt ?? null,
+    }).returning());
+    out.push({ request: (await describe(ctx, [row!]))[0]!, linkToken: link?.token ?? null });
+  }
+  return out;
+}
+
+/** Requests to fill in a data item's form, newest first. */
+export async function requestsForDataItem(ctx: Ctx, dataItemId: string): Promise<EvidenceRequest[]> {
+  await assertPermitted(ctx, 'evidence:read', any);
+  const rows = await ctx.tx.select().from(evidenceRequest).where(eq(evidenceRequest.dataItemId, dataItemId)).orderBy(desc(evidenceRequest.createdAt));
+  return describe(ctx, rows);
+}
+
+async function mayAnswer(ctx: Ctx, row: RequestRow) {
+  if (row.assigneeUserId !== ctx.caller.userId && !(await isPermitted(ctx.tx, 'evidence:write', any))) {
+    throw new ForbiddenError('this request was not sent to you');
+  }
+}
+
+async function formOfRequest(ctx: Ctx, row: RequestRow): Promise<PublicForm> {
+  if (!row.dataItemId) throw new ConflictError('this request asks for a file');
+  const { item, spec, columns } = await specOf(ctx, row.dataItemId);
+  const [inst] = await ctx.tx.select({ name: institution.nameEn }).from(institution).where(eq(institution.id, row.institutionId));
+  return { title: item.title, definition: spec?.definition ?? null, institutionName: inst?.name ?? '', columns };
+}
+
+/** The form a signed-in person was asked to fill in. */
+export async function formForRequest(ctx: Ctx, id: string): Promise<PublicForm> {
+  assertHuman(ctx);
+  const row = await getRequestRow(ctx, id);
+  await mayAnswer(ctx, row);
+  return formOfRequest(ctx, row);
+}
+
+async function supplyForm(ctx: Ctx, row: RequestRow, input: SubmitResponse, via: 'ams' | 'link') {
+  if (row.status !== 'open') throw new ConflictError('this request is already closed');
+  if (!row.dataItemId) throw new ConflictError('this request asks for a file');
+  const responseId = await insertResponse(ctx, row.dataItemId, input, via);
+  const [out] = await ctx.tx.update(evidenceRequest).set({ status: 'supplied', suppliedAt: new Date(), tokenHash: null, responseId })
+    .where(eq(evidenceRequest.id, row.id)).returning();
+  return (await describe(ctx, [out!]))[0]!;
+}
+
+/** A signed-in person answers a form request: the answers become a response waiting to be added to the data. */
+export async function answerRequestWithForm(ctx: Ctx, id: string, input: SubmitResponse): Promise<EvidenceRequest> {
+  assertHuman(ctx);
+  const row = await getRequestRow(ctx, id);
+  await mayAnswer(ctx, row);
+  return supplyForm(ctx, row, input, 'ams');
+}
+
+/** A form request answered through its one-time link; the link stops working once used. */
+export async function answerFormByLink(ctx: Ctx, requestId: string, input: SubmitResponse): Promise<void> {
+  const row = await getRequestRow(ctx, requestId);
+  if (row.assigneeUserId) throw new ConflictError('this request is answered in the AMS');
+  await supplyForm(ctx, row, input, 'link');
 }

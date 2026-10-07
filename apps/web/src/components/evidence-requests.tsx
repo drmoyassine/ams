@@ -156,7 +156,9 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium"><ContentText>{r.title}</ContentText></span>
             <RequestStatus r={r} />
-            {showTarget && <span className="text-xs text-muted-foreground"><ContentText>{`Internal ${r.internalCode}${r.internalTitle ? ` · ${r.internalTitle}` : ''}`}</ContentText></span>}
+            {r.dataItemId
+              ? <span className="rounded bg-muted px-1.5 text-xs">Form</span>
+              : showTarget && <span className="text-xs text-muted-foreground"><ContentText>{`Internal ${r.internalCode ?? ''}${r.internalTitle ? ` · ${r.internalTitle}` : ''}`}</ContentText></span>}
           </div>
           <p className="text-xs text-muted-foreground">
             {r.assigneeName ?? r.assigneeEmail}{r.assigneeHasAccount ? '' : ' (one-time link)'}
@@ -167,7 +169,7 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
           {r.suppliedNote && <p className="mt-1 text-xs">Note: <ContentText>{r.suppliedNote}</ContentText></p>}
           {renewed?.id === r.id && <div className="mt-2"><LinkBox token={renewed.token} email={renewed.email} expiresAt={renewed.expiresAt} /></div>}
           <div className="mt-1 flex flex-wrap gap-2">
-            {onAnswer && r.status === 'open' && <Button type="button" className="px-2 py-1 text-xs" onClick={() => onAnswer(r)}>Supply evidence</Button>}
+            {onAnswer && r.status === 'open' && <Button type="button" className="px-2 py-1 text-xs" onClick={() => onAnswer(r)}>{r.dataItemId ? 'Fill in the form' : 'Supply evidence'}</Button>}
             {canManage && r.status === 'open' && !r.assigneeHasAccount && (
               <Button type="button" variant="outline" className="px-2 py-1 text-xs" onClick={() => act(async () => {
                 const out = await api.newRequestLink(r.id);
@@ -181,5 +183,59 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Ask people to fill in a data item's form: one request each; those without an account get a one-time link. */
+export function RequestFormDialog({ api, item, onDone, onClose }: {
+  api: EvidenceApi; item: { id: string; title: string }; onDone: () => void; onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [issued, setIssued] = useState<{ request: EvidenceRequest; linkToken: string | null }[] | null>(null);
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const text = (k: string) => String(f.get(k) ?? '').trim();
+    const emails = text('emails').split(/[\s,;،]+/).filter(Boolean);
+    setBusy(true); setError('');
+    try {
+      setIssued(await api.requestForm(item.id, { assigneeEmails: emails, ...(text('message') ? { message: text('message') } : {}), ...(text('due') ? { dueDate: text('due') } : {}) }));
+      onDone();
+    } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal labelledBy="request-form-title" onClose={onClose}>
+      <div className="mb-1 flex items-center justify-between">
+        <h2 id="request-form-title" className="text-xl font-semibold">Ask people to fill in the form</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
+      </div>
+      <p className="mb-4 text-sm text-muted-foreground"><ContentText>{item.title}</ContentText></p>
+      {issued ? (
+        <div className="space-y-3">
+          {issued.filter((i) => !i.linkToken).length > 0 && (
+            <p className="text-sm">In their requests in the AMS: <strong>{issued.filter((i) => !i.linkToken).map((i) => i.request.assigneeName ?? i.request.assigneeEmail).join(', ')}</strong>.</p>
+          )}
+          {issued.filter((i) => i.linkToken).map((i) => <LinkBox key={i.request.id} token={i.linkToken!} email={i.request.assigneeEmail} expiresAt={i.request.linkExpiresAt} />)}
+          <div className="flex justify-end"><Button type="button" onClick={onClose}>Done</Button></div>
+        </div>
+      ) : (
+        <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Ask people to fill in the form">
+          <label className="flex flex-col text-sm">Ask (email addresses)
+            <textarea name="emails" aria-label="Ask (email addresses)" rows={3} required dir="ltr" className="rounded-md border border-border p-2 text-sm" placeholder="One or more, separated by commas or new lines" />
+          </label>
+          <p className="-mt-2 text-xs text-muted-foreground">Each person gets their own request and answers once. People with an AMS account answer in the AMS; anyone else gets a one-time link.</p>
+          <label className="flex flex-col text-sm">Due date (optional)<Input name="due" type="date" aria-label="Due date" /></label>
+          <label className="flex flex-col text-sm">Message (optional)
+            <textarea name="message" aria-label="Message" rows={3} dir="auto" className="rounded-md border border-border p-2 text-sm" />
+          </label>
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={busy}>{busy ? 'Sending…' : 'Send requests'}</Button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }

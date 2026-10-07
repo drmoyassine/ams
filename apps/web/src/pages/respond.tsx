@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ContentText } from '../components/content-text';
+import { DataFormView } from '../components/data-form';
 import { AnswerForm } from '../components/evidence-requests';
 import { Card } from '../components/ui/card';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
@@ -29,14 +30,23 @@ export function RespondPage({ token, api: override }: { token: string; api?: Evi
         <Card><p role="alert" className="text-sm">This link has been used, has expired or is not valid. Ask the person who sent it for a new one.</p></Card>
       )}
       {sent && <Card><p role="status" className="text-sm">Thank you. Your file was received; you can close this page.</p></Card>}
-      {req.data && !sent && (
+      {req.data?.form && !sent && (
+        <>
+          <DataFormView once form={{ title: req.data.title, definition: req.data.form.definition, institutionName: req.data.institutionName, columns: req.data.form.columns, message: req.data.message }}
+            onSubmit={async (r) => { await api.answerFormByLink(token, r); }} />
+          <p className="text-xs text-muted-foreground">
+            {req.data.requestedByName ? `Asked by ${req.data.requestedByName}. ` : ''}{req.data.dueDate ? `Due ${req.data.dueDate}. ` : ''}This link works once; your answers are kept by the institution and reviewed by its staff.
+          </p>
+        </>
+      )}
+      {req.data && !req.data.form && !sent && (
         <>
           <div>
             <p className="text-sm text-muted-foreground"><ContentText>{req.data.institutionName}</ContentText></p>
             <h1 className="text-2xl font-semibold">Evidence requested</h1>
             <p className="text-sm text-muted-foreground">
               {req.data.requestedByName ? <>Asked by <ContentText>{req.data.requestedByName}</ContentText> · </> : null}
-              For <ContentText>{`${req.data.internalCode}${req.data.internalTitle ? ` · ${req.data.internalTitle}` : ''}`}</ContentText>
+              For <ContentText>{`${req.data.internalCode ?? ''}${req.data.internalTitle ? ` · ${req.data.internalTitle}` : ''}`}</ContentText>
               {req.data.dueDate ? ` · due ${req.data.dueDate}` : ''}
             </p>
           </div>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EvidenceRequest } from '@ams/shared';
+import { DataFormView } from '../components/data-form';
 import { AnswerRequestDialog, RequestList } from '../components/evidence-requests';
+import { Modal } from '../components/link-evidence-dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
@@ -43,10 +45,26 @@ export function RequestsPage({ api: override, framework }: { api?: EvidenceApi; 
               {...(tab === 'mine' ? { onAnswer: setAnswering } : {})} />
           : <p className="text-sm">Loading…</p>}
       </Card>
-      {answering && (
+      {answering?.dataItemId && <FormAnswerDialog request={answering} api={api} onAnswered={refresh} onClose={() => setAnswering(null)} />}
+      {answering && !answering.dataItemId && (
         <AnswerRequestDialog request={answering} onClose={() => setAnswering(null)}
           onAnswer={async (file, note) => { await api.answerRequest(answering.id, file, note || undefined); refresh(); }} />
       )}
     </section>
+  );
+}
+
+/** A form request, answered in the AMS: the form, filled in once. */
+function FormAnswerDialog({ request, api, onAnswered, onClose }: { request: EvidenceRequest; api: EvidenceApi; onAnswered: () => void; onClose: () => void }) {
+  const form = useQuery({ queryKey: ['request-form', request.id], queryFn: () => api.formOfRequest(request.id) });
+  return (
+    <Modal labelledBy="form-answer-title" onClose={onClose}>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 id="form-answer-title" className="text-xl font-semibold">Fill in the form</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
+      </div>
+      {form.isError && <p role="alert" className="text-sm text-red-700">{(form.error as Error).message}</p>}
+      {form.data && <DataFormView once form={{ ...form.data, message: request.message }} onSubmit={async (r) => { await api.answerWithForm(request.id, r); onAnswered(); }} />}
+    </Modal>
   );
 }

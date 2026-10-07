@@ -1,5 +1,5 @@
 import type {
-  DataForm, DataResponse, PublicForm, SubmitResponse,
+  CreateFormRequest, DataForm, DataResponse, PublicForm, SubmitResponse,
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
@@ -75,7 +75,14 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
       return fetcher(`/api/evidence-requests/${id}/answer?${query}`, { method: 'POST', body: await readBytes(file), headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include' })
         .then((r) => unwrap<EvidenceRequest>(r));
     },
+    formRequests: (dataItemId: string) => ev[':id'].form.requests.$get({ param: { id: dataItemId } }).then((r) => unwrap<EvidenceRequest[]>(r)),
+    requestForm: (dataItemId: string, json: CreateFormRequest) => ev[':id'].form.requests.$post({ param: { id: dataItemId }, json }).then((r) => unwrap<IssuedRequest[]>(r)),
+    formOfRequest: (id: string) => api.api['evidence-requests'][':id'].form.$get({ param: { id } }).then((r) => unwrap<PublicForm>(r)),
+    answerWithForm: (id: string, json: SubmitResponse) => api.api['evidence-requests'][':id']['form-answer'].$post({ param: { id }, json }).then((r) => unwrap<EvidenceRequest>(r)),
     /** One-time link page: no account, so plain fetch against the link's own routes. */
+    answerFormByLink: (token: string, json: SubmitResponse) => fetcher(`/api/response-links/${encodeURIComponent(token)}/form-answer`, {
+      method: 'POST', body: JSON.stringify(json), headers: { 'content-type': 'application/json' },
+    }).then((r) => unwrap<void>(r)),
     requestByLink: (token: string) => fetcher(`/api/response-links/${encodeURIComponent(token)}`).then((r) => unwrap<RequestByLink>(r)),
     answerByLink: async (token: string, file: File, note?: string) => {
       const query = new URLSearchParams({ fileName: file.name, ...(note ? { note } : {}) });

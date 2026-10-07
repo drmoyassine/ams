@@ -1,5 +1,6 @@
 // Evidence (PRD 6.5, 9): items owned by the institution, versions that are never changed, links with a reason.
 import { z } from 'zod';
+import { DataColumnSchema } from './dataset.js';
 
 /** A document (a file people read) or data (figures the system reads). Kinds within each come later as sub-types. */
 export const EVIDENCE_TYPES = ['document', 'data'] as const;
@@ -85,7 +86,9 @@ export const EVIDENCE_REQUEST_STATUSES = ['open', 'supplied', 'cancelled'] as co
 export const REQUEST_LINK_DAYS = 30;
 
 export const EvidenceRequestSchema = z.object({
-  id: z.string(), internalCode: z.string(), internalTitle: z.string().nullable(), title: z.string(), message: z.string().nullable(),
+  id: z.string(), internalCode: z.string().nullable(), internalTitle: z.string().nullable(),
+  /** A form request: the data item whose form is to be filled in (else a file is asked for). */
+  dataItemId: z.string().nullable(), dataItemTitle: z.string().nullable(), title: z.string(), message: z.string().nullable(),
   assigneeEmail: z.string(), assigneeName: z.string().nullable(), assigneeHasAccount: z.boolean(), dueDate: z.string().nullable(),
   status: z.enum(EVIDENCE_REQUEST_STATUSES), overdue: z.boolean(), requestedByName: z.string().nullable(), createdAt: z.string(),
   suppliedAt: z.string().nullable(), suppliedNote: z.string().nullable(), linkExpiresAt: z.string().nullable(),
@@ -105,9 +108,18 @@ export const CreateEvidenceRequestSchema = z.object({
 }).strict();
 export type CreateEvidenceRequest = z.infer<typeof CreateEvidenceRequestSchema>;
 
-/** What the one-time link page shows: only this request. */
+/** Ask one or more people to fill in a data item's form; each gets their own request. */
+export const CreateFormRequestSchema = z.object({
+  assigneeEmails: z.array(z.email('enter email addresses').trim().toLowerCase()).min(1, 'enter at least one email address').max(50),
+  message: z.string().trim().min(1).optional(),
+  dueDate: z.iso.date().optional(),
+}).strict();
+export type CreateFormRequest = z.infer<typeof CreateFormRequestSchema>;
+
+/** What the one-time link page shows: only this request, and for a form request the form's questions. */
 export const RequestByLinkSchema = z.object({
-  title: z.string(), message: z.string().nullable(), dueDate: z.string().nullable(), internalCode: z.string(), internalTitle: z.string().nullable(),
+  title: z.string(), message: z.string().nullable(), dueDate: z.string().nullable(), internalCode: z.string().nullable(), internalTitle: z.string().nullable(),
   requestedByName: z.string().nullable(), institutionName: z.string(),
+  form: z.object({ definition: z.string().nullable(), columns: z.array(DataColumnSchema) }).nullable(),
 });
 export type RequestByLink = z.infer<typeof RequestByLinkSchema>;

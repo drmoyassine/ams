@@ -14,6 +14,8 @@ import { createApi } from './lib/api';
 import { evidenceApi } from './lib/evidence-api';
 import { frameworkApi } from './lib/framework-api';
 import { AnswerFormPage, PublicFormPage } from './pages/answer-form';
+import { RequestsPage } from './pages/requests';
+import { RespondPage } from './pages/respond';
 import { EvidencePage } from './pages/evidence';
 
 configure({ asyncUtilTimeout: 10000 });
@@ -119,5 +121,52 @@ describe('forms', () => {
     cleanup();
     render(wrap(<PublicFormPage token={ids.token!} api={apis(null).evidence} />));
     expect((await screen.findByRole('alert')).textContent).toContain('closed');
+  });
+
+  it('asks specific people to fill in the form, which works even while it is closed', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    await user.click(await screen.findByRole('button', { name: /Employer survey/ }));
+    const panel = await screen.findByRole('region', { name: 'Data' });
+    await user.click(await within(panel).findByRole('tab', { name: 'Form' }));
+    await user.click(await within(panel).findByRole('button', { name: 'Ask people to fill it in' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Ask (email addresses)'), 'viewer@x.org, hr@partner.com');
+    await user.type(within(dialog).getByLabelText('Message'), 'For the 2025 review');
+    await user.click(within(dialog).getByRole('button', { name: 'Send requests' }));
+    expect((await within(dialog).findByText(/In their requests in the AMS/)).textContent).toContain('viewer');
+    const url = (within(dialog).getByLabelText('One-time link') as HTMLInputElement).value;
+    const token = url.split('/respond/')[1]!;
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }));
+    expect(await within(panel).findAllByTestId('evidence-request')).toHaveLength(2);
+    cleanup();
+
+    // The AMS user fills it in from Requests.
+    const v = apis('viewer');
+    render(wrap(<RequestsPage api={v.evidence} framework={v.framework} />));
+    await user.click(await screen.findByRole('button', { name: 'Fill in the form' }));
+    const answer = await screen.findByRole('dialog');
+    expect(await within(answer).findByText('For the 2025 review')).toBeTruthy();
+    await user.type(await within(answer).findByRole('textbox', { name: /^Employer/ }), 'NEOM');
+    await user.click(within(answer).getByRole('button', { name: 'Submit' }));
+    expect(await within(answer).findByRole('status')).toBeTruthy();
+    expect(within(answer).queryByRole('button', { name: 'Submit another response' })).toBeNull();
+    await user.click(within(answer).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.getByTestId('evidence-request').textContent).toContain('Supplied'));
+    cleanup();
+
+    // The partner fills it in through the one-time link, once.
+    render(wrap(<RespondPage token={token} api={apis(null).evidence} />));
+    await user.type(await screen.findByRole('textbox', { name: /^Employer/ }), 'Red Sea Global');
+    await user.click(screen.getByRole('radio', { name: 'Good' }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByRole('status')).toBeTruthy();
+    cleanup();
+    render(wrap(<RespondPage token={token} api={apis(null).evidence} />));
+    expect((await screen.findByRole('alert')).textContent).toContain('has been used');
+
+    const responses = await a.evidence.responses(ids.item!);
+    expect(responses.filter((r) => r.includedInVersionNo === null).map((r) => r.answers.employer)).toEqual(['Red Sea Global', 'NEOM']);
   });
 });

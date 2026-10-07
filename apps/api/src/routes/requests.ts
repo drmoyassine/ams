@@ -1,9 +1,12 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  answerByLink, answerEvidenceRequest, cancelEvidenceRequest, createEvidenceRequest, listEvidenceRequests, MAX_UPLOAD_BYTES, renewRequestLink,
+  answerByLink, answerEvidenceRequest, answerFormByLink, answerRequestWithForm, cancelEvidenceRequest, createEvidenceRequest, createFormRequests,
+  formForRequest, requestsForDataItem, listEvidenceRequests, MAX_UPLOAD_BYTES, renewRequestLink,
   requestByLink, requestsForInternal, ValidationError, type UploadedFile,
 } from '@ams/core';
-import { CreateEvidenceRequestSchema, EvidenceRequestSchema, IssuedRequestSchema, RequestByLinkSchema, toDto } from '@ams/shared';
+import {
+  CreateEvidenceRequestSchema, CreateFormRequestSchema, EvidenceRequestSchema, IssuedRequestSchema, PublicFormSchema, RequestByLinkSchema, SubmitResponseSchema, toDto,
+} from '@ams/shared';
 import { requires, responseLink, secured, type AppContext, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -63,6 +66,33 @@ export function requestRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       return c.json(toDto(EvidenceRequestSchema, await answerEvidenceRequest(c.get('ctx'), c.req.valid('param').id, await readUpload(c, fileName), note)), 200);
     })
 
+    // ---- Form requests (DEC-020) ------------------------------------------------------------------------------
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence/{id}/form/requests', access: requires('evidence:write'), tags: tag,
+      description: 'One request per address; addresses without an AMS account get a one-time link, returned here once.',
+      request: { params: idParam, body: { required: true, ...json(CreateFormRequestSchema) } },
+      responses: { 201: { description: 'Requested', ...json(z.array(IssuedRequestSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(IssuedRequestSchema), await createFormRequests(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/evidence/{id}/form/requests', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Requests to fill in this form', ...json(z.array(EvidenceRequestSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(EvidenceRequestSchema), await requestsForDataItem(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/evidence-requests/{id}/form', access: requires('evidence:read'), tags: tag,
+      description: 'For the person asked (or anyone with evidence:write); checked in the service.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The form to fill in', ...json(PublicFormSchema) }, ...errors },
+    }), async (c) => c.json(toDto(PublicFormSchema, await formForRequest(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence-requests/{id}/form-answer', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(SubmitResponseSchema) } },
+      responses: { 200: { description: 'Answered: a response waiting to be added to the data', ...json(EvidenceRequestSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceRequestSchema, await answerRequestWithForm(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
     // ---- One-time links (DEC-018): no account; the link opens one request ----------------------------------------
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/response-links/{token}', access: responseLink(), tags: tag,
@@ -79,5 +109,12 @@ export function requestRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       const { fileName, note } = c.req.valid('query');
       await answerByLink(c.get('ctx'), c.get('linkTargetId'), await readUpload(c, fileName), note);
       return c.body(null, 204);
-    });
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/response-links/{token}/form-answer', access: responseLink(), tags: tag,
+      description: 'Answers a form request. The link stops working once it is used.',
+      request: { params: tokenParam, body: { required: true, ...json(SubmitResponseSchema) } },
+      responses: { 204: { description: 'Received' }, ...errors },
+    }), async (c) => { await answerFormByLink(c.get('ctx'), c.get('linkTargetId'), c.req.valid('json')); return c.body(null, 204); });
 }

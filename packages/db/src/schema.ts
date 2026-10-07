@@ -545,8 +545,10 @@ export const REQUEST_STATUSES = ['open', 'supplied', 'cancelled'] as const;
  */
 export const evidenceRequest = pgTable('evidence_request', {
   ...base(), ...tenant(),
-  internalFrameworkId: uuid('internal_framework_id').notNull().references(() => framework.id),
-  internalCode: text('internal_code').notNull(),
+  internalFrameworkId: uuid('internal_framework_id').references(() => framework.id),
+  internalCode: text('internal_code'),
+  /** A request to fill in this data item's form; null for a request for a file. */
+  dataItemId: uuid('data_item_id').references(() => evidenceItem.id),
   title: text('title').notNull(),
   message: text('message'),
   assigneeEmail: text('assignee_email').notNull(),
@@ -559,7 +561,11 @@ export const evidenceRequest = pgTable('evidence_request', {
   suppliedAt: timestamp('supplied_at', { withTimezone: true }),
   suppliedNote: text('supplied_note'),
   evidenceLinkId: uuid('evidence_link_id').references(() => evidenceLink.id, { onDelete: 'set null' }),
+  /** For a form request: the response it was answered with. */
+  responseId: uuid('response_id').references((): AnyPgColumn => datasetResponse.id),
 }, (t) => [
+  check('evidence_request_target', sql`(${t.internalFrameworkId} is not null and ${t.internalCode} is not null) or ${t.dataItemId} is not null`),
+  index('evidence_request_data_item_idx').on(t.dataItemId),
   index('evidence_request_internal_idx').on(t.internalFrameworkId, t.internalCode),
   index('evidence_request_assignee_idx').on(t.assigneeUserId),
   uniqueIndex('evidence_request_token_idx').on(t.tokenHash),

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCell, type DataColumn, type EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { DataFormView } from './data-form';
+import { RequestFormDialog, RequestList } from './evidence-requests';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
@@ -25,6 +26,8 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
   const qc = useQueryClient();
   const form = useQuery({ queryKey: ['data-form', item.id], queryFn: () => api.form(item.id) });
   const spec = useQuery({ queryKey: ['data-definition', item.id], queryFn: () => api.dataDefinition(item.id) });
+  const requests = useQuery({ queryKey: ['form-requests', item.id], queryFn: () => api.formRequests(item.id) });
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(() => qc.invalidateQueries({ queryKey: ['data-form', item.id] }), (e: Error) => setError(e.message)); };
   if (!form.data || !spec.data) return <p className="text-sm">Loading…</p>;
@@ -62,6 +65,19 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
         <p className="text-xs text-muted-foreground">The questions are the columns of the definition. Responses wait under Responses until someone adds them to the data.</p>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </div>
+      <section aria-label="Requests to fill in" className="space-y-2 rounded-md border border-border p-4">
+        <div className="flex items-center gap-2">
+          <h4 className="font-medium">Ask specific people</h4>
+          {canWrite && <Button type="button" variant="outline" className="ms-auto" onClick={() => setAsking(true)}>Ask people to fill it in</Button>}
+        </div>
+        <p className="text-xs text-muted-foreground">Each person gets a request to answer once, by a due date, whether or not the form is open to everyone.</p>
+        {(requests.data?.length ?? 0) > 0 && (
+          <RequestList requests={requests.data!} api={api} canManage={canWrite} setError={setError}
+            onChange={() => void qc.invalidateQueries({ queryKey: ['form-requests', item.id] })} />
+        )}
+      </section>
+      {asking && <RequestFormDialog api={api} item={item} onClose={() => setAsking(false)}
+        onDone={() => { void qc.invalidateQueries({ queryKey: ['form-requests', item.id] }); void qc.invalidateQueries({ queryKey: ['evidence-requests'] }); }} />}
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview</p>
         <DataFormView preview form={{ title: item.title, definition: spec.data.definition, institutionName: '', columns: spec.data.columns }} />

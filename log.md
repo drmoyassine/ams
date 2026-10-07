@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Requests connected to forms
+
+A request can now ask someone to fill in a data item's form instead of sending a file. From the Form tab, "Ask people to fill it in" takes one or more addresses, a due date and a message, and gives each person their own request. AMS users see "Fill in the form" under Requests; anyone else gets a one-time link that opens the form. The request itself is the permission, so it works even while the form is closed to everyone else. One answer closes the request, and the answer waits under Responses to be added to the data. Requests list form requests with a "Form" tag.
+
+---
+
 ## 2026-10-07 — Form builder: form and sheet views (DEC-020)
 
 A data item now works like Google Forms: its columns are the questions (with help text), and it has Sheet, Form and Responses views. The Form view opens or closes the form and gives two ways to answer: a link for AMS users, who sign in, and an optional public link for anyone. The public link takes any number of answers until it is turned off, replaced, or the form is closed (DEC-020). Answers are checked with the same cell rules as the sheet and kept as responses. They join the data only when someone with edit rights clicks "Add N responses to the data", which saves the next version. Next: the BI connector, when the warehouse exists; the deferred items (reporting frequency, IQF tab layout) stay open.

@@ -43,7 +43,11 @@ function Question({ c, value, error, disabled, onChange }: { c: DataColumn; valu
  * A data item's form, like Google Forms: its title and purpose, then one question per column. Answers are checked with
  * the sheet's rules before they are sent, and again by the server. `preview` shows it without taking answers.
  */
-export function DataFormView({ form, onSubmit, preview = false }: { form: PublicForm; onSubmit?: (r: SubmitResponse) => Promise<unknown>; preview?: boolean }) {
+export function DataFormView({ form, onSubmit, preview = false, once = false }: {
+  form: PublicForm & { message?: string | null }; onSubmit?: (r: SubmitResponse) => Promise<unknown>; preview?: boolean;
+  /** One answer only (a request): no "Submit another response". */
+  once?: boolean;
+}) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -71,7 +75,7 @@ export function DataFormView({ form, onSubmit, preview = false }: { form: Public
     return (
       <div className="space-y-3 rounded-lg border border-border p-6">
         <p role="status">Thank you. Your response was received.</p>
-        <Button type="button" variant="outline" onClick={() => setSent(false)}>Submit another response</Button>
+        {!once && <Button type="button" variant="outline" onClick={() => setSent(false)}>Submit another response</Button>}
       </div>
     );
   }
@@ -80,6 +84,7 @@ export function DataFormView({ form, onSubmit, preview = false }: { form: Public
       <div className="rounded-lg border-t-4 border-primary bg-background p-4 shadow-sm">
         {form.institutionName && <p className="text-sm text-muted-foreground"><ContentText>{form.institutionName}</ContentText></p>}
         <h1 className="text-2xl font-semibold"><ContentText>{form.title}</ContentText></h1>
+        {form.message && <p className="mt-1 whitespace-pre-line rounded bg-muted p-2 text-sm"><ContentText>{form.message}</ContentText></p>}
         {form.definition && <p className="mt-1 whitespace-pre-line text-sm"><ContentText>{form.definition}</ContentText></p>}
         {form.columns.some((c) => c.required) && <p className="mt-2 text-xs text-red-700">* Required</p>}
       </div>
