@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Requirements as accordions
+
+The internal framework's Requirements tab shows each standard as a full-width accordion with a shaded tag ("Standard 1.0", and "Standard 1.1" for its sub-standards); opening one shows its description (Edit / Delete), its evidence and, for a standard, its sub-standards as nested accordions. Expand all / Collapse all. "+ Standard" and "+ Sub-standard" open a dialog (code proposed, title, description) with "Save as draft": the item is saved to the draft version and takes effect when the version is published.
+
+---
+
 ## 2026-10-07 — Internal framework: Requirements and Terms
 
 Simplified at the user's request to what it is for: standards and sub-standards (two fixed levels), each a code, a title and a description, with evidence attached. The page has two tabs, Requirements and Terms; the version picker and the actions sit in the header: "Publish this version" (admin; `publishQualityVersion` approves every item as the person publishing, submits and publishes, then the version is frozen) and "Start a new version" (`newQualityVersion`, numbered one up, items, mappings and evidence carry over by code). The Requirements tab lists standards with their sub-standards, numbers new ones (9, 9.1 …), edits code, title and description in place, and shows the item's evidence. Gone from this page: level-name editing, indent/outdent, accreditor-style notes and authority, per-item review, the separate Review and publish tab. New frameworks are set up with Standard and Sub-standard.

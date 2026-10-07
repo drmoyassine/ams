@@ -96,8 +96,10 @@ describe('evidence', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
-    await user.click(await screen.findByRole('button', { name: /Assessment of learning/ }));
-    const section = await screen.findByRole('region', { name: 'Evidence' });
+    await user.click(await screen.findByRole('button', { name: /Teaching and learning/ }));
+    const item = await screen.findByRole('region', { name: 'Standard 3.2' });
+    await user.click(within(item).getByRole('button', { name: /Assessment of learning/ }));
+    const section = await within(item).findByRole('region', { name: 'Evidence' });
     const form = within(section).getByRole('form', { name: 'Attach evidence' });
     await waitFor(() => expect(within(form).getAllByRole('option').length).toBeGreaterThan(1));
     await user.selectOptions(within(form).getByLabelText('Evidence'), within(form).getByRole('option', { name: /Course review minutes/ }));

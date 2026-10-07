@@ -65,19 +65,29 @@ describe('quality framework settings', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Terms']);
     const standards = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(standards.textContent).toContain('Mission and governance'));
-    expect(within(standards).getByRole('list', { name: 'Sub-standards of 3' }).textContent).toContain('Assessment of learning');
+    // each standard is a closed accordion, labelled "Standard 1.0"; opening it shows its sub-standards ("Standard 3.2")
+    const s3 = within(standards).getByRole('region', { name: 'Standard 3.0' });
+    expect(within(s3).queryByText('Assessment of learning')).toBeNull();
+    await user.click(within(s3).getByRole('button', { name: /Standard 3\.0\s*Teaching and learning/ }));
+    expect(within(s3).getByRole('region', { name: 'Standard 3.2' }).textContent).toContain('Assessment of learning');
     expect(screen.queryByRole('button', { name: 'Publish this version' })).toBeNull(); // a lead edits; the admin publishes
 
-    // a new standard, then a sub-standard under it, numbered for them, with a description
-    await user.type(screen.getByLabelText('Add standard: title'), 'Internationalisation');
-    await user.click(screen.getByRole('button', { name: 'Add standard' }));
-    const detail = await screen.findByTestId('iqf-detail');
-    await waitFor(() => expect((within(detail).getByLabelText('Code') as HTMLInputElement).value).toBe('9'));
-    await user.type(within(detail).getByLabelText('Description'), 'Partnerships, mobility and international recognition.');
-    await user.click(within(detail).getByRole('button', { name: 'Save' }));
-    await user.type(within(detail).getByLabelText('Add sub-standard: title'), 'Student mobility');
-    await user.click(within(detail).getByRole('button', { name: 'Add sub-standard' }));
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Sub-standards of 9' })).getByText('9.1 Student mobility')).toBeTruthy());
+    // "+ Standard" opens a dialog, numbered for them, saved to the draft
+    await user.click(screen.getByRole('button', { name: '+ Standard' }));
+    const dialog = await screen.findByRole('dialog');
+    expect((within(dialog).getByLabelText('Code') as HTMLInputElement).value).toBe('9');
+    await user.type(within(dialog).getByLabelText('Title'), 'Internationalisation');
+    await user.type(within(dialog).getByLabelText('Description'), 'Partnerships, mobility and international recognition.');
+    await user.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
+    const s9 = await screen.findByRole('region', { name: 'Standard 9.0' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(s9.textContent).toContain('Partnerships, mobility and international recognition.'); // opened after adding
+    await user.click(within(s9).getByRole('button', { name: '+ Sub-standard' }));
+    const sub = await screen.findByRole('dialog');
+    expect((within(sub).getByLabelText('Code') as HTMLInputElement).value).toBe('9.1');
+    await user.type(within(sub).getByLabelText('Title'), 'Student mobility');
+    await user.click(within(sub).getByRole('button', { name: 'Save as draft' }));
+    expect((await within(s9).findByRole('region', { name: 'Standard 9.1' })).textContent).toContain('Student mobility');
     const rows = await apiFor('lead').requirements(version.value);
     expect(rows.find((r) => r.code === '9')!.officialText).toBe('Partnerships, mobility and international recognition.');
     expect(rows.find((r) => r.code === '9.1')!.levelLabel).toBe('Sub-standard');
@@ -92,10 +102,10 @@ describe('quality framework settings', () => {
     render(wrap(<QualityFrameworkPage api={apiFor('admin')} {...extra('admin')} />));
     await user.click(await screen.findByRole('button', { name: 'Publish this version' }));
     await waitFor(() => expect((screen.getByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('1 · Published'));
-    await waitFor(() => expect(screen.queryByRole('form', { name: 'Add standard' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: '+ Standard' })).toBeNull());
     await user.click(screen.getByRole('button', { name: 'Start a new version' }));
     await waitFor(() => expect((screen.getByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
-    expect(await screen.findByRole('form', { name: 'Add standard' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '+ Standard' })).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('list', { name: 'Standards' }).textContent).toContain('Internationalisation')); // carried over
   });
 
