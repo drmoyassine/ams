@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  applyQualityTemplate, newQualityVersion, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
+  addQualityItem, applyQualityTemplate, editQualityItem, newQualityVersion, QualityItemSchema, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
@@ -47,6 +47,18 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { params: idParam },
       responses: { 200: { description: 'An empty draft of the internal framework filled with the generic starting template', ...json(z.array(RequirementSchema)) }, ...errors },
     }), async (c) => c.json(toDto(z.array(RequirementSchema), await applyQualityTemplate(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/framework-versions/{id}/quality-items', access: requires('framework:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(QualityItemSchema) } },
+      responses: { 201: { description: 'Added to the draft; 1 is a standard, 1.2 goes under standard 1', ...json(RequirementSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementSchema, await addQualityItem(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'patch', path: '/api/quality-items/{id}', access: requires('framework:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(QualityItemSchema) } },
+      responses: { 200: { description: 'Edited; a new code can move it, and renumbering a standard renumbers its sub-standards', ...json(RequirementSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementSchema, await editQualityItem(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/framework-versions/{id}/publish-quality', access: requires('framework:publish'), tags: tag,

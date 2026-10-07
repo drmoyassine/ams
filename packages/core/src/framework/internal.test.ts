@@ -5,7 +5,7 @@ import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { createEngagement } from '../engagement/engagements.js';
 import { listExternalTerms } from '../glossary/glossary.js';
-import { applyQualityTemplate, getQualityFramework, indentRequirement, newQualityVersion, publishQualityVersion, outdentRequirement, setQualityLevels, setUpQualityFramework } from './internal.js';
+import { addQualityItem, applyQualityTemplate, editQualityItem, getQualityFramework, indentRequirement, newQualityVersion, publishQualityVersion, outdentRequirement, setQualityLevels, setUpQualityFramework } from './internal.js';
 import { createRequirement, listRequirements, reviewRequirement } from './requirements.js';
 import { getVersionDetail, listFrameworks, newVersionFrom, publishVersion, returnToDraft, submitForReview, validateVersion } from './versions.js';
 
@@ -123,5 +123,24 @@ describe('levels by depth', () => {
       expect((await w4.as('alo', (c) => listRequirements(c, v2.id))).length).toBe((await w4.as('alo', (c) => listRequirements(c, v1))).length);
       await expect(w4.as('alo', (c) => newQualityVersion(c))).rejects.toThrow(/still a draft/);
     } finally { await w4.close(); }
+  });
+
+  it('places items by their code, moves them when the code changes, and renumbers sub-standards with their standard', async () => {
+    const w5 = await buildWorld('internalcodes');
+    try {
+      const v = (await w5.as('alo', (c) => setUpQualityFramework(c))).versions[0]!.id;
+      const one = await w5.as('alo', (c) => addQualityItem(c, v, { code: '1.0', title: 'Teaching' }));
+      expect(one).toMatchObject({ code: '1', parentId: null, levelLabel: 'Standard' });
+      const sub = await w5.as('alo', (c) => addQualityItem(c, v, { code: '1.2', title: 'Course review', description: 'Each course is reviewed yearly.' }));
+      expect(sub).toMatchObject({ parentId: one.id, levelLabel: 'Sub-standard', officialText: 'Each course is reviewed yearly.' });
+      await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: '7.1', title: 'Orphan' }))).rejects.toThrow(/no Standard 7.0/);
+      await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: '1.2', title: 'Again' }))).rejects.toThrow(/code 1.2 is already used/);
+      await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: 'A', title: 'Bad' }))).rejects.toThrow(ValidationError);
+      const three = await w5.as('alo', (c) => addQualityItem(c, v, { code: '3', title: 'Students' }));
+      expect((await w5.as('alo', (c) => editQualityItem(c, sub.id, { code: '3.1', title: 'Course review' }))).parentId).toBe(three.id); // moved
+      await expect(w5.as('alo', (c) => editQualityItem(c, three.id, { code: '1.5', title: 'Students' }))).rejects.toThrow(/cannot become a sub-standard/);
+      await w5.as('alo', (c) => editQualityItem(c, three.id, { code: '4', title: 'Students' }));
+      expect((await w5.as('alo', (c) => listRequirements(c, v))).map((r) => r.code)).toEqual(['1', '4', '4.1']);
+    } finally { await w5.close(); }
   });
 });

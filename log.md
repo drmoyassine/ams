@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-07 — Requirements cards: placement by code, ⋯ menu, link-evidence dialog, hover details
+
+An item's place now follows its code (`addQualityItem` / `editQualityItem`): 1 (or 1.0) is a standard, 1.2 sits under Standard 1.0, a code without its standard is refused, changing a code moves the item, renumbering a standard renumbers its sub-standards; migration 0022 moves items already added at the top level with a code like 1.2 under their standard (drafts only). Cards: sub-standards indented under their standard; shaded "Description", "Linked evidence" and "Sub-standards" labels; a ⋯ menu (Link evidence, Add sub-standard, Edit, Delete) instead of in-card forms; editing in the same dialog as adding. Link evidence is a dialog: choose from the repository (search) or create new evidence (file or link) on the spot, with the required reason. Hovering a closed card shows its title, description and linked evidence.
+
+---
+
 ## 2026-10-07 — Requirements as accordions
 
 The internal framework's Requirements tab shows each standard as a full-width accordion with a shaded tag ("Standard 1.0", and "Standard 1.1" for its sub-standards); opening one shows its description (Edit / Delete), its evidence and, for a standard, its sub-standards as nested accordions. Expand all / Collapse all. "+ Standard" and "+ Sub-standard" open a dialog (code proposed, title, description) with "Save as draft": the item is saved to the draft version and takes effect when the version is published.

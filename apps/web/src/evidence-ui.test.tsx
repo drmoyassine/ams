@@ -98,17 +98,38 @@ describe('evidence', () => {
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     await user.click(await screen.findByRole('button', { name: /Teaching and learning/ }));
     const item = await screen.findByRole('region', { name: 'Standard 3.2' });
-    await user.click(within(item).getByRole('button', { name: /Assessment of learning/ }));
-    const section = await within(item).findByRole('region', { name: 'Evidence' });
-    const form = within(section).getByRole('form', { name: 'Attach evidence' });
-    await waitFor(() => expect(within(form).getAllByRole('option').length).toBeGreaterThan(1));
-    await user.selectOptions(within(form).getByLabelText('Evidence'), within(form).getByRole('option', { name: /Course review minutes/ }));
-    await user.type(within(form).getByLabelText('Why it supports this'), 'Minutes of the annual course review');
-    await user.click(within(form).getByRole('button', { name: 'Attach evidence' }));
-    const link = await within(section).findByTestId('evidence-link');
+    await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.2' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
+    const dialog = await screen.findByRole('dialog');
+    const pick = within(dialog).getByLabelText('Evidence', { selector: 'select' }) as HTMLSelectElement;
+    await waitFor(() => expect(pick.options.length).toBeGreaterThan(0));
+    await user.selectOptions(pick, within(dialog).getByRole('option', { name: /Course review minutes/ }));
+    await user.type(within(dialog).getByLabelText('Why it supports this'), 'Minutes of the annual course review');
+    await user.click(within(dialog).getByRole('button', { name: 'Link evidence' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const link = await within(item).findByTestId('evidence-link');
     expect(link.textContent).toContain('Proposed');
     await user.click(within(link).getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(within(section).getByTestId('evidence-link').textContent).toContain('Approved'));
+    await waitFor(() => expect(within(item).getByTestId('evidence-link').textContent).toContain('Approved'));
+  });
+
+  it('creates evidence that is not in the repository yet, from the same dialog', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
+    await user.click(await screen.findByRole('button', { name: /Teaching and learning/ }));
+    const item = await screen.findByRole('region', { name: 'Standard 3.1' });
+    await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.1' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByLabelText('New evidence'));
+    await user.type(within(dialog).getByLabelText('New evidence title'), 'Teaching observation reports');
+    await user.upload(within(dialog).getByLabelText('File'), new File(['observations'], 'observations.pdf', { type: 'application/pdf' }));
+    await user.type(within(dialog).getByLabelText('Why it supports this'), 'Peer observation of teaching each semester');
+    await user.click(within(dialog).getByRole('button', { name: 'Link evidence' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect((await within(item).findByTestId('evidence-link')).textContent).toContain('Teaching observation reports');
+    expect((await a.evidence.list('Teaching observation')).map((e) => e.latest?.fileName)).toEqual(['observations.pdf']);
   });
 
   it('offers it on the mapped ABET requirement, links it with that requirement\'s own reason, and approves the link', async () => {

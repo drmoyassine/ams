@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { accreditor, framework, frameworkVersion, requirement } from '@ams/db';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
@@ -8,7 +8,7 @@ import { syncLevelTerms } from '../glossary/glossary.js';
 import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_ } from './common.js';
 import { newVersionFrom, publishVersion, submitForReview } from './versions.js';
 import { INTERNAL_TEMPLATE } from './internal-template.js';
-import { createRequirement, listRequirements, moveRequirement, relabelByDepth } from './requirements.js';
+import { createRequirement, listRequirements, moveRequirement, relabelByDepth, updateRequirement } from './requirements.js';
 
 /**
  * The institution's own quality framework (DEC-016) lives in the framework library like any standard, but is owned
@@ -154,4 +154,74 @@ export async function newQualityVersion(ctx: Ctx) {
   const next = Math.max(0, ...versions.map((x) => Number.parseInt(x.edition, 10)).filter((n) => Number.isFinite(n))) + 1;
   const { version } = await newVersionFrom(ctx, latest.id, { edition: String(next) });
   return version;
+}
+
+export const QualityItemSchema = z.object({
+  code: z.string().trim().min(1),
+  title: z.string().trim().min(1),
+  description: z.string().optional(),
+});
+
+/** "1" or "1.0" is Standard 1.0; "1.2" is a sub-standard of it. Anything else is refused. */
+function parseQualityCode(raw: string): { code: string; parent: string | null } {
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(raw.trim());
+  if (!m) throw new ValidationError('use a number for a standard (e.g. 1) or two for a sub-standard (e.g. 1.2)');
+  if (m[2] === undefined || m[2] === '0') return { code: m[1]!, parent: null };
+  return { code: `${m[1]}.${m[2]}`, parent: m[1]! };
+}
+
+async function placeFor(ctx: Ctx, versionId: string, parentCode: string | null) {
+  if (parentCode === null) return null;
+  const [p] = await ctx.tx.select({ id: requirement.id, parentId: requirement.parentId }).from(requirement)
+    .where(and(eq(requirement.frameworkVersionId, versionId), eq(requirement.code, parentCode)));
+  if (!p || p.parentId) throw new ValidationError(`there is no Standard ${parentCode}.0 to put it under; add that standard first`);
+  return p.id;
+}
+
+const friendlyDuplicate = (code: string) => (e: unknown) => {
+  if (e instanceof ConflictError && /requirement_version_code_idx|duplicate/.test(e.message)) throw new ConflictError(`code ${code} is already used`);
+  throw e;
+};
+
+/**
+ * Adds a standard or a sub-standard to a draft of the internal framework. Where it goes follows from its code: 1 is a
+ * standard, 1.2 sits under standard 1.
+ */
+export async function addQualityItem(ctx: Ctx, versionId: string, input: z.input<typeof QualityItemSchema>) {
+  await require_(ctx, 'framework:write');
+  await internalVersion(ctx, versionId);
+  await getDraftVersion(ctx, versionId);
+  const d = QualityItemSchema.parse(input);
+  const { code, parent } = parseQualityCode(d.code);
+  const parentId = await placeFor(ctx, versionId, parent);
+  return createRequirement(ctx, {
+    versionId, code, title: d.title, levelLabel: parent ? 'Sub-standard' : 'Standard', ...(parentId ? { parentId } : {}),
+    ...(d.description?.trim() ? { officialText: d.description.trim() } : {}), isAssessable: parent !== null,
+  }).catch(friendlyDuplicate(code));
+}
+
+/**
+ * Edits a standard or sub-standard. A new code can move it (1.2 → 3.1 moves it under standard 3); renumbering a standard
+ * renumbers its sub-standards with it (1 → 4 makes 1.2 into 4.2).
+ */
+export async function editQualityItem(ctx: Ctx, id: string, input: z.input<typeof QualityItemSchema>) {
+  await require_(ctx, 'framework:write');
+  const current = await getRequirement(ctx, id);
+  await internalVersion(ctx, current.frameworkVersionId);
+  await getDraftVersion(ctx, current.frameworkVersionId);
+  const d = QualityItemSchema.parse(input);
+  const { code, parent } = parseQualityCode(d.code);
+  const children = await ctx.tx.select().from(requirement).where(eq(requirement.parentId, id));
+  if (parent !== null && children.length) throw new ConflictError('a standard with sub-standards cannot become a sub-standard; move its sub-standards first');
+  if (parent === current.code) throw new ValidationError('a standard cannot sit under itself');
+  const parentId = await placeFor(ctx, current.frameworkVersionId, parent);
+  if ((current.parentId ?? null) !== parentId) await moveRequirement(ctx, id, parentId);
+  const updated = await updateRequirement(ctx, id, { code, title: d.title, officialText: d.description ?? '', isAssessable: parent !== null }).catch(friendlyDuplicate(code));
+  if (parent === null && code !== current.code) {
+    for (const c of children) {
+      const renumbered = c.code.startsWith(`${current.code}.`) ? `${code}${c.code.slice(current.code.length)}` : c.code;
+      if (renumbered !== c.code) await updateRequirement(ctx, c.id, { code: renumbered }).catch(friendlyDuplicate(renumbered));
+    }
+  }
+  return updated;
 }
