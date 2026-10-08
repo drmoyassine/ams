@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AccordionCard, HoverCard, Shaded } from './accordion';
 import { ContentText } from './content-text';
+import { versionLabel } from '../lib/version-label';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import type { FrameworkApi, FrameworkListItem } from '../lib/framework-api';
@@ -84,7 +85,7 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
       open={open} onToggle={() => setOpen(!open)} menuLabel={`Actions for ${f.name}`} menu={menu}
       subtitle={(
         <>
-          {[SCOPE[f.scope], current && `Version ${current.edition}`, current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
+          {[SCOPE[f.scope], current && versionLabel(current.edition), current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
           {draft && <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">Draft {draft.edition} in progress</span>}
         </>
       )}
@@ -101,7 +102,7 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
       </div>
       {current && (
         <div className="space-y-2">
-          <Shaded>{current.status === 'published' ? `In use: version ${current.edition}` : `Latest: version ${current.edition} (${STATUS[current.status].toLowerCase()})`}</Shaded>
+          <Shaded>{current.status === 'published' ? `In use: ${versionLabel(current.edition)}` : `Latest: ${versionLabel(current.edition)} (${STATUS[current.status].toLowerCase()})`}</Shaded>
           <div className="flex flex-wrap items-start gap-x-8 gap-y-3 text-sm" data-testid="standard-summary">
             <p>{current.requirementCount} requirement{current.requirementCount === 1 ? '' : 's'}</p>
             <MappedBar v={current} />
@@ -117,7 +118,7 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
             return (
               <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2" data-testid="version-row">
                 <span className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">Version {v.edition}</span>
+                  <span className="font-medium">{versionLabel(v.edition)}</span>
                   <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{STATUS[v.status]}</span>
                   {v.id === current?.id && v.status === 'published' && <span className="text-xs text-muted-foreground">in use</span>}
                 </span>
