@@ -18,3 +18,4 @@ export * from './evidence/requests.js';
 export * from './evidence/dataset.js';
 export * from './evidence/forms.js';
 export * from './evidence/memory-store.js';
+export * from './evidence/s3-store.js';

@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { withIdentity } from '@ams/db';
 import { JobEnvelopeSchema, type JobType } from '@ams/shared';
-import type { Ctx, JobQueue } from '../ctx.js';
+import type { Ctx, JobQueue, ObjectStore } from '../ctx.js';
 import { getJob, markFailed, markRunning, markSucceeded } from './jobs.js';
 import { handlers, type JobHandler } from './handlers.js';
 
@@ -16,6 +16,7 @@ export async function runJob(
   type: JobType,
   rawEnvelope: unknown,
   registry: Partial<Record<JobType, JobHandler>> = handlers,
+  deps: { store?: ObjectStore } = {},
 ): Promise<void> {
   const env = JobEnvelopeSchema.parse(rawEnvelope);
   const handler = registry[type];
@@ -23,7 +24,7 @@ export async function runJob(
   const identity = {
     userId: env.userId, institutionId: env.institutionId, requestId: env.jobId, actorType: env.actorType, role: 'ams_worker' as const,
   };
-  const ctxFor = (tx: Ctx['tx']): Ctx => ({ tx, caller: identity, queue: noQueue, afterCommit: () => { throw new Error('afterCommit is not available in jobs'); } });
+  const ctxFor = (tx: Ctx['tx']): Ctx => ({ tx, caller: identity, queue: noQueue, afterCommit: () => { throw new Error('afterCommit is not available in jobs'); }, ...(deps.store ? { store: deps.store } : {}) });
 
   try {
     await withIdentity(pool, identity, async (tx) => {

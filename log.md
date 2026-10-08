@@ -14,6 +14,17 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — Source files are read into page text (framework analysis, step A)
+
+`parseDocument()` (`packages/core/src/framework/parse-document.ts`) is now the single point that reads a file into pages (TASK-043, DEC-011). Learnings:
+- **liteparse is `@llamaindex/liteparse`** (the unscoped `liteparse` name is not on npm). It installs a native PDFium binding and parses PDF bytes offline; its OCR is switched off because OCR belongs to Step B (`aiOcr` through the `ocrPage` hook). Its non-PDF support needs LibreOffice, so DOCX/XLSX/PPTX/CSV are read directly with `fflate` and a small XML reader instead; nothing outside Node is required in the worker image.
+- **The worker has no object store unless `runJob(..., { store })` is given one**; `apps/worker/src/main.ts` passes `s3Store(env)`, which moved to `packages/core/src/evidence/s3-store.ts`.
+- **The worker role cannot read `role_assignment`**, so job handlers must not call permission-checked services (`readSourceFile`); use the permission-free loaders. The person's permission is checked when the job is queued.
+- **A page is overwritten by a re-read only if `from_file` and not `reviewed`.** Pages that existed before migration 0035 have `from_file = false` on purpose (a blanket UPDATE would have hit the published-version immutability trigger).
+- `pnpm db:generate` needs `pnpm --filter @ams/shared build` first.
+
+---
+
 ## 2026-10-08 — The app works on phones and tablets
 
 Three agents worked in parallel on separate files; the work was merged and checked here.

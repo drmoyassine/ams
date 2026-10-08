@@ -7,12 +7,15 @@ import userEvent from '@testing-library/user-event';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, MemoryStore } from '@ams/api';
+import { handlers, runJob } from '@ams/core';
+import type { JobEnvelope } from '@ams/shared';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
 import { createApi } from './lib/api';
 import { frameworkApi, type FrameworkApi } from './lib/framework-api';
 import { FrameworksPage } from './pages/frameworks';
 import { VersionPage } from './pages/version';
+import { readStatus } from './pages/version/sources-section';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -20,6 +23,8 @@ configure({ asyncUtilTimeout: 10000 });
 let db: TestDb;
 let pool: pg.Pool;
 let app: ReturnType<typeof createApp>['app'];
+const store = new MemoryStore();
+const queued: JobEnvelope[] = [];
 const ids = {} as Record<string, string>;
 
 async function one(sql: string, params: unknown[] = []) { return (await db.su.query(sql, params)).rows[0].id as string; }
@@ -73,7 +78,7 @@ beforeAll(async () => {
   db = await createTestDb('webfw');
   pool = new pg.Pool({ connectionString: db.url });
   app = createApp({
-    pool, store: new MemoryStore(),
+    pool, store, queue: { send: async (_type, envelope) => { queued.push(envelope); } },
     authenticate: async (req) => {
       const h = req.headers.get('x-test-user');
       if (!h) return null;
@@ -468,5 +473,40 @@ describe('version page', () => {
     await user.click(within(fixed).getByRole('button', { name: /^Policy and procedure/ }));
     expect((await within(fixed).findByTestId('page-text')).textContent).toBe('Programs report every year.');
     expect(within(fixed).queryByRole('form')).toBeNull();
+  });
+
+  it('reads a source file into pages from a button, showing queued, then done, and a quiet viewer', async () => {
+    const { version } = await importAs('lead', 'reading-ui');
+    const a = apiFor('lead');
+    const doc = await a.addDocument(version.id, { title: 'Programs list', role: 'other', authority: 'informational' });
+    await a.uploadSourceFile(doc.id, new File(['id,name\n1,Mechanical\n2,Civil\n'], 'programs.csv', { type: 'text/csv' }));
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    const card = await screen.findByRole('region', { name: 'Programs list' });
+    await user.click(within(card).getByRole('button', { name: /^Other/ }));
+    expect((await within(card).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Not read yet');
+    await user.click(within(card).getByRole('button', { name: 'Read this file' }));
+    await waitFor(() => expect(within(card).getByRole('status', { name: 'Reading status of Programs list' }).textContent).toBe('Reading the file…'));
+    expect((within(card).getByRole('button', { name: 'Read this file' }) as HTMLButtonElement).disabled).toBe(true);
+    // The worker picks the job up.
+    await runJob(pool, 'extract_text', queued.shift(), handlers, { store });
+    await waitFor(() => expect(within(card).getByRole('status', { name: 'Reading status of Programs list' }).textContent).toBe('Read: 1 page'));
+    expect((await within(card).findByLabelText('Text of page 1') as HTMLTextAreaElement).value).toBe('id | name\n1 | Mechanical\n2 | Civil');
+    expect(within(card).getByRole('button', { name: 'Read this file again' })).toBeTruthy();
+    cleanup();
+
+    // Someone who cannot edit sees the status but no button.
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('viewer')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    const ro = await screen.findByRole('region', { name: 'Programs list' });
+    await userEvent.setup().click(within(ro).getByRole('button', { name: /^Other/ }));
+    expect((await within(ro).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Read: 1 page');
+    expect(within(ro).queryByRole('button', { name: /Read this file/ })).toBeNull();
+  });
+
+  it('describes where reading stands', () => {
+    const d = { title: 'x', storedPages: 4, pageCount: 4, needsOcrPages: 2 } as Parameters<typeof readStatus>[0];
+    expect(readStatus({ ...d, textStatus: 'ocr_needed' })).toBe('Read: 4 pages, 2 need OCR');
+    expect(readStatus({ ...d, textStatus: 'failed' })).toMatch(/could not be read/);
+    expect(readStatus({ ...d, textStatus: 'pending' })).toBe('Not read yet');
   });
 });

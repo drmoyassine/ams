@@ -69,9 +69,11 @@ export const SourceDocumentSchema = z.object({
   fileName: z.string().nullable(), mime: z.string().nullable(), size: z.number().nullable(),
   /** Listing only: pages whose text is stored, and whether the original file is held. */
   storedPages: z.number().optional(), hasFile: z.boolean().optional(),
+  /** Listing only: stored pages that still need OCR. */
+  needsOcrPages: z.number().optional(),
 });
 export const SourcePageSchema = z.object({
-  id: z.string(), sourceDocumentId: z.string(), pageNo: z.number(), text: z.string(), method: z.enum(['pdf_text', 'ocr']), reviewed: z.boolean(),
+  id: z.string(), sourceDocumentId: z.string(), pageNo: z.number(), text: z.string(), method: z.enum(['pdf_text', 'ocr', 'table', 'slide', 'sheet']), reviewed: z.boolean(), needsOcr: z.boolean(), fromFile: z.boolean(),
 });
 export const RequirementDetailSchema = z.object({ requirement: RequirementSchema, notes: z.array(NoteSchema) });
 export const ValidationResultSchema = z.object({

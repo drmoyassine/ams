@@ -4,6 +4,8 @@ export * from './requirements.js';
 export * from './notes.js';
 export * from './templates.js';
 export * from './sources.js';
+export * from './parse-document.js';
+export * from './reading.js';
 export * from './exchange.js';
 export * from './internal.js';
 export * from './accreditor-logo.js';

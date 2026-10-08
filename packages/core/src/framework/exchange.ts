@@ -63,7 +63,7 @@ export async function exportVersion(ctx: Ctx, versionId: string): Promise<Framew
     },
     source_documents: docs.map((d) => ({
       ref: docRef.get(d.id)!, title: d.title, role: d.role, authority: d.authority, language: d.language, sha256: d.sha256,
-      pages: pages.filter((p) => p.sourceDocumentId === d.id).map((p) => ({ page_no: p.pageNo, text: p.text, method: p.method })),
+      pages: pages.filter((p) => p.sourceDocumentId === d.id && p.text.trim()).map((p) => ({ page_no: p.pageNo, text: p.text, method: p.method })),
     })),
     requirements: ordered.map((r) => ({
       code: r.code,
