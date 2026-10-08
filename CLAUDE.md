@@ -106,6 +106,7 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 |---|---|
 | Unit + integration tests | `pnpm test` (Vitest) |
 | End-to-end | `pnpm test:e2e` — `scripts/smoke.sh` against the running Compose stack (health, login, protected route, worker). Playwright browser tests join when the SPA has real flows |
+| Responsive layout | `pnpm test:responsive` (`--report-only` to not fail) — `e2e/responsive.mjs` boots the API + built SPA on a fresh test DB (needs PostgreSQL and `pnpm build`), signs in with Chromium and checks the main screens at 375/768/1280px for horizontal scroll; screenshots to `e2e/screenshots/` (gitignored). Playwright is not a repo dependency: uses `PLAYWRIGHT_MODULE` (default `/opt/node-tools/node_modules/playwright/index.mjs`) |
 | Route permission coverage | `pnpm test:routes` — enumerates Hono routes; fails on any route without `requires(...)` |
 | Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger. Needs PostgreSQL (`TEST_DATABASE_ADMIN_URL`, default `postgres://postgres:postgres@localhost:5432/postgres`) |
 | Types and lint | `pnpm typecheck && pnpm lint` |

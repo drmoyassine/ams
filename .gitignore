@@ -6,3 +6,6 @@ dist-types
 
 # Agent working copies
 .claude/worktrees/
+
+# Responsiveness check output (pnpm test:responsive)
+e2e/screenshots/
