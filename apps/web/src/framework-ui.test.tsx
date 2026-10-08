@@ -107,14 +107,14 @@ describe('frameworks page', () => {
     await user.click(screen.getByRole('button', { name: 'Import' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/2 requirements, 1 documents, 1 templates/);
     const card = await screen.findByRole('region', { name: 'Institutional Guide' });
-    expect(card.textContent).toMatch(/2023 · Draft/);
+    expect(card.textContent).toMatch(/Version 2023 · Draft/);
   });
 
   it('shows each standard as a card: accreditor, name, scope and the version in use, with the versions inside', async () => {
     const user = userEvent.setup();
     render(wrap(<FrameworksPage api={apiFor('lead')} />));
     const card = await screen.findByRole('region', { name: 'Institutional Guide' });
-    expect(card.textContent).toMatch(/Institutional2023 · Draft/); // scope, then the version and its state, beside the arrow
+    expect(card.textContent).toContain('Institutional · Version 2023 · Draft'); // scope, version and its state, under the name
     expect(card.textContent).not.toContain('PUC ·');
     expect(within(card).queryByRole('link')).toBeNull(); // no button on the closed card
     expect(within(card).queryByTestId('version-row')).toBeNull(); // versions are inside, until it is opened
@@ -160,7 +160,7 @@ describe('frameworks page', () => {
     unmount();
     render(wrap(<FrameworksPage api={apiFor('viewer')} />));
     const ro = await screen.findByRole('region', { name: 'Institutional Guide' });
-    expect(ro.textContent).toMatch(/2026 · Draft/); // the newest version is shown on the card
+    expect(ro.textContent).toMatch(/Version 2026 · Draft/); // the newest version is shown on the card
     await user.click(within(ro).getByRole('button', { name: 'Actions for Institutional Guide' }));
     expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open current version']);
     await user.keyboard('{Escape}');
