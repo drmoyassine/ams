@@ -3,7 +3,8 @@
 // offered it as a suggestion; linking it to the requirement is still a decision with its own reason and review.
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
-  appUser, engagement, engagementRequirement, evidenceItem, evidenceLink, evidenceVersion, framework, frameworkVersion, requirement, requirementMapping,
+  appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
+  frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
   CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ReviewLinkSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
@@ -28,11 +29,44 @@ export const versionDto = (v: VersionRow): EvidenceVersion => ({
   asOfDate: v.asOfDate, notes: v.notes, createdAt: v.createdAt.toISOString(),
   rowCount: Array.isArray((v.data as { rows?: unknown } | null)?.rows) ? (v.data as { rows: unknown[] }).rows.length : null,
 });
-const itemDto = (r: ItemRow, latest: VersionRow | null, linkCount: number): EvidenceItem => ({
+/** What the repository shows about an item besides its own fields: its links, open requests and form. */
+interface ItemStats { linkCount: number; proposedLinkCount: number; openRequestCount: number; formOpen: boolean; pendingResponses: number }
+const NO_STATS: ItemStats = { linkCount: 0, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0 };
+
+const itemDto = (r: ItemRow, latest: VersionRow | null, stats: ItemStats): EvidenceItem => ({
   id: r.id, title: r.title, description: r.description, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId,
   periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags,
-  status: r.status, latest: latest ? versionDto(latest) : null, linkCount,
+  status: r.status, latest: latest ? versionDto(latest) : null, ...stats,
 });
+
+/** Stats for many items in a fixed number of queries (one per kind of count, never one per item). */
+async function itemStats(ctx: Ctx, itemIds: string[]): Promise<Map<string, ItemStats>> {
+  const out = new Map(itemIds.map((id) => [id, { ...NO_STATS }]));
+  if (!itemIds.length) return out;
+  const links = await ctx.tx.select({
+    item: evidenceVersion.evidenceItemId, n: sql<number>`count(*)::int`,
+    proposed: sql<number>`(count(*) filter (where ${evidenceLink.reviewStatus} = 'proposed'))::int`,
+  }).from(evidenceLink).innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId))
+    .where(inArray(evidenceVersion.evidenceItemId, itemIds)).groupBy(evidenceVersion.evidenceItemId);
+  const requests = await ctx.tx.select({ item: evidenceRequest.dataItemId, n: sql<number>`count(*)::int` }).from(evidenceRequest)
+    .where(and(inArray(evidenceRequest.dataItemId, itemIds), eq(evidenceRequest.status, 'open'))).groupBy(evidenceRequest.dataItemId);
+  const specs = await ctx.tx.select({ item: datasetSpec.evidenceItemId, open: datasetSpec.formOpen }).from(datasetSpec).where(inArray(datasetSpec.evidenceItemId, itemIds));
+  const responses = await ctx.tx.select({ item: datasetResponse.evidenceItemId, n: sql<number>`count(*)::int` }).from(datasetResponse)
+    .where(and(inArray(datasetResponse.evidenceItemId, itemIds), isNull(datasetResponse.includedInVersionId))).groupBy(datasetResponse.evidenceItemId);
+  for (const l of links) Object.assign(out.get(l.item)!, { linkCount: l.n, proposedLinkCount: l.proposed });
+  for (const r of requests) if (r.item) out.get(r.item)!.openRequestCount = r.n;
+  for (const f of specs) out.get(f.item)!.formOpen = f.open;
+  for (const r of responses) out.get(r.item)!.pendingResponses = r.n;
+  return out;
+}
+
+/** Items in the repository's shape: their latest version and stats. */
+async function describeItems(ctx: Ctx, rows: ItemRow[]): Promise<EvidenceItem[]> {
+  const ids = rows.map((r) => r.id);
+  const latest = await latestVersions(ctx, ids);
+  const stats = await itemStats(ctx, ids);
+  return rows.map((r) => itemDto(r, latest.get(r.id) ?? null, stats.get(r.id)!));
+}
 
 export async function getItem(ctx: Ctx, id: string) {
   const [row] = await ctx.tx.select().from(evidenceItem).where(eq(evidenceItem.id, id));
@@ -67,34 +101,47 @@ export async function createEvidence(ctx: Ctx, input: CreateEvidence): Promise<E
   if (d.url) {
     [latest] = await ctx.tx.insert(evidenceVersion).values({ institutionId: ctx.caller.institutionId, evidenceItemId: row!.id, versionNo: 1, url: d.url }).returning() as [VersionRow];
   }
-  return itemDto(row!, latest, 0);
+  return itemDto(row!, latest, NO_STATS);
 }
 
 export async function updateEvidence(ctx: Ctx, id: string, patch: UpdateEvidence): Promise<EvidenceItem> {
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
-  await getItem(ctx, id);
+  const item = await getItem(ctx, id);
   const d = UpdateEvidenceSchema.parse(patch);
+  if (d.type && d.type !== item.type) await assertMayChangeType(ctx, id, d.type);
   const [row] = await guardIntegrity(() => ctx.tx.update(evidenceItem).set(d).where(eq(evidenceItem.id, id)).returning());
-  return itemDto(row!, (await latestVersions(ctx, [id])).get(id) ?? null, 0);
+  return (await describeItems(ctx, [row!]))[0]!;
 }
 
-/** The repository: every item the caller may see, newest first, optionally narrowed by a word in the title or tags. */
-export async function listEvidence(ctx: Ctx, opts: { q?: string } = {}): Promise<EvidenceItem[]> {
+/**
+ * A document becomes data only while it holds no file or address, and data a document only while it holds no saved
+ * data or form responses: what was stored stays readable as what it is.
+ */
+async function assertMayChangeType(ctx: Ctx, id: string, to: EvidenceItem['type']) {
+  const versions = await ctx.tx.select({ filePath: evidenceVersion.filePath, url: evidenceVersion.url, data: evidenceVersion.data })
+    .from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, id));
+  if (to === 'data' && versions.some((v) => v.filePath || v.url)) throw new ConflictError('this document has file versions; it cannot become data');
+  if (to === 'document') {
+    const [response] = await ctx.tx.select({ id: datasetResponse.id }).from(datasetResponse).where(eq(datasetResponse.evidenceItemId, id)).limit(1);
+    if (versions.some((v) => v.data !== null) || response) throw new ConflictError('this data has saved data or form responses; it cannot become a document');
+  }
+}
+
+/**
+ * The repository: every item the caller may see, newest first, optionally narrowed by a word in the title or tags.
+ * Archived items are left out unless asked for.
+ */
+export async function listEvidence(ctx: Ctx, opts: { q?: string; includeArchived?: boolean } = {}): Promise<EvidenceItem[]> {
   await assertPermitted(ctx, 'evidence:read', any);
   const q = opts.q?.trim();
   const rows = await ctx.tx.select().from(evidenceItem)
-    .where(q ? sql`(${evidenceItem.title} ilike ${`%${q}%`} or ${q} = any(${evidenceItem.tags}))` : undefined)
+    .where(and(
+      q ? sql`(${evidenceItem.title} ilike ${`%${q}%`} or ${q} = any(${evidenceItem.tags}))` : undefined,
+      opts.includeArchived ? undefined : eq(evidenceItem.status, 'active'),
+    ))
     .orderBy(desc(evidenceItem.createdAt));
-  const ids = rows.map((r) => r.id);
-  const latest = await latestVersions(ctx, ids);
-  const counts = new Map<string, number>();
-  if (ids.length) {
-    const linked = await ctx.tx.select({ item: evidenceVersion.evidenceItemId }).from(evidenceLink)
-      .innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId)).where(inArray(evidenceVersion.evidenceItemId, ids));
-    for (const l of linked) counts.set(l.item, (counts.get(l.item) ?? 0) + 1);
-  }
-  return rows.map((r) => itemDto(r, latest.get(r.id) ?? null, counts.get(r.id) ?? 0));
+  return describeItems(ctx, rows);
 }
 
 export async function getEvidence(ctx: Ctx, id: string): Promise<EvidenceDetail> {
@@ -105,7 +152,7 @@ export async function getEvidence(ctx: Ctx, id: string): Promise<EvidenceDetail>
     ? await ctx.tx.select().from(evidenceLink).where(inArray(evidenceLink.evidenceVersionId, versions.map((v) => v.id))).orderBy(desc(evidenceLink.createdAt))
     : [];
   const links = await describeLinks(ctx, linkRows);
-  return { item: itemDto(row, versions[0] ?? null, links.length), versions: versions.map(versionDto), links };
+  return { item: (await describeItems(ctx, [row]))[0]!, versions: versions.map(versionDto), links };
 }
 
 /** A file name safe to keep in a storage key and a header: path separators and control characters become _. */

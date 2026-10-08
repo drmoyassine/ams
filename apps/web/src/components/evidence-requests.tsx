@@ -35,8 +35,8 @@ export function LinkBox({ token, email, expiresAt }: { token: string; email: str
 }
 
 /** Ask a person for evidence on an item: what is needed, from whom (email), by when, and a note. */
-export function RequestEvidenceDialog({ api, title, requirementId, onDone, onClose }: {
-  api: EvidenceApi; title: string; requirementId: string; onDone: () => void; onClose: () => void;
+export function RequestEvidenceDialog({ api, title, requirementId, initialWhat = '', onDone, onClose }: {
+  api: EvidenceApi; title: string; requirementId: string; /** Pre-fills "What is needed", e.g. with the title of evidence to update. */ initialWhat?: string; onDone: () => void; onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +70,7 @@ export function RequestEvidenceDialog({ api, title, requirementId, onDone, onClo
         </div>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Request evidence">
-          <label className="flex flex-col text-sm">What is needed<Input name="title" aria-label="What is needed" required dir="auto" placeholder="e.g. Graduate survey report 2025" /></label>
+          <label className="flex flex-col text-sm">What is needed<Input name="title" aria-label="What is needed" required dir="auto" defaultValue={initialWhat} placeholder="e.g. Graduate survey report 2025" /></label>
           <label className="flex flex-col text-sm">Ask (email)<Input name="email" type="email" aria-label="Ask (email)" required dir="ltr" /></label>
           <p className="-mt-2 text-xs text-muted-foreground">Someone with an AMS account answers in the AMS; anyone else gets a one-time link.</p>
           <label className="flex flex-col text-sm">Due date (optional)<Input name="due" type="date" aria-label="Due date" /></label>

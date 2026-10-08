@@ -15,6 +15,7 @@ import { evidenceApi } from './lib/evidence-api';
 import { frameworkApi } from './lib/framework-api';
 import { glossaryApi } from './lib/glossary-api';
 import { settingsApi } from './lib/settings-api';
+import { AppLayout } from './pages/layout';
 import { RequestsPage } from './pages/requests';
 import { RespondPage } from './pages/respond';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
@@ -81,6 +82,8 @@ describe('evidence requests', () => {
 
     const v = apis('viewer');
     render(wrap(<RequestsPage api={v.evidence} framework={v.framework} />));
+    expect(await screen.findByRole('heading', { name: 'My requests' })).toBeTruthy();
+    expect(screen.queryByRole('tablist')).toBeNull(); // every request is followed up under Evidence → Requests
     const row = await screen.findByTestId('evidence-request');
     expect(row.textContent).toContain('Exit survey 2025');
     expect(within(row).queryByRole('button', { name: 'Cancel request' })).toBeNull();
@@ -115,4 +118,35 @@ describe('evidence requests', () => {
     render(wrap(<RespondPage token={token} api={anon} />));
     expect((await screen.findByRole('alert')).textContent).toContain('has been used');
   });
+
+  it('shows "My requests" in the sidebar only while someone has open requests asked of them', async () => {
+    const shell = (who: string) => { const a = apis(who); return <AppLayout api={a.settings} evidence={a.evidence} />; };
+    const nav = async () => { await screen.findByTestId('institution-name'); return screen.getByRole('navigation', { name: 'Main' }); };
+    // The admin has never been asked; the viewer's one request was supplied in the first test.
+    for (const who of ['admin', 'viewer']) {
+      render(wrap(shell(who)));
+      const main = await nav();
+      await waitFor(() => expect(within(main).getByRole('link', { name: 'Evidence' })).toBeTruthy());
+      expect(within(main).queryByRole('link', { name: /Requests/i })).toBeNull();
+      cleanup();
+    }
+
+    const a = apis('admin');
+    const qv = (await a.framework.qualityFramework()).versions[0]!.id;
+    const item = (await a.framework.requirements(qv))[0]!;
+    const { request } = await a.evidence.request(item.id, { title: 'Alumni survey', assigneeEmail: 'viewer@x.org' });
+    await a.evidence.request(item.id, { title: 'Advisory board minutes', assigneeEmail: 'viewer@x.org' });
+    render(wrap(shell('viewer')));
+    const link = await within(await nav()).findByRole('link', { name: 'My requests (2)' });
+    expect(link.getAttribute('href')).toBe('/requests');
+    cleanup();
+    render(wrap(shell('admin')));
+    await waitFor(async () => expect(within(await nav()).getByRole('link', { name: 'Evidence' })).toBeTruthy());
+    expect(screen.queryByRole('link', { name: /My requests/ })).toBeNull();
+    cleanup();
+
+    await a.evidence.cancelRequest(request.id);
+    render(wrap(shell('viewer')));
+    expect(await within(await nav()).findByRole('link', { name: 'My requests (1)' })).toBeTruthy();
+  }, 30000);
 });

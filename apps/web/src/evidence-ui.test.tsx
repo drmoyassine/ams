@@ -89,11 +89,14 @@ describe('evidence', () => {
     await user.type(within(form).getByLabelText('Description'), 'Minutes of the course review committee');
     await user.upload(within(form).getByLabelText('File'), new File(['minutes v1'], 'minutes.pdf', { type: 'application/pdf' }));
     await user.click(within(form).getByRole('button', { name: 'Create evidence' }));
-    const detail = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
-    await waitFor(() => expect(within(detail).getAllByTestId('evidence-version').map((v) => v.textContent)).toEqual([expect.stringMatching(/^v1minutes\.pdf/)]));
-    await user.upload(within(detail).getByLabelText('Upload a new version'), new File(['minutes v2'], 'minutes-2.pdf', { type: 'application/pdf' }));
-    await waitFor(() => expect(within(detail).getAllByTestId('evidence-version')).toHaveLength(2));
-    expect(await within(screen.getByRole('list', { name: 'Evidence' })).findByText(/· v2/)).toBeTruthy();
+    // The new item's card opens by itself.
+    const card = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
+    await waitFor(() => expect(within(card).getAllByTestId('evidence-version').map((v) => v.textContent)).toEqual([expect.stringMatching(/^v1minutes\.pdf/)]));
+    expect(within(card).getByText('Minutes of the course review committee')).toBeTruthy();
+    await user.upload(screen.getByLabelText('Upload a new version'), new File(['minutes v2'], 'minutes-2.pdf', { type: 'application/pdf' }));
+    await waitFor(() => expect(within(card).getAllByTestId('evidence-version')).toHaveLength(2));
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/v2 · /));
+    expect(within(card).getByTestId('evidence-kind').textContent).toBe('PDF');
   });
 
   it('attaches it to an item of the internal framework with a reason', async () => {
@@ -165,7 +168,162 @@ describe('evidence', () => {
     expect(within(card).queryByRole('button', { name: /Approve|Reject|Remove|Link/ })).toBeNull();
     cleanup();
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await screen.findByText('Course review minutes');
+    const item = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
     expect(screen.queryByRole('button', { name: '+ Evidence' })).toBeNull();
+    expect(await menuOf(item, 'Course review minutes')).toEqual(['Download latest']);
+  });
+});
+
+/** The labels of a card's ⋯ menu (closed again afterwards). */
+async function menuOf(card: HTMLElement, title: string) {
+  const user = userEvent.setup();
+  const button = within(card).queryByRole('button', { name: `Actions for ${title}` });
+  if (!button) return [];
+  await user.click(button);
+  const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent);
+  await user.keyboard('{Escape}');
+  return labels;
+}
+/** The button that opens or closes a card (the first in it; the ⋯ menu comes after). */
+const toggleOf = (card: HTMLElement) => within(card).getAllByRole('button')[0]!;
+const cardNames = () => screen.getAllByTestId('evidence-card').map((c) => c.getAttribute('aria-label'));
+
+describe('the evidence library', () => {
+  it('shows on each closed card what it is, what it is linked to, and what needs attention', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    await a.evidence.create({ title: 'Graduate headcount', type: 'data', description: 'Graduates by program and year' });
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+
+    const minutes = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
+    expect(toggleOf(minutes).getAttribute('aria-expanded')).toBe('false');
+    expect(within(minutes).getByTestId('evidence-kind').textContent).toBe('PDF');
+    // Attached to Standard 3.2 and linked to the ABET requirement, both approved: nothing to flag.
+    expect(within(minutes).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 2v2 · \d+ \w{3} \d{4}$/);
+    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Download latest', 'Edit details', 'Archive']);
+
+    const observations = screen.getByRole('region', { name: 'Evidence: Teaching observation reports' });
+    expect(within(observations).getByTestId('evidence-meta').textContent).toContain('1 to review');
+
+    const headcount = screen.getByRole('region', { name: 'Evidence: Graduate headcount' });
+    expect(within(headcount).getByTestId('evidence-kind').textContent).toBe('DATA');
+    expect(within(headcount).getByTestId('evidence-meta').textContent).toBe('Not linked');
+    // No version yet: nothing to link or download.
+    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Edit details', 'Archive']);
+    await user.click(within(headcount).getByRole('button', { name: 'Actions for Graduate headcount' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Open sheet' }));
+    expect(await within(headcount).findByRole('region', { name: 'Data' })).toBeTruthy(); // the sheet, inside the card
+    expect(within(headcount).getByText('Graduates by program and year')).toBeTruthy();
+    expect(within(headcount).getByText('No data saved yet.')).toBeTruthy();
+  });
+
+  it('links an item to a standard of the internal framework from its card, with a reason', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    const item = await a.evidence.create({ title: 'Assessment plan 2026', type: 'document' });
+    await a.evidence.upload(item.id, new File(['plan'], 'plan.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    const card = await screen.findByRole('region', { name: 'Evidence: Assessment plan 2026' });
+    expect(within(card).getByTestId('evidence-kind').textContent).toBe('DOC');
+    await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Link to a standard' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Link to a standard' });
+    const select = within(dialog).getByLabelText('Standard');
+    await waitFor(() => expect(within(select).getByRole('option', { name: /Assessment of learning/ })).toBeTruthy());
+    expect((within(dialog).getByRole('button', { name: 'Link' }) as HTMLButtonElement).disabled).toBe(true); // the reason is required
+    await user.selectOptions(select, ids.assessment!);
+    await user.type(within(dialog).getByLabelText('Justification'), 'The plan the assessment committee follows');
+    await user.click(within(dialog).getByRole('button', { name: 'Link' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 11 to review/));
+    await user.click(toggleOf(card));
+    const link = await within(card).findByTestId('evidence-link');
+    expect(link.textContent).toMatch(/Internal 3\.2 · Assessment of learning.*Proposed.*The plan the assessment committee follows/s);
+    await user.click(within(link).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).not.toContain('to review'));
+  });
+
+  it('asks for an update of a document for a standard, with its title filled in', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    const card = await screen.findByRole('region', { name: 'Evidence: Assessment plan 2026' });
+    await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Request an update' }));
+    const pick = await screen.findByRole('dialog', { name: 'Request an update' });
+    await waitFor(() => expect(within(pick).getByRole('option', { name: /Assessment of learning/ })).toBeTruthy());
+    await user.selectOptions(within(pick).getByLabelText('Standard'), ids.assessment!);
+    await user.click(within(pick).getByRole('button', { name: 'Continue' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Request evidence' });
+    expect(within(dialog).getByText('Standard 3.2 · Assessment of learning')).toBeTruthy();
+    expect((within(dialog).getByLabelText('What is needed') as HTMLInputElement).value).toBe('Assessment plan 2026');
+    await user.type(within(dialog).getByLabelText('Ask (email)'), 'dean@partner.com');
+    await user.click(within(dialog).getByRole('button', { name: 'Request' }));
+    expect(await within(dialog).findByTestId('response-link')).toBeTruthy();
+    expect((await a.evidence.requests(false)).map((r) => [r.title, r.internalTitle])).toEqual([['Assessment plan 2026', 'Assessment of learning']]);
+  });
+
+  it('edits the details, but keeps a document with files a document', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    const card = await screen.findByRole('region', { name: 'Evidence: Assessment plan 2026' });
+    await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit details' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit details' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Data' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain('this document has file versions; it cannot become data');
+    await user.click(within(dialog).getByRole('radio', { name: 'Document' }));
+    await user.type(within(dialog).getByLabelText('Description'), 'Approved by the council');
+    await user.clear(within(dialog).getByLabelText('Title'));
+    await user.type(within(dialog).getByLabelText('Title'), 'Assessment plan 2026-27');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(await screen.findByRole('region', { name: 'Evidence: Assessment plan 2026-27' })).toBeTruthy();
+  });
+
+  it('archives an item out of the library, restores it from Archived, and filters the rest', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    const card = await screen.findByRole('region', { name: 'Evidence: Graduate headcount' });
+    await user.click(within(card).getByRole('button', { name: 'Actions for Graduate headcount' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Archive' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Evidence: Graduate headcount' })).toBeNull());
+
+    const filters = screen.getByRole('group', { name: 'Show' });
+    await user.click(within(filters).getByRole('button', { name: 'Archived' }));
+    expect(within(filters).getByRole('button', { name: 'Archived' }).getAttribute('aria-pressed')).toBe('true');
+    const archived = await screen.findByRole('region', { name: 'Evidence: Graduate headcount' });
+    expect(cardNames()).toEqual(['Evidence: Graduate headcount']);
+    expect(within(archived).getByTestId('evidence-meta').textContent).toContain('Archived');
+    expect(await menuOf(archived, 'Graduate headcount')).toEqual(['Open sheet', 'Edit details', 'Restore']);
+    await user.click(within(archived).getByRole('button', { name: 'Actions for Graduate headcount' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Restore' }));
+    expect(await screen.findByText('Nothing matches.')).toBeTruthy();
+
+    await user.click(within(filters).getByRole('button', { name: 'Data' }));
+    await waitFor(() => expect(cardNames()).toEqual(['Evidence: Graduate headcount']));
+    await user.click(within(filters).getByRole('button', { name: 'Documents' }));
+    await waitFor(() => expect(cardNames()).not.toContain('Evidence: Graduate headcount'));
+    await user.click(within(filters).getByRole('button', { name: 'Not linked' }));
+    await waitFor(() => expect(cardNames()).toEqual(['Evidence: Graduate headcount']));
+    await user.click(within(filters).getByRole('button', { name: 'To review' }));
+    await waitFor(() => expect(cardNames()).toEqual(['Evidence: Teaching observation reports']));
+  });
+
+  it('lists every request in the institution under the Requests tab', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    const tabs = await screen.findByRole('tablist', { name: 'Evidence' });
+    expect(within(tabs).getByRole('tab', { name: 'Library' }).getAttribute('aria-selected')).toBe('true');
+    await user.click(within(tabs).getByRole('tab', { name: 'Requests' }));
+    expect(within(tabs).getByRole('tab', { name: 'Requests' }).getAttribute('aria-selected')).toBe('true');
+    const row = await screen.findByTestId('evidence-request');
+    expect(row.textContent).toMatch(/Assessment plan 2026.*Requested.*Internal 3\.2 · Assessment of learning/s);
+    expect(within(row).getByRole('button', { name: 'Cancel request' })).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Evidence' })).toBeNull();
   });
 });

@@ -29,7 +29,8 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
   const requests = useQuery({ queryKey: ['form-requests', item.id], queryFn: () => api.formRequests(item.id) });
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
-  const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(() => qc.invalidateQueries({ queryKey: ['data-form', item.id] }), (e: Error) => setError(e.message)); };
+  // The library card shows whether the form is open, so the list is refreshed too.
+  const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(() => Promise.all([qc.invalidateQueries({ queryKey: ['data-form', item.id] }), qc.invalidateQueries({ queryKey: ['evidence'] })]), (e: Error) => setError(e.message)); };
   if (!form.data || !spec.data) return <p className="text-sm">Loading…</p>;
   const f = form.data;
   return (
@@ -77,7 +78,7 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
         )}
       </section>
       {asking && <RequestFormDialog api={api} item={item} onClose={() => setAsking(false)}
-        onDone={() => { void qc.invalidateQueries({ queryKey: ['form-requests', item.id] }); void qc.invalidateQueries({ queryKey: ['evidence-requests'] }); }} />}
+        onDone={() => { for (const queryKey of [['form-requests', item.id], ['evidence-requests'], ['evidence']]) void qc.invalidateQueries({ queryKey }); }} />}
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview</p>
         <DataFormView preview form={{ title: item.title, definition: spec.data.definition, institutionName: '', columns: spec.data.columns }} />

@@ -8,10 +8,13 @@ import { setUpQualityFramework } from '../framework/internal.js';
 import { listRequirements, reviewRequirement } from '../framework/requirements.js';
 import { publishVersion, submitForReview } from '../framework/versions.js';
 import { createMapping, reviewMapping } from '../mapping/mapping.js';
+import { saveDatasetRows, saveDatasetSpec } from './dataset.js';
 import {
-  addFileVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal,
-  listEvidence, readVersionFile, removeLink, reviewLink, suggestionsFor,
+  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal,
+  listEvidence, readVersionFile, removeLink, reviewLink, suggestionsFor, updateEvidence,
 } from './evidence.js';
+import { setDataFormOpen, submitDataResponse } from './forms.js';
+import { cancelEvidenceRequest, createFormRequests } from './requests.js';
 
 let w: World;
 const ids: Record<string, string> = {};
@@ -131,5 +134,50 @@ describe('attached once to the internal framework, offered to every mapped requi
     await expect(w.as('contrib', (c) => removeLink(c, ids.abetLink!))).rejects.toThrow(ForbiddenError);
     await w.as('coord', (c) => removeLink(c, ids.abetLink!));
     expect((await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!))).map((l) => l.evidenceTitle)).toEqual(['Old policy']);
+  });
+});
+
+describe('what the repository list shows', () => {
+  it('counts links to review, open form requests and new responses, without one query per item', async () => {
+    const doc = (await w.as('alo', (c) => listEvidence(c))).find((e) => e.id === ids.minutes)!;
+    // Two links on v1: the internal one (approved) and the WSCUC one (proposed); the ABET one was removed above.
+    expect(doc).toMatchObject({ linkCount: 2, proposedLinkCount: 1, openRequestCount: 0, formOpen: false, pendingResponses: 0 });
+
+    const data = await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'data' }));
+    await w.as('contrib', (c) => saveDatasetSpec(c, data.id, { columns: [{ key: 'employer', label: 'Employer', type: 'text', required: true }] }));
+    await w.as('contrib', (c) => setDataFormOpen(c, data.id, true));
+    await w.as('alo', (c) => submitDataResponse(c, data.id, { answers: { employer: 'Aramco' } }));
+    const [asked] = await w.as('contrib', (c) => createFormRequests(c, data.id, { assigneeEmails: ['hr@partner.com', 'ops@partner.com'] }));
+    await w.as('contrib', (c) => cancelEvidenceRequest(c, asked!.request.id));
+    const listed = (await w.as('alo', (c) => listEvidence(c))).find((e) => e.id === data.id)!;
+    expect(listed).toMatchObject({ linkCount: 0, proposedLinkCount: 0, openRequestCount: 1, formOpen: true, pendingResponses: 1 });
+    expect((await w.as('alo', (c) => getEvidence(c, data.id))).item).toMatchObject({ openRequestCount: 1, formOpen: true, pendingResponses: 1 });
+    ids.data = data.id;
+  });
+
+  it('archives and restores an item; archived items are listed only when asked for', async () => {
+    const archived = await w.as('contrib', (c) => updateEvidence(c, ids.minutes!, { status: 'archived' }));
+    expect(archived).toMatchObject({ status: 'archived', linkCount: 1 }); // contrib cannot see the WSCUC engagement's link
+    expect((await w.as('alo', (c) => listEvidence(c))).map((e) => e.id)).not.toContain(ids.minutes);
+    expect((await w.as('alo', (c) => listEvidence(c, { includeArchived: true }))).find((e) => e.id === ids.minutes)?.status).toBe('archived');
+    await expect(w.as('contrib', (c) => addFileVersion(c, ids.minutes!, { fileName: 'x.pdf', mime: 'application/pdf', bytes: bytes('x') }))).rejects.toThrow(/archived/);
+    await w.as('contrib', (c) => updateEvidence(c, ids.minutes!, { status: 'active' }));
+    expect((await w.as('alo', (c) => listEvidence(c))).map((e) => e.id)).toContain(ids.minutes);
+    await expect(w.as('outsider', (c) => updateEvidence(c, ids.minutes!, { status: 'archived' }))).rejects.toThrow(ForbiddenError);
+  });
+
+  it('changes a document to data only while it holds no file, and data to a document only while it holds no data', async () => {
+    await expect(w.as('contrib', (c) => updateEvidence(c, ids.minutes!, { type: 'data' }))).rejects.toThrow('this document has file versions; it cannot become data');
+    const linked = await w.as('contrib', (c) => createEvidence(c, { title: 'Policy on SharePoint', type: 'document' }));
+    await w.as('contrib', (c) => addUrlVersion(c, linked.id, { url: 'https://example.org/policy' }));
+    await expect(w.as('contrib', (c) => updateEvidence(c, linked.id, { type: 'data' }))).rejects.toThrow(ConflictError);
+
+    const empty = await w.as('contrib', (c) => createEvidence(c, { title: 'Headcount', type: 'document' }));
+    expect(await w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'data', title: 'Fall headcount', description: 'By program' })))
+      .toMatchObject({ type: 'data', title: 'Fall headcount', description: 'By program' });
+    await w.as('contrib', (c) => saveDatasetSpec(c, empty.id, { columns: [{ key: 'program', label: 'Program', type: 'text', required: true }] }));
+    await w.as('contrib', (c) => saveDatasetRows(c, empty.id, { rows: [{ program: 'BS Mechanical' }] }));
+    await expect(w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'document' }))).rejects.toThrow('this data has saved data or form responses; it cannot become a document');
+    await expect(w.as('contrib', (c) => updateEvidence(c, ids.data!, { type: 'document' }))).rejects.toThrow(ConflictError); // a response, no data yet
   });
 });

@@ -11,7 +11,9 @@ import { readBytes } from './read-bytes';
 export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {
   const ev = api.api.evidence;
   return {
-    list: (q?: string) => ev.$get({ query: q ? { q } : {} }).then((r) => unwrap<EvidenceItem[]>(r)),
+    /** Archived items are left out unless `includeArchived`. */
+    list: (q?: string, opts: { includeArchived?: boolean } = {}) => ev.$get({ query: { ...(q ? { q } : {}), ...(opts.includeArchived ? { includeArchived: 'true' as const } : {}) } })
+      .then((r) => unwrap<EvidenceItem[]>(r)),
     create: (json: CreateEvidence) => ev.$post({ json }).then((r) => unwrap<EvidenceItem>(r)),
     get: (id: string) => ev[':id'].$get({ param: { id } }).then((r) => unwrap<EvidenceDetail>(r)),
     update: (id: string, json: UpdateEvidence) => ev[':id'].$patch({ param: { id }, json }).then((r) => unwrap<EvidenceItem>(r)),

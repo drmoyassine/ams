@@ -18,9 +18,12 @@ export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options
   return new OpenAPIHono<AppEnv>(options)
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/evidence', access: requires('evidence:read'), tags: tag,
-      request: { query: z.object({ q: z.string().optional() }) },
-      responses: { 200: { description: 'The evidence the caller may see, newest first', ...json(z.array(EvidenceItemSchema)) }, ...errors },
-    }), async (c) => c.json(toDto(z.array(EvidenceItemSchema), await listEvidence(c.get('ctx'), c.req.valid('query'))), 200))
+      request: { query: z.object({ q: z.string().optional(), includeArchived: z.enum(['true', 'false']).optional() }) },
+      responses: { 200: { description: 'The evidence the caller may see, newest first; archived items only when asked for', ...json(z.array(EvidenceItemSchema)) }, ...errors },
+    }), async (c) => {
+      const { q, includeArchived } = c.req.valid('query');
+      return c.json(toDto(z.array(EvidenceItemSchema), await listEvidence(c.get('ctx'), { ...(q ? { q } : {}), includeArchived: includeArchived === 'true' })), 200);
+    })
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/evidence', access: requires('evidence:write'), tags: tag,

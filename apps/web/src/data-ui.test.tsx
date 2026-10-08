@@ -87,7 +87,7 @@ describe('data evidence', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await user.click(await screen.findByRole('button', { name: /Fall-to-fall retention/ }));
+    await user.click(within(await screen.findByRole('region', { name: 'Evidence: Fall-to-fall retention' })).getAllByRole('button')[0]!); // opens its card
     const panel = await screen.findByRole('region', { name: 'Data' });
     const sheet = await within(panel).findByRole('table', { name: 'Data' });
     await waitFor(() => expect((within(sheet).getByLabelText('Program, row 1') as HTMLInputElement).value).toBe('BS Mechanical'));

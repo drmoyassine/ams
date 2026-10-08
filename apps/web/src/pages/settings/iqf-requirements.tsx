@@ -23,7 +23,7 @@ function nextCode(rows: Requirement[], parent: Requirement | null): string {
 }
 
 /** "Standard 1.0" for a standard, "Standard 1.1" for one of its sub-standards. */
-const tag = (r: Requirement) => `Standard ${!r.parentId && !r.code.includes('.') ? `${r.code}.0` : r.code}`;
+export const tag = (r: Requirement) => `Standard ${!r.parentId && !r.code.includes('.') ? `${r.code}.0` : r.code}`;
 
 /** Adds or edits a standard or a sub-standard. Where it sits follows from its code (1.2 goes under Standard 1.0). */
 function ItemDialog({ editing, parent, code, error, onSave, onClose }: {

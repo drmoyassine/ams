@@ -20,6 +20,12 @@ export const EvidenceItemSchema = z.object({
   ownerUnitId: z.string().nullable(), ownerUserId: z.string().nullable(), periodLabel: z.string().nullable(),
   confidentiality: z.enum(CONFIDENTIALITY_LEVELS), containsStudentData: z.boolean(), tags: z.array(z.string()),
   status: z.enum(['active', 'archived']), latest: EvidenceVersionSchema.nullable(), linkCount: z.number(),
+  /** Links not yet approved or rejected. */
+  proposedLinkCount: z.number(),
+  /** Open requests to fill in this data item's form. */
+  openRequestCount: z.number(),
+  /** For data: whether its form takes responses, and responses not yet added to the data. */
+  formOpen: z.boolean(), pendingResponses: z.number(),
 });
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 
@@ -60,6 +66,8 @@ export type CreateEvidence = z.input<typeof CreateEvidenceSchema>;
 
 export const UpdateEvidenceSchema = z.object({
   title: z.string().trim().min(1).optional(), description: z.string().trim().nullable().optional(),
+  /** A document becomes data (or back) only while it holds no versions of the other kind. */
+  type: z.enum(EVIDENCE_TYPES).optional(),
   ownerUnitId: z.uuid().nullable().optional(), periodLabel: z.string().trim().nullable().optional(),
   confidentiality: z.enum(CONFIDENTIALITY_LEVELS).optional(), containsStudentData: z.boolean().optional(),
   tags: z.array(z.string().trim().min(1)).optional(), status: z.enum(['active', 'archived']).optional(),

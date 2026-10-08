@@ -6,11 +6,24 @@ import { useTranslation } from 'react-i18next';
 import { ContentText } from '../components/content-text';
 import { Button } from '../components/ui/button';
 import { authClient } from '../lib/auth';
+import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
 
+const navLink = 'rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium';
+
+/** "My requests (N)", only while someone has asked the signed-in person for evidence and it is still open. */
+export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; enabled: boolean }) {
+  const { t } = useTranslation();
+  const api = useEvidenceApi(override);
+  const mine = useQuery({ queryKey: ['evidence-requests', 'mine'], queryFn: () => api.requests(true), enabled, staleTime: 30_000 });
+  const open = (mine.data ?? []).filter((r) => r.status === 'open').length;
+  if (!enabled || open === 0) return null;
+  return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
+}
+
 /** Settings is for people who can manage something there; the pages themselves also check each action. */
-export function AppLayout({ api: override }: { api?: SettingsApi }) {
+export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evidence?: EvidenceApi }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const api = useSettingsApi(override);
@@ -27,7 +40,6 @@ export function AppLayout({ api: override }: { api?: SettingsApi }) {
   const nav = [
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
-    { to: '/requests', label: t('nav.requests', 'Requests') },
   ] as const;
   return (
     <div className="flex min-h-screen">
@@ -36,10 +48,11 @@ export function AppLayout({ api: override }: { api?: SettingsApi }) {
         <p className="mb-6 text-sm text-muted-foreground" data-testid="institution-name">{institution.data && <ContentText>{institution.data.nameAr && institution.data.defaultLocale === 'ar' ? institution.data.nameAr : institution.data.nameEn}</ContentText>}</p>
         <nav className="flex flex-col gap-1" aria-label="Main">
           {nav.map((n) => (
-            <Link key={n.to} to={n.to} className="rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium">
+            <Link key={n.to} to={n.to} className={navLink}>
               {n.label}
             </Link>
           ))}
+          <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
         </nav>
         {canSettings && (
           <Link to="/settings" className="mt-6 block rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium">{t('nav.settings', 'Settings')}</Link>

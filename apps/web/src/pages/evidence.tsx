@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ContentText } from '../components/content-text';
-import { DatasetPanel } from '../components/dataset-panel';
-import { EvidenceLinkList } from '../components/evidence-links';
+import type { EvidenceItem } from '@ams/shared';
+import { EvidenceCard } from '../components/evidence-card';
+import { RequestList } from '../components/evidence-requests';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -11,107 +11,98 @@ import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { type FrameworkApi } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
 
-const TYPE_LABEL = { document: 'Document', data: 'Data' } as const;
-const size = (n: number | null) => (n === null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+const TABS = [['library', 'Library'], ['requests', 'Requests']] as const;
+type Tab = (typeof TABS)[number][0];
 
-function Detail({ id, api, canWrite, setError }: { id: string; api: EvidenceApi; canWrite: boolean; setError: (m: string) => void }) {
-  const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['evidence-item', id], queryFn: () => api.get(id) });
-  const [busy, setBusy] = useState(false);
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['evidence-item', id] }), qc.invalidateQueries({ queryKey: ['evidence'] })]);
-  if (!data) return <p>Loading…</p>;
-  const { item, versions, links } = data;
-  const upload = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true); setError('');
-    try { await api.upload(id, file); await refresh(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
-  };
+/** The library's filters; every one but Archived shows active items only. */
+const FILTERS = {
+  all: { label: 'All', keep: (e: EvidenceItem) => e.status === 'active' },
+  documents: { label: 'Documents', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'document' },
+  data: { label: 'Data', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'data' },
+  unlinked: { label: 'Not linked', keep: (e: EvidenceItem) => e.status === 'active' && e.linkCount === 0 },
+  review: { label: 'To review', keep: (e: EvidenceItem) => e.status === 'active' && e.proposedLinkCount > 0 },
+  archived: { label: 'Archived', keep: (e: EvidenceItem) => e.status === 'archived' },
+} as const;
+type Filter = keyof typeof FILTERS;
+
+/** The evidence repository (PRD 9.1): stored once, versioned, linked many times; and every request for evidence. */
+export function EvidencePage({ api: override, framework: frameworkOverride }: { api?: EvidenceApi; framework?: FrameworkApi }) {
+  const api = useEvidenceApi(override);
+  const framework = useApi(frameworkOverride);
+  const me = useMe(framework);
+  const [tab, setTab] = useState<Tab>('library');
+  const canWrite = can(me.data, 'evidence:write');
   return (
-    <Card>
-      <section aria-label={`Evidence: ${item.title}`} className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold"><ContentText>{item.title}</ContentText></h2>
-          <p className="text-sm text-muted-foreground">{TYPE_LABEL[item.type]}</p>
-          {item.description && <p className="mt-1 whitespace-pre-line text-sm"><ContentText>{item.description}</ContentText></p>}
-        </div>
-        <section aria-label="Versions">
-          <h3 className="mb-1 font-medium">Versions</h3>
-          <ul className="divide-y divide-border text-sm">
-            {versions.map((v) => (
-              <li key={v.id} className="flex flex-wrap items-center gap-2 py-1.5" data-testid="evidence-version">
-                <span className="font-medium">v{v.versionNo}</span>
-                {v.rowCount !== null
-                  ? <span>{v.rowCount} row{v.rowCount === 1 ? '' : 's'} of data</span>
-                  : v.url
-                    ? <a className="underline" href={v.url} target="_blank" rel="noreferrer">{v.url}</a>
-                    : <a className="underline" href={api.fileUrl(v.id)} target="_blank" rel="noreferrer"><ContentText>{v.fileName ?? 'file'}</ContentText></a>}
-                <span className="text-xs text-muted-foreground">{v.rowCount === null ? `${size(v.size)} · ` : ''}{new Date(v.createdAt).toLocaleDateString()}</span>
-                {v.notes && <span className="text-xs text-muted-foreground" dir="auto">· {v.notes}</span>}
-              </li>
-            ))}
-            {versions.length === 0 && <li className="py-1.5 text-muted-foreground">{item.type === 'data' ? 'No data saved yet.' : 'No file yet.'}</li>}
-          </ul>
-          {canWrite && item.type === 'document' && (
-            <label className="mt-2 flex items-center gap-2 text-sm">{busy ? 'Uploading…' : 'Upload a new version'}
-              <input aria-label="Upload a new version" type="file" disabled={busy} className="text-sm" onChange={(e) => void upload(e.target.files?.[0])} />
-            </label>
-          )}
-        </section>
-        <section aria-label="Linked to">
-          <h3 className="mb-1 font-medium">Linked to</h3>
-          <EvidenceLinkList links={links} api={api} canReview={false} canRemove={false} showTarget onChange={() => void refresh()} setError={setError} />
-        </section>
-      </section>
-    </Card>
+    <section className="space-y-4">
+      <h1 className="text-2xl font-semibold">Evidence</h1>
+      <div role="tablist" aria-label="Evidence" className="flex gap-1 border-b border-border">
+        {TABS.map(([k, label]) => (
+          <Button key={k} type="button" role="tab" aria-selected={tab === k} variant="ghost"
+            className={`rounded-b-none ${tab === k ? 'border-b-2 border-primary font-medium' : ''}`} onClick={() => setTab(k)}>{label}</Button>
+        ))}
+      </div>
+      {tab === 'library'
+        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} />
+        : <AllRequests api={api} canWrite={canWrite} />}
+    </section>
   );
 }
 
-/** For data evidence, the definition and the online sheet, full width under the list. */
-function SelectedData({ id, api, canWrite }: { id: string; api: EvidenceApi; canWrite: boolean }) {
-  const { data } = useQuery({ queryKey: ['evidence-item', id], queryFn: () => api.get(id) });
-  return data?.item.type === 'data' ? <DatasetPanel item={data.item} api={api} canWrite={canWrite} /> : null;
-}
-
-/** The evidence repository (PRD 9.1): stored once, versioned, linked many times. */
-export function EvidencePage({ api: override, framework }: { api?: EvidenceApi; framework?: FrameworkApi }) {
-  const api = useEvidenceApi(override);
-  const me = useMe(useApi(framework));
+function Library({ api, framework, canWrite, canReview }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean }) {
   const qc = useQueryClient();
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
   const [adding, setAdding] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const list = useQuery({ queryKey: ['evidence', q], queryFn: () => api.list(q || undefined) });
-  const canWrite = can(me.data, 'evidence:write');
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  // Archived items come along so the Archived filter needs no second request.
+  const list = useQuery({ queryKey: ['evidence', q, 'with-archived'], queryFn: () => api.list(q || undefined, { includeArchived: true }) });
+  const shown = (list.data ?? []).filter(FILTERS[filter].keep);
+  const toggle = (id: string, open: boolean) => setOpened((s) => { const n = new Set(s); if (open) n.add(id); else n.delete(id); return n; });
 
   return (
-    <section className="space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">Evidence</h1>
         <Input aria-label="Search evidence" placeholder="Search by title or tag" value={q} onChange={(e) => setQ(e.target.value)} className="w-64" />
+        <div role="group" aria-label="Show" className="flex flex-wrap gap-1">
+          {(Object.keys(FILTERS) as Filter[]).map((k) => (
+            <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}
+              className={`rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{FILTERS[k].label}</button>
+          ))}
+        </div>
         {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}
       </div>
       <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {adding && canWrite && <NewEvidenceDialog api={api} dataWithoutFile onClose={() => setAdding(false)} onCreated={(item) => { setAdding(false); setSelected(item.id); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <ul aria-label="Evidence" className="divide-y divide-border">
-            {(list.data ?? []).map((e) => (
-              <li key={e.id}>
-                <button type="button" onClick={() => setSelected(e.id)} className={`flex w-full flex-wrap items-center gap-2 px-2 py-2 text-start text-sm hover:bg-muted ${selected === e.id ? 'bg-muted' : ''}`}>
-                  <span className="font-medium"><ContentText>{e.title}</ContentText></span>
-                  <span className="text-xs text-muted-foreground">{TYPE_LABEL[e.type]}{e.latest ? ` · v${e.latest.versionNo}` : ' · no file'}</span>
-                  <span className="ms-auto text-xs text-muted-foreground">{e.linkCount} link{e.linkCount === 1 ? '' : 's'}</span>
-                </button>
-              </li>
-            ))}
-            {list.data?.length === 0 && <li className="px-2 py-2 text-sm text-muted-foreground">{q ? 'Nothing matches.' : 'No evidence yet.'}</li>}
-          </ul>
-        </Card>
-        {selected ? <Detail key={selected} id={selected} api={api} canWrite={canWrite} setError={setError} /> : <p className="text-sm text-muted-foreground">Select evidence to see its versions and links.</p>}
+      {adding && canWrite && (
+        <NewEvidenceDialog api={api} dataWithoutFile onClose={() => setAdding(false)}
+          onCreated={(item) => { setAdding(false); setFilter('all'); toggle(item.id, true); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />
+      )}
+      <div className="space-y-2" role="list" aria-label="Evidence">
+        {shown.map((e) => (
+          <div role="listitem" key={e.id}>
+            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} />
+          </div>
+        ))}
+        {list.data && shown.length === 0 && <p className="text-sm text-muted-foreground">{q || filter !== 'all' ? 'Nothing matches.' : 'No evidence yet.'}</p>}
+        {list.isLoading && <p className="text-sm">Loading…</p>}
       </div>
-      {selected && <SelectedData key={selected} id={selected} api={api} canWrite={canWrite} />}
-    </section>
+    </div>
+  );
+}
+
+/** Every request for evidence in the institution, open ones first, to follow up. */
+function AllRequests({ api, canWrite }: { api: EvidenceApi; canWrite: boolean }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+  const list = useQuery({ queryKey: ['evidence-requests', 'all'], queryFn: () => api.requests(false) });
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Every request for evidence, open ones first. Ask for evidence from a standard’s ⋯ menu in the internal quality framework, or for an update from an item’s ⋯ menu in the library.</p>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      <Card>
+        {list.data
+          ? <RequestList requests={list.data} api={api} canManage={canWrite} showTarget setError={setError} onChange={() => void qc.invalidateQueries({ queryKey: ['evidence-requests'] })} />
+          : <p className="text-sm">Loading…</p>}
+      </Card>
+    </div>
   );
 }

@@ -61,7 +61,7 @@ describe('forms', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await user.click(await screen.findByRole('button', { name: /Employer survey/ }));
+    await user.click(within(await screen.findByRole('region', { name: 'Evidence: Employer survey' })).getAllByRole('button')[0]!); // opens its card
     const panel = await screen.findByRole('region', { name: 'Data' });
     await user.click(await within(panel).findByRole('tab', { name: 'Form' }));
     const form = await within(panel).findByRole('region', { name: 'Form' });
@@ -104,7 +104,10 @@ describe('forms', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await user.click(await screen.findByRole('button', { name: /Employer survey/ }));
+    const card = await screen.findByRole('region', { name: 'Evidence: Employer survey' });
+    // The closed card says the form is open and two responses wait to be added.
+    expect(within(card).getByTestId('evidence-meta').textContent).toBe('Form open2 newNot linked');
+    await user.click(within(card).getAllByRole('button')[0]!); // opens it
     const panel = await screen.findByRole('region', { name: 'Data' });
     await user.click(await within(panel).findByRole('tab', { name: 'Responses (2 new)' }));
     const responses = await within(panel).findByRole('region', { name: 'Responses' });
@@ -127,7 +130,7 @@ describe('forms', () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
-    await user.click(await screen.findByRole('button', { name: /Employer survey/ }));
+    await user.click(within(await screen.findByRole('region', { name: 'Evidence: Employer survey' })).getAllByRole('button')[0]!); // opens its card
     const panel = await screen.findByRole('region', { name: 'Data' });
     await user.click(await within(panel).findByRole('tab', { name: 'Form' }));
     await user.click(await within(panel).findByRole('button', { name: 'Ask people to fill it in' }));
@@ -140,6 +143,10 @@ describe('forms', () => {
     const token = url.split('/respond/')[1]!;
     await user.click(within(dialog).getByRole('button', { name: 'Done' }));
     expect(await within(panel).findAllByTestId('evidence-request')).toHaveLength(2);
+    // The card lists them too, and says on its closed face that a request is open.
+    const card = screen.getByRole('region', { name: 'Evidence: Employer survey' });
+    expect(await within(within(card).getByRole('region', { name: 'Requests for this item' })).findAllByTestId('evidence-request')).toHaveLength(2);
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toContain('Open request'));
     cleanup();
 
     // The AMS user fills it in from Requests.
