@@ -51,8 +51,8 @@ const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path:
 const versionRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute />,
   // ?tab=settings&section=details opens a version on its settings (the card's "Edit details").
-  validateSearch: (s: Record<string, unknown>): { tab?: 'settings'; section?: 'details' } => ({
-    ...(s.tab === 'settings' ? { tab: 'settings' as const } : {}), ...(s.section === 'details' ? { section: 'details' as const } : {}),
+  validateSearch: (s: Record<string, unknown>): { tab?: 'settings'; section?: 'details' | 'sources' } => ({
+    ...(s.tab === 'settings' ? { tab: 'settings' as const } : {}), ...(s.section === 'details' || s.section === 'sources' ? { section: s.section } : {}),
   }),
 });
 const oldStandardsRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', beforeLoad: () => { throw redirect({ to: '/settings/external-standards' }); } });

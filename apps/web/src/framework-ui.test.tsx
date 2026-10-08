@@ -342,7 +342,7 @@ describe('version page', () => {
     render(wrap(<VersionPage versionId={version.id} api={apiFor('admin')} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Guide' })).toBeTruthy();
     expect(document.querySelector('header')!.textContent).toContain('Public University Council · Institutional');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Sources', 'Settings']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Settings']);
     expect(screen.queryByTestId('config-problems')).toBeNull(); // the configuration is valid
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
@@ -420,5 +420,53 @@ describe('version page', () => {
     await userEvent.setup({ applyAccept: false }).upload(within(form).getByLabelText('Logo file'), new File(['<svg onload="x()"/>'], 'x.svg', { type: 'image/svg+xml' }));
     expect((await within(form).findByRole('alert')).textContent).toMatch(/PNG, JPEG or WebP/);
     await a.updateFramework(version.frameworkId, { name: 'Institutional Guide', scope: 'institution' }); // leave it as the other tests expect
+  });
+
+  it('keeps sources under Settings: add one with its original, read and correct its pages, and fixed once published', async () => {
+    const { version } = await importAs('lead', 'sources-ui');
+    const user = userEvent.setup();
+    const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    const section = await screen.findByRole('region', { name: 'Sources' });
+    const guide = await within(section).findByRole('region', { name: 'Guide' });
+    expect(guide.textContent).toContain('Standards'); // readable labels, not codes
+    expect(guide.textContent).toContain('Binding');
+
+    await user.click(within(section).getByRole('button', { name: '+ Source' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Title'), 'Policy manual 2025');
+    await user.selectOptions(within(dialog).getByLabelText('What it is'), 'policy_procedure');
+    await user.upload(within(dialog).getByLabelText('Original file'), new File(['%PDF-1.7 manual'], 'manual.pdf', { type: 'application/pdf' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add source' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const manual = await within(section).findByRole('region', { name: 'Policy manual 2025' });
+    expect(manual.textContent).toContain('Policy and procedure');
+    expect(within(manual).getByRole('link', { name: 'manual.pdf' }).getAttribute('href')).toMatch(/^\/api\/source-documents\/[\w-]+\/file$/);
+
+    const add = within(manual).getByRole('form', { name: 'Add page to Policy manual 2025' });
+    await user.type(within(add).getByLabelText('Page text'), 'Programs report annually.');
+    await user.click(within(add).getByRole('button', { name: 'Add page' }));
+    const text = await within(manual).findByLabelText('Text of page 1');
+    await user.clear(text);
+    await user.type(text, 'Programs report every year.');
+    await user.click(within(manual).getByRole('button', { name: 'Save page 1' }));
+    await waitFor(async () => expect((await apiFor('lead').pages((await apiFor('lead').documents(version.id)).find((d) => d.title === 'Policy manual 2025')!.id))[0]!.text).toBe('Programs report every year.'));
+    unmount();
+
+    // Once published, its sources are read, not edited.
+    const a = apiFor('admin');
+    for (const r of await a.requirements(version.id)) {
+      await a.reviewRequirement(r.id, 'approved');
+      for (const n of (await a.requirement(r.id)).notes) await a.reviewNote(n.id, 'approved');
+    }
+    await a.reviewTemplate(version.id, 'report', 'approved');
+    await a.submit(version.id);
+    await a.publish(version.id);
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    const ro = await screen.findByRole('region', { name: 'Sources' });
+    expect(within(ro).queryByRole('button', { name: '+ Source' })).toBeNull();
+    const fixed = await within(ro).findByRole('region', { name: 'Policy manual 2025' });
+    await user.click(within(fixed).getByRole('button', { name: /^Policy and procedure/ }));
+    expect((await within(fixed).findByTestId('page-text')).textContent).toBe('Programs report every year.');
+    expect(within(fixed).queryByRole('form')).toBeNull();
   });
 });

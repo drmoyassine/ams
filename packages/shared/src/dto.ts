@@ -66,6 +66,9 @@ export const TemplateSchema = z.object({
 export const SourceDocumentSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), title: z.string(), role: z.string(), authority: z.string(), language: z.string(),
   filePath: z.string(), sha256: z.string(), pageCount: z.number().nullable(), textStatus: z.string(),
+  fileName: z.string().nullable(), mime: z.string().nullable(), size: z.number().nullable(),
+  /** Listing only: pages whose text is stored, and whether the original file is held. */
+  storedPages: z.number().optional(), hasFile: z.boolean().optional(),
 });
 export const SourcePageSchema = z.object({
   id: z.string(), sourceDocumentId: z.string(), pageNo: z.number(), text: z.string(), method: z.enum(['pdf_text', 'ocr']), reviewed: z.boolean(),

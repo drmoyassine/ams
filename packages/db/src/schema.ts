@@ -225,6 +225,10 @@ export const sourceDocument = pgTable('source_document', {
   sha256: text('sha256').notNull(),
   pageCount: integer('page_count'),
   textStatus: text('text_status', { enum: TEXT_STATUSES }).notNull().default('pending'),
+  /** The uploaded original, when there is one (`filePath` then names it in the object store). */
+  fileName: text('file_name'),
+  mime: text('mime'),
+  size: integer('size'),
 }, (t) => [
   index('source_document_version_idx').on(t.frameworkVersionId),
   oneOf('source_document_role_check', t.role, DOCUMENT_ROLES),

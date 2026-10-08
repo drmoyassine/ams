@@ -127,10 +127,24 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       v[':id']['report-templates'][':key'].review.$post({ param: { id: versionId, key }, json: { decision } }).then((r) => unwrap<Template>(r)),
 
     documents: (versionId: string) => v[':id']['source-documents'].$get({ param: { id: versionId } }).then((r) => unwrap<SourceDocument[]>(r)),
-    addDocument: (versionId: string, json: { title: string; role: 'standards' | 'policy_procedure' | 'guidance' | 'report_template' | 'evidence_guidance' | 'amendment' | 'sample_report' | 'correspondence' | 'other'; authority: 'binding' | 'interpretive' | 'informational'; filePath: string; sha256: string; language?: string }) =>
+    addDocument: (versionId: string, json: { title: string; role: SourceRole; authority: SourceAuthority; filePath?: string; sha256?: string; language?: string }) =>
       v[':id']['source-documents'].$post({ param: { id: versionId }, json }).then((r) => unwrap<SourceDocument>(r)),
+    updateDocument: (id: string, json: { title?: string; role?: SourceRole; authority?: SourceAuthority; language?: string }) =>
+      api.api['source-documents'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<SourceDocument>(r)),
+    deleteDocument: (id: string) => api.api['source-documents'][':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    /** Where a source's original is served (inline for PDFs and images). */
+    sourceFileUrl: (id: string) => `/api/source-documents/${id}/file`,
+    uploadSourceFile: async (id: string, file: File) => fetcher(`/api/source-documents/${id}/file?${new URLSearchParams({ fileName: file.name })}`, {
+      method: 'PUT', body: await readBytes(file), headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include',
+    }).then((r) => unwrap<SourceDocument>(r)),
+    pages: (id: string) => api.api['source-documents'][':id'].pages.$get({ param: { id } }).then((r) => unwrap<SourcePage[]>(r)),
+    setPage: (id: string, pageNo: number, text: string) =>
+      api.api['source-documents'][':id'].pages[':pageNo'].$put({ param: { id, pageNo: String(pageNo) }, json: { text } }).then((r) => unwrap<SourcePage>(r)),
+    deletePage: (id: string, pageNo: number) => api.api['source-documents'][':id'].pages[':pageNo'].$delete({ param: { id, pageNo: String(pageNo) } }).then((r) => unwrap<void>(r)),
     addPage: (documentId: string, json: { pageNo: number; text: string; method: 'pdf_text' | 'ocr' }) =>
       api.api['source-documents'][':id'].pages.$post({ param: { id: documentId }, json }).then((r) => unwrap<SourcePage>(r)),
   };
 }
 export type FrameworkApi = ReturnType<typeof frameworkApi>;
+export type SourceRole = 'standards' | 'policy_procedure' | 'guidance' | 'report_template' | 'evidence_guidance' | 'amendment' | 'sample_report' | 'correspondence' | 'other';
+export type SourceAuthority = 'binding' | 'interpretive' | 'informational';

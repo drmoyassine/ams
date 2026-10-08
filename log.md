@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — Sources move under Settings, with their originals and pages
+
+A standard's page now has three tabs: Requirements, Mappings and Settings. Sources moved into Settings, between Details and Lifecycle. Each source is a card with readable labels ("Policy and procedure · Binding", not codes), its page count, and whether its original is held. Inside are the original file (uploaded to the object store, opened inline when it is a PDF) and the pages: pick a page to read its text, or on a draft correct it, remove it or add the next one. On a draft, the ⋯ menu edits a source, uploads or replaces its file, or deletes it. A source a note cites cannot be deleted, nor can a quoted page, because quote verification reads exactly that text. A published version's sources stay fixed (the existing freeze trigger), and a new version copies them. Migration 0033 adds file name, type and size. The owner asked for a full document parsing and intelligence pipeline here: that is M7, the framework compiler (ROADMAP-009: upload, classify, parse, AI extraction with quote verification, side-by-side review, publish), gated by the liteparse track (ROADMAP-008). Sources with their originals are what it will read; until then, page text is pasted by hand.
+
+---
+
 ## 2026-10-08 — A standard's page: its name in the header, four tabs, details editable
 
 A version page now has a header with the standard's name, its accreditor and scope, the logo, a version picker, and the one action the version's state calls for: Submit for review (draft), Publish (in review) or Start a new version (published). Download JSON, Return to draft and Retire are in its ⋯ menu. Configuration problems show as a banner instead of on a tab. The tabs went from seven to four: Requirements, Mappings, Sources and Settings. Settings holds Details (the standard's name, scope and description; the accreditor's name, short name, type, country and website; the logo), Lifecycle and vocabularies, Report templates, and Terminology. Details belong to the standard, not to a version, so they stay editable while its versions are published (new `PATCH /api/frameworks/{id}` and `PATCH /api/accreditors/{id}`; the internal framework is refused there). On the External Standards page the card's ⋯ menu is now Open, Edit details (which opens Settings → Details), Start a new version and Import a new edition; the logo moved to Details.

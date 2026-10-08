@@ -14,12 +14,10 @@ import { ExternalRequirements } from './version/external-requirements';
 import { MappingsTab } from './version/mappings-tab';
 import { RequirementsTab } from './version/requirements-tab';
 import { SettingsTab, type SettingsSection } from './version/settings-tab';
-import { SourcesTab } from './version/sources-tab';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'mappings', label: 'Mappings' },
-  { id: 'sources', label: 'Sources' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 export type VersionTab = (typeof TABS)[number]['id'];
@@ -157,7 +155,6 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
       <div role="tabpanel">
         {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
-        {!internal && tab === 'sources' && <SourcesTab api={api} version={version} me={m} />}
         {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(initialSection ? { initial: initialSection } : {})} />}
       </div>
       {newVersion && (
