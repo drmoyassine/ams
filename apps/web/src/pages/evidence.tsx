@@ -34,7 +34,7 @@ export function EvidencePage({ api: override, framework: frameworkOverride }: { 
   const canWrite = can(me.data, 'evidence:write');
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Evidence</h1>
+      <h1 className="text-xl font-semibold sm:text-2xl">Evidence</h1>
       <div role="tablist" aria-label="Evidence" className="flex gap-1 border-b border-border">
         {TABS.map(([k, label]) => (
           <Button key={k} type="button" role="tab" aria-selected={tab === k} variant="ghost"
@@ -62,11 +62,11 @@ function Library({ api, framework, canWrite, canReview }: { api: EvidenceApi; fr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Input aria-label="Search evidence" placeholder="Search by title or tag" value={q} onChange={(e) => setQ(e.target.value)} className="w-64" />
-        <div role="group" aria-label="Show" className="flex flex-wrap gap-1">
+        <Input aria-label="Search evidence" placeholder="Search by title or tag" value={q} onChange={(e) => setQ(e.target.value)} className="w-full sm:w-64" />
+        <div role="group" aria-label="Show" className="flex min-w-0 max-w-full gap-1 overflow-x-auto pb-1 max-sm:w-full sm:flex-wrap sm:overflow-visible sm:pb-0">
           {(Object.keys(FILTERS) as Filter[]).map((k) => (
             <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}
-              className={`rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{FILTERS[k].label}</button>
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{FILTERS[k].label}</button>
           ))}
         </div>
         {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}
@@ -76,7 +76,7 @@ function Library({ api, framework, canWrite, canReview }: { api: EvidenceApi; fr
         <NewEvidenceDialog api={api} dataWithoutFile onClose={() => setAdding(false)}
           onCreated={(item) => { setAdding(false); setFilter('all'); toggle(item.id, true); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />
       )}
-      <div className="space-y-2" role="list" aria-label="Evidence">
+      <div className="min-w-0 space-y-2 break-words" role="list" aria-label="Evidence">
         {shown.map((e) => (
           <div role="listitem" key={e.id}>
             <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} />

@@ -14,8 +14,8 @@ export function EngagementsPage({ api: override }: { api?: EngagementApi }) {
   const { data, isPending, isError } = useQuery({ queryKey: ['engagements'], queryFn: () => api.list() });
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Engagements</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-xl font-semibold sm:text-2xl">Engagements</h1>
         {can(me.data, 'engagement:create') && (
           <Link to="/engagements/new" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">New engagement</Link>
         )}

@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
-import { AccordionCard, Shaded, useEscape } from '../../components/accordion';
+import { AccordionCard, Shaded } from '../../components/accordion';
 import { ContentText } from '../../components/content-text';
+import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { FrameworkApi, SourceAuthority, SourceDocument, SourceRole, Version } from '../../lib/framework-api';
@@ -23,7 +24,6 @@ function SourceDialog({ editing, error, onSave, onClose }: {
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  useEscape(onClose);
   const heading = editing ? 'Edit source' : 'New source';
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,40 +33,38 @@ function SourceDialog({ editing, error, onSave, onClose }: {
       .finally(() => setBusy(false));
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="source-dialog-title" className="w-full max-w-xl rounded-lg bg-background p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="source-dialog-title" className="text-xl font-semibold">{heading}</h2>
-          <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
-        </div>
-        <form onSubmit={submit} className="space-y-3" aria-label={heading}>
-          <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_6rem]">
-            <label className="flex flex-col text-sm">What it is
-              <select name="role" aria-label="What it is" defaultValue={editing?.role ?? 'standards'} className={select}>
-                {(Object.keys(ROLE_LABEL) as SourceRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col text-sm">Authority
-              <select name="authority" aria-label="Authority" defaultValue={editing?.authority ?? 'binding'} className={select}>
-                {(Object.keys(AUTHORITY_LABEL) as SourceAuthority[]).map((a) => <option key={a} value={a}>{AUTHORITY_LABEL[a]}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col text-sm">Language<Input name="language" aria-label="Language" defaultValue={editing?.language ?? 'en'} /></label>
-          </div>
-          {!editing && (
-            <label className="flex flex-col text-sm">Original file (optional)
-              <input aria-label="Original file" type="file" accept="application/pdf,.pdf,.docx,.doc" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            </label>
-          )}
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add source'}</Button>
-          </div>
-        </form>
+    <Dialog labelledBy="source-dialog-title" onClose={onClose}>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="source-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{heading}</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-    </div>
+      <form onSubmit={submit} className="space-y-3" aria-label={heading}>
+        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_6rem]">
+          <label className="flex flex-col text-sm">What it is
+            <select name="role" aria-label="What it is" defaultValue={editing?.role ?? 'standards'} className={select}>
+              {(Object.keys(ROLE_LABEL) as SourceRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col text-sm">Authority
+            <select name="authority" aria-label="Authority" defaultValue={editing?.authority ?? 'binding'} className={select}>
+              {(Object.keys(AUTHORITY_LABEL) as SourceAuthority[]).map((a) => <option key={a} value={a}>{AUTHORITY_LABEL[a]}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col text-sm">Language<Input name="language" aria-label="Language" defaultValue={editing?.language ?? 'en'} /></label>
+        </div>
+        {!editing && (
+          <label className="flex flex-col text-sm">Original file (optional)
+            <input aria-label="Original file" type="file" accept="application/pdf,.pdf,.docx,.doc" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </label>
+        )}
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add source'}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

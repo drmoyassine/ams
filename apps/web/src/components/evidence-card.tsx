@@ -109,8 +109,8 @@ function LinkToStandardDialog({ item, latest, api, framework, onDone, onClose }:
   };
   return (
     <Modal labelledBy="link-standard-title" onClose={onClose}>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 id="link-standard-title" className="text-xl font-semibold">Link to a standard</h2>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <h2 id="link-standard-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Link to a standard</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <p className="mb-4 text-sm text-muted-foreground"><ContentText>{item.title}</ContentText> · v{latest.versionNo}</p>
@@ -141,8 +141,8 @@ function RequestUpdateDialog({ item, api, framework, onDone, onClose }: { item: 
   if (chosen) return <RequestEvidenceDialog api={api} title={`${tag(chosen)} · ${chosen.title}`} requirementId={chosen.id} initialWhat={item.title} onDone={onDone} onClose={onClose} />;
   return (
     <Modal labelledBy="request-update-title" onClose={onClose}>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 id="request-update-title" className="text-xl font-semibold">Request an update</h2>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <h2 id="request-update-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Request an update</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <p className="mb-4 text-sm text-muted-foreground"><ContentText>{item.title}</ContentText></p>
@@ -174,8 +174,8 @@ function EditDetailsDialog({ item, api, onDone, onClose }: { item: EvidenceItem;
   };
   return (
     <Modal labelledBy="edit-evidence-title" onClose={onClose}>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 id="edit-evidence-title" className="text-xl font-semibold">Edit details</h2>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="edit-evidence-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Edit details</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Edit details">

@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
-import { AccordionCard, HoverCard, Shaded, useEscape } from '../../components/accordion';
+import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { ReviewBadge } from '../../components/badges';
 import { ContentText } from '../../components/content-text';
+import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { distinctTitle } from '../../lib/format';
@@ -26,7 +27,6 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
   onSave: (v: DialogValues) => Promise<unknown>; onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  useEscape(onClose);
   const depth = parent ? (parent.depth ?? 0) + 1 : 0;
   const defaultLevel = levels[Math.min(depth, levels.length - 1)] ?? 'Requirement';
   const heading = editing ? `Edit ${tagOf(editing)}` : parent ? `New item under ${tagOf(parent)}` : 'New requirement';
@@ -41,45 +41,43 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
   };
   const select = 'rounded-md border border-border bg-background px-2 py-2 text-sm';
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="req-dialog-title" className="w-full max-w-xl rounded-lg bg-background p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="req-dialog-title" className="text-xl font-semibold">{heading}</h2>
-          <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
-        </div>
-        <form onSubmit={submit} className="space-y-3" aria-label={heading}>
-          <div className="flex gap-2">
-            <label className="flex w-40 flex-col text-sm">Code<Input name="code" aria-label="Code" defaultValue={editing?.code ?? ''} required dir="auto" placeholder="e.g. CFR 1.1" /></label>
-            <label className="flex flex-1 flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
-          </div>
-          {!editing && (
-            <div className="flex gap-2">
-              <label className="flex flex-1 flex-col text-sm">Level
-                <select name="level" aria-label="Level" defaultValue={defaultLevel} className={select}>
-                  {(levels.length ? levels : ['Requirement']).map((l) => <option key={l}>{l}</option>)}
-                </select>
-              </label>
-              <label className="flex flex-1 flex-col text-sm">Under
-                <select name="parent" aria-label="Under" defaultValue={parent?.id ?? ''} className={select}>
-                  <option value="">Top level</option>
-                  {rows.map((r) => <option key={r.id} value={r.id}>{nameOf(r)}</option>)}
-                </select>
-              </label>
-            </div>
-          )}
-          <label className="flex flex-col text-sm">Description (verbatim from the source)
-            <textarea name="description" aria-label="Description" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" />
-          </label>
-          <label className="text-sm"><input type="checkbox" name="assessable" aria-label="Assessable" defaultChecked={editing ? editing.isAssessable : true} /> Assessable (not just a heading)</label>
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          <p className="text-xs text-muted-foreground">{editing ? 'Saving returns it to review.' : 'It is added to this draft and reviewed before the version is published.'}</p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add requirement'}</Button>
-          </div>
-        </form>
+    <Dialog labelledBy="req-dialog-title" onClose={onClose}>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="req-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{heading}</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-    </div>
+      <form onSubmit={submit} className="space-y-3" aria-label={heading}>
+        <div className="flex gap-2">
+          <label className="flex w-40 flex-col text-sm">Code<Input name="code" aria-label="Code" defaultValue={editing?.code ?? ''} required dir="auto" placeholder="e.g. CFR 1.1" /></label>
+          <label className="flex flex-1 flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
+        </div>
+        {!editing && (
+          <div className="flex gap-2">
+            <label className="flex flex-1 flex-col text-sm">Level
+              <select name="level" aria-label="Level" defaultValue={defaultLevel} className={select}>
+                {(levels.length ? levels : ['Requirement']).map((l) => <option key={l}>{l}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-1 flex-col text-sm">Under
+              <select name="parent" aria-label="Under" defaultValue={parent?.id ?? ''} className={select}>
+                <option value="">Top level</option>
+                {rows.map((r) => <option key={r.id} value={r.id}>{nameOf(r)}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+        <label className="flex flex-col text-sm">Description (verbatim from the source)
+          <textarea name="description" aria-label="Description" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" />
+        </label>
+        <label className="text-sm"><input type="checkbox" name="assessable" aria-label="Assessable" defaultChecked={editing ? editing.isAssessable : true} /> Assessable (not just a heading)</label>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <p className="text-xs text-muted-foreground">{editing ? 'Saving returns it to review.' : 'It is added to this draft and reviewed before the version is published.'}</p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add requirement'}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

@@ -61,10 +61,10 @@ export function NewEngagementPage({ api: override, onCreated }: { api?: Engageme
 
   return (
     <section className="max-w-2xl">
-      <h1 className="mb-4 text-2xl font-semibold">New engagement</h1>
+      <h1 className="mb-4 text-xl font-semibold sm:text-2xl">New engagement</h1>
       <Card>
         <form onSubmit={submit} className="flex flex-col gap-4" aria-label="New engagement">
-          <fieldset className="flex gap-4 text-sm">
+          <fieldset className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <legend className="mb-1 font-medium">Subject</legend>
             <label><input type="radio" name="subject" checked={subjectType === 'program'} onChange={() => { setSubjectType('program'); setVersionId(''); }} /> A program</label>
             <label><input type="radio" name="subject" checked={subjectType === 'institution'} onChange={() => { setSubjectType('institution'); setVersionId(''); }} /> The institution</label>
@@ -94,7 +94,7 @@ export function NewEngagementPage({ api: override, onCreated }: { api?: Engageme
               <Input aria-label="Review year" type="number" value={reviewYear} onChange={(e) => setReviewYear(e.target.value)} className="w-28" />
             </label>
           </div>
-          <fieldset className="grid grid-cols-2 gap-3">
+          <fieldset className="grid gap-3 sm:grid-cols-2">
             <legend className="mb-1 text-sm font-medium">Key dates (any you already know; dates that depend on them are worked out for you)</legend>
             {KEY_DATES.map(([k, label]) => (
               <label key={k} className={field}>{label}

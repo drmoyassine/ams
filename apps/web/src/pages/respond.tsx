@@ -43,8 +43,8 @@ export function RespondPage({ token, api: override }: { token: string; api?: Evi
         <>
           <div>
             <p className="text-sm text-muted-foreground"><ContentText>{req.data.institutionName}</ContentText></p>
-            <h1 className="text-2xl font-semibold">Evidence requested</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl font-semibold sm:text-2xl">Evidence requested</h1>
+            <p className="text-sm break-words text-muted-foreground">
               {req.data.requestedByName ? <>Asked by <ContentText>{req.data.requestedByName}</ContentText> · </> : null}
               For <ContentText>{`${req.data.internalCode ?? ''}${req.data.internalTitle ? ` · ${req.data.internalTitle}` : ''}`}</ContentText>
               {req.data.dueDate ? ` · due ${req.data.dueDate}` : ''}

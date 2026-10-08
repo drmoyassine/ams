@@ -33,7 +33,7 @@ export function TemplateUpdatePanel({ api, engagementId, canManage, onApplied }:
 
   return (
     <Card className="mb-4 border-amber-300 bg-amber-50">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium">Template updated — review changes ({data.changes.length}). Edition {data.toVersion.edition} replaces {data.fromVersion.edition}; this engagement is unchanged until you decide.</p>
         <Button type="button" variant="ghost" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Close' : 'Review changes'}</Button>
       </div>
@@ -51,7 +51,7 @@ export function TemplateUpdatePanel({ api, engagementId, canManage, onApplied }:
                   {c.blocked && <div className="text-xs text-amber-900">{c.blocked}.</div>}
                 </div>
                 {canManage && (
-                  <div className="flex gap-3" role="radiogroup" aria-label={`Decision for ${c.name}`}>
+                  <div className="flex flex-wrap gap-3" role="radiogroup" aria-label={`Decision for ${c.name}`}>
                     {(['accept', 'ignore'] as const).map((d) => (
                       <label key={d}><input type="radio" name={c.id} checked={decisions[c.id] === d} onChange={() => setDecisions({ ...decisions, [c.id]: d })} /> {d === 'accept' ? 'Accept' : 'Ignore'}</label>
                     ))}

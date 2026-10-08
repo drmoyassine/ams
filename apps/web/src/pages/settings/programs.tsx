@@ -42,7 +42,7 @@ function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
       </label>
       <label className={field}>Discipline<Input aria-label="Discipline" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label>
       <label className={field}>Tags (comma separated; they decide which requirements apply, e.g. mechanical)<Input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} /></label>
-      <div className="flex gap-2 sm:col-span-2">
+      <div className="flex flex-wrap gap-2 sm:col-span-2">
         <Button type="submit" disabled={!orgUnitId || !nameEn.trim()}>{submitLabel}</Button>
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
       </div>
@@ -69,9 +69,9 @@ export function ProgramsSettingsPage({ api: override }: { api?: SettingsApi }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Programs</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
           {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add program'}</Button>}
         </div>

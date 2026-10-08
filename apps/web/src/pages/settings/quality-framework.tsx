@@ -78,15 +78,15 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
       {data.framework && latest && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h3 className="font-medium">{data.framework.name}</h3>
+            <h3 className="min-w-0 font-medium break-words" dir="auto">{data.framework.name}</h3>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">Version
-              <select aria-label="Version" className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground" value={current!.id}
+              <select aria-label="Version" className="max-w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground" value={current!.id}
                 onChange={(e) => { const id = e.target.value; setPick(id); }}>
                 {versions.map((v) => <option key={v.id} value={v.id}>{v.edition} · {STATUS_LABEL[v.status]}</option>)}
               </select>
             </label>
             {current!.publishedAt && <span className="text-sm text-muted-foreground">Published {DATE.format(new Date(current!.publishedAt))}</span>}
-            <span className="ms-auto flex gap-2">
+            <span className="ms-auto flex flex-wrap justify-end gap-2">
               {current!.status !== 'published' && current!.status !== 'retired' && can(me.data, 'framework:publish') && (
                 <Button type="button" onClick={() => act(() => api.publishQuality(current!.id))}>Publish this version</Button>
               )}

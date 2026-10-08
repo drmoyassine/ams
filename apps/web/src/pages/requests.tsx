@@ -23,7 +23,7 @@ export function RequestsPage({ api: override }: { api?: EvidenceApi; framework?:
   const open = (list.data ?? []).filter((r) => r.status === 'open').length;
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">My requests</h1>
+      <h1 className="text-xl font-semibold sm:text-2xl">My requests</h1>
       <p className="text-sm text-muted-foreground">
         {`Evidence others asked you for${open ? ` (${open} open)` : ''}. What you send is added as evidence and reviewed before it counts.`}
       </p>
@@ -47,8 +47,8 @@ function FormAnswerDialog({ request, api, onAnswered, onClose }: { request: Evid
   const form = useQuery({ queryKey: ['request-form', request.id], queryFn: () => api.formOfRequest(request.id) });
   return (
     <Modal labelledBy="form-answer-title" onClose={onClose}>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 id="form-answer-title" className="text-xl font-semibold">Fill in the form</h2>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h2 id="form-answer-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Fill in the form</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       {form.isError && <p role="alert" className="text-sm text-red-700">{(form.error as Error).message}</p>}

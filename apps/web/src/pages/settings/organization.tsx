@@ -108,7 +108,7 @@ function UnitRow({ node, depth, all, canEdit, api, onChanged, setError }: {
     <li>
       <div className="flex flex-wrap items-center gap-2 rounded px-2 py-1 hover:bg-muted" style={{ paddingInlineStart: `${0.5 + depth * 1.5}rem` }} data-testid="org-unit">
         <span className="text-xs text-muted-foreground">{TYPE_LABEL[node.type]}</span>
-        <ContentText className={node.active ? 'font-medium' : 'text-muted-foreground line-through'}>{node.nameEn}</ContentText>
+        <ContentText className={`min-w-0 break-words ${node.active ? 'font-medium' : 'text-muted-foreground line-through'}`}>{node.nameEn}</ContentText>
         {node.nameAr && <ContentText className="text-sm text-muted-foreground">{node.nameAr}</ContentText>}
         {!node.active && <span className="rounded border border-border px-1.5 text-xs">Inactive</span>}
         {canEdit && (
@@ -119,7 +119,7 @@ function UnitRow({ node, depth, all, canEdit, api, onChanged, setError }: {
         )}
       </div>
       {editing && (
-        <form className="mb-2 flex flex-wrap items-end gap-2 ps-8" onSubmit={(e) => { e.preventDefault(); run.mutate(() => api.updateOrgUnit(node.id, { nameEn, nameAr: nameAr || null, type })); setEditing(false); }}>
+        <form className="mb-2 flex flex-wrap items-end gap-2 ps-4 sm:ps-8" onSubmit={(e) => { e.preventDefault(); run.mutate(() => api.updateOrgUnit(node.id, { nameEn, nameAr: nameAr || null, type })); setEditing(false); }}>
           <label className="flex flex-col text-xs">Name<Input aria-label="Unit name" value={nameEn} onChange={(e) => setNameEn(e.target.value)} /></label>
           <label className="flex flex-col text-xs">Arabic name<Input aria-label="Unit Arabic name" dir="auto" value={nameAr} onChange={(e) => setNameAr(e.target.value)} /></label>
           <label className="flex flex-col text-xs">Type
@@ -136,7 +136,7 @@ function UnitRow({ node, depth, all, canEdit, api, onChanged, setError }: {
         </form>
       )}
       {adding && (
-        <form className="mb-2 flex flex-wrap items-end gap-2 ps-8" onSubmit={(e) => { e.preventDefault(); if (childName.trim()) { run.mutate(() => api.createOrgUnit({ parentId: node.id, type: childType, nameEn: childName })); setChildName(''); setAdding(false); } }}>
+        <form className="mb-2 flex flex-wrap items-end gap-2 ps-4 sm:ps-8" onSubmit={(e) => { e.preventDefault(); if (childName.trim()) { run.mutate(() => api.createOrgUnit({ parentId: node.id, type: childType, nameEn: childName })); setChildName(''); setAdding(false); } }}>
           <label className="flex flex-col text-xs">New unit<Input aria-label={`Name of the new unit under ${node.nameEn}`} value={childName} onChange={(e) => setChildName(e.target.value)} /></label>
           <label className="flex flex-col text-xs">Type
             <select aria-label="New unit type" className={select} value={childType} onChange={(e) => setChildType(e.target.value as OrgUnit['type'])}>{ORG_UNIT_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</select>
@@ -170,7 +170,7 @@ function OrgChartCard({ api, canEdit, canAddTop }: { api: SettingsApi; canEdit: 
         {tree.length === 0 && <li className="text-muted-foreground">No units yet.</li>}
       </ul>
       {canAddTop && (
-        <form className="mt-3 flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) add.mutate(); }}>
+        <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) add.mutate(); }}>
           <label className="flex flex-col text-xs">New top-level unit (a college, for example)<Input aria-label="New top-level unit" value={name} onChange={(e) => setName(e.target.value)} /></label>
           <Button type="submit" disabled={!name.trim()}>Add</Button>
         </form>

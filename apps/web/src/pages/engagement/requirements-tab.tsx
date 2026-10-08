@@ -50,7 +50,7 @@ export function RequirementsTab({ api, detail, canManage }: { api: EngagementApi
         {Object.entries(REQUIREMENT_STATUS).map(([k, label]) => <li key={k} className="rounded border border-border px-2 py-0.5">{label}: {data.byStatus[k] ?? 0}</li>)}
       </ul>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Input aria-label="Search requirements" className="w-64" placeholder="Search code or title" value={text} onChange={(e) => setText(e.target.value)} />
+        <Input aria-label="Search requirements" className="w-full sm:w-64" placeholder="Search code or title" value={text} onChange={(e) => setText(e.target.value)} />
         <select aria-label="Filter by status" className={select} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           {Object.entries(REQUIREMENT_STATUS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
@@ -81,12 +81,12 @@ export function RequirementsTab({ api, detail, canManage }: { api: EngagementApi
         {items.map((i) => (
           <li key={i.id} className={`flex flex-wrap items-center gap-3 px-4 py-2 ${i.applicable ? '' : 'opacity-60'}`} style={{ paddingInlineStart: `${1 + (i.parentCode ? 1.25 : 0)}rem` }}>
             {canManage && i.applicable && <input type="checkbox" aria-label={`Select ${i.code}`} checked={picked.has(i.requirementId)} onChange={() => toggle(i.requirementId)} />}
-            <span className="w-32 shrink-0 text-xs text-muted-foreground" data-testid="level">{levelLabel(frameworkId, i.levelLabel)}</span>
-            <Link to="/engagement-requirements/$id" params={{ id: i.id }} className="font-medium underline-offset-2 hover:underline"><ContentText>{i.code}</ContentText></Link>
-            <ContentText className="flex-1 text-sm">{distinctTitle(i.code, i.title) ?? ''}</ContentText>
+            <span className="shrink-0 text-xs text-muted-foreground max-sm:basis-full sm:w-32" data-testid="level">{levelLabel(frameworkId, i.levelLabel)}</span>
+            <Link to="/engagement-requirements/$id" params={{ id: i.id }} className="min-w-0 font-medium break-words underline-offset-2 hover:underline"><ContentText>{i.code}</ContentText></Link>
+            <ContentText className="min-w-0 flex-1 basis-40 text-sm break-words">{distinctTitle(i.code, i.title) ?? ''}</ContentText>
             {!i.applicable && <span className="rounded border border-border px-2 py-0.5 text-xs" title={i.naReason ?? undefined}>Not applicable</span>}
             {i.applicable && <RequirementStatusBadge status={i.status} />}
-            <span className="w-28 text-end text-xs text-muted-foreground">{i.ownerId ? names.get(i.ownerId) ?? '' : 'Unassigned'}</span>
+            <span className="text-xs text-muted-foreground sm:w-28 sm:text-end">{i.ownerId ? names.get(i.ownerId) ?? '' : 'Unassigned'}</span>
           </li>
         ))}
         {items.length === 0 && <li className="px-4 py-3 text-sm text-muted-foreground">No requirements match.</li>}

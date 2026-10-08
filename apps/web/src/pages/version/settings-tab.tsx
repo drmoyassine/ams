@@ -61,8 +61,8 @@ function Details({ api, f, me }: { api: FrameworkApi; f: FrameworkListItem; me: 
   };
   const logoUrl = f.logoVersion ? api.logoUrl(f.accreditorId, f.logoVersion) : null;
   return (
-    <form key={`${f.name}-${f.accreditorName}-${f.accreditorShortName}`} onSubmit={(e) => void save(e)} className="max-w-2xl space-y-6" aria-label="Details">
-      <fieldset className="space-y-3" disabled={!canWrite}>
+    <form key={`${f.name}-${f.accreditorName}-${f.accreditorShortName}`} onSubmit={(e) => void save(e)} className="max-w-2xl min-w-0 space-y-6" aria-label="Details">
+      <fieldset className="min-w-0 space-y-3" disabled={!canWrite}>
         <legend className="mb-2 font-medium">Standard</legend>
         <label className="flex flex-col text-sm">Name<Input name="name" aria-label="Standard name" defaultValue={f.name} required dir="auto" /></label>
         <label className="flex flex-col text-sm">Scope
@@ -74,9 +74,9 @@ function Details({ api, f, me }: { api: FrameworkApi; f: FrameworkListItem; me: 
           <textarea name="description" aria-label="Description" rows={3} dir="auto" defaultValue={f.description ?? ''} className="rounded-md border border-border p-2 text-sm" />
         </label>
       </fieldset>
-      <fieldset className="space-y-3" disabled={!canWrite}>
+      <fieldset className="min-w-0 space-y-3" disabled={!canWrite}>
         <legend className="mb-2 font-medium">Accreditor</legend>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <AccreditorMark shortName={f.accreditorShortName} logoUrl={logoUrl} />
           {canWrite && (
             <>
@@ -87,11 +87,11 @@ function Details({ api, f, me }: { api: FrameworkApi; f: FrameworkListItem; me: 
             </>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+        <div className="grid gap-3 md:grid-cols-[1fr_10rem]">
           <label className="flex flex-col text-sm">Name<Input name="accName" aria-label="Accreditor name" defaultValue={f.accreditorName} required dir="auto" /></label>
           <label className="flex flex-col text-sm">Short name<Input name="accShort" aria-label="Short name" defaultValue={f.accreditorShortName} required dir="auto" /></label>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3">
           <label className="flex flex-col text-sm">Type
             <select name="accType" aria-label="Accreditor type" defaultValue={f.accreditorType} className={select}>
               <option value="institutional">Institutional</option><option value="programmatic">Programmatic</option><option value="regulatory">Regulatory</option>
@@ -115,11 +115,11 @@ export function SettingsTab({ api, version, framework, me, glossary, initial = '
 }) {
   const [section, setSection] = useState<SettingsSection>(initial);
   return (
-    <div className="flex flex-col gap-6 md:flex-row">
-      <nav aria-label="Standard settings" className="flex shrink-0 flex-row flex-wrap gap-1 md:w-52 md:flex-col">
+    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+      <nav aria-label="Standard settings" className="-mb-1 flex min-w-0 shrink-0 flex-row gap-1 overflow-x-auto pb-1 lg:mb-0 lg:w-52 lg:flex-col lg:overflow-visible lg:pb-0">
         {SECTIONS.map((s) => (
           <button key={s.id} type="button" aria-current={section === s.id ? 'page' : undefined} onClick={() => setSection(s.id)}
-            className={`rounded-md px-3 py-2 text-start text-sm hover:bg-muted ${section === s.id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{s.label}</button>
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-start text-sm hover:bg-muted ${section === s.id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{s.label}</button>
         ))}
       </nav>
       <div className="min-w-0 flex-1">

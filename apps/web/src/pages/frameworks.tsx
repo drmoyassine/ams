@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { StandardCard } from '../components/standard-card';
+import { Dialog } from '../components/dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -87,7 +88,7 @@ function NewFramework({ api, onCreated }: { api: FrameworkApi; onCreated: () => 
   return (
     <Card>
       <h2 className="mb-2 text-lg font-semibold">Create a standard from scratch</h2>
-      <form onSubmit={submit} className="grid grid-cols-2 gap-2">
+      <form onSubmit={submit} className="grid gap-2 sm:grid-cols-2">
         <label className="text-sm">Accreditor name<Input name="accName" required /></label>
         <label className="text-sm">Short name<Input name="accShort" required /></label>
         <label className="text-sm">Accreditor type
@@ -107,39 +108,32 @@ function NewFramework({ api, onCreated }: { api: FrameworkApi; onCreated: () => 
 /** "New Standard": a small wizard that asks how to add it, then shows that form (PRD 7.7: import a file, or build one by hand). */
 function NewStandardDialog({ api, canReview, start = null, onClose }: { api: FrameworkApi; canReview: boolean; start?: 'import' | null; onClose: () => void }) {
   const [method, setMethod] = useState<'import' | 'scratch' | null>(start);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="new-standard-title" className="w-full max-w-2xl rounded-lg bg-background p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="new-standard-title" className="text-xl font-semibold">New Standard</h2>
-          <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
-        </div>
-        {method === null && (
-          <div className="grid gap-3 sm:grid-cols-2" role="group" aria-label="How do you want to add the standard?">
-            <button type="button" onClick={() => setMethod('import')} className="rounded-lg border border-border p-4 text-start hover:bg-muted">
-              <span className="block font-medium">Import a file</span>
-              <span className="text-sm text-muted-foreground">Load a standard that was exported from AMS or prepared as a JSON file. It becomes a draft you review before publishing.</span>
-            </button>
-            <button type="button" onClick={() => setMethod('scratch')} className="rounded-lg border border-border p-4 text-start hover:bg-muted">
-              <span className="block font-medium">Start from scratch</span>
-              <span className="text-sm text-muted-foreground">Name the accreditor and the standard, then build the requirements by hand.</span>
-            </button>
-          </div>
-        )}
-        {method !== null && (
-          <div>
-            <Button type="button" variant="ghost" className="mb-2 px-2" onClick={() => setMethod(null)}>← Back</Button>
-            {method === 'import' ? <ImportForm api={api} canReview={canReview} /> : <NewFramework api={api} onCreated={onClose} />}
-          </div>
-        )}
-        <div className="mt-4 text-end"><Button type="button" variant="ghost" onClick={onClose}>Close</Button></div>
+    <Dialog labelledBy="new-standard-title" onClose={onClose} size="lg">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="new-standard-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">New Standard</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-    </div>
+      {method === null && (
+        <div className="grid gap-3 sm:grid-cols-2" role="group" aria-label="How do you want to add the standard?">
+          <button type="button" onClick={() => setMethod('import')} className="rounded-lg border border-border p-4 text-start hover:bg-muted">
+            <span className="block font-medium">Import a file</span>
+            <span className="text-sm text-muted-foreground">Load a standard that was exported from AMS or prepared as a JSON file. It becomes a draft you review before publishing.</span>
+          </button>
+          <button type="button" onClick={() => setMethod('scratch')} className="rounded-lg border border-border p-4 text-start hover:bg-muted">
+            <span className="block font-medium">Start from scratch</span>
+            <span className="text-sm text-muted-foreground">Name the accreditor and the standard, then build the requirements by hand.</span>
+          </button>
+        </div>
+      )}
+      {method !== null && (
+        <div>
+          <Button type="button" variant="ghost" className="mb-2 px-2" onClick={() => setMethod(null)}>← Back</Button>
+          {method === 'import' ? <ImportForm api={api} canReview={canReview} /> : <NewFramework api={api} onCreated={onClose} />}
+        </div>
+      )}
+      <div className="mt-4 text-end"><Button type="button" variant="ghost" onClick={onClose}>Close</Button></div>
+    </Dialog>
   );
 }
 
@@ -153,8 +147,8 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t('framework.title', 'External Standards')}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-xl font-semibold break-words sm:text-2xl">{t('framework.title', 'External Standards')}</h1>
         {canWrite && <Button type="button" onClick={() => setCreating('choose')}>New Standard</Button>}
       </div>
       {isError && <p role="alert">Could not load standards.</p>}

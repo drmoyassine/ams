@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
-import { AccordionCard, HoverCard, Shaded, useEscape } from '../../components/accordion';
+import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { ContentText } from '../../components/content-text';
 import { EvidenceLinkList } from '../../components/evidence-links';
 import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
+import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
@@ -31,7 +32,6 @@ function ItemDialog({ editing, parent, code, error, onSave, onClose }: {
   onSave: (v: { code: string; title: string; description: string }) => Promise<unknown>; onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  useEscape(onClose);
   const what = editing ? (editing.parentId ? 'sub-standard' : 'standard') : parent ? 'sub-standard' : 'standard';
   const heading = editing ? `Edit ${tag(editing)}` : `New ${what}`;
   const submit = (e: FormEvent<HTMLFormElement>) => {
@@ -41,29 +41,27 @@ function ItemDialog({ editing, parent, code, error, onSave, onClose }: {
     void onSave({ code: String(f.get('code')).trim(), title: String(f.get('title')).trim(), description: String(f.get('description')).trim() }).finally(() => setBusy(false));
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="iqf-item-title" className="w-full max-w-xl rounded-lg bg-background p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="iqf-item-title" className="text-xl font-semibold">{heading}{!editing && parent ? <span className="ms-2 text-base font-normal text-muted-foreground">under {tag(parent)}</span> : null}</h2>
-          <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
-        </div>
-        <form onSubmit={submit} className="space-y-3" aria-label={heading}>
-          <div className="flex gap-2">
-            <label className="flex w-24 flex-col text-sm">Code<Input name="code" aria-label="Code" defaultValue={editing?.code ?? code} required /></label>
-            <label className="flex flex-1 flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
-          </div>
-          <label className="flex flex-col text-sm">Description
-            <textarea name="description" aria-label="Description" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" placeholder={`What this ${what} expects`} />
-          </label>
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          <p className="text-xs text-muted-foreground">The code places it: 1 is a standard, 1.2 is a sub-standard of Standard 1.0. Changes are saved to the draft version and take effect when it is published.</p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Save as draft'}</Button>
-          </div>
-        </form>
+    <Dialog labelledBy="iqf-item-title" onClose={onClose}>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="iqf-item-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{heading}{!editing && parent ? <span className="ms-2 text-base font-normal text-muted-foreground">under {tag(parent)}</span> : null}</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-    </div>
+      <form onSubmit={submit} className="space-y-3" aria-label={heading}>
+        <div className="flex gap-2">
+          <label className="flex w-24 flex-col text-sm">Code<Input name="code" aria-label="Code" defaultValue={editing?.code ?? code} required /></label>
+          <label className="flex flex-1 flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
+        </div>
+        <label className="flex flex-col text-sm">Description
+          <textarea name="description" aria-label="Description" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" placeholder={`What this ${what} expects`} />
+        </label>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <p className="text-xs text-muted-foreground">The code places it: 1 is a standard, 1.2 is a sub-standard of Standard 1.0. Changes are saved to the draft version and take effect when it is published.</p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Save as draft'}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

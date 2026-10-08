@@ -56,8 +56,8 @@ export function RequestEvidenceDialog({ api, title, requirementId, initialWhat =
   };
   return (
     <Modal labelledBy="request-evidence-title" onClose={onClose}>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 id="request-evidence-title" className="text-xl font-semibold">Request evidence</h2>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <h2 id="request-evidence-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Request evidence</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <p className="mb-4 text-sm text-muted-foreground"><ContentText>{title}</ContentText></p>
@@ -104,8 +104,8 @@ export function AnswerRequestDialog({ request, onAnswer, onClose }: {
   };
   return (
     <Modal labelledBy="answer-title" onClose={onClose}>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 id="answer-title" className="text-xl font-semibold">Supply evidence</h2>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="answer-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Supply evidence</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <AnswerForm request={request} file={file} setFile={setFile} note={note} setNote={setNote} error={error} busy={busy} onSubmit={submit} onCancel={onClose} />
@@ -206,8 +206,8 @@ export function RequestFormDialog({ api, item, onDone, onClose }: {
   };
   return (
     <Modal labelledBy="request-form-title" onClose={onClose}>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 id="request-form-title" className="text-xl font-semibold">Ask people to fill in the form</h2>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <h2 id="request-form-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Ask people to fill in the form</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <p className="mb-4 text-sm text-muted-foreground"><ContentText>{item.title}</ContentText></p>

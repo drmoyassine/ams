@@ -27,7 +27,7 @@ function MilestoneRow({ api, m, members, canManage, first, last, onMove, onChang
   return (
     <li className="py-3" data-testid="milestone">
       <div className="flex flex-wrap items-center gap-2">
-        <ContentText className={m.status === 'skipped' ? 'line-through' : ''}>{m.name}</ContentText>
+        <ContentText className={`min-w-0 break-words ${m.status === 'skipped' ? 'line-through' : ''}`}>{m.name}</ContentText>
         <OriginBadge origin={m.origin} />
         {m.locked && <span title="Cannot be deleted" className="rounded border border-border px-2 py-0.5 text-xs">Locked</span>}
         {!m.required && <span className="rounded border border-border px-2 py-0.5 text-xs">Optional</span>}
@@ -59,7 +59,7 @@ function MilestoneRow({ api, m, members, canManage, first, last, onMove, onChang
         </div>
       )}
       {skipping && (
-        <form className="mt-2 flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); run.mutate(() => api.updateMilestone(m.id, { status: 'skipped', skipReason: reason })); setSkipping(false); }}>
+        <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); run.mutate(() => api.updateMilestone(m.id, { status: 'skipped', skipReason: reason })); setSkipping(false); }}>
           <Input aria-label={`Reason for skipping ${m.name}`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this required step skipped?" />
           <Button type="submit" disabled={!reason.trim()}>Skip</Button>
           <Button type="button" variant="ghost" onClick={() => setSkipping(false)}>Cancel</Button>
@@ -97,7 +97,7 @@ export function RoadmapTab({ api, detail, canManage, onChanged }: { api: Engagem
         const ms = detail.milestones.filter((m) => m.phase === p.type).sort((a, b) => a.displayOrder - b.displayOrder);
         return (
           <section key={p.type} aria-label={p.name} className="mb-6">
-            <h2 className="mb-1 flex items-baseline gap-2 text-lg font-semibold">
+            <h2 className="mb-1 flex flex-wrap items-baseline gap-2 text-lg font-semibold">
               {p.name} {p.current && <span className="rounded bg-primary px-2 py-0.5 text-xs font-normal text-primary-foreground">Current</span>}
               <span className="text-sm font-normal text-muted-foreground">{p.requiredDone}/{p.requiredTotal} required done</span>
             </h2>
@@ -121,7 +121,7 @@ function AddMilestoneForm({ api, engagementId, phase, onChanged, setError }: { a
   const act = useAction(setError);
   const add = useMutation({ mutationFn: () => act(() => api.addMilestone(engagementId, { phase, name })), onSuccess: () => { setName(''); onChanged(); } });
   return (
-    <form className="mt-2 flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) add.mutate(); }}>
+    <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) add.mutate(); }}>
       <Input aria-label={`Add a milestone to ${phase.replace('_', ' ')}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="Add your own step, e.g. steering committee" />
       <Button type="submit" disabled={!name.trim()}>Add</Button>
     </form>

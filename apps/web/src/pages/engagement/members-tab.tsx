@@ -35,8 +35,8 @@ export function MembersTab({ api, detail, me, onChanged }: { api: EngagementApi;
       <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Members">
         {detail.members.map((m) => (
           <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-            <div><ContentText className="font-medium">{m.fullName}</ContentText> <span className="text-sm text-muted-foreground">{m.email}</span></div>
-            <div className="flex items-center gap-2">
+            <div className="min-w-0 break-words"><ContentText className="font-medium">{m.fullName}</ContentText> <span className="text-sm text-muted-foreground wrap-anywhere">{m.email}</span></div>
+            <div className="flex flex-wrap items-center gap-2">
               {m.role === 'engagement_lead' || !canManage ? (
                 <span className="rounded border border-border px-2 py-0.5 text-sm">{ROLE_LABEL[m.role]}</span>
               ) : (

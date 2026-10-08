@@ -53,7 +53,7 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
                 <p className="text-xs text-muted-foreground">On internal {s.internalCode}{s.internalTitle ? ` · ${s.internalTitle}` : ''}, which {RELATION[s.relation]} this requirement: “<ContentText>{s.internalRationale}</ContentText>”</p>
                 {canLink && (
                   <form className="mt-1 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); const r = (reasons[s.evidenceVersionId] ?? '').trim(); if (r) void link(s.evidenceVersionId, r); }}>
-                    <Input aria-label={`Justification for ${s.title}`} placeholder="Justification: why it supports this requirement (required)" dir="auto" className="min-w-64 flex-1"
+                    <Input aria-label={`Justification for ${s.title}`} placeholder="Justification: why it supports this requirement (required)" dir="auto" className="w-full sm:w-auto sm:min-w-64 sm:flex-1"
                       value={reasons[s.evidenceVersionId] ?? ''} onChange={(e) => { const v = e.target.value; setReasons((x) => ({ ...x, [s.evidenceVersionId]: v })); }} />
                     <Button type="submit" disabled={!(reasons[s.evidenceVersionId] ?? '').trim()}>Link</Button>
                   </form>
@@ -97,15 +97,15 @@ export function RequirementWorkspacePage({ id, api: override, evidence }: { id: 
 
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm"><Link to="/engagements/$id" params={{ id: item.engagementId }} className="underline">← Back to the engagement</Link></p>
         <TermModeSelect />
       </div>
-      <header className="mb-4">
+      <header className="mb-4 min-w-0 break-words">
         {engagement.data && <p className="text-xs text-muted-foreground" data-testid="level">{levelLabel(engagement.data.engagement.frameworkId, r.levelLabel)}</p>}
         <p className="text-sm text-muted-foreground">{r.path.map((p) => p.code).join(' › ')}{r.path.length > 0 && ' ›'}</p>
-        <h1 className="text-2xl font-semibold"><ContentText>{requirementLabel(r.code, r.title, ' — ')}</ContentText></h1>
-        <p className="mt-1 flex items-center gap-2 text-sm">{item.applicable ? <RequirementStatusBadge status={item.status} /> : <span className="rounded border border-border px-2 py-0.5">Not applicable{item.naReason ? `: ${item.naReason}` : ''}</span>}</p>
+        <h1 className="text-xl font-semibold leading-tight wrap-anywhere sm:text-2xl"><ContentText>{requirementLabel(r.code, r.title, ' — ')}</ContentText></h1>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">{item.applicable ? <RequirementStatusBadge status={item.status} /> : <span className="rounded border border-border px-2 py-0.5">Not applicable{item.naReason ? `: ${item.naReason}` : ''}</span>}</p>
       </header>
       {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
 

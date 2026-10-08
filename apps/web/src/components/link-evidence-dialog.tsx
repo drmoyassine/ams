@@ -1,22 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
+import { Dialog } from './dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
-
+/** The evidence dialogs' shell: the shared `Dialog` at the default width (full screen on phones). */
 export function Modal({ labelledBy, onClose, children, z = 'z-50' }: { labelledBy: string; onClose: () => void; children: React.ReactNode; z?: string }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
-  return (
-    <div className={`fixed inset-0 ${z} flex items-start justify-center overflow-y-auto bg-black/40 p-6`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby={labelledBy} className="w-full max-w-xl rounded-lg bg-background p-6 shadow-lg">{children}</div>
-    </div>
-  );
+  return <Dialog labelledBy={labelledBy} onClose={onClose} z={z}>{children}</Dialog>;
 }
 
 /** Adds a piece of evidence to the repository: a title, document or data, an optional description, and the file. */
@@ -44,8 +36,8 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, 
   };
   return (
     <Modal labelledBy="new-evidence-title" onClose={onClose} z="z-[60]">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 id="new-evidence-title" className="text-xl font-semibold">New evidence</h2>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="new-evidence-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">New evidence</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="New evidence">
@@ -97,14 +89,14 @@ export function LinkEvidenceDialog({ api, title, onLink, onClose }: {
   return (
     <>
       <Modal labelledBy="link-evidence-title" onClose={() => { if (!creating) onClose(); }}>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="link-evidence-title" className="text-xl font-semibold">Link evidence <span className="ms-1 text-base font-normal text-muted-foreground">to {title}</span></h2>
+        <div className="mb-4 flex items-start justify-between gap-2">
+          <h2 id="link-evidence-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Link evidence <span className="ms-1 text-base font-normal text-muted-foreground">to {title}</span></h2>
           <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
         </div>
         <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Link evidence">
           {chosen ? (
-            <div className="flex items-center gap-2 rounded-md border border-border p-2 text-sm" data-testid="chosen-evidence">
-              <span className="font-medium">{chosen.title}</span>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm" data-testid="chosen-evidence">
+              <span className="min-w-0 break-words font-medium" dir="auto">{chosen.title}</span>
               <span className="text-xs text-muted-foreground">v{chosen.latest?.versionNo}{chosen.periodLabel ? ` · ${chosen.periodLabel}` : ''}</span>
               <Button type="button" variant="ghost" className="ms-auto px-2 py-1" onClick={() => { setChosen(null); setJustification(''); }}>Change</Button>
             </div>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ActionsMenu, useEscape } from '../components/accordion';
+import { ActionsMenu } from '../components/accordion';
 import { VersionStatusBadge } from '../components/badges';
 import { ContentText } from '../components/content-text';
 import { AccreditorMark } from '../components/standard-card';
+import { Dialog } from '../components/dialog';
+import { versionLabel } from '../lib/version-label';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ApiError, type FrameworkApi, type Issue, type Version } from '../lib/framework-api';
@@ -35,22 +37,19 @@ function download(name: string, data: unknown) {
 function NewVersionDialog({ from, error, onCreate, onClose }: { from: Version; error: string; onCreate: (edition: string) => Promise<unknown>; onClose: () => void }) {
   const [edition, setEdition] = useState('');
   const [busy, setBusy] = useState(false);
-  useEscape(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="new-version-title" className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
-        <h2 id="new-version-title" className="mb-1 text-xl font-semibold">Start a new version</h2>
-        <p className="mb-4 text-sm text-muted-foreground">A draft copied from version {from.edition}: its requirements, notes and configuration.</p>
-        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (!edition.trim()) return; setBusy(true); void onCreate(edition.trim()).finally(() => setBusy(false)); }}>
-          <label className="flex flex-col text-sm">New edition<Input aria-label="New edition" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="e.g. 2028-29" autoFocus /></label>
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy || !edition.trim()}>Create draft</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Dialog labelledBy="new-version-title" onClose={onClose} size="sm">
+      <h2 id="new-version-title" className="mb-1 min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Start a new version</h2>
+      <p className="mb-4 text-sm text-muted-foreground">A draft copied from {versionLabel(from.edition)}: its requirements, notes and configuration.</p>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (!edition.trim()) return; setBusy(true); void onCreate(edition.trim()).finally(() => setBusy(false)); }}>
+        <label className="flex flex-col text-sm">New edition<Input aria-label="New edition" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="e.g. 2028-29" autoFocus /></label>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy || !edition.trim()}>Create draft</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -99,7 +98,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const menu = [
     { label: 'Download JSON', onSelect: () => void act(async () => download(`${f?.accreditorShortName ?? 'standard'}-${version.edition}.json`, await api.exportFile(version.id))) },
     ...(version.status === 'in_review' && canWrite ? [{ label: 'Return to draft', onSelect: () => void act(() => api.returnToDraft(version.id)) }] : []),
-    ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => { if (window.confirm(`Retire version ${version.edition}? It stays readable but is no longer offered for new engagements.`)) void act(() => api.retire(version.id)); } }] : []),
+    ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => { if (window.confirm(`Retire ${versionLabel(version.edition)}? It stays readable but is no longer offered for new engagements.`)) void act(() => api.retire(version.id)); } }] : []),
   ];
   const problems = validation.data && !validation.data.ok ? validation.data.issues : [];
 
@@ -110,34 +109,39 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
           ? <Link to="/settings/quality-framework" className="underline">Internal Quality Framework</Link>
           : <><Link to="/settings/external-standards" className="underline">External Standards</Link>{f && <span className="text-muted-foreground"> / {f.accreditorShortName}</span>}</>}
       </p>
-      <header className="flex flex-wrap items-start gap-4">
-        {f && <AccreditorMark shortName={f.accreditorShortName} logoUrl={f.logoVersion ? api.logoUrl(f.accreditorId, f.logoVersion) : null} />}
-        <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="text-2xl font-semibold"><ContentText>{internal ? 'Internal Quality Framework' : f?.name ?? ''}</ContentText></h1>
-          {f && <p className="text-sm text-muted-foreground"><ContentText>{f.accreditorName}</ContentText> · {SCOPE[f.scope]}</p>}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+      {/* Phones: logo + title + accreditor, then the version row, then the actions (end-aligned) — nothing squeezes the title. */}
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-4">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex min-w-0 items-start gap-3">
+            {f && <AccreditorMark shortName={f.accreditorShortName} logoUrl={f.logoVersion ? api.logoUrl(f.accreditorId, f.logoVersion) : null} />}
+            <div className="min-w-0 flex-1 space-y-1">
+              <h1 className="text-xl font-semibold leading-tight break-words sm:text-2xl"><ContentText>{internal ? 'Internal Quality Framework' : f?.name ?? ''}</ContentText></h1>
+              {f && <p className="text-sm break-words text-muted-foreground"><ContentText>{f.accreditorName}</ContentText> · {SCOPE[f.scope]}</p>}
+            </div>
+          </div>
+          <div className={`flex flex-wrap items-center gap-2 ${f ? 'sm:ps-[3.25rem]' : ''}`}>
             {f && f.versions.length > 1 ? (
-              <select aria-label="Version" value={version.id} onChange={(e) => open(e.target.value)} className="rounded-md border border-border bg-background px-2 py-1 text-sm">
-                {[...f.versions].reverse().map((v) => <option key={v.id} value={v.id}>Version {v.edition}{v.id === version.id ? '' : ` (${STATUS[v.status].toLowerCase()})`}</option>)}
+              <select aria-label="Version" value={version.id} onChange={(e) => open(e.target.value)} className="max-w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm">
+                {[...f.versions].reverse().map((v) => <option key={v.id} value={v.id}>{versionLabel(v.edition)}{v.id === version.id ? '' : ` (${STATUS[v.status].toLowerCase()})`}</option>)}
               </select>
-            ) : <span className="text-sm font-medium">Version {version.edition}</span>}
+            ) : <span className="text-sm font-medium break-words">{versionLabel(version.edition)}</span>}
             <VersionStatusBadge status={version.status} />
             {version.publishedAt && <span className="text-xs text-muted-foreground">Published {new Date(version.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {primary && <Button type="button" onClick={() => void primary.run()}>{primary.label}</Button>}
           <ActionsMenu label="More actions" items={menu} />
         </div>
       </header>
       {error && !newVersion && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm wrap-anywhere text-red-900">
           <p>{error}</p>
           {issues.length > 0 && <ul aria-label="Problems" className="mt-1 list-disc space-y-1 ps-5">{issues.map((i, n) => <li key={n}><code>{i.path}</code>: {i.message}</li>)}</ul>}
         </div>
       )}
       {problems.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" data-testid="config-problems">
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm wrap-anywhere text-amber-900" data-testid="config-problems">
           <button type="button" className="underline" aria-expanded={showProblems} onClick={() => setShowProblems(!showProblems)}>
             {problems.length} configuration problem{problems.length === 1 ? '' : 's'} to fix before this version can be published
           </button>
