@@ -30,13 +30,13 @@ export async function addSourceDocument(ctx: Ctx, input: z.input<typeof AddSourc
 }
 
 /** Stores the text of one page as transcribed or extracted; quote verification reads exactly this text. */
-export async function addSourcePage(ctx: Ctx, input: { documentId: string; pageNo: number; text: string; method: 'pdf_text' | 'ocr' }) {
+export async function addSourcePage(ctx: Ctx, input: { documentId: string; pageNo: number; text: string; method: 'pdf_text' | 'ocr' | 'table' | 'slide' | 'sheet' }) {
   await require_(ctx, 'framework:write');
   const doc = await getSourceDocument(ctx, input.documentId);
   await getDraftVersion(ctx, doc.frameworkVersionId);
   if (!input.text.trim()) throw new ValidationError('page text is empty');
   const [row] = await guardIntegrity(() => ctx.tx.insert(sourcePage).values({
-    institutionId: ctx.caller.institutionId, sourceDocumentId: doc.id, pageNo: input.pageNo, text: input.text, method: input.method,
+    institutionId: ctx.caller.institutionId, sourceDocumentId: doc.id, pageNo: input.pageNo, text: input.text, method: input.method
   }).returning());
   return row!;
 }
@@ -46,8 +46,9 @@ export async function listSourceDocuments(ctx: Ctx, versionId: string) {
   await require_(ctx, 'framework:read');
   const rows = await ctx.tx.select({
     d: sourceDocument, pages: sql<number>`(select count(*)::int from source_page p where p.source_document_id = source_document.id)`,
+    ocr: sql<number>`(select count(*)::int from source_page p where p.source_document_id = source_document.id and p.needs_ocr)`,
   }).from(sourceDocument).where(eq(sourceDocument.frameworkVersionId, versionId)).orderBy(asc(sourceDocument.title));
-  return rows.map(({ d, pages }) => ({ ...d, pageCount: Math.max(pages, d.pageCount ?? 0), storedPages: pages, hasFile: !!d.fileName }));
+  return rows.map(({ d, pages, ocr }) => ({ ...d, pageCount: Math.max(pages, d.pageCount ?? 0), storedPages: pages, needsOcrPages: ocr, hasFile: !!d.fileName }));
 }
 
 export const UpdateSourceDocumentSchema = AddSourceDocumentSchema.pick({ title: true, role: true, authority: true }).partial()
@@ -92,7 +93,7 @@ export async function setSourcePage(ctx: Ctx, documentId: string, pageNo: number
   if (!Number.isInteger(pageNo) || pageNo < 1) throw new ValidationError('page numbers start at 1');
   const [row] = await guardIntegrity(() => ctx.tx.insert(sourcePage).values({
     institutionId: ctx.caller.institutionId, sourceDocumentId: documentId, pageNo, text, method: 'pdf_text',
-  }).onConflictDoUpdate({ target: [sourcePage.sourceDocumentId, sourcePage.pageNo], set: { text, reviewed: false } }).returning());
+  }).onConflictDoUpdate({ target: [sourcePage.sourceDocumentId, sourcePage.pageNo], set: { text, reviewed: false, fromFile: false, needsOcr: false } }).returning());
   return row!;
 }
 
@@ -132,6 +133,14 @@ export async function uploadSourceFile(ctx: Ctx, documentId: string, file: { fil
 /** The original file of a source, to view or download. */
 export async function readSourceFile(ctx: Ctx, documentId: string) {
   await require_(ctx, 'framework:read');
+  return loadSourceFile(ctx, documentId);
+}
+
+/**
+ * The stored original, without a permission check: for the worker, which acts for the person who queued the job (their
+ * permission was checked when it was queued) and has no access to role assignments.
+ */
+export async function loadSourceFile(ctx: Ctx, documentId: string) {
   const doc = await getSourceDocument(ctx, documentId);
   if (!doc.fileName) throw new NotFoundError('no file has been uploaded for this source');
   if (!ctx.store) throw new ConflictError('file storage is not configured');

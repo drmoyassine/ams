@@ -137,6 +137,8 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     uploadSourceFile: async (id: string, file: File) => fetcher(`/api/source-documents/${id}/file?${new URLSearchParams({ fileName: file.name })}`, {
       method: 'PUT', body: await readBytes(file), headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include',
     }).then((r) => unwrap<SourceDocument>(r)),
+    /** Queues reading the stored file into page text. */
+    readFile: (id: string) => api.api['source-documents'][':id'].read.$post({ param: { id } }).then((r) => unwrap<{ jobId: string; textStatus: 'queued' }>(r)),
     pages: (id: string) => api.api['source-documents'][':id'].pages.$get({ param: { id } }).then((r) => unwrap<SourcePage[]>(r)),
     setPage: (id: string, pageNo: number, text: string) =>
       api.api['source-documents'][':id'].pages[':pageNo'].$put({ param: { id, pageNo: String(pageNo) }, json: { text } }).then((r) => unwrap<SourcePage>(r)),

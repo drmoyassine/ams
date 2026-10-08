@@ -16,7 +16,22 @@ export const ROLE_LABEL: Record<SourceRole, string> = {
 };
 export const AUTHORITY_LABEL: Record<SourceAuthority, string> = { binding: 'Binding', interpretive: 'Interpretive', informational: 'Informational' };
 const select = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm';
+/** What a source's original can be: PDF, Word, Excel, PowerPoint or CSV (the first five can be read into pages). */
+const FILE_ACCEPT = 'application/pdf,.pdf,.docx,.doc,.xlsx,.pptx,.csv,text/csv';
 const kb = (n: number | null) => (n === null ? '' : n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
+
+/** Where reading a source's file stands, in words. */
+export function readStatus(d: SourceDocument): string {
+  const pages = d.storedPages ?? d.pageCount ?? 0;
+  switch (d.textStatus) {
+    case 'queued': return 'Reading the file…';
+    case 'extracted': return `Read: ${pages} page${pages === 1 ? '' : 's'}`;
+    case 'ocr_needed': { const n = d.needsOcrPages ?? 0; return `Read: ${pages} page${pages === 1 ? '' : 's'}, ${n} need${n === 1 ? 's' : ''} OCR`; }
+    case 'ocr_done': return `Read and OCR done: ${pages} page${pages === 1 ? '' : 's'}`;
+    case 'failed': return 'The file could not be read. Check that it is a PDF, DOCX, XLSX, PPTX or CSV that opens.';
+    default: return 'Not read yet';
+  }
+}
 
 /** Adds a source (with its original, optionally) or changes how one is described. */
 function SourceDialog({ editing, error, onSave, onClose }: {
@@ -55,7 +70,7 @@ function SourceDialog({ editing, error, onSave, onClose }: {
         </div>
         {!editing && (
           <label className="flex flex-col text-sm">Original file (optional)
-            <input aria-label="Original file" type="file" accept="application/pdf,.pdf,.docx,.doc" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            <input aria-label="Original file" type="file" accept={FILE_ACCEPT} className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
         )}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -71,7 +86,7 @@ function SourceDialog({ editing, error, onSave, onClose }: {
 /** The pages of a source: pick one to read its text; on a draft, correct it, remove it or add another. */
 function Pages({ api, doc, editable, onChange }: { api: FrameworkApi; doc: SourceDocument; editable: boolean; onChange: () => void }) {
   const qc = useQueryClient();
-  const pages = useQuery({ queryKey: ['source-pages', doc.id], queryFn: () => api.pages(doc.id) });
+  const pages = useQuery({ queryKey: ['source-pages', doc.id, doc.textStatus], queryFn: () => api.pages(doc.id) });
   const [pick, setPick] = useState<number | null>(null);
   const [error, setError] = useState('');
   const run = useAction(setError);
@@ -86,10 +101,11 @@ function Pages({ api, doc, editable, onChange }: { api: FrameworkApi; doc: Sourc
         <>
           <div role="tablist" aria-label={`Pages of ${doc.title}`} className="flex flex-wrap gap-1">
             {list.map((p) => (
-              <button key={p.pageNo} type="button" role="tab" aria-selected={current?.pageNo === p.pageNo} onClick={() => setPick(p.pageNo)}
+              <button key={p.pageNo} type="button" role="tab" aria-selected={current?.pageNo === p.pageNo} onClick={() => setPick(p.pageNo)} title={p.needsOcr ? 'Needs OCR' : undefined}
                 className={`min-w-9 rounded-md border px-2 py-1 text-xs ${current?.pageNo === p.pageNo ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{p.pageNo}</button>
             ))}
           </div>
+          {current?.needsOcr && <p role="note" className="text-xs text-amber-700">Page {current.pageNo} has no readable text layer; it needs OCR, or type its text in.</p>}
           {current && (editable ? (
             <form key={`${current.pageNo}-${current.text.length}`} className="space-y-2" aria-label={`Page ${current.pageNo}`}
               onSubmit={(e) => { e.preventDefault(); void save(current.pageNo, String(new FormData(e.currentTarget).get('text'))); }}>
@@ -124,7 +140,11 @@ function Pages({ api, doc, editable, onChange }: { api: FrameworkApi; doc: Sourc
  */
 export function SourcesSection({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
   const qc = useQueryClient();
-  const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id) });
+  // While a file is being read the list refreshes until the worker is done.
+  const docs = useQuery({
+    queryKey: ['documents', version.id], queryFn: () => api.documents(version.id),
+    refetchInterval: (q) => (q.state.data?.some((d) => d.textStatus === 'queued') ? 1500 : false),
+  });
   const editable = version.status === 'draft' && can(me, 'framework:write');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add' } | { kind: 'edit'; doc: SourceDocument } | null>(null);
@@ -135,10 +155,11 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
   const close = () => { setDialog(null); setError(''); };
   const pickFile = (doc: SourceDocument) => {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'application/pdf,.pdf,.docx,.doc';
+    input.type = 'file'; input.accept = FILE_ACCEPT;
     input.onchange = () => { const f = input.files?.[0]; if (f) void run(() => api.uploadSourceFile(doc.id, f)).then(refresh); };
     input.click();
   };
+  const readFile = (doc: SourceDocument) => { void run(() => api.readFile(doc.id)).then(refresh); };
   const list = docs.data ?? [];
   return (
     <section aria-label="Sources" className="space-y-3">
@@ -171,6 +192,12 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
                 {d.hasFile
                   ? <p className="text-sm"><a className="underline" href={api.sourceFileUrl(d.id)} target="_blank" rel="noreferrer"><ContentText>{d.fileName ?? 'file'}</ContentText></a> <span className="text-xs text-muted-foreground">{kb(d.size)}</span></p>
                   : <p className="text-sm text-muted-foreground">No file uploaded.{editable ? ' Use the ⋯ menu to upload it.' : ''}</p>}
+                {d.hasFile && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {editable && <Button type="button" variant="outline" disabled={d.textStatus === 'queued'} onClick={() => readFile(d)}>{d.textStatus === 'pending' || d.textStatus === 'queued' ? 'Read this file' : 'Read this file again'}</Button>}
+                    <span role="status" aria-label={`Reading status of ${d.title}`} className="text-xs text-muted-foreground">{readStatus(d)}</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <Shaded>Pages</Shaded>

@@ -1,7 +1,7 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   deleteSourceDocument, deleteSourcePage, listSourcePages, MAX_SOURCE_BYTES, readSourceFile, setSourcePage, updateSourceDocument, UpdateSourceDocumentSchema,
-  uploadSourceFile, ValidationError,
+  requestTextExtraction, uploadSourceFile, ValidationError,
   AddSourceDocumentSchema, addSourceDocument, addSourcePage, deleteReportTemplate, getSourcePage, listReportTemplates, listSourceDocuments,
   reviewReportTemplate, upsertReportTemplate,
 } from '@ams/core';
@@ -106,6 +106,13 @@ export function templateRoutes(registry: RouteRegistry, deps: ChainDeps, options
         'content-type': f.mime, 'content-disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.fileName)}`, 'x-content-type-options': 'nosniff',
       }) as never;
     })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/source-documents/{id}/read', access: requires('framework:write'), tags: tag,
+      description: 'Queues reading the stored file into page text (PDF, DOCX, XLSX, PPTX, CSV). Pages a person edited or reviewed are kept.',
+      request: { params: idParam },
+      responses: { 202: { description: 'Queued', ...json(z.object({ jobId: z.string(), textStatus: z.literal('queued') })) }, ...errors },
+    }), async (c) => c.json(await requestTextExtraction(c.get('ctx'), c.req.valid('param').id), 202))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/source-documents/{id}/pages', access: requires('framework:read'), tags: tag,

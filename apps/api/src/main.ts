@@ -5,12 +5,11 @@ import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PgBoss } from 'pg-boss';
 import pg from 'pg';
-import { ensureQueues, pgBossQueue } from '@ams/core';
+import { ensureQueues, pgBossQueue, s3Store } from '@ams/core';
 import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
 import { createAuth, sessionAuthenticator } from './auth.js';
-import { s3Store } from './s3-store.js';
 import { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
 
 const env = loadEnv();

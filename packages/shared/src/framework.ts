@@ -294,7 +294,7 @@ export const ExportedDocumentSchema = z.object({
   language: z.string().min(2).default('en'),
   sha256: z.string().regex(/^[0-9a-f]{64}$/).nullable().default(null),
   /** Page text travels with the file so quotes can be re-verified; the original file does not. */
-  pages: z.array(z.object({ page_no: z.number().int().min(1), text: z.string().min(1), method: z.enum(['pdf_text', 'ocr']) }).strict()).default([]),
+  pages: z.array(z.object({ page_no: z.number().int().min(1), text: z.string().min(1), method: z.enum(['pdf_text', 'ocr', 'table', 'slide', 'sheet']) }).strict()).default([]),
 }).strict();
 
 export const FrameworkExportSchema = z.object({

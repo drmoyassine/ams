@@ -213,7 +213,7 @@ const DOCUMENT_ROLES = [
   'standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other',
 ] as const;
 const DOCUMENT_AUTHORITIES = ['binding', 'interpretive', 'informational'] as const;
-const TEXT_STATUSES = ['pending', 'extracted', 'ocr_needed', 'ocr_done', 'failed'] as const;
+const TEXT_STATUSES = ['pending', 'queued', 'extracted', 'ocr_needed', 'ocr_done', 'failed'] as const;
 export const sourceDocument = pgTable('source_document', {
   ...base(), ...tenant(),
   frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
@@ -237,7 +237,7 @@ export const sourceDocument = pgTable('source_document', {
   check('source_document_sha256_check', sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
 ]);
 
-const PAGE_METHODS = ['pdf_text', 'ocr'] as const;
+export const PAGE_METHODS = ['pdf_text', 'ocr', 'table', 'slide', 'sheet'] as const;
 export const sourcePage = pgTable('source_page', {
   ...base(), ...tenant(),
   sourceDocumentId: uuid('source_document_id').notNull().references(() => sourceDocument.id),
@@ -245,6 +245,10 @@ export const sourcePage = pgTable('source_page', {
   text: text('text').notNull(),
   method: text('method', { enum: PAGE_METHODS }).notNull(),
   reviewed: boolean('reviewed').notNull().default(false),
+  /** Reading the file found no usable text layer on this page: it should be read by OCR. */
+  needsOcr: boolean('needs_ocr').notNull().default(false),
+  /** The text was written by reading the file and nobody has touched it since: only such a page is replaced when the file is read again. */
+  fromFile: boolean('from_file').notNull().default(false),
 }, (t) => [
   uniqueIndex('source_page_doc_page_idx').on(t.sourceDocumentId, t.pageNo),
   oneOf('source_page_method_check', t.method, PAGE_METHODS),
