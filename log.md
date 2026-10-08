@@ -14,6 +14,21 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — The app works on phones and tablets
+
+Three agents worked in parallel on separate files; the work was merged and checked here.
+- **App shell:** below `lg` the sidebar becomes a slim top bar with a ☰ drawer (Escape, backdrop and following a link close it; focus moves in and back). Page padding is smaller on phones.
+- **Settings menu:** it is one sideways-scrolling row, and so is a standard's own Settings section menu. Their Details form is one column on phones.
+- **Shared card:** it lays itself out by its own width (container query). A narrow card gives the title a full line, with counts and badges on a second line, and long words wrap. Hover tooltips are capped to the screen and hidden on touch screens. The review badge becomes a dot and one word on phones.
+- **Tables:** they scroll inside their own box.
+- **Dialogs:** every dialog now uses one shared component that fills the screen on phones, with the title and ✕ pinned at the top. Escape closes only the topmost dialog.
+- **Page headers:** they stack (title, then version, status and date, then actions), and toolbars wrap or scroll. Engagement phase and key-date cards wrap.
+- **"Version Version 2019-V2":** fixed by a shared `versionLabel`.
+- **New check:** `pnpm test:responsive` boots the real app on a fresh test database, signs in with Chromium, screenshots 13 screens at 375, 768 and 1280px, and fails on any sideways scroll. Before the fixes it found 14 overflowing page/width pairs; after them it found none.
+- **Note:** one agent hit a usage limit after committing its work but before its final checks, which were then run here.
+
+---
+
 ## 2026-10-08 — Evidence as cards; requests under Evidence and My requests
 
 The Evidence page now uses the same closable cards as standards and requirements (built in parallel by a delegated agent and merged here).
