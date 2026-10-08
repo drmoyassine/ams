@@ -14,6 +14,18 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — Evidence as cards; requests under Evidence and My requests
+
+The Evidence page now uses the same closable cards as standards and requirements (built in parallel by a delegated agent and merged here).
+- **Closed card:** a tile showing what the item is (PDF, DOC, XLS, DATA, LINK), the title (description on hover), and on the right: how many places it is linked to, an amber "N to review" when links wait for approval, the latest version and date, rows, form state and new responses for data, and "Not linked", "Open request" or "Archived" when they apply.
+- **Opened card:** description, versions, what it is linked to (approve or reject there), form requests, and for data the Sheet, Form and Responses inside the card.
+- **⋯ menu, by type:** Upload a new version or Open sheet, Link to a standard, Request an update or Ask people to fill in the form, Download latest, Edit details, Archive or Restore.
+- **Above the list:** filters (All, Documents, Data, Not linked, To review, Archived).
+- **Requests:** they are a second tab on Evidence (all requests, open first). /requests became My requests, and the sidebar shows "My requests (N)" only while someone has open requests.
+- **Server:** the list carries proposed-link, open-request, form and pending-response counts (grouped queries) and leaves archived items out unless asked. A type change is refused when it would orphan files or data.
+
+---
+
 ## 2026-10-08 — Requirement wording is the description; titles that hold wording are corrected
 
 On external standards, the field that was called "Official text" is now labelled **Description**: in the requirement dialog, on the card and in its tooltip (the data is unchanged; it is still the requirement's own wording, verbatim from the source). The owner found a PUC draft whose indicators had their wording in the title and no description. None of the seed files (PUC, ABET, WSCUC) has that shape, so it came from that draft's own history. One generic rule now puts it right: when a requirement has no description and its title reads as wording (a sentence, or more than 60 characters), the wording becomes the description and the code becomes the title. It is applied on import, when a new version is copied from an existing one, and by migration 0034 to existing draft and in-review versions of external standards. Published and retired versions stay frozen; starting a new version from one gives a corrected copy.
