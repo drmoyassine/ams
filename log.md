@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — A standard's page: its name in the header, four tabs, details editable
+
+A version page now has a header with the standard's name, its accreditor and scope, the logo, a version picker, and the one action the version's state calls for: Submit for review (draft), Publish (in review) or Start a new version (published). Download JSON, Return to draft and Retire are in its ⋯ menu. Configuration problems show as a banner instead of on a tab. The tabs went from seven to four: Requirements, Mappings, Sources and Settings. Settings holds Details (the standard's name, scope and description; the accreditor's name, short name, type, country and website; the logo), Lifecycle and vocabularies, Report templates, and Terminology. Details belong to the standard, not to a version, so they stay editable while its versions are published (new `PATCH /api/frameworks/{id}` and `PATCH /api/accreditors/{id}`; the internal framework is refused there). On the External Standards page the card's ⋯ menu is now Open, Edit details (which opens Settings → Details), Start a new version and Import a new edition; the logo moved to Details.
+
+---
+
 ## 2026-10-08 — External Standards as cards, with accreditor logos
 
 The External Standards page now shows one card per standard, built on the same accordion as the other requirement lists. The closed card has the accreditor's logo (or its short name on a tile) and the standard's name, with a sub-line under it: scope (Programmatic, Institutional), the version in use with its publication date, and a note when a newer draft is in progress. There is no button on the closed card; the card opens to its versions, each with View or Edit, and the ⋯ menu has Open current version. Opened, it shows the accreditor, how complete the version in use is (requirements, how many assessable ones have an approved mapping to the internal standards, how many engagements use it) and every version with the same counts, plus "Start a new version" (a draft copied from the one in use) and "Import a new edition". Editors add, change or remove a logo from the card's ⋯ menu: PNG, JPEG or WebP up to 512 KB, checked by content (SVG is refused because it can carry script), stored in the object store (migration 0032). Counts come from the standards list itself. Not done: grouping by institution and program, and the institution's own logo (Settings still says it comes later).

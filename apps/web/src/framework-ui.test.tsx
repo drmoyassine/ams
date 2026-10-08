@@ -128,24 +128,13 @@ describe('frameworks page', () => {
     expect(within(card).getByText('Public University Council')).toBeTruthy();
   });
 
-  it('shows the short name on a tile until a logo is added, then the logo; an editor can add, change and remove it', async () => {
+  it('offers open, details, a new version and a new edition from the card menu', async () => {
     const user = userEvent.setup();
     render(wrap(<FrameworksPage api={apiFor('lead')} />));
     const card = await screen.findByRole('region', { name: 'Institutional Guide' });
-    expect(within(card).queryByRole('img', { name: 'PUC logo' })).toBeNull();
+    expect(within(card).queryByRole('img', { name: 'PUC logo' })).toBeNull(); // the short name on a tile until there is a logo
     await user.click(within(card).getByRole('button', { name: 'Actions for Institutional Guide' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open current version', 'Start a new version', 'Import a new edition', 'Add logo']);
-    await user.keyboard('{Escape}');
-    const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2])], 'puc.png', { type: 'image/png' });
-    await user.upload(within(card).getByLabelText('Logo file for PUC'), png);
-    const img = await within(card).findByRole('img', { name: 'PUC logo' });
-    expect(img.getAttribute('src')).toMatch(/^\/api\/accreditors\/[\w-]+\/logo\?v=\d+$/);
-    await user.click(within(card).getByRole('button', { name: 'Actions for Institutional Guide' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Remove logo' }));
-    await waitFor(() => expect(within(card).queryByRole('img', { name: 'PUC logo' })).toBeNull());
-    // not an image: refused with the server's reason
-    await userEvent.setup({ applyAccept: false }).upload(within(card).getByLabelText('Logo file for PUC'), new File(['<svg onload="x()"/>'], 'x.svg', { type: 'image/svg+xml' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/PNG, JPEG or WebP/); // shown even though the card is closed
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open', 'Edit details', 'Start a new version', 'Import a new edition']);
   });
 
   it('starts a new version from the card, and a viewer gets no editing actions', async () => {
@@ -162,7 +151,7 @@ describe('frameworks page', () => {
     const ro = await screen.findByRole('region', { name: 'Institutional Guide' });
     expect(ro.textContent).toMatch(/Version 2026 · Draft/); // the newest version is shown on the card
     await user.click(within(ro).getByRole('button', { name: 'Actions for Institutional Guide' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open current version']);
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open', 'Details']);
     await user.keyboard('{Escape}');
     await user.click(within(ro).getByRole('button', { name: /^Institutional Guide/ }));
     expect(within(ro).queryByRole('button', { name: 'Start a new version' })).toBeNull();
@@ -315,7 +304,8 @@ describe('version page', () => {
     const { version } = await importAs('lead', 'json-editor');
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Lifecycle and vocabularies' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Lifecycle and vocabularies' }));
     const area = await screen.findByLabelText('Lifecycle template');
     await user.clear(area);
     await user.click(area);
@@ -335,7 +325,8 @@ describe('version page', () => {
     const { version } = await importAs('lead', 'tpl-editor');
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Report templates' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Report templates' }));
     await user.click(await screen.findByRole('button', { name: /تقرير الدراسة الذاتية/ }));
     const area = await screen.findByLabelText('Template');
     await user.clear(area);
@@ -345,43 +336,47 @@ describe('version page', () => {
     expect((await screen.findByRole('list', { name: 'Validation issues' })).textContent).toMatch(/data_table needs columns/);
   });
 
-  it('review and publish: blocked while unreviewed, then published, after which the version is read-only', async () => {
+  it('names the standard in the header, and moves a version through review with one button that follows its state', async () => {
     const { version } = await importAs('admin', 'publish-flow');
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('admin')} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Review and publish' }));
-    expect((await screen.findByRole('status')).textContent).toMatch(/configuration is valid/);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Guide' })).toBeTruthy();
+    expect(document.querySelector('header')!.textContent).toContain('Public University Council · Institutional');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Sources', 'Settings']);
+    expect(screen.queryByTestId('config-problems')).toBeNull(); // the configuration is valid
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
     await user.click(screen.getByRole('button', { name: 'Publish' }));
-    expect((await screen.findAllByRole('alert'))[0]!.textContent).toMatch(/publish gate/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/publish gate/);
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Download JSON', 'Return to draft']);
+    await user.click(screen.getByRole('menuitem', { name: 'Return to draft' }));
+    await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Draft'));
 
-    // Approve everything through the API (as reviewers would in the other tabs), then publish.
+    // Approve everything through the API (as reviewers would on the cards), then publish.
     const a = apiFor('admin');
-    await a.returnToDraft(version.id);
     for (const r of await a.requirements(version.id)) {
       await a.reviewRequirement(r.id, 'approved');
       for (const n of (await a.requirement(r.id)).notes) await a.reviewNote(n.id, 'approved');
     }
     await a.reviewTemplate(version.id, 'report', 'approved');
-    await a.submit(version.id);
-    await user.click(screen.getByRole('tab', { name: 'Requirements' }));
-    await user.click(screen.getByRole('tab', { name: 'Review and publish' }));
+    await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await user.click(await screen.findByRole('button', { name: 'Publish' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Published'));
+    expect(await screen.findByRole('button', { name: 'Start a new version' })).toBeTruthy();
 
-    await user.click(screen.getByRole('tab', { name: 'Requirements' }));
     await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
     await screen.findByTestId('requirement-detail');
     expect(screen.queryByRole('button', { name: /^Actions for/ })).toBeNull();
     expect(screen.queryByRole('button', { name: '+ Requirement' })).toBeNull();
     expect(screen.queryByRole('form', { name: 'Add note' })).toBeNull();
-    await user.click(screen.getByRole('tab', { name: 'Lifecycle and vocabularies' }));
+    await user.click(screen.getByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Lifecycle and vocabularies' }));
     expect(screen.getByText(/configuration is read-only/)).toBeTruthy();
     expect((screen.getByLabelText('Lifecycle template') as HTMLTextAreaElement).readOnly).toBe(true);
   });
 
-  it('creates a new draft from a published version', async () => {
+  it('starts a new version from the header of a published one', async () => {
     const { version } = await importAs('admin', 'new-version-src', true);
     const a = apiFor('admin');
     await a.submit(version.id);
@@ -389,10 +384,41 @@ describe('version page', () => {
     let opened = '';
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={a} onOpenVersion={(id) => { opened = id; }} />));
-    await user.click(await screen.findByRole('tab', { name: 'Review and publish' }));
-    await user.type(await screen.findByPlaceholderText('e.g. 2025'), '2025');
-    await user.click(screen.getByRole('button', { name: /Create a new draft/ }));
+    await user.click(await screen.findByRole('button', { name: 'Start a new version' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('New edition'), '2025');
+    await user.click(within(dialog).getByRole('button', { name: 'Create draft' }));
     await waitFor(() => expect(opened).not.toBe(''));
     expect((await a.version(opened)).status).toBe('draft');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('edits the standard\'s details and the accreditor\'s, and its logo, in Settings, even on a published version', async () => {
+    const { version } = await importAs('admin', 'details-src', true);
+    const a = apiFor('admin');
+    await a.submit(version.id);
+    await a.publish(version.id);
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" onOpenVersion={() => undefined} />));
+    let form = await screen.findByRole('form', { name: 'Details' });
+    const name = within(form).getByLabelText('Standard name');
+    await user.clear(name);
+    await user.type(name, 'Institutional Accreditation Guide');
+    await user.selectOptions(within(form).getByLabelText('Scope'), 'both');
+    await user.type(within(form).getByLabelText('Website'), 'https://puc.example.org');
+    await user.click(within(form).getByRole('button', { name: 'Save details' }));
+    expect((await screen.findByRole('status')).textContent).toBe('Saved.');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Accreditation Guide' })).toBeTruthy();
+    await waitFor(() => expect(document.querySelector('header')!.textContent).toContain('· Institutional and programmatic'));
+
+    const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2])], 'puc.png', { type: 'image/png' });
+    form = screen.getByRole('form', { name: 'Details' }); // saved details re-render the form
+    await user.upload(within(form).getByLabelText('Logo file'), png);
+    expect((await screen.findAllByRole('img', { name: 'PUC logo' }))[0]!.getAttribute('src')).toMatch(/^\/api\/accreditors\/[\w-]+\/logo\?v=\d+$/);
+    await user.click(within(form).getByRole('button', { name: 'Remove logo' }));
+    await waitFor(() => expect(screen.queryByRole('img', { name: 'PUC logo' })).toBeNull());
+    await userEvent.setup({ applyAccept: false }).upload(within(form).getByLabelText('Logo file'), new File(['<svg onload="x()"/>'], 'x.svg', { type: 'image/svg+xml' }));
+    expect((await within(form).findByRole('alert')).textContent).toMatch(/PNG, JPEG or WebP/);
+    await a.updateFramework(version.frameworkId, { name: 'Institutional Guide', scope: 'institution' }); // leave it as the other tests expect
   });
 });

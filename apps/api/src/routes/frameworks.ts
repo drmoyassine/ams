@@ -1,5 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
+  getFramework, updateAccreditor, UpdateAccreditorSchema, updateFramework, UpdateFrameworkSchema,
   MAX_LOGO_BYTES, readAccreditorLogo, removeAccreditorLogo, setAccreditorLogo, ValidationError,
   addQualityItem, applyQualityTemplate, editQualityItem, newQualityVersion, QualityItemSchema, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
@@ -83,6 +84,25 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { body: { required: true, ...json(CreateAccreditorSchema) } },
       responses: { 201: { description: 'Created', ...json(AccreditorSchema) }, ...errors },
     }), async (c) => c.json(toDto(AccreditorSchema, await createAccreditor(c.get('ctx'), c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'patch', path: '/api/accreditors/{id}', access: requires('framework:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(UpdateAccreditorSchema) } },
+      responses: { 200: { description: 'Updated', ...json(AccreditorSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AccreditorSchema, await updateAccreditor(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/frameworks/{id}', access: requires('framework:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The standard, its accreditor and its versions with their counts', ...json(FrameworkListItemSchema) }, ...errors },
+    }), async (c) => c.json(toDto(FrameworkListItemSchema, await getFramework(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'patch', path: '/api/frameworks/{id}', access: requires('framework:write'), tags: tag,
+      description: 'Name, scope, commission and description of a standard; editable whatever the state of its versions.',
+      request: { params: idParam, body: { required: true, ...json(UpdateFrameworkSchema) } },
+      responses: { 200: { description: 'Updated', ...json(FrameworkListItemSchema) }, ...errors },
+    }), async (c) => c.json(toDto(FrameworkListItemSchema, await updateFramework(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/accreditors/{id}/logo', access: requires('framework:read'), tags: tag,

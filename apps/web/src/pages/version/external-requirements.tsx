@@ -198,7 +198,7 @@ export function ExternalRequirements({ api, version, me }: { api: FrameworkApi; 
         {all.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
         {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Requirement</Button>}
       </div>
-      {!draft && <p className="text-xs text-muted-foreground">This version is {version.status === 'in_review' ? 'in review' : 'published'} and fixed. Start a new draft from the Review and publish tab to change it.</p>}
+      {!draft && <p className="text-xs text-muted-foreground">This version is {version.status === 'in_review' ? 'in review' : 'published'} and fixed. Use Start a new version to change it.</p>}
       {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {tree.data && all.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
       <div className="space-y-2" aria-label="Requirements" role="list">

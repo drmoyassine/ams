@@ -80,7 +80,8 @@ describe('glossary settings', () => {
     const user = userEvent.setup();
     const a = apis('lead');
     render(wrap(<VersionPage versionId={await versionOf('ABET')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Terminology' }));
     await user.click(await screen.findByRole('button', { name: 'Map unmapped terms automatically' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/\d+ term\(s\) mapped/);
     const table = await screen.findByRole('table', { name: 'Terminology of ABET' });
@@ -96,7 +97,8 @@ describe('glossary settings', () => {
     const user = userEvent.setup();
     const a = apis('lead');
     render(wrap(<VersionPage versionId={await versionOf('WSCUC')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Terminology' }));
     const cfr = (await screen.findByLabelText('WSCUC CFR maps to')) as HTMLSelectElement;
     await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Standard', 'Sub-standard']));
     const group = [...cfr.options].find((o) => o.textContent === 'Standard')!.value;
@@ -129,7 +131,8 @@ describe('glossary settings', () => {
     cleanup();
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={await versionOf('ABET')} api={fw('viewer')} glossary={a.glossary} onOpenVersion={() => undefined} />));
-    await user.click(await screen.findByRole('tab', { name: 'Terminology' }));
+    await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Terminology' }));
     expect(((await screen.findByLabelText('ABET Criterion maps to')) as HTMLSelectElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Map unmapped terms automatically' })).toBeNull();
   });

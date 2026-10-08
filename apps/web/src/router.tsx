@@ -48,10 +48,20 @@ const qualityRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/
 const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
 // External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
 const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/external-standards', component: () => <FrameworksPage /> });
-const versionRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute /> });
+const versionRoute = createRoute({
+  getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute />,
+  // ?tab=settings&section=details opens a version on its settings (the card's "Edit details").
+  validateSearch: (s: Record<string, unknown>): { tab?: 'settings'; section?: 'details' } => ({
+    ...(s.tab === 'settings' ? { tab: 'settings' as const } : {}), ...(s.section === 'details' ? { section: 'details' as const } : {}),
+  }),
+});
 const oldStandardsRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', beforeLoad: () => { throw redirect({ to: '/settings/external-standards' }); } });
 const oldVersionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', beforeLoad: ({ params }) => { throw redirect({ to: '/settings/versions/$versionId', params }); } });
-function VersionRoute() { const { versionId } = versionRoute.useParams(); return <VersionPage key={versionId} versionId={versionId} />; }
+function VersionRoute() {
+  const { versionId } = versionRoute.useParams();
+  const { tab, section } = versionRoute.useSearch();
+  return <VersionPage key={versionId} versionId={versionId} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} />;
+}
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
 const engagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/$id', component: () => <EngagementRoute /> });

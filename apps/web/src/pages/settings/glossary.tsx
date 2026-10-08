@@ -51,7 +51,7 @@ function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boole
 
 /**
  * Terms (DEC-016): the institution's words for what accreditors find and ask for, and any other shared word. Each
- * standard's Terminology tab maps that standard's own words onto these. Shown inside Settings → Internal Quality Framework.
+ * external standard's Settings → Terminology maps that standard's own words onto these. Shown inside Settings → Internal Quality Framework.
  */
 export function GlossaryPage({ api: override, settings, embedded = false }: { api?: GlossaryApi; settings?: SettingsApi; embedded?: boolean }) {
   const api = useGlossaryApi(override);
@@ -71,7 +71,7 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
   return (
     <div className="space-y-4">
       {!embedded && <h2 className="text-lg font-semibold">Terms</h2>}
-      <p className="text-sm text-muted-foreground">Your words for what accreditors find and ask for. Each standard's Terminology tab maps its own words onto these, so everyone inside uses one language.</p>
+      <p className="text-sm text-muted-foreground">Your words for what accreditors find and ask for. Each external standard's Settings → Terminology maps its own words onto these, so everyone inside uses one language.</p>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
       {terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AccordionCard, HoverCard, Shaded } from './accordion';
@@ -12,7 +12,6 @@ type VersionSummary = FrameworkListItem['versions'][number];
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const STATUS = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
 const SCOPE = { institution: 'Institutional', program: 'Programmatic', both: 'Institutional and programmatic' } as const;
-const MAX_LOGO_KB = 512;
 
 /** "Published 5 Oct 2026", "Effective 1 Jan 2027" or "Not published". */
 function dateOf(v: VersionSummary): string {
@@ -54,7 +53,6 @@ function MappedBar({ v }: { v: VersionSummary }) {
 export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListItem; api: FrameworkApi; canWrite: boolean; onImport: () => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [edition, setEdition] = useState('');
@@ -67,21 +65,16 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
   const openVersion = (id: string) => void navigate({ to: '/settings/versions/$versionId', params: { versionId: id } });
   const verb = (v: VersionSummary) => (isOpenDraft(v) ? 'Edit' : 'View');
 
-  const pickLogo = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_LOGO_KB * 1024) { setError(`The logo is larger than ${MAX_LOGO_KB} KB.`); return; }
-    act(() => api.uploadLogo(f.accreditorId, file));
-  };
   const startNew = () => {
     if (!current || !edition.trim()) return;
     act(async () => { const r = await api.newVersion(current.id, { edition: edition.trim() }); setStarting(false); setEdition(''); openVersion(r.version.id); });
   };
 
   const menu = [
-    ...(current ? [{ label: `Open current version`, onSelect: () => openVersion(current.id) }] : []),
+    ...(current ? [{ label: 'Open', onSelect: () => openVersion(current.id) }] : []),
+    ...(current ? [{ label: canWrite ? 'Edit details' : 'Details', onSelect: () => void navigate({ to: '/settings/versions/$versionId', params: { versionId: current.id }, search: { tab: 'settings', section: 'details' } }) }] : []),
     ...(canWrite && current ? [{ label: 'Start a new version', onSelect: () => { setOpen(true); setStarting(true); } }] : []),
-    ...(canWrite ? [{ label: 'Import a new edition', onSelect: onImport }, { label: logoUrl ? 'Change logo' : 'Add logo', onSelect: () => fileRef.current?.click() }] : []),
-    ...(canWrite && logoUrl ? [{ label: 'Remove logo', onSelect: () => act(() => api.removeLogo(f.accreditorId)) }] : []),
+    ...(canWrite ? [{ label: 'Import a new edition', onSelect: onImport }] : []),
   ];
 
   return (
@@ -93,12 +86,6 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
         <>
           {[SCOPE[f.scope], current && `Version ${current.edition}`, current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
           {draft && <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">Draft {draft.edition} in progress</span>}
-        </>
-      )}
-      trailing={(
-        <>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Logo file for ${f.accreditorShortName}`} className="sr-only" tabIndex={-1}
-            onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ''; }} />
         </>
       )}
       hover={(

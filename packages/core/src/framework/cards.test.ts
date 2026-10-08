@@ -7,7 +7,8 @@ import { createMapping, reviewMapping } from '../mapping/mapping.js';
 import { readAccreditorLogo, removeAccreditorLogo, setAccreditorLogo } from './accreditor-logo.js';
 import { setUpQualityFramework } from './internal.js';
 import { createRequirement, listRequirements, reviewRequirement } from './requirements.js';
-import { listFrameworks, newVersionFrom, publishVersion, submitForReview } from './versions.js';
+import { getFramework, listFrameworks, newVersionFrom, publishVersion, submitForReview, updateAccreditor, updateFramework } from './versions.js';
+import { ConflictError } from '../ctx.js';
 
 let w: World;
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
@@ -68,5 +69,27 @@ describe('accreditor logo', () => {
     expect((await w.as('alo', (c) => listFrameworks(c))).find((f) => f.accreditorId === accreditorId)!.logoVersion).not.toBe(v1);
     await w.as('alo', (c) => removeAccreditorLogo(c, accreditorId));
     expect((await w.as('alo', (c) => listFrameworks(c))).find((f) => f.accreditorId === accreditorId)!.logoVersion).toBeNull();
+  });
+});
+
+describe('editing a standard and its accreditor', () => {
+  it('changes the name, scope and description while its version stays published; only editors may', async () => {
+    const f = (await w.as('alo', (c) => listFrameworks(c))).find((x) => x.accreditorShortName === 'WSCUC')!;
+    await expect(w.as('contrib', (c) => updateFramework(c, f.id, { name: 'x' }))).rejects.toThrow(ForbiddenError);
+    await expect(w.as('alo', (c) => updateFramework(c, f.id, { name: '  ' }))).rejects.toThrow();
+    const out = await w.as('alo', (c) => updateFramework(c, f.id, { name: 'WSCUC 2023 Handbook', scope: 'both', description: 'Institutional review' }));
+    expect(out).toMatchObject({ name: 'WSCUC 2023 Handbook', scope: 'both', description: 'Institutional review' });
+    expect(out.versions[0]!.status).toBe('published');
+    expect((await w.as('contrib', (c) => getFramework(c, f.id))).name).toBe('WSCUC 2023 Handbook');
+    const internal = (await w.db.su.query('select id from framework where internal')).rows[0].id as string;
+    await expect(w.as('alo', (c) => updateFramework(c, internal, { name: 'x' }))).rejects.toThrow(ConflictError);
+  });
+
+  it('changes the accreditor\'s name, short name, type and website', async () => {
+    const f = (await w.as('alo', (c) => listFrameworks(c))).find((x) => x.accreditorShortName === 'PUC')!;
+    await expect(w.as('alo', (c) => updateAccreditor(c, f.accreditorId, { website: 'not a url' }))).rejects.toThrow();
+    await w.as('alo', (c) => updateAccreditor(c, f.accreditorId, { name: 'Private Universities Council', website: 'https://puc.example.org', country: null }));
+    expect(await w.as('alo', (c) => getFramework(c, f.id))).toMatchObject({ accreditorName: 'Private Universities Council', accreditorWebsite: 'https://puc.example.org', accreditorCountry: null });
+    await expect(w.as('alo', (c) => updateAccreditor(c, f.accreditorId, { shortName: 'ABET' }))).rejects.toThrow(ConflictError); // short names are unique
   });
 });

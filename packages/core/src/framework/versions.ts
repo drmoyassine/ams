@@ -6,7 +6,7 @@ import {
 } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
-import { ConflictError, ValidationError } from '../ctx.js';
+import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
@@ -55,13 +55,14 @@ export async function createFramework(ctx: Ctx, input: z.infer<typeof CreateFram
  * how many requirements it has, how many of the assessable ones are mapped (approved mapping) to the institution's own
  * standards, and how many engagements use it.
  */
-export async function listFrameworks(ctx: Ctx) {
+export async function listFrameworks(ctx: Ctx, opts: { id?: string } = {}) {
   await require_(ctx, 'framework:read');
   const rows = await ctx.tx.select({
-    id: framework.id, name: framework.name, scope: framework.scope, commission: framework.commission,
+    id: framework.id, name: framework.name, scope: framework.scope, commission: framework.commission, description: framework.description,
     accreditorId: accreditor.id, accreditorShortName: accreditor.shortName, accreditorName: accreditor.name, accreditorType: accreditor.type,
+    accreditorCountry: accreditor.country, accreditorWebsite: accreditor.website,
     logoUpdatedAt: accreditor.logoUpdatedAt, hasLogo: sql<boolean>`${accreditor.logoPath} is not null`,
-  }).from(framework).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).where(eq(framework.internal, false)).orderBy(asc(accreditor.shortName), asc(framework.name));
+  }).from(framework).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).where(and(eq(framework.internal, false), opts.id ? eq(framework.id, opts.id) : undefined)).orderBy(asc(accreditor.shortName), asc(framework.name));
   if (!rows.length) return [];
   const versions = await ctx.tx.select({
     id: frameworkVersion.id, frameworkId: frameworkVersion.frameworkId, edition: frameworkVersion.edition, status: frameworkVersion.status,
@@ -90,6 +91,50 @@ export async function listFrameworks(ctx: Ctx) {
       requirementCount: counts.get(v.id)?.total ?? 0, assessableCount: counts.get(v.id)?.assessable ?? 0, mappedCount: mapped.get(v.id) ?? 0, engagementCount: engagements.get(v.id) ?? 0,
     })),
   }));
+}
+
+/** One accreditor's standard, as on the External Standards page, with its description and the accreditor's contact details. */
+export async function getFramework(ctx: Ctx, id: string) {
+  const [row] = await listFrameworks(ctx, { id });
+  if (!row) throw new NotFoundError(`standard ${id}`);
+  return row;
+}
+
+export const UpdateFrameworkSchema = z.object({
+  name: z.string().trim().min(1, 'give the standard a name').optional(),
+  scope: z.enum(['institution', 'program', 'both']).optional(),
+  commission: z.string().trim().min(1).nullable().optional(),
+  description: z.string().trim().min(1).nullable().optional(),
+}).strict();
+
+/**
+ * Edits what describes a standard (its name, scope, description). These belong to the standard, not to a version, so
+ * they can change while its versions are published; the requirements themselves cannot.
+ */
+export async function updateFramework(ctx: Ctx, id: string, input: z.input<typeof UpdateFrameworkSchema>) {
+  await require_(ctx, 'framework:write');
+  const d = UpdateFrameworkSchema.parse(input);
+  const [f] = await ctx.tx.select({ internal: framework.internal }).from(framework).where(eq(framework.id, id));
+  if (!f) throw new NotFoundError(`standard ${id}`);
+  if (f.internal) throw new ConflictError('the internal quality framework is edited in Settings → Internal Quality Framework');
+  await guardIntegrity(() => ctx.tx.update(framework).set(d).where(eq(framework.id, id)));
+  return getFramework(ctx, id);
+}
+
+export const UpdateAccreditorSchema = z.object({
+  name: z.string().trim().min(1, 'give the accreditor a name').optional(),
+  shortName: z.string().trim().min(1, 'give a short name').optional(),
+  type: z.enum(['institutional', 'programmatic', 'regulatory']).optional(),
+  country: z.string().trim().min(1).nullable().optional(),
+  website: z.url('enter a web address').nullable().optional(),
+}).strict();
+
+export async function updateAccreditor(ctx: Ctx, id: string, input: z.input<typeof UpdateAccreditorSchema>) {
+  await require_(ctx, 'framework:write');
+  const d = UpdateAccreditorSchema.parse(input);
+  const [row] = await guardIntegrity(() => ctx.tx.update(accreditor).set(d).where(eq(accreditor.id, id)).returning());
+  if (!row) throw new NotFoundError(`accreditor ${id}`);
+  return row;
 }
 
 // ---- Versions ------------------------------------------------------------------------------------

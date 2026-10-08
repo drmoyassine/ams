@@ -50,6 +50,11 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       return fetcher(`/api/accreditors/${accreditorId}/logo`, { method: 'PUT', body, headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include' }).then((r) => unwrap<void>(r));
     },
     removeLogo: (accreditorId: string) => api.api.accreditors[':id'].logo.$delete({ param: { id: accreditorId } }).then((r) => unwrap<void>(r)),
+    framework: (id: string) => api.api.frameworks[':id'].$get({ param: { id } }).then((r) => unwrap<FrameworkListItem>(r)),
+    updateFramework: (id: string, json: { name?: string; scope?: 'institution' | 'program' | 'both'; description?: string | null }) =>
+      api.api.frameworks[':id'].$patch({ param: { id }, json }).then((r) => unwrap<FrameworkListItem>(r)),
+    updateAccreditor: (id: string, json: { name?: string; shortName?: string; type?: 'institutional' | 'programmatic' | 'regulatory'; country?: string | null; website?: string | null }) =>
+      api.api.accreditors[':id'].$patch({ param: { id }, json }).then((r) => unwrap<unknown>(r)),
     frameworks: () => api.api.frameworks.$get().then((r) => unwrap<FrameworkListItem[]>(r)),
     versions: (frameworkId: string) => api.api.frameworks[':id'].versions.$get({ param: { id: frameworkId } }).then((r) => unwrap<Version[]>(r)),
     createAccreditor: (json: { name: string; shortName: string; type: 'institutional' | 'programmatic' | 'regulatory' }) =>

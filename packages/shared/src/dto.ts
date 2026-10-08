@@ -22,8 +22,9 @@ export const FrameworkVersionSummarySchema = z.object({
   mappedCount: z.number(), engagementCount: z.number(),
 });
 export const FrameworkListItemSchema = z.object({
-  id: z.string(), name: z.string(), scope: z.enum(['institution', 'program', 'both']), commission: z.string().nullable(),
+  id: z.string(), name: z.string(), scope: z.enum(['institution', 'program', 'both']), commission: z.string().nullable(), description: z.string().nullable(),
   accreditorId: z.string(), accreditorShortName: z.string(), accreditorName: z.string(), accreditorType: z.enum(['institutional', 'programmatic', 'regulatory']),
+  accreditorCountry: z.string().nullable(), accreditorWebsite: z.string().nullable(),
   /** Changes whenever the logo does (for the image address); null when the accreditor has none. */
   logoVersion: z.string().nullable(),
   versions: z.array(FrameworkVersionSummarySchema),

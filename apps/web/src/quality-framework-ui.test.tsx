@@ -112,7 +112,7 @@ describe('quality framework settings', () => {
 
     // the terms tab is a short list: findings, reports, general terms
     await user.click(screen.getByRole('tab', { name: 'Terms' }));
-    expect(await screen.findByText(/each standard's Terminology tab maps its own words onto these/i)).toBeTruthy();
+    expect(await screen.findByText(/each external standard's Settings → Terminology maps its own words onto these/i)).toBeTruthy();
   });
 
   it('is published in one step by an administrator, then fixed until a new version is started', async () => {
@@ -131,9 +131,9 @@ describe('quality framework settings', () => {
     const api = apiFor('lead');
     const { versions } = await api.qualityFramework();
     render(wrap(<VersionPage versionId={versions[0]!.id} api={api} onOpenVersion={() => undefined} />));
-    expect(await screen.findByRole('heading', { name: 'Version 1' })).toBeTruthy();
-    const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
-    expect(tabs).toEqual(['Requirements', 'Review and publish']);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Internal Quality Framework' })).toBeTruthy();
+    expect(screen.getByText('Version 1')).toBeTruthy();
+    expect(screen.queryAllByRole('tab')).toEqual([]); // only its requirements; its terms and publishing live on its own Settings page
     expect(screen.getByRole('link', { name: 'Internal Quality Framework' })).toBeTruthy();
   });
 });
