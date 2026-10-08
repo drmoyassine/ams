@@ -1,5 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
+  MAX_LOGO_BYTES, readAccreditorLogo, removeAccreditorLogo, setAccreditorLogo, ValidationError,
   addQualityItem, applyQualityTemplate, editQualityItem, newQualityVersion, QualityItemSchema, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
@@ -82,6 +83,32 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { body: { required: true, ...json(CreateAccreditorSchema) } },
       responses: { 201: { description: 'Created', ...json(AccreditorSchema) }, ...errors },
     }), async (c) => c.json(toDto(AccreditorSchema, await createAccreditor(c.get('ctx'), c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/accreditors/{id}/logo', access: requires('framework:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The logo image', content: { 'application/octet-stream': { schema: z.string() } } }, ...errors },
+    }), async (c) => {
+      const f = await readAccreditorLogo(c.get('ctx'), c.req.valid('param').id);
+      return c.body(f.bytes as unknown as ArrayBuffer, 200, { 'content-type': f.mime, 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=86400' }) as never;
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/accreditors/{id}/logo', access: requires('framework:write'), tags: tag,
+      description: 'The request body is the image itself (PNG, JPEG or WebP, at most 512 KB).',
+      request: { params: idParam },
+      responses: { 204: { description: 'Saved' }, ...errors },
+    }), async (c) => {
+      if (Number(c.req.header('content-length') ?? 0) > MAX_LOGO_BYTES) throw new ValidationError(`the logo is larger than ${MAX_LOGO_BYTES / 1024} KB`);
+      await setAccreditorLogo(c.get('ctx'), c.req.valid('param').id, new Uint8Array(await c.req.arrayBuffer()));
+      return c.body(null, 204);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'delete', path: '/api/accreditors/{id}/logo', access: requires('framework:write'), tags: tag,
+      request: { params: idParam },
+      responses: { 204: { description: 'Removed' }, ...errors },
+    }), async (c) => { await removeAccreditorLogo(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/frameworks', access: requires('framework:write'), tags: tag,

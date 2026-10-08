@@ -3,6 +3,7 @@ import type {
   ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
+import { readBytes } from './read-bytes';
 import { api as defaultApi, type createApi } from './api';
 
 export type Api = ReturnType<typeof createApi>;
@@ -38,10 +39,17 @@ export async function unwrap<T>(res: Response): Promise<T> {
 }
 
 /** All framework-library calls, through the typed client. */
-export function frameworkApi(api: Api = defaultApi) {
+export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {
   const v = api.api['framework-versions'];
   return {
     me: () => api.api.me.$get().then((r) => unwrap<Me>(r)),
+    /** Where an accreditor's logo is served; `version` changes when the logo does, so the browser fetches the new one. */
+    logoUrl: (accreditorId: string, version: string) => `/api/accreditors/${accreditorId}/logo?v=${version}`,
+    uploadLogo: async (accreditorId: string, file: File) => {
+      const body = await readBytes(file);
+      return fetcher(`/api/accreditors/${accreditorId}/logo`, { method: 'PUT', body, headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include' }).then((r) => unwrap<void>(r));
+    },
+    removeLogo: (accreditorId: string) => api.api.accreditors[':id'].logo.$delete({ param: { id: accreditorId } }).then((r) => unwrap<void>(r)),
     frameworks: () => api.api.frameworks.$get().then((r) => unwrap<FrameworkListItem[]>(r)),
     versions: (frameworkId: string) => api.api.frameworks[':id'].versions.$get({ param: { id: frameworkId } }).then((r) => unwrap<Version[]>(r)),
     createAccreditor: (json: { name: string; shortName: string; type: 'institutional' | 'programmatic' | 'regulatory' }) =>

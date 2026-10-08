@@ -160,6 +160,10 @@ export const accreditor = pgTable('accreditor', {
   type: text('type', { enum: ACCREDITOR_TYPES }).notNull(),
   country: text('country'),
   website: text('website'),
+  /** The accreditor's logo: a small PNG, JPEG or WebP in the object store. `logoUpdatedAt` busts browser caches. */
+  logoPath: text('logo_path'),
+  logoMime: text('logo_mime'),
+  logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [
   uniqueIndex('accreditor_short_name_idx').on(t.institutionId, t.shortName),
   oneOf('accreditor_type_check', t.type, ACCREDITOR_TYPES),

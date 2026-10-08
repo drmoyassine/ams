@@ -6,3 +6,4 @@ export * from './templates.js';
 export * from './sources.js';
 export * from './exchange.js';
 export * from './internal.js';
+export * from './accreditor-logo.js';

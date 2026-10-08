@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — External Standards as cards, with accreditor logos
+
+The External Standards page now shows one card per standard, built on the same accordion as the other requirement lists. The closed card has the accreditor's logo (or its short name on a tile), the standard's name, the accreditor and scope ("ABET · Program"), the version in use with its status, a note when a newer draft exists, and an Open/Edit button. Opened, it shows the accreditor, how complete the version in use is (requirements, how many assessable ones have an approved mapping to the internal standards, how many engagements use it) and every version with the same counts, plus "Start a new version" (a draft copied from the one in use) and "Import a new edition". Editors add, change or remove a logo from the card's ⋯ menu: PNG, JPEG or WebP up to 512 KB, checked by content (SVG is refused because it can carry script), stored in the object store (migration 0032). Counts come from the standards list itself. Not done: grouping by institution and program, and the institution's own logo (Settings still says it comes later).
+
+---
+
 ## 2026-10-07 — External requirements laid out like the internal ones
 
 An external standard's Requirements tab now follows the internal framework's: full-width closable cards with a shaded tag (the code, with the level in front when the code is only a number), items indented under their parent, a title, the level name and the review state on each card, and a hover tooltip. The ⋯ menu adds an item at the next level, edits, approves or rejects, and deletes while the version is a draft; "+ Requirement" opens a dialog (code, title, level, parent, official text, assessable). Inside a card: the official text and the notes with their authority badges, verified quotes and the add-note form. No evidence is linked here; it is linked once to the internal standards these map onto. Both screens now share one accordion component (`components/accordion.tsx`).

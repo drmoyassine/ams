@@ -1,0 +1,169 @@
+import { useRef, useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { AccordionCard, HoverCard, Shaded } from './accordion';
+import { ContentText } from './content-text';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import type { FrameworkApi, FrameworkListItem } from '../lib/framework-api';
+
+type VersionSummary = FrameworkListItem['versions'][number];
+
+const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const STATUS = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
+const SCOPE = { institution: 'Institution', program: 'Program', both: 'Institution and program' } as const;
+const MAX_LOGO_KB = 512;
+
+/** The version in use: the newest published one; with none published, the newest there is. */
+export function currentVersion(versions: VersionSummary[]): VersionSummary | undefined {
+  const published = versions.filter((v) => v.status === 'published').sort((a, b) => (a.publishedAt ?? '').localeCompare(b.publishedAt ?? ''));
+  return published[published.length - 1] ?? versions[versions.length - 1];
+}
+const isOpenDraft = (v: VersionSummary) => v.status === 'draft' || v.status === 'in_review';
+
+/** The accreditor's logo, or its short name on a tile when it has none. */
+export function AccreditorMark({ shortName, logoUrl }: { shortName: string; logoUrl: string | null }) {
+  return logoUrl
+    ? <img src={logoUrl} alt={`${shortName} logo`} className="h-10 w-10 shrink-0 rounded-md border border-border bg-white object-contain p-0.5" />
+    : <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted text-[0.65rem] font-semibold uppercase tracking-tight text-muted-foreground">{shortName.slice(0, 5)}</span>;
+}
+
+/** How much of a version's assessable requirements are mapped onto the institution's own standards. */
+function MappedBar({ v }: { v: VersionSummary }) {
+  const pct = v.assessableCount ? Math.round((v.mappedCount / v.assessableCount) * 100) : 0;
+  return (
+    <div className="min-w-40">
+      <p className="text-sm">{v.mappedCount} of {v.assessableCount} mapped</p>
+      <div className="mt-1 h-1.5 w-full rounded bg-muted" role="img" aria-label={`${pct}% of the requirements are mapped to your standards`}>
+        <div className="h-1.5 rounded bg-primary" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One accreditor's standard on the External Standards page: logo, accreditor, name, scope and the version in use on the
+ * closed card; opening it shows how complete it is and every version, and lets an editor start a new edition or change
+ * the accreditor's logo.
+ */
+export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListItem; api: FrameworkApi; canWrite: boolean; onImport: () => void }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [edition, setEdition] = useState('');
+  const [error, setError] = useState('');
+  const current = currentVersion(f.versions);
+  const draft = f.versions.find((v) => isOpenDraft(v) && v.id !== current?.id);
+  const logoUrl = f.logoVersion ? api.logoUrl(f.accreditorId, f.logoVersion) : null;
+  const refresh = () => qc.invalidateQueries({ queryKey: ['frameworks'] });
+  const act = (fn: () => Promise<unknown>) => { setError(''); void fn().then(refresh, (e: Error) => setError(e.message)); };
+  const openVersion = (id: string) => void navigate({ to: '/settings/versions/$versionId', params: { versionId: id } });
+  const verb = (v: VersionSummary) => (isOpenDraft(v) ? 'Edit' : 'View');
+
+  const pickLogo = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_LOGO_KB * 1024) { setError(`The logo is larger than ${MAX_LOGO_KB} KB.`); return; }
+    act(() => api.uploadLogo(f.accreditorId, file));
+  };
+  const startNew = () => {
+    if (!current || !edition.trim()) return;
+    act(async () => { const r = await api.newVersion(current.id, { edition: edition.trim() }); setStarting(false); setEdition(''); openVersion(r.version.id); });
+  };
+
+  const menu = [
+    ...(current ? [{ label: `Open current version`, onSelect: () => openVersion(current.id) }] : []),
+    ...(canWrite && current ? [{ label: 'Start a new version', onSelect: () => { setOpen(true); setStarting(true); } }] : []),
+    ...(canWrite ? [{ label: 'Import a new edition', onSelect: onImport }, { label: logoUrl ? 'Change logo' : 'Add logo', onSelect: () => fileRef.current?.click() }] : []),
+    ...(canWrite && logoUrl ? [{ label: 'Remove logo', onSelect: () => act(() => api.removeLogo(f.accreditorId)) }] : []),
+  ];
+
+  return (
+    <div className="space-y-1">
+    <AccordionCard label={f.name} title={f.name} strong tone="shaded" testId="standard-card"
+      lead={<AccreditorMark shortName={f.accreditorShortName} logoUrl={logoUrl} />}
+      open={open} onToggle={() => setOpen(!open)} menuLabel={`Actions for ${f.name}`} menu={menu}
+      meta={(
+        <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+          <span>{f.accreditorShortName} · {SCOPE[f.scope]}</span>
+          {current && <span className="rounded bg-muted px-2 py-0.5">{current.edition} · {STATUS[current.status]}</span>}
+          {draft && <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-900">Draft {draft.edition}</span>}
+        </span>
+      )}
+      trailing={(
+        <>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Logo file for ${f.accreditorShortName}`} className="sr-only" tabIndex={-1}
+            onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ''; }} />
+          {current && (
+            <Link to="/settings/versions/$versionId" params={{ versionId: current.id }} aria-label={`${verb(current)} version ${current.edition} of ${f.name}`}
+              className="shrink-0 rounded-md border border-border px-3 py-1 text-sm hover:bg-muted">{verb(current)}</Link>
+          )}
+        </>
+      )}
+      hover={(
+        <HoverCard>
+          <p className="font-semibold"><ContentText>{f.name}</ContentText></p>
+          <p className="text-muted-foreground"><ContentText>{f.accreditorName}</ContentText> · {SCOPE[f.scope]}</p>
+          {current && <p className="mt-1 text-xs">{current.requirementCount} requirements · {current.mappedCount} of {current.assessableCount} mapped · {current.engagementCount} engagement{current.engagementCount === 1 ? '' : 's'}</p>}
+        </HoverCard>
+      )}>
+      <div className="space-y-2">
+        <Shaded>Accreditor</Shaded>
+        <p className="text-sm"><ContentText>{f.accreditorName}</ContentText> <span className="text-muted-foreground">· {f.accreditorType}</span></p>
+      </div>
+      {current && (
+        <div className="space-y-2">
+          <Shaded>{current.status === 'published' ? `In use: version ${current.edition}` : `Latest: version ${current.edition} (${STATUS[current.status].toLowerCase()})`}</Shaded>
+          <div className="flex flex-wrap items-start gap-x-8 gap-y-3 text-sm" data-testid="standard-summary">
+            <p>{current.requirementCount} requirement{current.requirementCount === 1 ? '' : 's'}</p>
+            <MappedBar v={current} />
+            <p>{current.engagementCount} engagement{current.engagementCount === 1 ? '' : 's'} use{current.engagementCount === 1 ? 's' : ''} it</p>
+          </div>
+        </div>
+      )}
+      <div className="space-y-2">
+        <Shaded>Versions</Shaded>
+        <ul className="divide-y divide-border rounded-md border border-border bg-background" aria-label={`Versions of ${f.name}`}>
+          {[...f.versions].reverse().map((v) => {
+            const date = v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : v.effectiveFrom ? `Effective ${DATE.format(new Date(v.effectiveFrom))}` : 'Not published';
+            return (
+              <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2" data-testid="version-row">
+                <span className="flex items-center gap-2 text-sm">
+                  <span className="font-medium">Version {v.edition}</span>
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{STATUS[v.status]}</span>
+                  {v.id === current?.id && v.status === 'published' && <span className="text-xs text-muted-foreground">in use</span>}
+                </span>
+                <span className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>{v.requirementCount} requirements · {v.mappedCount}/{v.assessableCount} mapped</span>
+                  <span>{date}</span>
+                  <Link to="/settings/versions/$versionId" params={{ versionId: v.id }} aria-label={`${verb(v)} version ${v.edition} of ${f.name}`}
+                    className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-muted">{verb(v)}</Link>
+                </span>
+              </li>
+            );
+          })}
+          {f.versions.length === 0 && <li className="px-3 py-2 text-sm text-muted-foreground">No versions yet.</li>}
+        </ul>
+      </div>
+      {canWrite && (
+        <div className="flex flex-wrap items-end gap-2">
+          {starting && current ? (
+            <>
+              <label className="flex flex-col text-sm">New edition (copied from {current.edition})<Input aria-label="New edition" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="e.g. 2028-29" className="w-48" autoFocus /></label>
+              <Button type="button" disabled={!edition.trim()} onClick={startNew}>Create draft</Button>
+              <Button type="button" variant="ghost" onClick={() => setStarting(false)}>Cancel</Button>
+            </>
+          ) : (
+            <>
+              {current && <Button type="button" variant="outline" onClick={() => setStarting(true)}>Start a new version</Button>}
+              <Button type="button" variant="outline" onClick={onImport}>Import a new edition</Button>
+            </>
+          )}
+        </div>
+      )}
+    </AccordionCard>
+    {error && <p role="alert" className="px-1 text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}

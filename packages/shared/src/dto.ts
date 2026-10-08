@@ -14,9 +14,19 @@ const provenance = {
   reviewedAt: iso.nullable(),
 };
 
+export const FrameworkVersionSummarySchema = z.object({
+  id: z.string(), edition: z.string(), status: z.enum(['draft', 'in_review', 'published', 'retired']), publishedAt: iso.nullable(), effectiveFrom: z.string().nullable(),
+  supersedesId: z.string().nullable(),
+  requirementCount: z.number(), assessableCount: z.number(),
+  /** Assessable requirements with an approved mapping to the institution's own standards. */
+  mappedCount: z.number(), engagementCount: z.number(),
+});
 export const FrameworkListItemSchema = z.object({
   id: z.string(), name: z.string(), scope: z.enum(['institution', 'program', 'both']), commission: z.string().nullable(),
-  accreditorId: z.string(), accreditorShortName: z.string(),
+  accreditorId: z.string(), accreditorShortName: z.string(), accreditorName: z.string(), accreditorType: z.enum(['institutional', 'programmatic', 'regulatory']),
+  /** Changes whenever the logo does (for the image address); null when the accreditor has none. */
+  logoVersion: z.string().nullable(),
+  versions: z.array(FrameworkVersionSummarySchema),
 });
 export const AccreditorSchema = z.object({
   id: z.string(), name: z.string(), shortName: z.string(), type: z.enum(['institutional', 'programmatic', 'regulatory']),

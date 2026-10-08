@@ -2,11 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ContentText } from '../components/content-text';
+import { StandardCard } from '../components/standard-card';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { ApiError, type FrameworkApi, type FrameworkListItem, type Issue } from '../lib/framework-api';
+import { ApiError, type FrameworkApi, type Issue } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
 
 export const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -18,38 +18,6 @@ export const EyeIcon = () => (
 export const PencilIcon = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
 );
-
-/** One row per version: "Version 2027-28", its status, its date, and an icon to open it (edit while it is a draft, view once it is not). */
-function Versions({ api, framework }: { api: FrameworkApi; framework: FrameworkListItem }) {
-  const { data } = useQuery({ queryKey: ['versions', framework.id], queryFn: () => api.versions(framework.id) });
-  return (
-    <ul className="mt-3 divide-y divide-border rounded-md border border-border" aria-label={`Versions of ${framework.name}`}>
-      {(data ?? []).map((v) => {
-        const editable = v.status === 'draft' || v.status === 'in_review';
-        const date = v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : v.effectiveFrom ? `Effective ${DATE.format(new Date(v.effectiveFrom))}` : 'Not published';
-        return (
-          <li key={v.id} className="flex items-center justify-between gap-3 px-3 py-2" data-testid="version-row">
-            <span className="flex items-center gap-2 text-sm">
-              <span className="font-medium">Version {v.edition}</span>
-              <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{STATUS_LABEL[v.status]}</span>
-            </span>
-            <span className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{date}</span>
-              <Link
-                to="/settings/versions/$versionId" params={{ versionId: v.id }}
-                aria-label={`${editable ? 'Edit' : 'View'} version ${v.edition} of ${framework.name}`} title={editable ? 'Edit this version' : 'View this version'}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
-              >
-                {editable ? <PencilIcon /> : <EyeIcon />}<span className="text-xs">{editable ? 'Edit' : 'View'}</span>
-              </Link>
-            </span>
-          </li>
-        );
-      })}
-      {data?.length === 0 && <li className="px-3 py-2 text-sm text-muted-foreground">No versions yet.</li>}
-    </ul>
-  );
-}
 
 function ImportForm({ api, canReview }: { api: FrameworkApi; canReview: boolean }) {
   const qc = useQueryClient();
@@ -137,8 +105,8 @@ function NewFramework({ api, onCreated }: { api: FrameworkApi; onCreated: () => 
 }
 
 /** "New Standard": a small wizard that asks how to add it, then shows that form (PRD 7.7: import a file, or build one by hand). */
-function NewStandardDialog({ api, canReview, onClose }: { api: FrameworkApi; canReview: boolean; onClose: () => void }) {
-  const [method, setMethod] = useState<'import' | 'scratch' | null>(null);
+function NewStandardDialog({ api, canReview, start = null, onClose }: { api: FrameworkApi; canReview: boolean; start?: 'import' | null; onClose: () => void }) {
+  const [method, setMethod] = useState<'import' | 'scratch' | null>(start);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -179,7 +147,7 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
   const { t } = useTranslation();
   const api = useApi(apiProp);
   const me = useMe(api);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<null | 'choose' | 'import'>(null);
   const { data, isError } = useQuery({ queryKey: ['frameworks'], queryFn: () => api.frameworks() });
   const canWrite = can(me.data, 'framework:write');
 
@@ -187,25 +155,15 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t('framework.title', 'External Standards')}</h1>
-        {canWrite && <Button type="button" onClick={() => setCreating(true)}>New Standard</Button>}
+        {canWrite && <Button type="button" onClick={() => setCreating('choose')}>New Standard</Button>}
       </div>
       {isError && <p role="alert">Could not load standards.</p>}
       <p className="text-sm text-muted-foreground">Accreditors' standards. Add or import one, edit its requirements while it is a draft, then publish it; map its requirements to your internal standards in each version's Mappings tab.</p>
       {data?.length === 0 && <p className="text-muted-foreground">No standards yet.{canWrite ? ' Use New Standard to import one or start from scratch.' : ''}</p>}
-      <ul className="space-y-3">
-        {(data ?? []).map((f) => (
-          <li key={f.id}>
-            <Card>
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold"><ContentText>{f.name}</ContentText></h2>
-                <span className="text-sm text-muted-foreground">{f.accreditorShortName} · {f.scope}</span>
-              </div>
-              <Versions api={api} framework={f} />
-            </Card>
-          </li>
-        ))}
+      <ul className="space-y-3" aria-label="Standards">
+        {(data ?? []).map((f) => <li key={f.id}><StandardCard f={f} api={api} canWrite={canWrite} onImport={() => setCreating('import')} /></li>)}
       </ul>
-      {creating && <NewStandardDialog api={api} canReview={can(me.data, 'framework:review')} onClose={() => setCreating(false)} />}
+      {creating && <NewStandardDialog api={api} canReview={can(me.data, 'framework:review')} start={creating === 'import' ? 'import' : null} onClose={() => setCreating(null)} />}
     </section>
   );
 }

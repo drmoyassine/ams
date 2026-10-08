@@ -5,17 +5,7 @@ import type {
 } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
-
-/** The file's bytes (the upload body). FileReader where Blob.arrayBuffer is missing. */
-function readBytes(file: Blob): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === 'function') return file.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as ArrayBuffer);
-    r.onerror = () => reject(r.error ?? new Error('could not read the file'));
-    r.readAsArrayBuffer(file);
-  });
-}
+import { readBytes } from './read-bytes';
 
 /** Evidence calls through the typed client; the file itself goes up as the request body. */
 export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {

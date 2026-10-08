@@ -6,7 +6,7 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '@ams/api';
+import { createApp, MemoryStore } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
 import { createApi } from './lib/api';
@@ -24,11 +24,12 @@ const ids = {} as Record<string, string>;
 
 async function one(sql: string, params: unknown[] = []) { return (await db.su.query(sql, params)).rows[0].id as string; }
 type Who = 'admin' | 'lead' | 'viewer';
-const apiFor = (who: Who): FrameworkApi => frameworkApi(createApi(((input: RequestInfo | URL, init?: RequestInit) => {
+const fetchAs = (who: Who) => ((input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers);
   headers.set('x-test-user', `${ids[who]}:${ids.inst}`);
   return app.request(input as string, { ...init, headers });
-}) as typeof fetch));
+}) as typeof fetch;
+const apiFor = (who: Who): FrameworkApi => frameworkApi(createApi(fetchAs(who)), fetchAs(who));
 /** Pages use router links, so they render inside a memory router; the page under test is the root route's component. */
 function wrap(ui: React.ReactElement) {
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
@@ -72,7 +73,7 @@ beforeAll(async () => {
   db = await createTestDb('webfw');
   pool = new pg.Pool({ connectionString: db.url });
   app = createApp({
-    pool,
+    pool, store: new MemoryStore(),
     authenticate: async (req) => {
       const h = req.headers.get('x-test-user');
       if (!h) return null;
@@ -105,18 +106,67 @@ describe('frameworks page', () => {
     await user.paste(JSON.stringify(file('2023')));
     await user.click(screen.getByRole('button', { name: 'Import' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/2 requirements, 1 documents, 1 templates/);
-    expect(await screen.findByText('Institutional Guide')).toBeTruthy();
-    expect(await screen.findByText(/2023/)).toBeTruthy();
+    const card = await screen.findByRole('region', { name: 'Institutional Guide' });
+    expect(card.textContent).toMatch(/2023 · Draft/);
   });
 
-  it('shows each version as "Version <edition>" with its status and date, and an Edit icon for a draft', async () => {
+  it('shows each standard as a card: accreditor, name, scope and the version in use, with the versions inside', async () => {
+    const user = userEvent.setup();
     render(wrap(<FrameworksPage api={apiFor('lead')} />));
-    const rows = await screen.findAllByTestId('version-row');
-    const row = rows.find((r) => /Version 2023/.test(r.textContent ?? ''))!;
+    const card = await screen.findByRole('region', { name: 'Institutional Guide' });
+    expect(card.textContent).toContain('PUC · Institution'); // accreditor and scope
+        expect(card.textContent).toMatch(/2023 · Draft/);
+    expect(within(card).getByRole('link', { name: /Edit version 2023 of Institutional Guide/ }).getAttribute('href')).toMatch(/^\/settings\/versions\//); // the card's own button
+    expect(within(card).queryByTestId('version-row')).toBeNull(); // versions are inside, until it is opened
+    await user.click(within(card).getByRole('button', { name: /^Institutional Guide/ }));
+    const row = within(card).getAllByTestId('version-row').find((r) => /Version 2023/.test(r.textContent ?? ''))!;
     expect(row.textContent).toMatch(/Draft/);
     expect(row.textContent).toMatch(/Not published/);
-    const link = within(row).getByRole('link', { name: /Edit version 2023 of Institutional Guide/ });
-    expect(link.getAttribute('href')).toMatch(/^\/settings\/versions\//);
+    expect(row.textContent).toMatch(/2 requirements · 0\/2 mapped/);
+    expect(within(row).getByRole('link', { name: /Edit version 2023 of Institutional Guide/ }).getAttribute('href')).toMatch(/^\/settings\/versions\//);
+    expect(within(card).getByTestId('standard-summary').textContent).toMatch(/2 requirements.*0 of 2 mapped.*0 engagements use it/);
+    expect(within(card).getByText('Public University Council')).toBeTruthy();
+  });
+
+  it('shows the short name on a tile until a logo is added, then the logo; an editor can add, change and remove it', async () => {
+    const user = userEvent.setup();
+    render(wrap(<FrameworksPage api={apiFor('lead')} />));
+    const card = await screen.findByRole('region', { name: 'Institutional Guide' });
+    expect(within(card).queryByRole('img', { name: 'PUC logo' })).toBeNull();
+    await user.click(within(card).getByRole('button', { name: 'Actions for Institutional Guide' }));
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open current version', 'Start a new version', 'Import a new edition', 'Add logo']);
+    await user.keyboard('{Escape}');
+    const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2])], 'puc.png', { type: 'image/png' });
+    await user.upload(within(card).getByLabelText('Logo file for PUC'), png);
+    const img = await within(card).findByRole('img', { name: 'PUC logo' });
+    expect(img.getAttribute('src')).toMatch(/^\/api\/accreditors\/[\w-]+\/logo\?v=\d+$/);
+    await user.click(within(card).getByRole('button', { name: 'Actions for Institutional Guide' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove logo' }));
+    await waitFor(() => expect(within(card).queryByRole('img', { name: 'PUC logo' })).toBeNull());
+    // not an image: refused with the server's reason
+    await userEvent.setup({ applyAccept: false }).upload(within(card).getByLabelText('Logo file for PUC'), new File(['<svg onload="x()"/>'], 'x.svg', { type: 'image/svg+xml' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/PNG, JPEG or WebP/); // shown even though the card is closed
+  });
+
+  it('starts a new version from the card, and a viewer gets no editing actions', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(wrap(<FrameworksPage api={apiFor('lead')} />));
+    const card = await screen.findByRole('region', { name: 'Institutional Guide' });
+    await user.click(within(card).getByRole('button', { name: /^Institutional Guide/ }));
+    await user.click(within(card).getByRole('button', { name: 'Start a new version' }));
+    await user.type(within(card).getByLabelText('New edition'), '2026');
+    await user.click(within(card).getByRole('button', { name: 'Create draft' }));
+    await waitFor(() => expect(within(card).queryByLabelText('New edition')).toBeNull());
+    unmount();
+    render(wrap(<FrameworksPage api={apiFor('viewer')} />));
+    const ro = await screen.findByRole('region', { name: 'Institutional Guide' });
+    expect(ro.textContent).toMatch(/2026 · Draft/); // the newest version is shown on the card
+    await user.click(within(ro).getByRole('button', { name: 'Actions for Institutional Guide' }));
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Open current version']);
+    await user.keyboard('{Escape}');
+    await user.click(within(ro).getByRole('button', { name: /^Institutional Guide/ }));
+    expect(within(ro).queryByRole('button', { name: 'Start a new version' })).toBeNull();
+    expect(within(ro).queryByRole('button', { name: 'Import a new edition' })).toBeNull();
   });
 
   it('creates a standard from scratch through the wizard, which then closes', async () => {

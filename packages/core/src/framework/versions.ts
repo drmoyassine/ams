@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
-import { accreditor, framework, frameworkVersion, reportTemplate, requirement, requirementNote } from '@ams/db';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { accreditor, engagement, framework, frameworkVersion, reportTemplate, requirement, requirementMapping, requirementNote } from '@ams/db';
 import {
   DecisionVocabSchema, FindingVocabSchema, LevelLabelsSchema, LifecycleTemplateSchema, RatingMethodSchema, ResponseVocabSchema,
   validateFrameworkConfig, type FrameworkConfig,
@@ -50,12 +50,46 @@ export async function createFramework(ctx: Ctx, input: z.infer<typeof CreateFram
   return row!;
 }
 
+/**
+ * The accreditors' standards for the External Standards page: each with its accreditor (and logo), and every version with
+ * how many requirements it has, how many of the assessable ones are mapped (approved mapping) to the institution's own
+ * standards, and how many engagements use it.
+ */
 export async function listFrameworks(ctx: Ctx) {
   await require_(ctx, 'framework:read');
-  return ctx.tx.select({
+  const rows = await ctx.tx.select({
     id: framework.id, name: framework.name, scope: framework.scope, commission: framework.commission,
-    accreditorId: accreditor.id, accreditorShortName: accreditor.shortName,
+    accreditorId: accreditor.id, accreditorShortName: accreditor.shortName, accreditorName: accreditor.name, accreditorType: accreditor.type,
+    logoUpdatedAt: accreditor.logoUpdatedAt, hasLogo: sql<boolean>`${accreditor.logoPath} is not null`,
   }).from(framework).innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).where(eq(framework.internal, false)).orderBy(asc(accreditor.shortName), asc(framework.name));
+  if (!rows.length) return [];
+  const versions = await ctx.tx.select({
+    id: frameworkVersion.id, frameworkId: frameworkVersion.frameworkId, edition: frameworkVersion.edition, status: frameworkVersion.status,
+    publishedAt: frameworkVersion.publishedAt, effectiveFrom: frameworkVersion.effectiveFrom, supersedesId: frameworkVersion.supersedesId,
+  }).from(frameworkVersion).where(inArray(frameworkVersion.frameworkId, rows.map((r) => r.id))).orderBy(asc(frameworkVersion.edition));
+  const ids = versions.map((v) => v.id);
+  const counts = new Map<string, { total: number; assessable: number }>();
+  const mapped = new Map<string, number>();
+  const engagements = new Map<string, number>();
+  if (ids.length) {
+    for (const c of await ctx.tx.select({
+      v: requirement.frameworkVersionId, total: sql<number>`count(*)::int`, assessable: sql<number>`count(*) filter (where ${requirement.isAssessable})::int`,
+    }).from(requirement).where(inArray(requirement.frameworkVersionId, ids)).groupBy(requirement.frameworkVersionId)) counts.set(c.v, { total: c.total, assessable: c.assessable });
+    for (const m of await ctx.tx.select({ v: requirement.frameworkVersionId, n: sql<number>`count(distinct ${requirement.id})::int` }).from(requirement)
+      .innerJoin(frameworkVersion, eq(frameworkVersion.id, requirement.frameworkVersionId))
+      .innerJoin(requirementMapping, and(eq(requirementMapping.frameworkId, frameworkVersion.frameworkId), eq(requirementMapping.externalCode, requirement.code), eq(requirementMapping.reviewStatus, 'approved')))
+      .where(and(inArray(requirement.frameworkVersionId, ids), eq(requirement.isAssessable, true))).groupBy(requirement.frameworkVersionId)) mapped.set(m.v, m.n);
+    for (const e of await ctx.tx.select({ v: engagement.frameworkVersionId, n: sql<number>`count(*)::int` }).from(engagement)
+      .where(inArray(engagement.frameworkVersionId, ids)).groupBy(engagement.frameworkVersionId)) engagements.set(e.v, e.n);
+  }
+  return rows.map(({ logoUpdatedAt, hasLogo, ...r }) => ({
+    ...r,
+    logoVersion: hasLogo && logoUpdatedAt ? String(logoUpdatedAt.getTime()) : null,
+    versions: versions.filter((v) => v.frameworkId === r.id).map((v) => ({
+      id: v.id, edition: v.edition, status: v.status, publishedAt: v.publishedAt?.toISOString() ?? null, effectiveFrom: v.effectiveFrom, supersedesId: v.supersedesId,
+      requirementCount: counts.get(v.id)?.total ?? 0, assessableCount: counts.get(v.id)?.assessable ?? 0, mappedCount: mapped.get(v.id) ?? 0, engagementCount: engagements.get(v.id) ?? 0,
+    })),
+  }));
 }
 
 // ---- Versions ------------------------------------------------------------------------------------
