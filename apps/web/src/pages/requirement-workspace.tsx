@@ -117,7 +117,7 @@ export function RequirementWorkspacePage({ id, api: override, evidence }: { id: 
               <p dir="auto" lang={r.language} className="whitespace-pre-wrap" data-testid="official-text">{showTranslation && r.translationEn ? r.translationEn : r.officialText}</p>
               {r.translationEn && <Button type="button" variant="ghost" className="mt-1 px-2 py-1" onClick={() => setShowTranslation(!showTranslation)}>{showTranslation ? 'Show original' : 'Show English translation'}</Button>}
             </>
-          ) : <p className="text-sm text-muted-foreground">This is a heading; its official text is in the items below it.</p>}
+          ) : <p className="text-sm text-muted-foreground">This is a heading; its description is in the items below it.</p>}
           {r.source && <p className="mt-2 text-xs text-muted-foreground">Source: page {r.source.page}{r.source.quoteVerified ? ' · quote verified' : ' · quote not verified'}</p>}
           {grouped.map((g) => (
             <div key={g.label} className="mt-3">

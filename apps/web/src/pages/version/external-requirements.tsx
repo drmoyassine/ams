@@ -20,7 +20,7 @@ const nameOf = (r: Requirement) => [tagOf(r), titleOf(r)].filter(Boolean).join('
 
 interface DialogValues { code: string; title: string; description: string; assessable: boolean; level: string; parentId: string }
 
-/** Adds or edits a requirement: code, title, the official text (verbatim from the source), and where it sits. */
+/** Adds or edits a requirement: code, title, the description (the requirement's own wording, verbatim from the source), and where it sits. */
 function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClose }: {
   editing: Requirement | null; parent: Requirement | null; levels: string[]; rows: Requirement[]; error: string;
   onSave: (v: DialogValues) => Promise<unknown>; onClose: () => void;
@@ -67,8 +67,8 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
               </label>
             </div>
           )}
-          <label className="flex flex-col text-sm">Official text (verbatim from the source)
-            <textarea name="description" aria-label="Official text" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" />
+          <label className="flex flex-col text-sm">Description (verbatim from the source)
+            <textarea name="description" aria-label="Description" rows={5} dir="auto" defaultValue={editing?.officialText ?? ''} className="rounded-md border border-border p-2 text-sm" />
           </label>
           <label className="text-sm"><input type="checkbox" name="assessable" aria-label="Assessable" defaultChecked={editing ? editing.isAssessable : true} /> Assessable (not just a heading)</label>
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -117,12 +117,12 @@ function Node(p: NodeProps) {
         hover={(
           <HoverCard>
             <p className="font-semibold"><ContentText>{nameOf(r)}</ContentText></p>
-            <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No official text.'}</ContentText></p>
+            <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No description.'}</ContentText></p>
           </HoverCard>
         )}>
         <div className="space-y-1" data-testid="requirement-detail">
-          <Shaded>Official text</Shaded>
-          {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No official text.</p>}
+          <Shaded>Description</Shaded>
+          {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description.</p>}
           {!r.isAssessable && <p className="text-xs text-muted-foreground">A heading only; it is not assessed itself.</p>}
         </div>
         <div className="space-y-1">

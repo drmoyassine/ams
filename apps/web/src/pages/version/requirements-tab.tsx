@@ -119,7 +119,7 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
       <form key={`${req.id}-${req.title}-${req.officialText}-${req.code}`} onSubmit={save} className="space-y-2">
         <label className="block text-sm">Code <Input name="code" defaultValue={req.code} readOnly={!canWrite} dir="auto" /></label>
         <label className="block text-sm">Title <Input name="title" defaultValue={req.title} readOnly={!canWrite} dir="auto" /></label>
-        <label className="block text-sm">Official text (verbatim from the source)
+        <label className="block text-sm">Description (verbatim from the source)
           <textarea name="officialText" dir="auto" rows={4} defaultValue={req.officialText ?? ''} readOnly={!canWrite} className="w-full rounded-md border border-border p-2 text-sm" />
         </label>
         <label className="text-sm"><input type="checkbox" name="assessable" defaultChecked={req.isAssessable} disabled={!canWrite} /> Assessable (not just a heading)</label>

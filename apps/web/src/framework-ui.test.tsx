@@ -261,7 +261,7 @@ describe('version page', () => {
     expect((within(dialog).getByLabelText('Level') as HTMLSelectElement).value).toBe('Measure');
     await user.type(within(dialog).getByLabelText('Code'), '1-2');
     await user.type(within(dialog).getByLabelText('Title'), 'Vision statement');
-    await user.type(within(dialog).getByLabelText('Official text'), 'A vision is published.');
+    await user.type(within(dialog).getByLabelText('Description'), 'A vision is published.');
     await user.click(within(dialog).getByRole('button', { name: 'Add requirement' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const added = await within(screen.getByRole('list', { name: 'Items of Standard 1' })).findByRole('region', { name: 'Measure 1-2' });

@@ -14,6 +14,12 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — Requirement wording is the description; titles that hold wording are corrected
+
+On external standards, the field that was called "Official text" is now labelled **Description**: in the requirement dialog, on the card and in its tooltip (the data is unchanged; it is still the requirement's own wording, verbatim from the source). The owner found a PUC draft whose indicators had their wording in the title and no description. None of the seed files (PUC, ABET, WSCUC) has that shape, so it came from that draft's own history. One generic rule now puts it right: when a requirement has no description and its title reads as wording (a sentence, or more than 60 characters), the wording becomes the description and the code becomes the title. It is applied on import, when a new version is copied from an existing one, and by migration 0034 to existing draft and in-review versions of external standards. Published and retired versions stay frozen; starting a new version from one gives a corrected copy.
+
+---
+
 ## 2026-10-08 — Sources move under Settings, with their originals and pages
 
 A standard's page now has three tabs: Requirements, Mappings and Settings. Sources moved into Settings, between Details and Lifecycle. Each source is a card with readable labels ("Policy and procedure · Binding", not codes), its page count, and whether its original is held. Inside are the original file (uploaded to the object store, opened inline when it is a PDF) and the pages: pick a page to read its text, or on a draft correct it, remove it or add the next one. On a draft, the ⋯ menu edits a source, uploads or replaces its file, or deletes it. A source a note cites cannot be deleted, nor can a quoted page, because quote verification reads exactly that text. A published version's sources stay fixed (the existing freeze trigger), and a new version copies them. Migration 0033 adds file name, type and size. The owner asked for a full document parsing and intelligence pipeline here: that is M7, the framework compiler (ROADMAP-009: upload, classify, parse, AI extraction with quote verification, side-by-side review, publish), gated by the liteparse track (ROADMAP-008). Sources with their originals are what it will read; until then, page text is pasted by hand.

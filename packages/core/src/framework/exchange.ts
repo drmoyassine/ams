@@ -90,6 +90,17 @@ export interface ImportOptions {
  * Imports a framework file as a new draft version. Everything is validated first and every problem is reported
  * together. Quote verification is recomputed from the imported page text; flags in the file are never trusted.
  */
+/**
+ * A requirement whose wording was put in its title, with no description, is stored the way the rest are: the wording as
+ * the description and the code as the title (a sentence, or more than 60 characters, is wording, not a title). Migration
+ * 0034 applied the same rule to existing drafts.
+ */
+export function splitTitleAndText(code: string, title: string, text: string | null | undefined): { title: string; officialText: string | null } {
+  const t = title.trim();
+  if ((text ?? '').trim() || !(t.length > 60 || /[.!?\u061F]\s*$/.test(t))) return { title, officialText: text ?? null };
+  return { title: code, officialText: t };
+}
+
 export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptions = {}) {
   await require_(ctx, 'framework:write');
   if (options.autoApprove) await require_(ctx, 'framework:review');
@@ -190,9 +201,10 @@ export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptio
 
   const idOf = new Map<string, string>();
   for (const r of order) {
+    const { title, officialText } = splitTitleAndText(r.code, r.title, r.official_text);
     const [row] = await guardIntegrity(() => ctx.tx.insert(requirement).values({
       institutionId: ctx.caller.institutionId, frameworkVersionId: v.id, parentId: r.parent_code ? idOf.get(r.parent_code)! : null,
-      code: r.code, levelLabel: r.level_label, title: r.title, officialText: r.official_text, language: r.language, translationEn: r.translation_en,
+      code: r.code, levelLabel: r.level_label, title, officialText, language: r.language, translationEn: r.translation_en,
       isAssessable: r.is_assessable, appliesWhen: r.applies_when, displayOrder: r.display_order, weight: r.weight === null ? null : String(r.weight),
       origin: 'import', ...prov(r.source), ...approval,
     }).returning());
