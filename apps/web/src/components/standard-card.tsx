@@ -11,8 +11,13 @@ type VersionSummary = FrameworkListItem['versions'][number];
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const STATUS = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
-const SCOPE = { institution: 'Institution', program: 'Program', both: 'Institution and program' } as const;
+const SCOPE = { institution: 'Institutional', program: 'Programmatic', both: 'Institutional and programmatic' } as const;
 const MAX_LOGO_KB = 512;
+
+/** "Published 5 Oct 2026", "Effective 1 Jan 2027" or "Not published". */
+function dateOf(v: VersionSummary): string {
+  return v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : v.effectiveFrom ? `Effective ${DATE.format(new Date(v.effectiveFrom))}` : 'Not published';
+}
 
 /** The version in use: the newest published one; with none published, the newest there is. */
 export function currentVersion(versions: VersionSummary[]): VersionSummary | undefined {
@@ -84,21 +89,16 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
     <AccordionCard label={f.name} title={f.name} strong tone="shaded" testId="standard-card"
       lead={<AccreditorMark shortName={f.accreditorShortName} logoUrl={logoUrl} />}
       open={open} onToggle={() => setOpen(!open)} menuLabel={`Actions for ${f.name}`} menu={menu}
-      meta={(
-        <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-          <span>{f.accreditorShortName} · {SCOPE[f.scope]}</span>
-          {current && <span className="rounded bg-muted px-2 py-0.5">{current.edition} · {STATUS[current.status]}</span>}
-          {draft && <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-900">Draft {draft.edition}</span>}
-        </span>
+      subtitle={(
+        <>
+          {[SCOPE[f.scope], current && `Version ${current.edition}`, current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
+          {draft && <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">Draft {draft.edition} in progress</span>}
+        </>
       )}
       trailing={(
         <>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Logo file for ${f.accreditorShortName}`} className="sr-only" tabIndex={-1}
             onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ''; }} />
-          {current && (
-            <Link to="/settings/versions/$versionId" params={{ versionId: current.id }} aria-label={`${verb(current)} version ${current.edition} of ${f.name}`}
-              className="shrink-0 rounded-md border border-border px-3 py-1 text-sm hover:bg-muted">{verb(current)}</Link>
-          )}
         </>
       )}
       hover={(
@@ -126,7 +126,7 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
         <Shaded>Versions</Shaded>
         <ul className="divide-y divide-border rounded-md border border-border bg-background" aria-label={`Versions of ${f.name}`}>
           {[...f.versions].reverse().map((v) => {
-            const date = v.publishedAt ? `Published ${DATE.format(new Date(v.publishedAt))}` : v.effectiveFrom ? `Effective ${DATE.format(new Date(v.effectiveFrom))}` : 'Not published';
+            const date = dateOf(v);
             return (
               <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2" data-testid="version-row">
                 <span className="flex items-center gap-2 text-sm">
