@@ -1065,7 +1065,7 @@ tags:
 last_updated: '2026-10-08'
 related_decisions:
   - id: DEC-006
-    name: AI proposes, humans publish
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
 ---
 
@@ -1114,9 +1114,9 @@ related_decisions:
     name: Framework analysis may send the institution's IQF text to the AI
     url: /DECISIONS.md#DEC-021
   - id: DEC-012
-    name: Vercel AI SDK with Anthropic as the one AI import point
+    name: Vercel AI SDK with the Anthropic provider behind aiExtract/aiOcr
     url: /DECISIONS.md#DEC-012
   - id: DEC-008
-    name: Host-agnostic deployment
+    name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 ---
