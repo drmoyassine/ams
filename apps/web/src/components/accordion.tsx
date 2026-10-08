@@ -46,8 +46,8 @@ export function ActionsMenu({ label, items }: { label: string; items: { label: s
  * opens below. Hovering the closed card (after a short delay) shows `hover` in a tooltip. Used by the internal and the
  * external requirement lists so they look and behave the same.
  */
-export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, tone = 'plain', children }: {
-  label: string; /** Shown before the tag, e.g. a logo. */ lead?: ReactNode; tag?: string; title?: string | null; strong?: boolean; /** Small text under the title. */ subtitle?: ReactNode; meta?: ReactNode; /** Beside the menu, outside the toggle, e.g. an Open button. */ trailing?: ReactNode; open: boolean; onToggle: () => void;
+export function AccordionCard({ label, lead, tag, title, strong, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, tone = 'plain', children }: {
+  label: string; /** Shown before the tag, e.g. a logo. */ lead?: ReactNode; tag?: string; title?: string | null; strong?: boolean; meta?: ReactNode; /** Beside the menu, outside the toggle, e.g. an Open button. */ trailing?: ReactNode; open: boolean; onToggle: () => void;
   menuLabel: string; menu: { label: string; onSelect: () => void }[]; hover?: ReactNode; testId?: string; tone?: 'plain' | 'shaded'; children?: ReactNode;
 }) {
   const [hovering, setHovering] = useState(false);
@@ -60,10 +60,7 @@ export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta,
         <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start">
           {lead}
           {tag && <Shaded>{tag}</Shaded>}
-          <span className="min-w-0 flex-1">
-            <span className={`block ${strong ? 'font-semibold' : ''}`}>{title ? <ContentText>{title}</ContentText> : null}</span>
-            {subtitle && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{subtitle}</span>}
-          </span>
+          <span className={`min-w-0 flex-1 ${strong ? 'font-semibold' : ''}`}>{title ? <ContentText>{title}</ContentText> : null}</span>
           {meta}
           <span aria-hidden="true" className={`text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
         </button>

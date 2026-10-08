@@ -89,11 +89,12 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
     <AccordionCard label={f.name} title={f.name} strong tone="shaded" testId="standard-card"
       lead={<AccreditorMark shortName={f.accreditorShortName} logoUrl={logoUrl} />}
       open={open} onToggle={() => setOpen(!open)} menuLabel={`Actions for ${f.name}`} menu={menu}
-      subtitle={(
-        <>
-          {[SCOPE[f.scope], current && `Version ${current.edition}`, current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
-          {draft && <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">Draft {draft.edition} in progress</span>}
-        </>
+      meta={(
+        <span className="hidden items-center gap-2 text-xs text-muted-foreground md:flex">
+          <span>{SCOPE[f.scope]}</span>
+          {current && <span className="rounded bg-muted px-2 py-0.5">{current.edition} · {current.status === 'published' ? dateOf(current) : STATUS[current.status]}</span>}
+          {draft && <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-900">Draft {draft.edition}</span>}
+        </span>
       )}
       trailing={(
         <>
