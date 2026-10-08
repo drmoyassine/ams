@@ -26,12 +26,22 @@ export const envSchema = z.object({
   OIDC_PROVIDER_ID: z.string().min(1).default('oidc'),
   SMTP_URL: z.string().url().optional(),
   SMTP_FROM: z.string().optional(),
+  // Encrypts secrets stored in the database (the AI provider key). Falls back to AUTH_SECRET when unset; changing it
+  // makes stored keys unreadable, so they must be entered again in Settings -> AI.
+  APP_SECRET: z.string().min(32).optional(),
   AI_PROVIDER: z.string().default('anthropic'),
   AI_MODEL: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** The AI settings the environment can supply when Settings -> AI has none (DEC-012, DEC-021). */
+export const aiEnvSchema = envSchema.pick({ AI_PROVIDER: true, AI_MODEL: true, ANTHROPIC_API_KEY: true });
+export function loadAiEnv(source: Record<string, string | undefined> = process.env) {
+  const present = Object.fromEntries(Object.entries(source).filter(([k, v]) => v !== '' && k in aiEnvSchema.shape));
+  return aiEnvSchema.parse(present);
+}
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   // An empty value (as in a copied .env.example) means "not set".

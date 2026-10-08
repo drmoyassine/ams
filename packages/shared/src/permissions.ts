@@ -12,6 +12,8 @@ export const PERMISSIONS = [
   // the decision, approve the final snapshot. `manage` is members, roadmap and assignments.
   // The institution's identity and branding (Settings): admin only.
   'institution:write',
+  // AI connection (Settings -> AI): provider, model, key and spend limits. Admin only.
+  'ai:manage',
   'engagement:read', 'engagement:create', 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review',
   // Evidence (PRD 9): read the repository, add evidence and propose links, approve or reject links.
   'evidence:read', 'evidence:write', 'evidence:review',

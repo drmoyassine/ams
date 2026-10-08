@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { withIdentity } from '@ams/db';
 import { JobEnvelopeSchema, type JobType } from '@ams/shared';
 import type { Ctx, JobQueue, ObjectStore } from '../ctx.js';
+import { runInAiScope } from '../ai/index.js';
 import { getJob, markFailed, markRunning, markSucceeded } from './jobs.js';
 import { handlers, type JobHandler } from './handlers.js';
 
@@ -32,7 +33,8 @@ export async function runJob(
       const row = await getJob(ctx, env.jobId); // RLS hides other tenants' rows
       if (row.type !== type || row.createdBy !== env.userId) throw new Error('Job envelope does not match its record');
       await markRunning(ctx, env.jobId);
-      const result = await handler(ctx, row.payload as Record<string, unknown>);
+      // The only place model calls are allowed besides the settings connection test (DEC-012).
+      const result = await runInAiScope('job', () => handler(ctx, row.payload as Record<string, unknown>));
       await markSucceeded(ctx, env.jobId, result);
     });
   } catch (e) {

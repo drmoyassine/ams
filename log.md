@@ -14,6 +14,20 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-08 — The AI connection, embeddings and Settings → AI (TASK-044)
+
+Step B of the framework analysis pipeline. Decisions: DEC-012 (one import point), DEC-021 (IQF text may go to the AI), DEC-023 (embeddings).
+- **One import point:** `packages/core/src/ai/index.ts` is the only file that imports `ai`. `aiExtract`, `aiOcr` and `embed` run only inside an AI scope that `runJob` opens around each handler (and the settings connection test opens for itself); elsewhere they throw `AiScopeError`. A test checks no other file imports the SDK and the API and SPA never call them.
+- **AI SDK 7:** `generateObject` is deprecated there, so structured output uses `generateText` with `Output.object({ schema })`; images go as `file` parts.
+- **Per-run log and budget:** each call is appended to `runtime.calls` (task, prompt version, model, tokens, ms, ok/error, cost) and written as one JSON line; handlers store `runtime.calls` in `job.result`. `AiBudget` throws `BudgetExceeded` before a call that would pass the token or cost limit, and caps the output to what is left. Embedding tokens count; they are not priced.
+- **Settings:** `ai_setting` (migrations 0036-0037) and Settings → AI (admin only, permission `ai:manage`). Keys are AES-256-GCM encrypted with a key derived from `APP_SECRET` (else `AUTH_SECRET`); changing the secret makes saved keys unreadable, so they must be typed again. The API returns only "configured" and the last 4 characters. A cost limit needs both token prices.
+- **Test connection** is the one model call outside the worker: a fixed tiny prompt, no institution data.
+- **Embeddings (DEC-023):** separate OpenAI-compatible endpoint, off by default. The `embedding` table (owner type CHECKed to `requirement`) holds vectors as `real[]`; `upsertEmbeddings` re-embeds only on a new text hash, model or dimension; `rankBySimilarity` is an exact cosine scan in TypeScript. The score only orders a shortlist; it is never shown as a match, coverage or confidence.
+- **OCR wiring:** `extract_text` passes `aiOcr` to the reader when AI is on, so scanned pages are read within the run's budget; with AI off they stay `needsOcr`.
+- **Tests never reach the network:** `setAiModelForTests(createFakeAiModel([...]))`, `setEmbedderForTests(createFakeEmbedder())`.
+
+---
+
 ## 2026-10-08 — Source files are read into page text (framework analysis, step A)
 
 `parseDocument()` (`packages/core/src/framework/parse-document.ts`) is now the single point that reads a file into pages (TASK-043, DEC-011). Learnings:

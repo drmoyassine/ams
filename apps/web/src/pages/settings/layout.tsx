@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { can, useMe } from '../../lib/me';
+import { defaultSettingsApi } from '../../lib/settings-api';
 
 const ITEMS = [
   { to: '/settings/organization', label: 'Organization', hint: 'Names, branding and org chart' },
@@ -7,6 +9,7 @@ const ITEMS = [
   { to: '/settings/quality-framework', label: 'Internal Quality Framework', hint: 'The institution\'s own standards and terms' },
   { to: '/settings/external-standards', label: 'External Standards', hint: 'Accreditors\' standards: add, import, edit and publish' },
 ] as const;
+const AI_ITEM = { to: '/settings/ai', label: 'AI', hint: 'Model, key and spend limits for document analysis' } as const;
 const COMING = [] as readonly { label: string; hint: string }[];
 
 /**
@@ -23,6 +26,8 @@ const item = [
 export function SettingsLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const nav = useRef<HTMLElement>(null);
+  const me = useMe(defaultSettingsApi);
+  const items = can(me.data, 'ai:manage') ? [...ITEMS, AI_ITEM] : ITEMS;
   // In the sideways-scrolling row, bring the current item into view.
   useEffect(() => {
     const active = nav.current?.querySelector<HTMLElement>('a.active');
@@ -35,7 +40,7 @@ export function SettingsLayout() {
       <h1 className="mb-4 text-2xl font-semibold">Settings</h1>
       <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
         <nav ref={nav} aria-label="Settings" className="-mx-4 flex shrink-0 gap-1 overflow-x-auto border-b border-border px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:w-56 lg:flex-col lg:overflow-visible lg:border-b-0 lg:px-0">
-          {ITEMS.map((i) => (
+          {items.map((i) => (
             <Link key={i.to} to={i.to} title={i.hint} className={item}>{i.label}</Link>
           ))}
           {COMING.map((i) => (

@@ -36,6 +36,57 @@ export const institution = pgTable('institution', {
   accentColor: text('accent_color'),
 }, (t) => [check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`)]);
 
+/**
+ * The institution's AI connection (Settings -> AI, DEC-021): one row per institution. The provider key is stored
+ * encrypted (AES-256-GCM, key derived from APP_SECRET); `api_key_last4` is all the client ever sees of it.
+ * Limits apply per run (one job). The worker reads this row; only an admin writes it.
+ */
+export const aiSetting = pgTable('ai_setting', {
+  ...base(), ...tenant(),
+  provider: text('provider').notNull().default('anthropic'),
+  model: text('model'),
+  apiKeyEnc: text('api_key_enc'),
+  apiKeyLast4: text('api_key_last4'),
+  maxTokensPerRun: integer('max_tokens_per_run'),
+  maxCostUsdPerRun: numeric('max_cost_usd_per_run', { precision: 12, scale: 4 }),
+  inputUsdPerMTok: numeric('input_usd_per_mtok', { precision: 12, scale: 4 }),
+  outputUsdPerMTok: numeric('output_usd_per_mtok', { precision: 12, scale: 4 }),
+  enabled: boolean('enabled').notNull().default(false),
+  // Embeddings (DEC-023): a separate OpenAI-compatible endpoint, off by default. The key is encrypted like the one above.
+  embedEnabled: boolean('embed_enabled').notNull().default(false),
+  embedBaseUrl: text('embed_base_url'),
+  embedModel: text('embed_model'),
+  embedApiKeyEnc: text('embed_api_key_enc'),
+  embedApiKeyLast4: text('embed_api_key_last4'),
+  embedDimension: integer('embed_dimension'),
+}, (t) => [
+  uniqueIndex('ai_setting_institution_idx').on(t.institutionId),
+  oneOf('ai_setting_provider_check', t.provider, ['anthropic']),
+  check('ai_setting_limits_check', sql`(${t.maxTokensPerRun} is null or ${t.maxTokensPerRun} > 0) and (${t.maxCostUsdPerRun} is null or ${t.maxCostUsdPerRun} > 0)`),
+]);
+
+/** The only things that may be embedded (DEC-023): framework text. Evidence, datasets, responses, requests and letters never are. */
+export const EMBEDDING_OWNER_TYPES = ['requirement'] as const;
+
+/**
+ * Derived data: the vector of a requirement's text, for ranking candidates by similarity (DEC-023). Rebuildable, and
+ * deliberately outside the frozen-version triggers. Plain real[] (no extension); similarity is computed in packages/core.
+ */
+export const embedding = pgTable('embedding', {
+  ...base(), ...tenant(),
+  ownerType: text('owner_type').notNull(),
+  ownerId: uuid('owner_id').notNull(),
+  model: text('model').notNull(),
+  dimension: integer('dimension').notNull(),
+  textHash: text('text_hash').notNull(),
+  vector: real('vector').array().notNull(),
+}, (t) => [
+  uniqueIndex('embedding_owner_model_idx').on(t.ownerType, t.ownerId, t.model),
+  index('embedding_institution_idx').on(t.institutionId),
+  oneOf('embedding_owner_type_check', t.ownerType, EMBEDDING_OWNER_TYPES),
+  check('embedding_dimension_check', sql`${t.dimension} > 0 and cardinality(${t.vector}) = ${t.dimension}`),
+]);
+
 const ORG_UNIT_TYPES = ['college', 'school', 'department', 'admin_unit', 'other'] as const;
 export const orgUnit = pgTable('org_unit', {
   ...base(), ...tenant(),

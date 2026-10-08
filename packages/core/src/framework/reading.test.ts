@@ -1,8 +1,9 @@
 // Reading a source's file into pages: queued by a person, done by the worker's extract_text handler as that person.
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { JobEnvelope } from '@ams/shared';
 import { ConflictError, ForbiddenError, type Ctx } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
+import { createFakeAiModel, setAiModelForTests } from '../ai/index.js';
 import { handlers } from '../jobs/handlers.js';
 import { runJob } from '../jobs/run.js';
 import { pdf } from './parse-fixtures.js';
@@ -89,5 +90,41 @@ describe('extract_text', () => {
     const { rows } = await w.db.su.query(`select status, result from job where id = $1`, [q.jobId]);
     expect(rows[0].status).toBe('succeeded');
     expect(rows[0].result).toMatchObject({ ok: false, error: expect.stringMatching(/not a valid Office file/) });
+  }, 60000);
+});
+
+describe('extract_text with Settings -> AI', () => {
+  afterEach(() => setAiModelForTests(null));
+  const scanned = async (title: string) => {
+    const d = await as('alo', (c) => addSourceDocument(c, { versionId: ids.draft!, title, role: 'other', authority: 'informational' }));
+    await as('alo', (c) => uploadSourceFile(c, d.id, { fileName: 'scan.pdf', mime: 'application/pdf', bytes: pdf([text, null]) }));
+    const q = await as('alo', (c) => requestTextExtraction(c, d.id));
+    return { id: d.id, jobId: q.jobId };
+  };
+
+  it('reads a scanned page with aiOcr, counts it in the job result, and keeps the others as they were', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const fake = createFakeAiModel(['Text read from the scan of page two.'], { inputTokens: 500, outputTokens: 20 });
+    setAiModelForTests(fake.model);
+    const d = await scanned('Scan on');
+    await work();
+    const pages = await as('alo', (c) => listSourcePages(c, d.id));
+    expect(pages.map((p) => [p.pageNo, p.method, p.needsOcr])).toEqual([[1, 'pdf_text', false], [2, 'ocr', false]]);
+    expect(pages[1]!.text).toBe('Text read from the scan of page two.');
+    expect(fake.calls).toHaveLength(1);
+    const { rows } = await w.db.su.query(`select result from job where id = $1`, [d.jobId]);
+    expect(rows[0].result.ai).toEqual([expect.objectContaining({ task: 'ocr', promptVersion: 'v1', inputTokens: 500, outputTokens: 20, ok: true })]);
+  }, 60000);
+
+  it('leaves pages flagged needsOcr when AI is switched off', async () => {
+    const fake = createFakeAiModel(['should not be used']);
+    setAiModelForTests(fake.model);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled) values ($1, 'm', false)`, [w.ids.inst]);
+    const d = await scanned('Scan off');
+    await work();
+    const pages = await as('alo', (c) => listSourcePages(c, d.id));
+    expect(pages.map((p) => [p.pageNo, p.needsOcr])).toEqual([[1, false], [2, true]]);
+    expect(fake.calls).toHaveLength(0);
+    await w.db.su.query(`delete from ai_setting`);
   }, 60000);
 });

@@ -253,6 +253,20 @@
       "when": 1791461234850,
       "tag": "0035_source_page_reading",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791462199974,
+      "tag": "0036_ai_setting",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791462202079,
+      "tag": "0037_ai_setting_rls",
+      "breakpoints": true
     }
   ]
 }

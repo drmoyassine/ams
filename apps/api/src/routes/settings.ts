@@ -1,9 +1,9 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createOrgUnit, getInstitution, listOrgUnits, updateInstitution, updateOrgUnit, updateProgram } from '@ams/core';
+import { createOrgUnit, getAiSettings, getInstitution, listOrgUnits, testAiConnection, updateAiSettings, updateInstitution, updateOrgUnit, updateProgram } from '@ams/core';
 import {
-  CreateOrgUnitSchema, InstitutionSchema, OrgUnitSchema, ProgramSchema, UpdateInstitutionSchema, UpdateOrgUnitSchema, UpdateProgramSchema, toDto,
+  AiSettingSchema, AiTestResultSchema, CreateOrgUnitSchema, UpdateAiSettingSchema, InstitutionSchema, OrgUnitSchema, ProgramSchema, UpdateInstitutionSchema, UpdateOrgUnitSchema, UpdateProgramSchema, toDto,
 } from '@ams/shared';
-import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
+import { requires, scopeFrom, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
 // The chain checks that the caller holds the permission somewhere; the services check it at the unit or program in question.
@@ -20,6 +20,22 @@ export function settingsRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { body: { required: true, ...json(UpdateInstitutionSchema) } },
       responses: { 200: { description: 'Updated', ...json(InstitutionSchema) }, ...errors },
     }), async (c) => c.json(toDto(InstitutionSchema, await updateInstitution(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/settings/ai', access: requires('ai:manage', scopeFrom.institution), tags: tag,
+      responses: { 200: { description: 'The AI connection: never the key, only whether one is set and its last 4 characters', ...json(AiSettingSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AiSettingSchema, await getAiSettings(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/settings/ai', access: requires('ai:manage', scopeFrom.institution), tags: tag,
+      request: { body: { required: true, ...json(UpdateAiSettingSchema) } },
+      responses: { 200: { description: 'Saved', ...json(AiSettingSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AiSettingSchema, await updateAiSettings(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/settings/ai/test', access: requires('ai:manage', scopeFrom.institution), tags: tag,
+      responses: { 200: { description: 'Result of one tiny call through the saved settings', ...json(AiTestResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AiTestResultSchema, await testAiConnection(c.get('ctx'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/org-units', access: requires('org:read'), tags: tag,

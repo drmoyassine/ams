@@ -1,6 +1,10 @@
 export * from './ctx.js';
 export * from './permissions.js';
 export * from './org/programs.js';
+export * from './ai/index.js';
+export * from './ai/settings.js';
+export * from './ai/embeddings.js';
+export { encryptSecret, decryptSecret } from './ai/crypto.js';
 export * from './jobs/jobs.js';
 export * from './jobs/run.js';
 export * from './jobs/handlers.js';

@@ -169,6 +169,7 @@ function pagesFor(ids) {
     { name: 'settings-programs', path: '/settings/programs' },
     { name: 'settings-quality-framework', path: '/settings/quality-framework' },
     { name: 'settings-external-standards', path: '/settings/external-standards' },
+    { name: 'settings-ai', path: '/settings/ai' },
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));

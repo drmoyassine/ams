@@ -9,10 +9,13 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.76",
+    "@ai-sdk/openai-compatible": "^3.0.66",
     "@ams/db": "workspace:*",
     "@ams/shared": "workspace:*",
     "@aws-sdk/client-s3": "^3.1146.0",
     "@llamaindex/liteparse": "^2.15.1",
+    "ai": "^7.0.133",
     "drizzle-orm": "^0.45.3",
     "fflate": "^0.8.3",
     "pg": "^8.23.1",
