@@ -3,3 +3,6 @@ dist
 dist-types
 *.tsbuildinfo
 .env
+
+# Agent working copies
+.claude/worktrees/
