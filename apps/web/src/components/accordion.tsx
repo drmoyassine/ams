@@ -53,22 +53,36 @@ export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta,
   const [hovering, setHovering] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
-    <section aria-label={label} className={`rounded-lg border border-border ${tone === 'shaded' ? 'bg-muted/30' : 'bg-background'}`} data-testid={testId}>
-      <div className="relative flex items-center gap-2 pe-2"
+    <section aria-label={label} className={`@container rounded-lg border border-border ${tone === 'shaded' ? 'bg-muted/30' : 'bg-background'}`} data-testid={testId}>
+      {/*
+        Laid out by the card's own width (a container query), so it also works in narrow columns on wide screens. Below
+        36rem the title gets a full line (after the tag, if any, which shares the first line with the chevron and the ⋯
+        menu) and `meta` wraps onto a line under it; from 36rem up everything sits in one row. Callers may still hide
+        `meta` on phones themselves.
+      */}
+      <div className="relative flex items-start gap-2 pe-2 @xl:items-center"
         onMouseEnter={() => { timer.current = setTimeout(() => setHovering(true), 400); }}
         onMouseLeave={() => { clearTimeout(timer.current); setHovering(false); }}>
-        <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start">
+        <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 px-3 py-3 text-start @xl:flex-nowrap @xl:px-4">
           {lead}
           {tag && <Shaded>{tag}</Shaded>}
-          <span className="min-w-0 flex-1">
+          {/* With a tag, narrow cards put the tag (and chevron) on the first line and give the title a full line of its own. */}
+          <span className={`min-w-0 flex-1 break-words [overflow-wrap:anywhere] ${tag ? '@max-xl:order-1 @max-xl:mt-1 @max-xl:basis-full' : ''}`}>
             <span className={`block ${strong ? 'font-semibold' : ''}`}>{title ? <ContentText>{title}</ContentText> : null}</span>
             {subtitle && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{subtitle}</span>}
           </span>
-          {meta}
-          <span aria-hidden="true" className={`text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
+          {meta && (
+            <span className="order-2 flex min-w-0 basis-full flex-wrap items-center gap-2 @max-xl:mt-1.5 @max-xl:has-[>.hidden:only-child]:mt-0 @xl:order-none @xl:shrink-0 @xl:basis-auto">
+              {meta}
+            </span>
+          )}
+          <span aria-hidden="true" className={`text-muted-foreground transition-transform ${tag ? '@max-xl:ms-auto' : ''} ${open ? 'rotate-90' : ''}`}>›</span>
         </button>
-        {trailing}
-        <ActionsMenu label={menuLabel} items={menu} />
+        {/* In narrow cards these stay level with the first row of the header. */}
+        <div className="flex h-12 shrink-0 items-center gap-2 empty:hidden @xl:h-auto">
+          {trailing}
+          <ActionsMenu label={menuLabel} items={menu} />
+        </div>
         {hovering && !open && hover}
       </div>
       {open && <div className="space-y-4 border-t border-border px-4 py-4">{children}</div>}
@@ -78,5 +92,5 @@ export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta,
 
 /** The tooltip body of a closed card. */
 export function HoverCard({ children }: { children: ReactNode }) {
-  return <div role="tooltip" className="pointer-events-none absolute start-4 top-full z-30 mt-1 w-[min(32rem,90vw)] rounded-md border border-border bg-background p-3 text-sm shadow-lg">{children}</div>;
+  return <div role="tooltip" className="pointer-events-none absolute start-4 top-full z-30 mt-1 w-[min(32rem,calc(100vw-4rem))] rounded-md [@media(hover:none)]:hidden border border-border bg-background p-3 text-sm shadow-lg">{children}</div>;
 }

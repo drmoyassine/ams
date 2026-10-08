@@ -67,6 +67,32 @@ describe('app shell', () => {
     expect(settings.nextElementSibling?.textContent).toBe('Sign out');
     await waitFor(() => expect(screen.getByTestId('institution-name').textContent).toBe('Gulf University'));
   });
+
+  it('opens the navigation in a drawer on small screens, and closes it on Escape, the backdrop or a followed link', async () => {
+    const user = userEvent.setup();
+    render(wrap(<AppLayout api={apiFor('admin')} />));
+    await screen.findByRole('link', { name: 'Settings' });
+    const button = screen.getByRole('button', { name: 'Open menu' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.getAttribute('aria-controls')).toBe('app-drawer');
+    await user.click(button);
+    const drawer = screen.getByRole('dialog', { name: 'Menu' });
+    expect(drawer.getAttribute('aria-modal')).toBe('true');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(drawer.contains(document.activeElement)).toBe(true);
+    // The same navigation, once: it moves into the drawer while it is open.
+    expect(screen.getAllByRole('navigation', { name: 'Main' })).toHaveLength(1);
+    expect(within(drawer).getByRole('link', { name: 'Settings' }).nextElementSibling?.textContent).toBe('Sign out');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(button);
+    await user.click(button);
+    await user.click(screen.getByTestId('drawer-backdrop'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(button);
+    await user.click(within(screen.getByRole('dialog')).getByRole('link', { name: 'Evidence' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
 
 describe('organization settings', () => {

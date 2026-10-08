@@ -49,8 +49,8 @@ function DefinitionEditor({ spec, onSave, onCancel }: { spec: DatasetSpec; onSav
       <label className="flex flex-col text-sm">One row is
         <Input aria-label="One row is" dir="auto" value={grain} onChange={(e) => setGrain(e.target.value)} placeholder="e.g. one program in one academic year" />
       </label>
-      <div className="overflow-x-auto">
-      <table className="w-full text-sm" aria-label="Columns">
+      <div className="-mx-1 overflow-x-auto px-1">
+      <table className="w-full min-w-[44rem] text-sm" aria-label="Columns">
         <thead><tr className="text-start text-xs text-muted-foreground">
           <th className="text-start font-normal">Column</th><th className="text-start font-normal">Type</th><th className="text-start font-normal">Unit</th>
           <th className="font-normal">Required</th><th className="text-start font-normal">Choices</th><th className="text-start font-normal">Help (shown in the form)</th><th />

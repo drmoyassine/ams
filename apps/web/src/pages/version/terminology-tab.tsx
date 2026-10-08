@@ -38,10 +38,10 @@ export function TerminologyTab({ version, me, glossary: override }: { version: V
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-sm text-muted-foreground">What this standard calls things, and the institution's term for each. Suggestions come from where a word sits in the standard; nothing you set is overwritten. Edit the terms themselves in <Link to="/settings/quality-framework" className="underline">Settings → Internal Quality Framework</Link>.</p>
         {canEdit && terms.length > 0 && (
-          <Button type="button" variant="ghost" className="shrink-0" onClick={() => void run(async () => { const r = await api.autoMap(version.frameworkId); setMessage(`${r.mapped} term(s) mapped from their structure.`); })}>Map unmapped terms automatically</Button>
+          <Button type="button" variant="ghost" className="shrink-0 self-start sm:self-auto" onClick={() => void run(async () => { const r = await api.autoMap(version.frameworkId); setMessage(`${r.mapped} term(s) mapped from their structure.`); })}>Map unmapped terms automatically</Button>
         )}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -51,15 +51,16 @@ export function TerminologyTab({ version, me, glossary: override }: { version: V
         <p className="text-sm text-amber-800">Your levels come from your internal quality framework. <Link to="/settings/quality-framework" className="underline">Set it up</Link> to map this standard's level names.</p>
       )}
       {standard && terms.length > 0 && (
-        <table className="w-full text-sm" aria-label={`Terminology of ${standard.accreditorShortName}`}>
-          <thead className="text-xs text-muted-foreground"><tr><th className="py-1 text-start">Standard's word</th><th className="text-start">Kind</th><th className="text-start">Internal term</th></tr></thead>
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[30rem] text-sm" aria-label={`Terminology of ${standard.accreditorShortName}`}>
+          <thead className="text-xs text-muted-foreground"><tr><th className="py-1 pe-2 text-start">Standard's word</th><th className="pe-2 text-start">Kind</th><th className="text-start">Internal term</th></tr></thead>
           <tbody>
             {standard.terms.map((t) => {
               const options = terms.filter((x) => x.kind === KIND_OF_SOURCE[t.source] && (x.active || x.id === t.termId));
               return (
                 <tr key={`${t.source}|${t.externalTerm}`} className="border-t border-border" data-testid="external-term">
-                  <td className="py-1"><ContentText>{t.externalTerm}</ContentText> <span className="text-xs text-muted-foreground">{t.detail}</span></td>
-                  <td>{SOURCE_LABEL[t.source]}</td>
+                  <td className="py-1 pe-2"><ContentText>{t.externalTerm}</ContentText> <span className="text-xs text-muted-foreground">{t.detail}</span></td>
+                  <td className="pe-2">{SOURCE_LABEL[t.source]}</td>
                   <td>
                     <select aria-label={`${standard.accreditorShortName} ${t.externalTerm} maps to`} className={select} disabled={!canEdit} value={t.termId ?? ''}
                       onChange={(e) => { const termId = e.target.value || null; void run(() => api.setAlias({ frameworkId: standard.frameworkId, source: t.source, externalTerm: t.externalTerm, termId })); }}>
@@ -72,6 +73,7 @@ export function TerminologyTab({ version, me, glossary: override }: { version: V
             })}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

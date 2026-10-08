@@ -58,13 +58,13 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <div>
+      <div className="min-w-0">
         <p className="mb-2 text-sm text-muted-foreground">Choose a requirement, then say which items of your internal quality framework answer it. Mappings are yours: they stay when this standard gets a new version.</p>
         {stale.length > 0 && <p role="status" className="mb-2 text-sm text-amber-800">{stale.length} mapping{stale.length === 1 ? '' : 's'} point at something that no longer exists in this version or in your internal quality framework.</p>}
         <ul role="tree" aria-label="Requirements to map" className="space-y-1">
           {rows.map((r) => (
             <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
-              <button type="button" onClick={() => setSelected(r.id)} className={`w-full rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected === r.id ? 'bg-muted font-medium' : ''}`}>
+              <button type="button" onClick={() => setSelected(r.id)} className={`w-full break-words rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected === r.id ? 'bg-muted font-medium' : ''}`}>
                 <ContentText>{requirementLabel(r.code, r.title)}</ContentText>
                 {countFor(r.code) > 0 && <span className="ms-2 rounded bg-muted px-1.5 text-xs text-muted-foreground" title="Mapped items">{countFor(r.code)}</span>}
               </button>
@@ -72,7 +72,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
           ))}
         </ul>
       </div>
-      <div>
+      <div className="min-w-0">
         {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
         {!current && <p className="text-sm text-muted-foreground">Select a requirement.</p>}
         {current && (
@@ -93,7 +93,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
                     {m.stale && <span className="text-xs text-amber-800">no longer exists</span>}
                   </div>
                   {m.rationale && <p className="mt-1 text-muted-foreground"><ContentText>{m.rationale}</ContentText></p>}
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {canReview && m.reviewStatus !== 'approved' && <Button type="button" onClick={() => act(() => api.reviewMapping(m.id, 'approved'))}>Approve</Button>}
                     {canReview && m.reviewStatus === 'pending' && <Button type="button" variant="ghost" onClick={() => act(() => api.reviewMapping(m.id, 'rejected'))}>Reject</Button>}
                     {canWrite && <Button type="button" variant="ghost" aria-label={`Remove mapping to ${m.internalCode}`} onClick={() => act(() => api.deleteMapping(m.id))}>Remove</Button>}
@@ -107,11 +107,11 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
                   <option value="" disabled>Choose an item…</option>
                   {internalOptions.map((o) => <option key={o.id} value={o.id}>{' '.repeat(o.depth)}{requirementLabel(o.code, o.title)}</option>)}
                 </select>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <select name="relation" aria-label="Relation" className={select} defaultValue="covers">
                     {Object.entries(RELATION).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
-                  <Input name="rationale" aria-label="Why" placeholder="Why (optional)" dir="auto" />
+                  <Input name="rationale" aria-label="Why" placeholder="Why (optional)" dir="auto" className="min-w-0 flex-1 basis-40" />
                 </div>
                 <Button type="submit">Propose mapping</Button>
               </form>

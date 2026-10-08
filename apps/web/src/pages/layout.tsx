@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { isReadableAccent } from '@ams/shared';
@@ -22,7 +22,13 @@ export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; 
   return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
 }
 
-/** Settings is for people who can manage something there; the pages themselves also check each action. */
+/** Focusable elements inside the drawer, for keeping Tab inside it while it is open. */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The shell. At `lg` and up the navigation is a sidebar; below it a slim top bar opens the same navigation in a
+ * slide-in drawer. Settings is for people who can manage something there; the pages themselves also check each action.
+ */
 export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evidence?: EvidenceApi }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -41,30 +47,101 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
   ] as const;
+  const inst = institution.data;
+  const institutionName = inst ? (inst.nameAr && inst.defaultLocale === 'ar' ? inst.nameAr : inst.nameEn) : null;
+
+  const [drawer, setDrawer] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
+  const close = useCallback(() => setDrawer(false), []);
+  useEffect(() => {
+    if (!drawer) {
+      // Focus goes back to the ☰ button when the drawer closes.
+      if (wasOpen.current) { wasOpen.current = false; menuButton.current?.focus(); }
+      return undefined;
+    }
+    wasOpen.current = true;
+    panel.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); setDrawer(false); return; }
+      if (e.key !== 'Tab' || !panel.current) return;
+      const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      const first = items[0]; const last = items[items.length - 1];
+      if (!first || !last) return;
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // Widening the window to the sidebar breakpoint closes the drawer.
+    const wide = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 64rem)') : null;
+    const onWide = (e: MediaQueryListEvent) => { if (e.matches) setDrawer(false); };
+    wide?.addEventListener('change', onWide);
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; wide?.removeEventListener('change', onWide); };
+  }, [drawer]);
+
+  /** The navigation itself: the same in the sidebar and in the drawer (rendered in one of them at a time). */
+  const links = (
+    <>
+      <nav className="flex flex-col gap-1" aria-label="Main">
+        {nav.map((n) => (
+          <Link key={n.to} to={n.to} className={navLink}>
+            {n.label}
+          </Link>
+        ))}
+        <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
+      </nav>
+      {canSettings && (
+        <Link to="/settings" className={`mt-6 block ${navLink}`}>{t('nav.settings', 'Settings')}</Link>
+      )}
+      <Button
+        variant="ghost" className={`${canSettings ? 'mt-1' : 'mt-6'} w-full justify-start px-3`}
+        onClick={async () => { close(); await authClient.signOut(); await navigate({ to: '/login' }); }}
+      >
+        {t('signOut')}
+      </Button>
+    </>
+  );
+  const iconButton = 'flex size-10 shrink-0 items-center justify-center rounded-md text-xl leading-none hover:bg-background';
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-56 border-e border-border bg-muted p-4">
+    <div className="min-h-screen lg:flex">
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-muted px-4 py-1.5 lg:hidden">
+        <button
+          ref={menuButton} type="button" aria-label="Open menu" aria-expanded={drawer} aria-controls="app-drawer"
+          onClick={() => setDrawer(true)} className={`-ms-2 ${iconButton}`}
+        ><span aria-hidden="true">☰</span></button>
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <p className="shrink-0 font-semibold">{t('appName')}</p>
+          {institutionName && <p className="min-w-0 truncate text-sm text-muted-foreground"><ContentText>{institutionName}</ContentText></p>}
+        </div>
+      </header>
+      <aside className="hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
         <p className="text-lg font-semibold">{t('appName')}</p>
-        <p className="mb-6 text-sm text-muted-foreground" data-testid="institution-name">{institution.data && <ContentText>{institution.data.nameAr && institution.data.defaultLocale === 'ar' ? institution.data.nameAr : institution.data.nameEn}</ContentText>}</p>
-        <nav className="flex flex-col gap-1" aria-label="Main">
-          {nav.map((n) => (
-            <Link key={n.to} to={n.to} className={navLink}>
-              {n.label}
-            </Link>
-          ))}
-          <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
-        </nav>
-        {canSettings && (
-          <Link to="/settings" className="mt-6 block rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium">{t('nav.settings', 'Settings')}</Link>
-        )}
-        <Button
-          variant="ghost" className={`${canSettings ? 'mt-1' : 'mt-6'} w-full justify-start`}
-          onClick={async () => { await authClient.signOut(); await navigate({ to: '/login' }); }}
-        >
-          {t('signOut')}
-        </Button>
+        <p className="mb-6 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <ContentText>{institutionName}</ContentText>}</p>
+        {!drawer && links}
       </aside>
-      <main className="flex-1 p-8"><Outlet /></main>
+      {drawer && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" aria-hidden="true" data-testid="drawer-backdrop" onClick={close} />
+          <div
+            ref={panel} id="app-drawer" role="dialog" aria-modal="true" aria-label="Menu"
+            className="drawer-in absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-e border-border bg-muted p-4 shadow-xl"
+            onClick={(e) => { if ((e.target as Element).closest('a')) close(); }}
+          >
+            <div className="mb-6 flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-semibold">{t('appName')}</p>
+                {institutionName && <p className="break-words text-sm text-muted-foreground"><ContentText>{institutionName}</ContentText></p>}
+              </div>
+              <button type="button" aria-label="Close menu" onClick={close} className={`-me-2 ${iconButton}`}><span aria-hidden="true">✕</span></button>
+            </div>
+            {links}
+          </div>
+        </div>
+      )}
+      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8"><Outlet /></main>
     </div>
   );
 }

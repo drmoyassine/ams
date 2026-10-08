@@ -18,4 +18,12 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
 }
+html { -webkit-text-size-adjust: 100%; }
 body { background: var(--background); color: var(--foreground); font-family: system-ui, sans-serif; }
+
+/* The navigation drawer on small screens slides in from the start edge (the right in Arabic). */
+@keyframes drawer-in { from { transform: translateX(-100%); } }
+@keyframes drawer-in-rtl { from { transform: translateX(100%); } }
+.drawer-in { animation: drawer-in 180ms ease-out; }
+[dir='rtl'] .drawer-in { animation-name: drawer-in-rtl; }
+@media (prefers-reduced-motion: reduce) { .drawer-in { animation: none; } }

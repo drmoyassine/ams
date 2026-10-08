@@ -121,9 +121,9 @@ export function ResponsesTab({ item, api, canWrite, columns, onAdded }: { item: 
             <thead className="sticky top-0 bg-muted">
               <tr>
                 <th scope="col" className="border-b border-border px-2 py-1 text-start font-medium">Received</th>
-                <th scope="col" className="border-b border-s border-border px-2 py-1 text-start font-medium">From</th>
-                {columns.map((c) => <th key={c.key} scope="col" className="border-b border-s border-border px-2 py-1 text-start font-medium" dir="auto">{c.label}</th>)}
-                <th scope="col" className="border-b border-s border-border px-2 py-1 text-start font-medium">In the data</th>
+                <th scope="col" className="min-w-28 border-b border-s border-border px-2 py-1 text-start font-medium">From</th>
+                {columns.map((c) => <th key={c.key} scope="col" className="min-w-32 border-b border-s border-border px-2 py-1 text-start font-medium" dir="auto">{c.label}</th>)}
+                <th scope="col" className="whitespace-nowrap border-b border-s border-border px-2 py-1 text-start font-medium">In the data</th>
               </tr>
             </thead>
             <tbody>

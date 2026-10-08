@@ -16,15 +16,26 @@ export function AuthorityBadge({ authority }: { authority: keyof typeof AUTHORIT
 }
 
 const REVIEW = {
-  pending: { label: 'Pending review', cls: 'bg-muted text-muted-foreground border-border' },
-  approved: { label: 'Reviewed: approved', cls: 'bg-emerald-50 text-emerald-900 border-emerald-300' },
-  rejected: { label: 'Reviewed: rejected', cls: 'bg-red-50 text-red-900 border-red-300' },
+  pending: { label: 'Pending review', short: 'Pending', dot: 'bg-muted-foreground', cls: 'bg-muted text-muted-foreground border-border' },
+  approved: { label: 'Reviewed: approved', short: 'Approved', dot: 'bg-emerald-600', cls: 'bg-emerald-50 text-emerald-900 border-emerald-300' },
+  rejected: { label: 'Reviewed: rejected', short: 'Rejected', dot: 'bg-red-600', cls: 'bg-red-50 text-red-900 border-red-300' },
 } as const;
 
-/** Internal review state of framework content. This is never an accreditation status (DEC-005). */
+/**
+ * Internal review state of framework content. This is never an accreditation status (DEC-005). Below `sm` it shows a
+ * coloured dot and one word; the full wording stays in the DOM for screen readers (and is what `data-testid="review"`
+ * holds).
+ */
 export function ReviewBadge({ status }: { status: keyof typeof REVIEW }) {
   const r = REVIEW[status];
-  return <span data-testid="review" className={cn('rounded border px-2 py-0.5 text-xs', r.cls)}>{r.label}</span>;
+  return (
+    <span className="inline-flex shrink-0">
+      <span aria-hidden="true" title={r.label} className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground sm:hidden">
+        <span className={cn('size-2 rounded-full', r.dot)} />{r.short}
+      </span>
+      <span data-testid="review" className={cn('whitespace-nowrap rounded border px-2 py-0.5 text-xs max-sm:sr-only', r.cls)}>{r.label}</span>
+    </span>
+  );
 }
 
 const STATUS = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
