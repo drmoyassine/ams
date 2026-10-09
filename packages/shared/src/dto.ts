@@ -53,10 +53,13 @@ export const RequirementSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), parentId: z.string().nullable(), code: z.string(), levelLabel: z.string(), title: z.string(),
   officialText: z.string().nullable(), language: z.string(), translationEn: z.string().nullable(), isAssessable: z.boolean(),
   appliesWhen: z.unknown(), displayOrder: z.number(), weight: z.string().nullable(), depth: z.number().optional(), ...provenance,
+  /** A person changed this AI-made requirement: a new analysis run leaves it as it is. */
+  editedByPerson: z.boolean().optional(),
 });
 export const NoteSchema = z.object({
   id: z.string(), requirementId: z.string(), type: z.enum(['guidance', 'evidence_expectation', 'data_request', 'quantitative_norm']),
   text: z.string(), authority: z.enum(['required', 'example', 'suggested', 'ai_suggested', 'institution_defined']), norm: z.unknown(), ...provenance,
+  editedByPerson: z.boolean().optional(),
 });
 export const TemplateSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), key: z.string(), name: z.string(),
@@ -66,6 +69,8 @@ export const TemplateSchema = z.object({
 export const SourceDocumentSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), title: z.string(), role: z.string(), authority: z.string(), language: z.string(),
   filePath: z.string(), sha256: z.string(), pageCount: z.number().nullable(), textStatus: z.string(),
+  /** Who chose the role: a person ('manual'), the analysis ('ai'), or nobody yet ('unset', the analysis proposes one). */
+  roleOrigin: z.enum(['manual', 'ai', 'unset']).optional(),
   fileName: z.string().nullable(), mime: z.string().nullable(), size: z.number().nullable(),
   /** Listing only: pages whose text is stored, and whether the original file is held. */
   storedPages: z.number().optional(), hasFile: z.boolean().optional(),

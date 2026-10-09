@@ -3,6 +3,7 @@ import type { Ctx } from '../ctx.js';
 import { AiDisabledError, AiNotConfiguredError, aiOcr } from '../ai/index.js';
 import { loadAiRuntime } from '../ai/settings.js';
 import { extractText } from '../framework/reading.js';
+import { analyseJob } from '../framework/analysis/stages.js';
 
 export type JobHandler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
 
@@ -22,5 +23,7 @@ export const handlers: Partial<Record<JobType, JobHandler>> = {
     const result = await extractText(ctx, payload, { ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, runtime })).text });
     return { ...result, ai: runtime.calls };
   },
+  // One step of a framework analysis run; each step queues the next (framework/analysis/stages.ts).
+  analyse: analyseJob,
   notify: async (_ctx, payload) => ({ delivered: false, echoed: payload.message ?? null }),
 };

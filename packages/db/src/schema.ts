@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  ENGAGEMENT_KINDS, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
+  ANALYSIS_STAGES, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
   MILESTONE_TYPES, PHASE_TYPES, ROLES,
 } from '@ams/shared';
 import {
@@ -165,7 +165,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -185,6 +185,8 @@ export const extractionItem = pgTable('extraction_item', {
   ...base(), ...tenant(),
   frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
   jobId: uuid('job_id').references(() => job.id),
+  /** The analysis run that proposed this item (its raw output, kept for the record). */
+  analysisRunId: uuid('analysis_run_id').references((): AnyPgColumn => analysisRun.id),
   kind: text('kind', { enum: EXTRACTION_KINDS }).notNull(),
   payload: jsonb('payload').notNull(),
   sourceDocumentId: uuid('source_document_id').references(() => sourceDocument.id),
@@ -197,6 +199,7 @@ export const extractionItem = pgTable('extraction_item', {
   reviewedBy: uuid('reviewed_by').references(() => appUser.id),
 }, (t) => [
   index('extraction_item_version_idx').on(t.frameworkVersionId, t.status),
+  index('extraction_item_run_idx').on(t.analysisRunId),
   oneOf('extraction_item_kind_check', t.kind, EXTRACTION_KINDS),
   oneOf('extraction_item_status_check', t.status, EXTRACTION_STATUSES),
 ]);
@@ -264,6 +267,7 @@ const DOCUMENT_ROLES = [
   'standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other',
 ] as const;
 const DOCUMENT_AUTHORITIES = ['binding', 'interpretive', 'informational'] as const;
+export const ROLE_ORIGINS = ['manual', 'ai', 'unset'] as const;
 const TEXT_STATUSES = ['pending', 'queued', 'extracted', 'ocr_needed', 'ocr_done', 'failed'] as const;
 export const sourceDocument = pgTable('source_document', {
   ...base(), ...tenant(),
@@ -280,8 +284,11 @@ export const sourceDocument = pgTable('source_document', {
   fileName: text('file_name'),
   mime: text('mime'),
   size: integer('size'),
+  /** Who chose `role`: a person, the analysis (which may revise its own choice), or nobody yet (the analysis proposes one). */
+  roleOrigin: text('role_origin', { enum: ROLE_ORIGINS }).notNull().default('manual'),
 }, (t) => [
   index('source_document_version_idx').on(t.frameworkVersionId),
+  oneOf('source_document_role_origin_check', t.roleOrigin, ROLE_ORIGINS),
   oneOf('source_document_role_check', t.role, DOCUMENT_ROLES),
   oneOf('source_document_authority_check', t.authority, DOCUMENT_AUTHORITIES),
   oneOf('source_document_text_status_check', t.textStatus, TEXT_STATUSES),
@@ -319,6 +326,12 @@ const provenance = () => ({
   reviewedBy: uuid('reviewed_by').references((): AnyPgColumn => appUser.id),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
 });
+/**
+ * On requirement and requirement_note: a person changed this row after the analysis wrote it. Set by the database
+ * (trigger mark_person_edit) on any update that is not the worker's, so every edit path counts. A re-run of the analysis
+ * never overwrites, re-parents or deletes such a row.
+ */
+const editedByPerson = () => ({ editedByPerson: boolean('edited_by_person').notNull().default(false) });
 const provenanceChecks = (name: string, t: { origin: AnyPgColumn; reviewStatus: AnyPgColumn; quoteVerified: AnyPgColumn; sourceQuote: AnyPgColumn }) => [
   oneOf(`${name}_origin_check`, t.origin, ORIGINS),
   oneOf(`${name}_review_status_check`, t.reviewStatus, REVIEW_STATUSES),
@@ -340,6 +353,7 @@ export const requirement = pgTable('requirement', {
   displayOrder: integer('display_order').notNull().default(0),
   weight: numeric('weight'),
   ...provenance(),
+  ...editedByPerson(),
 }, (t) => [
   uniqueIndex('requirement_version_code_idx').on(t.frameworkVersionId, t.code),
   index('requirement_parent_idx').on(t.parentId),
@@ -356,6 +370,7 @@ export const requirementNote = pgTable('requirement_note', {
   authority: text('authority', { enum: NOTE_AUTHORITIES }).notNull(),
   norm: jsonb('norm'),
   ...provenance(),
+  ...editedByPerson(),
 }, (t) => [
   index('requirement_note_requirement_idx').on(t.requirementId),
   oneOf('requirement_note_type_check', t.type, NOTE_TYPES),
@@ -379,6 +394,32 @@ export const reportTemplate = pgTable('report_template', {
   uniqueIndex('report_template_version_key_idx').on(t.frameworkVersionId, t.key),
   oneOf('report_template_kind_check', t.kind, TEMPLATE_KINDS),
   ...provenanceChecks('report_template', t),
+]);
+
+/**
+ * One framework analysis (PRD 15, step C) of a draft version's sources. Each stage runs as its own job; `progress` holds
+ * the stage and the position inside it so a retried job resumes there. `usage` is the run's AI spend across all its jobs
+ * (the per-run budget of Settings -> AI applies to the total). At most one run per version is queued or running.
+ */
+export const analysisRun = pgTable('analysis_run', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  status: text('status', { enum: ANALYSIS_STATUSES }).notNull().default('queued'),
+  stage: text('stage', { enum: ANALYSIS_STAGES }),
+  progress: jsonb('progress').$type<AnalysisProgress>().notNull().default(sql`'{}'::jsonb`),
+  model: text('model'),
+  promptVersions: jsonb('prompt_versions').$type<Record<string, string>>().notNull().default(sql`'{}'::jsonb`),
+  usage: jsonb('usage').$type<AnalysisUsage>().notNull().default(sql`'{"inputTokens":0,"outputTokens":0,"costUsd":null,"calls":0}'::jsonb`),
+  error: text('error'),
+  startedBy: uuid('started_by').references((): AnyPgColumn => appUser.id),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  report: jsonb('report').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+}, (t) => [
+  index('analysis_run_version_idx').on(t.frameworkVersionId, t.createdAt),
+  uniqueIndex('analysis_run_one_active_idx').on(t.frameworkVersionId).where(sql`${t.status} in ('queued', 'running')`),
+  oneOf('analysis_run_status_check', t.status, ANALYSIS_STATUSES),
+  check('analysis_run_stage_check', sql`${t.stage} is null or ${t.stage} in (${sql.raw(ANALYSIS_STAGES.map((v) => `'${v}'`).join(', '))})`),
 ]);
 
 // ---- 6.4 Engagements & roadmap --------------------------------------------------------------

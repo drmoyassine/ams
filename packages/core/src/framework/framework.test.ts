@@ -75,7 +75,8 @@ describe('quote verification', () => {
   it('matches Arabic regardless of diacritics, tatweel and zero-width marks', () => {
     const page = 'يجب أن تكـون المؤسسةُ مُرخَّصة‏.';
     expect(quoteInText('تكون المؤسسة مرخصة', page)).toBe(true);
-    expect(normalizeForQuote('المؤسسة')).toBe('المؤسسة');
+    // Taa marbuta and haa are folded together (step C's normalisation), so either spelling matches.
+    expect(normalizeForQuote('المؤسسة')).toBe(normalizeForQuote('المؤسسه'));
   });
   it('does not match text that is not there, or an empty quote', () => {
     expect(quoteInText('a different sentence', 'The institution has a mission.')).toBe(false);

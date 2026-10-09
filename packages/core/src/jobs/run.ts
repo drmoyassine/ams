@@ -6,7 +6,7 @@ import { runInAiScope } from '../ai/index.js';
 import { getJob, markFailed, markRunning, markSucceeded } from './jobs.js';
 import { handlers, type JobHandler } from './handlers.js';
 
-const noQueue: JobQueue = { send: async () => { throw new Error('Workers do not publish jobs from inside a job'); } };
+const noQueue: JobQueue = { send: async () => { throw new Error('This worker has no queue to publish follow-up jobs to'); } };
 
 /**
  * Runs one queued job inside the same identity-carrying transaction helper the API uses, as the user who queued it
@@ -17,7 +17,7 @@ export async function runJob(
   type: JobType,
   rawEnvelope: unknown,
   registry: Partial<Record<JobType, JobHandler>> = handlers,
-  deps: { store?: ObjectStore } = {},
+  deps: { store?: ObjectStore; queue?: JobQueue } = {},
 ): Promise<void> {
   const env = JobEnvelopeSchema.parse(rawEnvelope);
   const handler = registry[type];
@@ -25,10 +25,16 @@ export async function runJob(
   const identity = {
     userId: env.userId, institutionId: env.institutionId, requestId: env.jobId, actorType: env.actorType, role: 'ams_worker' as const,
   };
-  const ctxFor = (tx: Ctx['tx']): Ctx => ({ tx, caller: identity, queue: noQueue, afterCommit: () => { throw new Error('afterCommit is not available in jobs'); }, ...(deps.store ? { store: deps.store } : {}) });
+  // A handler may queue a follow-up job (a multi-step run queues its next step): the job row is written in this job's
+  // transaction and published to the queue only after it commits, exactly as from the API.
+  let hooks: (() => Promise<void>)[] = [];
+  const ctxFor = (tx: Ctx['tx']): Ctx => ({
+    tx, caller: identity, queue: deps.queue ?? noQueue, afterCommit: (fn) => { hooks.push(fn); }, ...(deps.store ? { store: deps.store } : {}),
+  });
 
   try {
     await withIdentity(pool, identity, async (tx) => {
+      hooks = [];
       const ctx = ctxFor(tx);
       const row = await getJob(ctx, env.jobId); // RLS hides other tenants' rows
       if (row.type !== type || row.createdBy !== env.userId) throw new Error('Job envelope does not match its record');
@@ -38,8 +44,10 @@ export async function runJob(
       await markSucceeded(ctx, env.jobId, result);
     });
   } catch (e) {
+    hooks = [];
     const message = e instanceof Error ? e.message : String(e);
     await withIdentity(pool, identity, (tx) => markFailed(ctxFor(tx), env.jobId, message)).catch(() => undefined);
     throw e;
   }
+  for (const fn of hooks) await fn();
 }

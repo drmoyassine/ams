@@ -1,4 +1,6 @@
 export * from './quote.js';
+export * from './quote-match.js';
+export * from './analysis/index.js';
 export * from './versions.js';
 export * from './requirements.js';
 export * from './notes.js';

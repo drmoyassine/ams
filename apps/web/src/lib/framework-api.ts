@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
+  AnalysisRun, ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
@@ -22,6 +22,7 @@ export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Mappings = z.infer<typeof MappingsSchema>;
 export type Mapping = z.infer<typeof MappingSchema>;
 export type Issue = { path: string; message: string };
+export type { AnalysisRun };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
 export class ApiError extends Error {
@@ -127,7 +128,7 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       v[':id']['report-templates'][':key'].review.$post({ param: { id: versionId, key }, json: { decision } }).then((r) => unwrap<Template>(r)),
 
     documents: (versionId: string) => v[':id']['source-documents'].$get({ param: { id: versionId } }).then((r) => unwrap<SourceDocument[]>(r)),
-    addDocument: (versionId: string, json: { title: string; role: SourceRole; authority: SourceAuthority; filePath?: string; sha256?: string; language?: string }) =>
+    addDocument: (versionId: string, json: { title: string; role?: SourceRole; authority: SourceAuthority; filePath?: string; sha256?: string; language?: string }) =>
       v[':id']['source-documents'].$post({ param: { id: versionId }, json }).then((r) => unwrap<SourceDocument>(r)),
     updateDocument: (id: string, json: { title?: string; role?: SourceRole; authority?: SourceAuthority; language?: string }) =>
       api.api['source-documents'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<SourceDocument>(r)),
@@ -143,6 +144,11 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     setPage: (id: string, pageNo: number, text: string) =>
       api.api['source-documents'][':id'].pages[':pageNo'].$put({ param: { id, pageNo: String(pageNo) }, json: { text } }).then((r) => unwrap<SourcePage>(r)),
     deletePage: (id: string, pageNo: number) => api.api['source-documents'][':id'].pages[':pageNo'].$delete({ param: { id, pageNo: String(pageNo) } }).then((r) => unwrap<void>(r)),
+    /** Framework analysis (step C): runs over the draft's sources, newest first; start; one run; cancel. */
+    analysisRuns: (versionId: string) => v[':id'].analysis.$get({ param: { id: versionId } }).then((r) => unwrap<AnalysisRun[]>(r)),
+    startAnalysis: (versionId: string) => v[':id'].analysis.$post({ param: { id: versionId } }).then((r) => unwrap<AnalysisRun>(r)),
+    analysisRun: (id: string) => api.api.analysis[':id'].$get({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
+    cancelAnalysis: (id: string) => api.api.analysis[':id'].cancel.$post({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
     addPage: (documentId: string, json: { pageNo: number; text: string; method: 'pdf_text' | 'ocr' }) =>
       api.api['source-documents'][':id'].pages.$post({ param: { id: documentId }, json }).then((r) => unwrap<SourcePage>(r)),
   };

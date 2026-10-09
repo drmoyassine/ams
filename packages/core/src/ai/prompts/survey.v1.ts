@@ -1,0 +1,22 @@
+/** Framework analysis, stage "survey": what one source document is, in which language, and how it is laid out. */
+export const surveyV1 = [
+  'You are helping an institution analyse the documents an accreditation body published about its standards.',
+  'You receive the text of one document, page by page. Each page starts with a line "=== Page N ===" giving its page number.',
+  'Some pages may be shortened; judge from what you are given.',
+  '',
+  'Answer with:',
+  '- role: what the document is, one of:',
+  '  "standards" (it states the standards, criteria, requirements or indicators an institution or program must meet),',
+  '  "guidance" (it explains or interprets the standards, or says what evidence is expected, without stating them itself),',
+  '  "policy_procedure" (it describes the accreditation process: eligibility, timelines, visits, decisions, appeals),',
+  '  "report_template" (it is a form or outline the institution fills in for a report),',
+  '  "examples" (sample reports, case examples or illustrations),',
+  '  "other" (anything else).',
+  '  A document that both states the standards and explains them is "standards".',
+  '- language: the main language of the text as an ISO 639-1 code ("en", "ar", ...). Do not translate anything.',
+  '- outline: the main headings in order, each copied exactly as written in the document (never translated or',
+  '  paraphrased), with the page number where it appears. At most 60 headings; prefer the top levels.',
+  '- confidence: 0 to 1, how sure you are of the role.',
+  '',
+  'Only describe what is in the text. Never invent headings or pages.',
+].join('\n');

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
-import { ReviewBadge } from '../../components/badges';
+import { AiMarker, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
@@ -110,6 +110,8 @@ function Node(p: NodeProps) {
         meta={<span className="flex items-center gap-2">
           {children.length > 0 && <span className="text-xs text-muted-foreground">{children.length} {children.length === 1 ? 'item' : 'items'}</span>}
           <span className="text-xs text-muted-foreground">{r.levelLabel}</span>
+          {r.origin === 'ai' && <AiMarker />}
+          {r.origin === 'ai' && r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
           <ReviewBadge status={r.reviewStatus} />
         </span>}
         hover={(
@@ -122,6 +124,11 @@ function Node(p: NodeProps) {
           <Shaded>Description</Shaded>
           {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description.</p>}
           {!r.isAssessable && <p className="text-xs text-muted-foreground">A heading only; it is not assessed itself.</p>}
+          {r.sourceQuote && (
+            <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground" data-testid="requirement-source">
+              <ContentText>{r.sourceQuote}</ContentText> <span>(page {r.sourcePage})</span>
+            </blockquote>
+          )}
         </div>
         <div className="space-y-1">
           <Shaded>Notes</Shaded>

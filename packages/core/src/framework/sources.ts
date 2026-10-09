@@ -10,7 +10,8 @@ import { getDraftVersion, getSourceDocument, require_ } from './common.js';
 export const AddSourceDocumentSchema = z.object({
   versionId: z.uuid(),
   title: z.string().trim().min(1),
-  role: z.enum(['standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other']),
+  /** Omitted: nobody has said what the document is yet, and the analysis proposes it (the role starts as 'other'). */
+  role: z.enum(['standards', 'policy_procedure', 'guidance', 'report_template', 'evidence_guidance', 'amendment', 'sample_report', 'correspondence', 'other']).optional(),
   authority: z.enum(['binding', 'interpretive', 'informational']),
   language: z.string().min(2).default('en'),
   /** Set by an import that already holds the file; otherwise the document starts without one and a file can be uploaded. */
@@ -24,7 +25,10 @@ export async function addSourceDocument(ctx: Ctx, input: z.input<typeof AddSourc
   const data = AddSourceDocumentSchema.parse(input);
   await getDraftVersion(ctx, data.versionId);
   const { versionId, ...given } = data;
-  const rest = { ...given, filePath: given.filePath ?? `manual/${crypto.randomUUID()}`, sha256: given.sha256 ?? createHash('sha256').update(given.title).digest('hex') };
+  const rest = {
+    ...given, role: given.role ?? 'other' as const, roleOrigin: given.role ? 'manual' as const : 'unset' as const,
+    filePath: given.filePath ?? `manual/${crypto.randomUUID()}`, sha256: given.sha256 ?? createHash('sha256').update(given.title).digest('hex'),
+  };
   const [row] = await guardIntegrity(() => ctx.tx.insert(sourceDocument).values({ ...rest, frameworkVersionId: versionId, institutionId: ctx.caller.institutionId }).returning());
   return row!;
 }
@@ -60,7 +64,9 @@ export async function updateSourceDocument(ctx: Ctx, id: string, input: z.input<
   const doc = await getSourceDocument(ctx, id);
   await getDraftVersion(ctx, doc.frameworkVersionId);
   const d = UpdateSourceDocumentSchema.parse(input);
-  const [row] = await guardIntegrity(() => ctx.tx.update(sourceDocument).set(d).where(eq(sourceDocument.id, id)).returning());
+  // A role a person sets is theirs: the analysis never changes it afterwards.
+  const set = d.role !== undefined ? { ...d, roleOrigin: 'manual' as const } : d;
+  const [row] = await guardIntegrity(() => ctx.tx.update(sourceDocument).set(set).where(eq(sourceDocument.id, id)).returning());
   return row!;
 }
 

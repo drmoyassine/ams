@@ -184,3 +184,18 @@ export async function testAiConnection(ctx: Ctx): Promise<AiTestResult> {
     return result;
   });
 }
+
+/**
+ * Can a run that needs the model start now? Saved settings first, then the environment, like loadAiRuntime, but without
+ * opening a connection, so a service can refuse a run up front. Never calls the model.
+ */
+export async function aiReadiness(ctx: Ctx): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const env = loadAiEnv();
+  const row = await getRow(ctx);
+  if (row && !row.enabled) return { ok: false, reason: new AiDisabledError().message };
+  if (hasTestModel()) return { ok: true };
+  if (!row && !(envKeyPresent() && env.AI_MODEL)) return { ok: false, reason: new AiNotConfiguredError().message };
+  if (!(row?.model ?? env.AI_MODEL)) return { ok: false, reason: 'AI has no model: choose one in Settings -> AI' };
+  if (!row?.apiKeyEnc && !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'AI has no API key: add one in Settings -> AI' };
+  return { ok: true };
+}

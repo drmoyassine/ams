@@ -2,6 +2,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import { createProgram, listPrograms, listUsers, myAccess } from '@ams/core';
 import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
+import { analysisRoutes } from './routes/analysis.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { evidenceRoutes } from './routes/evidence.js';
 import { requestRoutes } from './routes/requests.js';
@@ -60,6 +61,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', frameworkRoutes(registry, deps, options))
     .route('/', requirementRoutes(registry, deps, options))
     .route('/', templateRoutes(registry, deps, options))
+    .route('/', analysisRoutes(registry, deps, options))
 
     // Engagements and roadmaps (M2).
     .route('/', engagementRoutes(registry, deps, options))

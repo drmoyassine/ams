@@ -14,6 +14,19 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-09 — Framework analysis runs: requirements from a draft's sources (TASK-045)
+
+Step C of the framework analysis pipeline. Decisions: DEC-006, DEC-012, DEC-013, DEC-022.
+- **Job chaining:** one job type `analyse` with `{runId, stage, cursor}`; each step is its own transaction and queues the next. `runJob` used to forbid this (`noQueue`, throwing `afterCommit`); it now collects `afterCommit` hooks and runs them after the commit, with the queue the worker passes (`pgBossQueue`). The run row is the cursor: a job that does not match the run's stage and cursor is a no-op, so pg-boss retries resume cleanly.
+- **Savepoints, not `tx.transaction()`:** our `Tx` is a `drizzle(client)` inside `withIdentity`'s BEGIN; calling `.transaction()` on it would issue a second BEGIN/COMMIT. Steps run under `SAVEPOINT analysis_step` so a failed step can still mark the run failed in the same job.
+- **Budget across jobs:** each job seeds `AiBudget` from the run's persisted usage. A call the budget refuses is logged but not counted as a call.
+- **Human edits win via a trigger:** `edited_by_person` is set by `mark_person_edit` on any update by a role other than `ams_worker` (so every existing and future edit path counts) and the worker guard refuses to touch such rows. Origin stays `ai` (PRD 16).
+- **reviewStatus stays `pending`** for AI rows: it is the only value that does not claim a person looked; the worker cannot write review columns at all. The existing publish gate still wants approvals, so DEC-022's gate change is left to step F.
+- **Gotchas:** PL/pgSQL does not short-circuit `TG_TABLE_NAME = 'x' AND NEW.col` (nest the IFs when the column exists on one table only). Drizzle renders `${table.column}` inside a correlated `sql` subquery as a bare column name, which binds to the inner table: write the outer table name literally. `now()` is per transaction, so rows created in one transaction tie on `created_at`; order with a tie-breaker.
+- **Quote normalisation now folds ة/ه, ى/ي, hamza seats and Arabic-Indic digits** for notes too (`quote.ts` delegates to `quote-match.ts`).
+
+---
+
 ## 2026-10-08 — The AI connection, embeddings and Settings → AI (TASK-044)
 
 Step B of the framework analysis pipeline. Decisions: DEC-012 (one import point), DEC-021 (IQF text may go to the AI), DEC-023 (embeddings).

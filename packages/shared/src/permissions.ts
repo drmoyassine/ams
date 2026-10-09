@@ -76,7 +76,8 @@ export const UpdateProgramSchema = z.object({
 }).strict();
 export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify'] as const;
+/** `analyse`: one stage of a framework analysis run (the stage is in the payload; each stage queues the next). */
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 /**

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, Shaded } from '../../components/accordion';
@@ -6,6 +6,7 @@ import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { AnalysisPanel } from './analysis-panel';
 import type { FrameworkApi, SourceAuthority, SourceDocument, SourceRole, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
@@ -35,7 +36,7 @@ export function readStatus(d: SourceDocument): string {
 
 /** Adds a source (with its original, optionally) or changes how one is described. */
 function SourceDialog({ editing, error, onSave, onClose }: {
-  editing: SourceDocument | null; error: string; onSave: (v: { title: string; role: SourceRole; authority: SourceAuthority; language: string; file: File | null }) => Promise<unknown>; onClose: () => void;
+  editing: SourceDocument | null; error: string; onSave: (v: { title: string; role: SourceRole | null; authority: SourceAuthority; language: string; file: File | null }) => Promise<unknown>; onClose: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,7 +45,7 @@ function SourceDialog({ editing, error, onSave, onClose }: {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     setBusy(true);
-    void onSave({ title: String(f.get('title')).trim(), role: String(f.get('role')) as SourceRole, authority: String(f.get('authority')) as SourceAuthority, language: String(f.get('language')).trim() || 'en', file })
+    void onSave({ title: String(f.get('title')).trim(), role: (String(f.get('role')) || null) as SourceRole | null, authority: String(f.get('authority')) as SourceAuthority, language: String(f.get('language')).trim() || 'en', file })
       .finally(() => setBusy(false));
   };
   return (
@@ -58,6 +59,7 @@ function SourceDialog({ editing, error, onSave, onClose }: {
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_6rem]">
           <label className="flex flex-col text-sm">What it is
             <select name="role" aria-label="What it is" defaultValue={editing?.role ?? 'standards'} className={select}>
+              {!editing && <option value="">Not sure: the analysis decides</option>}
               {(Object.keys(ROLE_LABEL) as SourceRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>
           </label>
@@ -161,8 +163,16 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
   };
   const readFile = (doc: SourceDocument) => { void run(() => api.readFile(doc.id)).then(refresh); };
   const list = docs.data ?? [];
+  const written = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ['documents', version.id] });
+    void qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+    void qc.invalidateQueries({ queryKey: ['version', version.id] });
+  }, [qc, version.id]);
   return (
     <section aria-label="Sources" className="space-y-3">
+      {(version.status === 'draft' || version.status === 'in_review') && (
+        <AnalysisPanel api={api} versionId={version.id} editable={editable} hasSources={list.length > 0} onWritten={written} />
+      )}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">{list.length} source{list.length === 1 ? '' : 's'}</span>
         {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add' })}>+ Source</Button>}
@@ -172,7 +182,7 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
       {docs.data && list.length === 0 && <p className="text-sm text-muted-foreground">No sources yet.</p>}
       <div className="space-y-2">
         {list.map((d) => {
-          const role = ROLE_LABEL[d.role as SourceRole] ?? d.role;
+          const role = d.roleOrigin === 'unset' ? 'Role not set' : `${ROLE_LABEL[d.role as SourceRole] ?? d.role}${d.roleOrigin === 'ai' ? ' (AI)' : ''}`;
           const pages = d.storedPages ?? d.pageCount ?? 0;
           return (
             <AccordionCard key={d.id} label={d.title} tag={role} title={d.title} testId="source-document" open={open.has(d.id)} onToggle={() => toggle(d.id)}
@@ -210,7 +220,7 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
       {dialog?.kind === 'add' && (
         <SourceDialog editing={null} error={error} onClose={close} onSave={async (v) => {
           setError('');
-          const doc = await run(() => api.addDocument(version.id, { title: v.title, role: v.role, authority: v.authority, language: v.language }));
+          const doc = await run(() => api.addDocument(version.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }));
           if (!doc) return;
           if (v.file && !(await run(() => api.uploadSourceFile(doc.id, v.file!)))) { await refresh(); return; }
           await refresh();
@@ -221,7 +231,7 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
       {dialog?.kind === 'edit' && (
         <SourceDialog editing={dialog.doc} error={error} onClose={close} onSave={async (v) => {
           setError('');
-          if (await run(() => api.updateDocument(dialog.doc.id, { title: v.title, role: v.role, authority: v.authority, language: v.language }))) { await refresh(); close(); }
+          if (await run(() => api.updateDocument(dialog.doc.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }))) { await refresh(); close(); }
         }} />
       )}
     </section>

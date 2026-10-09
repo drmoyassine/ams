@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AuthorityBadge, ReviewBadge } from '../../components/badges';
+import { AiMarker, AuthorityBadge, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
 import { ContentText } from '../../components/content-text';
 import { requirementLabel } from '../../lib/format';
 import { Button } from '../../components/ui/button';
@@ -31,6 +31,8 @@ export function NotePanel({ api, note, editable, canReview, invalidate, setError
         <span className="text-xs text-muted-foreground">{note.type.replace('_', ' ')}</span>
         <ReviewBadge status={note.reviewStatus} />
         {note.authority === 'required' && <span className="text-xs" data-testid="quote-state">{note.quoteVerified ? 'Quote verified' : 'Quote NOT verified'}</span>}
+        {note.origin === 'ai' && <AiMarker />}
+        {note.origin === 'ai' && note.sourceQuote && !note.quoteVerified && <QuoteNotFoundBadge />}
       </div>
       <p className="text-sm"><ContentText>{note.text}</ContentText></p>
       {note.sourceQuote && <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground"><ContentText>{note.sourceQuote}</ContentText> <span>(page {note.sourcePage})</span></blockquote>}

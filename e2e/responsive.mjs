@@ -123,6 +123,14 @@ async function seedDemo(db, base) {
       where not f.internal and fv.status = 'published' order by (a.short_name = 'ABET') desc, a.short_name limit 1`);
 
   const ids = { versionId };
+  // A draft with a finished analysis run, so the Sources section shows the analysis panel and its last run.
+  try {
+    const { version: draft } = await call('POST', `/api/framework-versions/${versionId}/new-version`, { edition: 'responsive-draft' });
+    ids.draftId = draft.id;
+    await q(`insert into analysis_run (institution_id, framework_version_id, status, stage, started_at, finished_at, usage, report)
+      values ($1, $2, 'succeeded', 'finalise', now(), now(), '{"inputTokens":120000,"outputTokens":34000,"costUsd":1.23,"calls":42}',
+      '{"stats":{"pagesRead":120,"requirementsByLevel":{"Standard":4,"Criterion":31,"Indicator":120},"requirements":155,"notes":48,"quoteVerified":190,"quoteVerifiedShare":0.936,"unverified":13,"orphans":2,"lowConfidence":5,"added":203,"updated":0,"keptHumanEdits":0}}')`, [inst, draft.id]);
+  } catch (e) { console.warn(`seed: analysis draft skipped (${e.message})`); }
   const warn = (what, e) => console.warn(`seed: ${what} skipped (${e.message})`);
   try {
     const eng = await call('POST', '/api/engagements', { frameworkVersionId: versionId, subjectType: 'program', subjectId: program, kind: 'initial', reviewYear: 2027, leadUserId: admin });
@@ -172,6 +180,7 @@ function pagesFor(ids) {
     { name: 'settings-ai', path: '/settings/ai' },
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
+    ids.draftId && { name: 'version-sources', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
 

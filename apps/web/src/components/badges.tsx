@@ -79,3 +79,13 @@ export function RequirementStatusBadge({ status }: { status: keyof typeof REQUIR
 }
 
 export const MILESTONE_STATUS = { not_started: 'Not started', in_progress: 'In progress', done: 'Done', skipped: 'Skipped' } as const;
+
+/** Made by the framework analysis (origin 'ai'). Stays after a person edits it: the origin is kept (PRD 16). */
+export function AiMarker() {
+  return <span title="Made by the AI analysis from the sources" aria-label="Made by AI" data-testid="ai-marker" className="rounded border border-violet-300 bg-violet-50 px-1.5 text-xs text-violet-900">AI</span>;
+}
+
+/** The AI's quote was not found on the cited page (or its neighbours): check it against the source. */
+export function QuoteNotFoundBadge() {
+  return <span role="note" data-testid="quote-not-found" className="rounded border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-900">Quote not found in source</span>;
+}

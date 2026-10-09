@@ -1,5 +1,8 @@
 import { connectionTestV1 } from './connection-test.v1.js';
+import { extractV1 } from './extract.v1.js';
 import { ocrV1 } from './ocr.v1.js';
+import { structureV1 } from './structure.v1.js';
+import { surveyV1 } from './survey.v1.js';
 
 /**
  * Prompts are versioned files in the repository (DEC-012), never built at run time. A task has one file per version
@@ -9,6 +12,10 @@ import { ocrV1 } from './ocr.v1.js';
 export const PROMPTS = {
   connection_test: { v1: connectionTestV1 },
   ocr: { v1: ocrV1 },
+  // Framework analysis (step C): survey each source, find the hierarchy, extract requirements and notes.
+  survey: { v1: surveyV1 },
+  structure: { v1: structureV1 },
+  extract: { v1: extractV1 },
 } as const satisfies Record<string, Record<string, string>>;
 
 export type PromptTask = keyof typeof PROMPTS;

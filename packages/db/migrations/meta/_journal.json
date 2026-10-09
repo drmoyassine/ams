@@ -267,6 +267,20 @@
       "when": 1791462202079,
       "tag": "0037_ai_setting_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791463891727,
+      "tag": "0038_analysis_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1791463910048,
+      "tag": "0039_analysis_run_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -114,10 +114,12 @@ describe('framework library access rules', () => {
       `update requirement_note set review_status = 'approved'`,
       `update report_template set review_status = 'approved'`,
       `update framework_version set status = 'published'`,
-      `insert into requirement (institution_id, framework_version_id, code, level_label, title) values ('${ids.instA}', '${ids.ver}', 'W1', 'x', 'x')`,
     ]) {
       await expect(db.as(w, (c) => c.query(sql)), sql).rejects.toThrow(/permission denied/);
     }
+    // Since the analysis (0039) the worker may draft AI-made requirements into a draft, but never a person's kind of row.
+    await expect(db.as(w, (c) => c.query(`insert into requirement (institution_id, framework_version_id, code, level_label, title) values ('${ids.instA}', '${ids.ver}', 'W1', 'x', 'x')`)))
+      .rejects.toThrow(/only unreviewed AI items|only into a draft|immutable/);
   });
 
   it('the worker role can store extracted page text', async () => {
