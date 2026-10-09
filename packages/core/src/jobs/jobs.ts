@@ -32,5 +32,9 @@ export const markRunning = (ctx: Ctx, id: string) =>
   ctx.tx.update(job).set({ status: 'running', attempts: sql`${job.attempts} + 1`, error: null }).where(eq(job.id, id));
 export const markSucceeded = (ctx: Ctx, id: string, result: unknown) =>
   ctx.tx.update(job).set({ status: 'succeeded', result }).where(eq(job.id, id));
+/**
+ * Written in its own transaction after the job's rolled back, so the attempt markRunning counted there is counted again
+ * here: a job's attempts are its failures so far (plus one while it runs). Multi-step runs read it to stop retrying.
+ */
 export const markFailed = (ctx: Ctx, id: string, error: string) =>
-  ctx.tx.update(job).set({ status: 'failed', error }).where(eq(job.id, id));
+  ctx.tx.update(job).set({ status: 'failed', error, attempts: sql`${job.attempts} + 1` }).where(eq(job.id, id));

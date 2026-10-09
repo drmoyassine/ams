@@ -53,6 +53,17 @@ describe('AI settings API', () => {
     expect((await db.su.query(`select api_key_enc from ai_setting`)).rows[0].api_key_enc).not.toContain(KEY);
   });
 
+  it('saves the recovery rounds of the framework analysis: 2 by default, 0 to 5', async () => {
+    expect((await call('admin', 'GET', '/api/settings/ai')).body.maxRecoveryRounds).toBe(2);
+    const put = await call('admin', 'PUT', '/api/settings/ai', { maxRecoveryRounds: 3 });
+    expect(put.status).toBe(200);
+    expect(put.body.maxRecoveryRounds).toBe(3);
+    expect((await call('admin', 'PUT', '/api/settings/ai', { maxRecoveryRounds: 0 })).body.maxRecoveryRounds).toBe(0);
+    for (const bad of [6, -1, 1.5, null]) expect((await call('admin', 'PUT', '/api/settings/ai', { maxRecoveryRounds: bad })).status, String(bad)).toBe(400);
+    expect((await call('lead', 'PUT', '/api/settings/ai', { maxRecoveryRounds: 1 })).status).toBe(403);
+    expect((await call('admin', 'PUT', '/api/settings/ai', { maxRecoveryRounds: 2 })).body.maxRecoveryRounds).toBe(2);
+  });
+
   it('refuses unknown fields and unreasonable values', async () => {
     expect((await call('admin', 'PUT', '/api/settings/ai', { apiKey: 'short' })).status).toBe(400);
     expect((await call('admin', 'PUT', '/api/settings/ai', { maxTokensPerRun: -5 })).status).toBe(400);

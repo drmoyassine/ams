@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
@@ -105,7 +105,7 @@ function Node(p: NodeProps) {
   ];
   return (
     <>
-      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card"
+      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
         open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tagOf(r)}`} menu={menu}
         meta={<span className="flex items-center gap-2">
           {children.length > 0 && <span className="text-xs text-muted-foreground">{children.length} {children.length === 1 ? 'item' : 'items'}</span>}
@@ -154,7 +154,7 @@ function Node(p: NodeProps) {
  * "+ Requirement" opening a dialog. Notes (guidance, expectations) sit inside each card. Evidence is not linked here:
  * it is linked once to the internal standards these map onto.
  */
-export function ExternalRequirements({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
+export function ExternalRequirements({ api, version, me, focusId }: { api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null }) {
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -171,6 +171,13 @@ export function ExternalRequirements({ api, version, me }: { api: FrameworkApi; 
   const levels = (version.levelLabels as string[] | undefined) ?? [];
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const close = () => { setDialog(null); setError(''); };
+  const loaded = !!tree.data;
+  useEffect(() => {
+    if (!focusId || !loaded) return;
+    setOpen((s) => new Set([...s, focusId]));
+    const el = document.getElementById(`requirement-${focusId}`);
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [focusId, loaded]);
 
   const saveNew = async (v: DialogValues) => {
     setError('');

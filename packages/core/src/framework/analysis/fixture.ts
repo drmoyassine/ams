@@ -91,6 +91,89 @@ export function fixtureResponder(opts: { revised?: boolean } = {}) {
       if (s.includes(FIXTURE_GUIDE.title)) return a.guide;
       return s.includes('This window: pages 8 to 9') ? a.window2 : a.window1;
     }
+    // Step D: nothing more is in these sources; every question is answered "not there".
+    if (s.includes(RECOVER_MARK)) return { answers: questionIds(s).map((id) => ({ id, found: false, reason: 'It is not on these pages.', items: [] })) };
     throw new Error('the fixture has no answer for this prompt');
   };
+}
+
+// ---- Step D: a source with gaps the first extraction leaves ---------------------------------------------------------
+//   * 2.3 is on page 3 but the extraction misses it: the numbering gap 2.2 -> 2.4 asks for it and it is recovered.
+//   * 2.5 does not exist (the numbering skips from 2.4 to 2.6): the model confirms it is absent.
+//   * 2.4 is extracted with a quote that is not on the page: re-cited wrongly in the first round, rightly in the second.
+//   * Page 1 is a table of contents: never asked about.
+
+export const FIXTURE_GAPPY = {
+  title: 'Standards for Teaching',
+  pages: [
+    'Contents\nStandard 2 Teaching and Learning .... 2\n2.1 Curriculum .... 2\n2.2 Assessment .... 3\n2.3 Feedback .... 3\n2.4 Support .... 4\n2.6 Facilities .... 5',
+    'Standard 2: Teaching and Learning\nThe institution designs, delivers and reviews its programmes so that students achieve the intended learning outcomes.\n2.1 Curriculum\nEach programme has a curriculum with published learning outcomes that are reviewed at least every five years.',
+    '2.2 Assessment\nAssessment methods are aligned with the learning outcomes and are applied consistently across sections.\n2.3 Feedback\nStudents receive timely feedback on assessed work so that they can improve their learning.',
+    '2.4 Support\nThe institution provides academic advising and learning support services that are available to all students.\nProgrammes should publish the advising hours each term.',
+    '2.6 Facilities\nTeaching spaces, laboratories and libraries are adequate for the number of students enrolled.',
+  ],
+};
+const RECOVER_MARK = 'You are checking an extraction';
+/** The ids of the questions in a recovery call ("- id q1: ..."). */
+export const questionIds = (s: string) => [...s.matchAll(/- id (q\d+):/g)].map((m) => m[1]!);
+const questionText = (s: string, id: string) => (s.split(`- id ${id}: `)[1] ?? '').split('- id q')[0]!;
+
+export function gappyAnswers() {
+  const p = FIXTURE_GAPPY.pages;
+  const line = (page: number, n: number) => p[page - 1]!.split('\n')[n]!;
+  return {
+    survey: { role: 'standards', language: 'en', outline: [{ heading: 'Standard 2: Teaching and Learning', page: 2 }], confidence: 0.9 },
+    structure: {
+      level_labels: ['Standard', 'Criterion'],
+      numbering: [{ level_label: 'Standard', examples: ['2'] }, { level_label: 'Criterion', examples: ['2.1', '2.2'] }],
+      key_terms: [], scope: 'Programmes.', confidence: 0.9,
+    },
+    window: {
+      items: [
+        item({ kind: 'requirement', temp_id: 'r-1', code: '2', level_label: 'Standard', title: 'Teaching and Learning', text: line(2, 1), source: { page: 2, quote: 'designs, delivers and reviews its programmes' } }),
+        item({ kind: 'requirement', temp_id: 'r-2', code: '2.1', parent_code: '2', level_label: 'Criterion', title: 'Curriculum', text: line(2, 3), source: { page: 2, quote: 'a curriculum with published learning outcomes' } }),
+        item({ kind: 'requirement', temp_id: 'r-3', code: '2.2', parent_code: '2', level_label: 'Criterion', title: 'Assessment', text: line(3, 1), source: { page: 3, quote: 'Assessment methods are aligned with the learning outcomes' } }),
+        // 2.3 is missed. 2.4's quote is not on the page.
+        item({ kind: 'requirement', temp_id: 'r-4', code: '2.4', parent_code: '2', level_label: 'Criterion', title: 'Support', text: line(4, 1), source: { page: 4, quote: 'The institution offers advising to every single student enrolled' } }),
+        item({ kind: 'note', temp_id: 'n-1', parent_code: '2.4', note_type: 'guidance', authority: 'suggested', text: line(4, 2), source: { page: 4, quote: 'Programmes should publish the advising hours each term.' } }),
+        item({ kind: 'requirement', temp_id: 'r-5', code: '2.6', parent_code: '2', level_label: 'Criterion', title: 'Facilities', text: line(5, 1), source: { page: 5, quote: 'laboratories and libraries are adequate for the number of students' } }),
+      ],
+    },
+    recovered23: item({ kind: 'requirement', temp_id: 'r-1', code: '2.3', parent_code: '2', level_label: 'Criterion', title: 'Feedback', text: line(3, 3), source: { page: 3, quote: 'Students receive timely feedback on assessed work' } }),
+    recited24: (right: boolean) => item({
+      kind: 'requirement', temp_id: 'r-1', code: '2.4', parent_code: '2', level_label: 'Criterion', title: 'Support', text: line(4, 1),
+      source: { page: 4, quote: right ? 'provides academic advising and learning support services' : 'Advising is offered to every student in every term of study' },
+    }),
+  };
+}
+
+/**
+ * The fake model for FIXTURE_GAPPY. `questions` records every recovery question asked, in order. With `absent23` the
+ * model says 2.3 is not there either; with `failRecover` the first recovery call fails (a crashed job).
+ */
+export function gappyResponder(opts: { absent23?: boolean; failRecover?: boolean } = {}) {
+  const a = gappyAnswers();
+  const questions: string[] = [];
+  let recites = 0;
+  let failures = 0;
+  const reply = (options: unknown): object => {
+    const s = JSON.stringify(options);
+    if (s.includes('what the document is, one of')) return a.survey;
+    if (s.includes('Work out how the accreditor organises its requirements')) return a.structure;
+    if (s.includes('You are extracting an accreditation body')) return a.window;
+    if (s.includes(RECOVER_MARK)) {
+      if (opts.failRecover && failures < 1) { failures++; throw new Error('the model is overloaded'); }
+      return {
+        answers: questionIds(s).map((id) => {
+          const q = questionText(s, id);
+          questions.push(q);
+          if (q.includes('coded \\"2.3\\"') && !opts.absent23) return { id, found: true, reason: null, items: [a.recovered23] };
+          if (q.includes('Re-cite the requirement coded \\"2.4\\"')) return { id, found: true, reason: null, items: [a.recited24(recites++ > 0)] };
+          return { id, found: false, reason: q.includes('2.5') ? 'The numbering goes from 2.4 to 2.6; there is no 2.5.' : 'It is not on these pages.', items: [] };
+        }),
+      };
+    }
+    throw new Error('the fixture has no answer for this prompt');
+  };
+  return { reply, questions };
 }

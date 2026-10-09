@@ -70,6 +70,8 @@ export interface MergeResult {
   /** Requirements whose parent code matches nothing (placed at the top level), and notes with no requirement. */
   orphanRequirements: number;
   orphanNotes: number;
+  /** Notes whose requirement code matches nothing: the code they name, and where the note is (for the gap finder). */
+  orphanNoteRefs: { code: string; documentId: string; page: number; seq: number }[];
   /** Requirements proposed from a document that does not state the standards (kept out). */
   notFromStandards: number;
   duplicatesMerged: number;
@@ -81,6 +83,8 @@ export const NOTE_ROLES = new Set(['standards', 'guidance', 'evidence_guidance']
 export const LOW_CONFIDENCE = 0.6;
 
 export const normalizeCode = (code: string) => code.normalize('NFC').trim().replace(/\s+/g, ' ');
+/** How a note is recognised across runs and deletions: its requirement's code and the start of its normalised text. */
+export const noteFingerprint = (text: string) => normalizeQuoteText(text).slice(0, 120);
 const uniq = (xs: string[]) => [...new Set(xs)];
 
 /**
@@ -129,7 +133,10 @@ export function mergeExtracted(raw: RawItem[], docs: ReadonlyMap<string, DocInfo
   for (const [code, list] of groups) {
     duplicatesMerged += list.length - 1;
     const score = (r: RawItem) => normalizeQuoteText(r.item.text).length;
-    const best = [...list].sort((a, b) => score(b) - score(a) || Number(checks.get(b.id)!.quoteVerified) - Number(checks.get(a.id)!.quoteVerified) || a.seq - b.seq)[0]!;
+    // A copy that checks out (quote found, wording on the page) beats one that does not, then the most complete wording:
+    // a recovery pass's re-cited copy replaces an unverified one; overlapping windows' copies are both checked.
+    const sound = (r: RawItem) => Number(checks.get(r.id)!.quoteVerified && !checks.get(r.id)!.flags.includes('text_not_in_source'));
+    const best = [...list].sort((a, b) => sound(b) - sound(a) || score(b) - score(a) || Number(checks.get(b.id)!.quoteVerified) - Number(checks.get(a.id)!.quoteVerified) || a.seq - b.seq)[0]!;
     const check = checks.get(best.id)!;
     const others = list.filter((r) => r !== best);
     // A longer copy elsewhere means the omission was made up; flags of the shorter copies do not carry over.
@@ -181,19 +188,25 @@ export function mergeExtracted(raw: RawItem[], docs: ReadonlyMap<string, DocInfo
   // 4. Notes: attached to a requirement by code; the same note seen twice is kept once (the longer copy).
   const noteGroups = new Map<string, RawItem[]>();
   let orphanNotes = 0;
+  const orphanNoteRefs: MergeResult['orphanNoteRefs'] = [];
   const known = (code: string) => reqs.has(code) || existingCodes.has(code);
   for (const r of raw) {
     if (r.item.kind !== 'note') continue;
     const role = docs.get(r.documentId)?.role ?? 'other';
     if (!NOTE_ROLES.has(role)) { checks.get(r.id)!.flags.push('not_from_standards'); continue; }
     const parent = parentCodeOf(r);
-    if (!parent || !known(parent)) { orphanNotes++; checks.get(r.id)!.flags.push('orphan_note'); continue; }
-    const key = `${parent}\u0000${normalizeQuoteText(r.item.text).slice(0, 120)}`;
+    if (!parent || !known(parent)) {
+      orphanNotes++;
+      checks.get(r.id)!.flags.push('orphan_note');
+      if (parent) orphanNoteRefs.push({ code: parent, documentId: r.documentId, page: checks.get(r.id)!.page, seq: r.seq });
+      continue;
+    }
+    const key = `${parent}\u0000${noteFingerprint(r.item.text)}`;
     noteGroups.set(key, [...(noteGroups.get(key) ?? []), r]);
   }
   const notes: MergedNote[] = [];
   for (const list of noteGroups.values()) {
-    const best = [...list].sort((a, b) => b.item.text.length - a.item.text.length || a.seq - b.seq)[0]!;
+    const best = [...list].sort((a, b) => Number(checks.get(b.id)!.quoteVerified) - Number(checks.get(a.id)!.quoteVerified) || b.item.text.length - a.item.text.length || a.seq - b.seq)[0]!;
     const check = checks.get(best.id)!;
     const flags = [...check.flags];
     let authority = best.item.authority ?? 'ai_suggested';
@@ -218,7 +231,7 @@ export function mergeExtracted(raw: RawItem[], docs: ReadonlyMap<string, DocInfo
 
   const requirements = [...reqs.values()].sort((a, b) => a.depth - b.depth || a.seq - b.seq);
   for (const c of checks.values()) c.flags = uniq(c.flags);
-  return { requirements, notes: notes.sort((a, b) => a.seq - b.seq), checks, orphanRequirements, orphanNotes, notFromStandards, duplicatesMerged };
+  return { requirements, notes: notes.sort((a, b) => a.seq - b.seq), checks, orphanRequirements, orphanNotes, orphanNoteRefs, notFromStandards, duplicatesMerged };
 }
 
 /** Pages of a document cut into windows of `size` pages that overlap by `overlap` (PRD 15.1: ~8 pages, 1 overlap). */

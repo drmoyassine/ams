@@ -14,6 +14,19 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-09 — Framework analysis check and recover: exhaustive but bounded (TASK-046)
+
+Step D of the framework analysis pipeline. Decisions: DEC-002, DEC-006, DEC-012, DEC-022.
+- **Two new stages, same chaining:** `gaps` (cursor = the round about to be asked; no model call) and `recover` (cursor = the question group; one `aiExtract` with `recover.v1`). Recovery answers are Appendix B items logged in `extraction_item` with `payload.round` and `payload.gap`, so the next check and the writer read them exactly like the extraction's. Window numbers from 1,000,000 keep their temp ids apart; their `seq` sits next to the gap's neighbour, so a recovered 2.3 lands between 2.2 and 2.4.
+- **Gap finder is pure and accreditor-blind** (`analysis/gaps.ts`): codes are split into prefix words and parts (numbers in any digit script, letters, roman); siblings share prefix, parent parts and depth; "i"/"v"/"c" are read from the siblings, then from the structure stage's numbering examples. Holes over 3 are jumps; a leading hole needs a series. Pages are "substantive" by a cheap heuristic (≥ 40 words, not mostly lines ending in page numbers, not a contents/index heading, not the continuation of the item before).
+- **Stopping:** no open gaps, nothing to ask, the round limit (`ai_setting.max_recovery_rounds`, default 2, snapshot per run), a round that raises neither the verified count nor the confirmed-absent count, or the spend limit. `BudgetExceeded` in `recover` ends the recovery, not the run: the next check closes the round and the run writes and succeeds (`report.recovery.stopped = 'budget'`).
+- **Merge now prefers a copy that checks out** (quote found, wording on the page) before the longest one, so a re-cited copy replaces an unverified one.
+- **Deletion memory is a trigger** (`record_ai_dismissal`, AFTER DELETE on requirement and requirement_note), like `mark_person_edit`: every delete path counts. It stores the note's raw text; the fingerprint is computed in core (`noteFingerprint`), which owns normalisation. The worker cannot write it.
+- **Bug fixed in passing:** `markFailed` runs after the job's transaction rolled back, so the attempt `markRunning` counted was lost and a step that kept failing never reached `MAX_ANALYSIS_ATTEMPTS`; `markFailed` now counts it.
+- **Gotchas:** a job envelope has no payload (read the job row); the AI SDK does not retry a plain `Error` from the fake model; jsdom blocks a form submit when a number input is outside its `min`/`max`, so test the API for out-of-range values.
+
+---
+
 ## 2026-10-09 — Framework analysis runs: requirements from a draft's sources (TASK-045)
 
 Step C of the framework analysis pipeline. Decisions: DEC-006, DEC-012, DEC-013, DEC-022.

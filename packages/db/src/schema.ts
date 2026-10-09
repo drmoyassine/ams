@@ -51,6 +51,8 @@ export const aiSetting = pgTable('ai_setting', {
   maxCostUsdPerRun: numeric('max_cost_usd_per_run', { precision: 12, scale: 4 }),
   inputUsdPerMTok: numeric('input_usd_per_mtok', { precision: 12, scale: 4 }),
   outputUsdPerMTok: numeric('output_usd_per_mtok', { precision: 12, scale: 4 }),
+  /** Check-and-recover rounds after a framework analysis's extraction (step D); 0 switches them off. */
+  maxRecoveryRounds: integer('max_recovery_rounds').notNull().default(2),
   enabled: boolean('enabled').notNull().default(false),
   // Embeddings (DEC-023): a separate OpenAI-compatible endpoint, off by default. The key is encrypted like the one above.
   embedEnabled: boolean('embed_enabled').notNull().default(false),
@@ -63,6 +65,7 @@ export const aiSetting = pgTable('ai_setting', {
   uniqueIndex('ai_setting_institution_idx').on(t.institutionId),
   oneOf('ai_setting_provider_check', t.provider, ['anthropic']),
   check('ai_setting_limits_check', sql`(${t.maxTokensPerRun} is null or ${t.maxTokensPerRun} > 0) and (${t.maxCostUsdPerRun} is null or ${t.maxCostUsdPerRun} > 0)`),
+  check('ai_setting_recovery_rounds_check', sql`${t.maxRecoveryRounds} between 0 and 5`),
 ]);
 
 /** The only things that may be embedded (DEC-023): framework text. Evidence, datasets, responses, requests and letters never are. */
@@ -420,6 +423,24 @@ export const analysisRun = pgTable('analysis_run', {
   uniqueIndex('analysis_run_one_active_idx').on(t.frameworkVersionId).where(sql`${t.status} in ('queued', 'running')`),
   oneOf('analysis_run_status_check', t.status, ANALYSIS_STATUSES),
   check('analysis_run_stage_check', sql`${t.stage} is null or ${t.stage} in (${sql.raw(ANALYSIS_STAGES.map((v) => `'${v}'`).join(', '))})`),
+]);
+
+export const DISMISSAL_KINDS = ['requirement', 'note'] as const;
+/**
+ * A requirement or note the analysis made and a person deleted (step D): a later run must not add it back. Written only
+ * by the database (trigger `record_ai_dismissal` on DELETE of an AI row by anyone but the worker), keyed by version and
+ * code, plus the note's text for a note (its fingerprint is computed in packages/core, which owns text normalisation).
+ */
+export const analysisDismissal = pgTable('analysis_dismissal', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  kind: text('kind', { enum: DISMISSAL_KINDS }).notNull(),
+  code: text('code').notNull(),
+  noteText: text('note_text'),
+}, (t) => [
+  index('analysis_dismissal_version_idx').on(t.frameworkVersionId),
+  oneOf('analysis_dismissal_kind_check', t.kind, DISMISSAL_KINDS),
+  check('analysis_dismissal_note_text_check', sql`(${t.kind} = 'note') = (${t.noteText} is not null)`),
 ]);
 
 // ---- 6.4 Engagements & roadmap --------------------------------------------------------------

@@ -69,6 +69,8 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const [issues, setIssues] = useState<Issue[]>([]);
   const [newVersion, setNewVersion] = useState(false);
   const [showProblems, setShowProblems] = useState(false);
+  const [focusRequirement, setFocusRequirement] = useState<string | null>(null);
+  const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
   const internal = !!version?.internal;
   const framework = useQuery({ queryKey: ['framework', version?.frameworkId], queryFn: () => api.framework(version!.frameworkId), enabled: !!version && !internal });
@@ -157,9 +159,9 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         </div>
       )}
       <div role="tabpanel">
-        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} />)}
+        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
-        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(initialSection ? { initial: initialSection } : {})} />}
+        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(initialSection ? { initial: initialSection } : {})} onShowRequirement={showRequirement} />}
       </div>
       {newVersion && (
         <NewVersionDialog from={version} error={error} onClose={() => { setNewVersion(false); setError(''); }}

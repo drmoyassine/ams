@@ -72,6 +72,24 @@ describe('AI settings page', () => {
     expect((screen.getByRole('switch', { name: /AI is on/ }) as HTMLInputElement).checked).toBe(true);
   });
 
+  it('sets the recovery rounds next to the spend limits: 2 by default, 0 to 5', async () => {
+    const user = userEvent.setup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    const rounds = await screen.findByLabelText('Recovery rounds') as HTMLInputElement;
+    expect(rounds.value).toBe('2');
+    await user.clear(rounds);
+    await user.type(rounds, '4');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    expect((await db.su.query(`select max_recovery_rounds from ai_setting where institution_id = $1`, [ids.inst])).rows[0].max_recovery_rounds).toBe(4);
+    cleanup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    const again = await screen.findByLabelText('Recovery rounds') as HTMLInputElement;
+    await waitFor(() => expect(again.value).toBe('4'));
+    // The field itself keeps to 0..5 (the API refuses anything else too).
+    expect([again.min, again.max, again.step]).toEqual(['0', '5', '1']);
+  });
+
   it('shows the server\'s reason when a limit cannot be saved', async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));

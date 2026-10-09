@@ -129,7 +129,11 @@ async function seedDemo(db, base) {
     ids.draftId = draft.id;
     await q(`insert into analysis_run (institution_id, framework_version_id, status, stage, started_at, finished_at, usage, report)
       values ($1, $2, 'succeeded', 'finalise', now(), now(), '{"inputTokens":120000,"outputTokens":34000,"costUsd":1.23,"calls":42}',
-      '{"stats":{"pagesRead":120,"requirementsByLevel":{"Standard":4,"Criterion":31,"Indicator":120},"requirements":155,"notes":48,"quoteVerified":190,"quoteVerifiedShare":0.936,"unverified":13,"orphans":2,"lowConfidence":5,"added":203,"updated":0,"keptHumanEdits":0}}')`, [inst, draft.id]);
+      '{"stats":{"pagesRead":120,"requirementsByLevel":{"Standard":4,"Criterion":31,"Indicator":120},"requirements":155,"notes":48,"quoteVerified":190,"quoteVerifiedShare":0.936,"unverified":13,"orphans":2,"lowConfidence":5,"added":203,"updated":0,"keptHumanEdits":0,"recoveryRounds":2,"gapsRecovered":6,"gapsUnresolved":2,"conflicts":1,"uncoveredPages":1,"dismissedSkipped":3},
+      "recovery":{"stopped":"max_rounds"},
+      "gaps":[{"key":"req:CFR 2.13","kind":"numbering_gap","status":"unresolved","code":"CFR 2.13","documentId":null,"page":null,"round":2,"attempts":2,"detail":"between CFR 2.12 and CFR 2.14 — a long explanation that must wrap on a phone rather than push the page sideways","reason":null,"requirementId":null},
+        {"key":"conflict:CFR 1.1","kind":"conflict","status":"conflict","code":"CFR 1.1","documentId":null,"page":null,"round":0,"attempts":0,"detail":"different wording in two documents (pages 12 and 47)","reason":null,"requirementId":null},
+        {"key":"req:CFR 3.9","kind":"numbering_gap","status":"confirmed_absent","code":"CFR 3.9","documentId":null,"page":null,"round":1,"attempts":1,"detail":"between CFR 3.8 and CFR 3.10","reason":"The numbering goes from 3.8 to 3.10.","requirementId":null}]}')`, [inst, draft.id]);
   } catch (e) { console.warn(`seed: analysis draft skipped (${e.message})`); }
   const warn = (what, e) => console.warn(`seed: ${what} skipped (${e.message})`);
   try {

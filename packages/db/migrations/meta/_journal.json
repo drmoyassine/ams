@@ -281,6 +281,20 @@
       "when": 1791463910048,
       "tag": "0039_analysis_run_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791542732670,
+      "tag": "0040_analysis_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791542735109,
+      "tag": "0041_analysis_recovery_rules",
+      "breakpoints": true
     }
   ]
 }

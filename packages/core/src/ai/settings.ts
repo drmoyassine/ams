@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { aiSetting } from '@ams/db';
-import { loadAiEnv, type AiSetting, type AiTestResult, type UpdateAiSetting } from '@ams/shared';
+import { DEFAULT_MAX_RECOVERY_ROUNDS, loadAiEnv, type AiSetting, type AiTestResult, type UpdateAiSetting } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ValidationError } from '../ctx.js';
@@ -33,6 +33,7 @@ function toDto(row: typeof aiSetting.$inferSelect | undefined): AiSetting {
     maxCostUsdPerRun: num(row?.maxCostUsdPerRun ?? null),
     inputUsdPerMTok: num(row?.inputUsdPerMTok ?? null),
     outputUsdPerMTok: num(row?.outputUsdPerMTok ?? null),
+    maxRecoveryRounds: row?.maxRecoveryRounds ?? DEFAULT_MAX_RECOVERY_ROUNDS,
     // With no saved settings the environment configuration is in force.
     enabled: row ? row.enabled : envKeyPresent() && !!env.AI_MODEL,
     embeddings: {
@@ -94,6 +95,7 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
   if (patch.maxCostUsdPerRun !== undefined) set.maxCostUsdPerRun = patch.maxCostUsdPerRun === null ? null : String(patch.maxCostUsdPerRun);
   if (patch.inputUsdPerMTok !== undefined) set.inputUsdPerMTok = patch.inputUsdPerMTok === null ? null : String(patch.inputUsdPerMTok);
   if (patch.outputUsdPerMTok !== undefined) set.outputUsdPerMTok = patch.outputUsdPerMTok === null ? null : String(patch.outputUsdPerMTok);
+  if (patch.maxRecoveryRounds !== undefined) set.maxRecoveryRounds = patch.maxRecoveryRounds;
   if (patch.enabled !== undefined) set.enabled = patch.enabled;
   if (emb) {
     if (emb.enabled !== undefined) set.embedEnabled = emb.enabled;
@@ -113,6 +115,11 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
   }
   const [row] = await ctx.tx.insert(aiSetting).values({ ...set, institutionId: ctx.caller.institutionId }).returning();
   return toDto(row);
+}
+
+/** How many check-and-recover rounds a framework analysis may run (step D); the default when nothing is saved. */
+export async function maxRecoveryRounds(ctx: Ctx): Promise<number> {
+  return (await getRow(ctx))?.maxRecoveryRounds ?? DEFAULT_MAX_RECOVERY_ROUNDS;
 }
 
 /**

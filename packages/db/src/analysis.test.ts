@@ -92,3 +92,38 @@ describe('the worker drafting into a version', () => {
     expect((await db.su.query(`select role, role_origin from source_document where id = $1`, [d])).rows[0]).toEqual({ role: 'guidance', role_origin: 'ai' });
   });
 });
+
+describe('deletions the analysis remembers (0041, step D)', () => {
+  it('records a person\'s deletion of an AI requirement or note, never of their own rows, and keeps the record to itself', async () => {
+    const { v, d } = await version('dismiss');
+    const r = await db.as(worker(), async (c) => (await c.query(aiReq(v, d, 'E1'))).rows[0].id as string);
+    const n = await db.as(worker(), async (c) => (await c.query(`insert into requirement_note (institution_id, requirement_id, type, text, authority, origin) values ($1, $2, 'guidance', 'Keep the minutes.', 'ai_suggested', 'ai') returning id`, [ids.inst, r])).rows[0].id as string);
+    const mine = await db.as(app(), async (c) => (await c.query(`insert into requirement (institution_id, framework_version_id, code, level_label, title) values ($1, $2, 'E2', 'Standard', 'mine') returning id`, [ids.inst, v])).rows[0].id as string);
+    await db.as(app(), async (c) => {
+      await c.query(`delete from requirement_note where id = $1`, [n]);
+      await c.query(`delete from requirement where id = any($1)`, [[r, mine]]);
+    });
+    const rows = (await db.su.query(`select kind, code, note_text, institution_id, created_by from analysis_dismissal where framework_version_id = $1 order by kind`, [v])).rows;
+    expect(rows).toEqual([
+      { kind: 'note', code: 'E1', note_text: 'Keep the minutes.', institution_id: ids.inst, created_by: ids.user },
+      { kind: 'requirement', code: 'E1', note_text: null, institution_id: ids.inst, created_by: ids.user },
+    ]);
+    // Read by the worker, invisible to other institutions, and never changed or removed by the app.
+    expect(await db.as(worker(), async (c) => (await c.query(`select id from analysis_dismissal where framework_version_id = $1`, [v])).rowCount)).toBe(2);
+    expect(await db.as({ userId: ids.otherUser, institutionId: ids.other }, async (c) => (await c.query(`select id from analysis_dismissal`)).rowCount)).toBe(0);
+    await expect(db.as(app(), (c) => c.query(`delete from analysis_dismissal where framework_version_id = $1`, [v]))).rejects.toThrow(/permission denied/);
+    await expect(db.as(app(), (c) => c.query(`update analysis_dismissal set code = 'x' where framework_version_id = $1`, [v]))).rejects.toThrow(/permission denied/);
+    await expect(db.as(worker(), (c) => c.query(`insert into analysis_dismissal (institution_id, framework_version_id, kind, code) values ($1, $2, 'requirement', 'x')`, [ids.inst, v]))).rejects.toThrow(/permission denied/);
+    await expect(db.su.query(`insert into analysis_dismissal (institution_id, framework_version_id, kind, code) values ($1, $2, 'note', 'x')`, [ids.inst, v])).rejects.toThrow(/note_text_check/);
+  });
+
+  it('knows the new stages and keeps the recovery rounds setting in range', async () => {
+    const { v } = await version('stages');
+    const run = await db.as(app(), async (c) => (await c.query(`insert into analysis_run (institution_id, framework_version_id, stage) values ($1, $2, 'gaps') returning id`, [ids.inst, v])).rows[0].id as string);
+    await db.as(worker(), (c) => c.query(`update analysis_run set stage = 'recover' where id = $1`, [run]));
+    await db.su.query(`insert into ai_setting (institution_id) values ($1)`, [ids.other]);
+    expect((await db.su.query(`select max_recovery_rounds from ai_setting where institution_id = $1`, [ids.other])).rows[0].max_recovery_rounds).toBe(2);
+    await expect(db.su.query(`update ai_setting set max_recovery_rounds = 6 where institution_id = $1`, [ids.other])).rejects.toThrow(/ai_setting_recovery_rounds_check/);
+    await expect(db.su.query(`update ai_setting set max_recovery_rounds = -1 where institution_id = $1`, [ids.other])).rejects.toThrow(/ai_setting_recovery_rounds_check/);
+  });
+});

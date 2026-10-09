@@ -46,14 +46,14 @@ export function ActionsMenu({ label, items }: { label: string; items: { label: s
  * opens below. Hovering the closed card (after a short delay) shows `hover` in a tooltip. Used by the internal and the
  * external requirement lists so they look and behave the same.
  */
-export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, tone = 'plain', children }: {
+export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, domId, tone = 'plain', children }: {
   label: string; /** Shown before the tag, e.g. a logo. */ lead?: ReactNode; tag?: string; title?: string | null; strong?: boolean; /** Small text under the title. */ subtitle?: ReactNode; meta?: ReactNode; /** Beside the menu, outside the toggle, e.g. an Open button. */ trailing?: ReactNode; open: boolean; onToggle: () => void;
-  menuLabel: string; menu: { label: string; onSelect: () => void }[]; hover?: ReactNode; testId?: string; tone?: 'plain' | 'shaded'; children?: ReactNode;
+  menuLabel: string; menu: { label: string; onSelect: () => void }[]; hover?: ReactNode; testId?: string; /** The section's DOM id, for links that scroll to it. */ domId?: string; tone?: 'plain' | 'shaded'; children?: ReactNode;
 }) {
   const [hovering, setHovering] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
-    <section aria-label={label} className={`@container rounded-lg border border-border ${tone === 'shaded' ? 'bg-muted/30' : 'bg-background'}`} data-testid={testId}>
+    <section aria-label={label} id={domId} className={`@container scroll-mt-4 rounded-lg border border-border ${tone === 'shaded' ? 'bg-muted/30' : 'bg-background'}`} data-testid={testId}>
       {/*
         Laid out by the card's own width (a container query), so it also works in narrow columns on wide screens. Below
         36rem the title gets a full line (after the tag, if any, which shares the first line with the chevron and the ⋯

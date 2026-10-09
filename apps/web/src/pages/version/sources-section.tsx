@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, Shaded } from '../../components/accordion';
@@ -86,10 +86,11 @@ function SourceDialog({ editing, error, onSave, onClose }: {
 }
 
 /** The pages of a source: pick one to read its text; on a draft, correct it, remove it or add another. */
-function Pages({ api, doc, editable, onChange }: { api: FrameworkApi; doc: SourceDocument; editable: boolean; onChange: () => void }) {
+function Pages({ api, doc, editable, onChange, focus }: { api: FrameworkApi; doc: SourceDocument; editable: boolean; onChange: () => void; /** A page to show (a gap's link). */ focus?: { page: number; n: number } }) {
   const qc = useQueryClient();
   const pages = useQuery({ queryKey: ['source-pages', doc.id, doc.textStatus], queryFn: () => api.pages(doc.id) });
-  const [pick, setPick] = useState<number | null>(null);
+  const [pick, setPick] = useState<number | null>(focus?.page ?? null);
+  useEffect(() => { if (focus) setPick(focus.page); }, [focus]);
   const [error, setError] = useState('');
   const run = useAction(setError);
   const refresh = async () => { await qc.invalidateQueries({ queryKey: ['source-pages', doc.id] }); onChange(); };
@@ -140,7 +141,7 @@ function Pages({ api, doc, editable, onChange }: { api: FrameworkApi; doc: Sourc
  * A version's sources: the accreditor's documents its requirements and notes come from, with each original file and the
  * text of its pages (quotes are verified against that text). Editable while the version is a draft.
  */
-export function SourcesSection({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
+export function SourcesSection({ api, version, me, onShowRequirement }: { api: FrameworkApi; version: Version; me: Me | undefined; onShowRequirement?: (id: string) => void }) {
   const qc = useQueryClient();
   // While a file is being read the list refreshes until the worker is done.
   const docs = useQuery({
@@ -149,6 +150,17 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
   });
   const editable = version.status === 'draft' && can(me, 'framework:write');
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // A gap's link to a source page: open that source on that page and scroll to it.
+  const [focus, setFocus] = useState<{ documentId: string; page: number; n: number } | null>(null);
+  const showPage = useCallback((documentId: string, page: number) => {
+    setOpen((s) => new Set([...s, documentId]));
+    setFocus((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 }));
+  }, []);
+  useEffect(() => {
+    if (!focus) return;
+    const el = document.getElementById(`source-${focus.documentId}`);
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [focus]);
   const [dialog, setDialog] = useState<{ kind: 'add' } | { kind: 'edit'; doc: SourceDocument } | null>(null);
   const [error, setError] = useState('');
   const run = useAction(setError);
@@ -171,7 +183,8 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
   return (
     <section aria-label="Sources" className="space-y-3">
       {(version.status === 'draft' || version.status === 'in_review') && (
-        <AnalysisPanel api={api} versionId={version.id} editable={editable} hasSources={list.length > 0} onWritten={written} />
+        <AnalysisPanel api={api} versionId={version.id} editable={editable} hasSources={list.length > 0} onWritten={written}
+          documentTitle={(id) => list.find((d) => d.id === id)?.title ?? 'a source'} onShowPage={showPage} {...(onShowRequirement ? { onShowRequirement } : {})} />
       )}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">{list.length} source{list.length === 1 ? '' : 's'}</span>
@@ -185,7 +198,7 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
           const role = d.roleOrigin === 'unset' ? 'Role not set' : `${ROLE_LABEL[d.role as SourceRole] ?? d.role}${d.roleOrigin === 'ai' ? ' (AI)' : ''}`;
           const pages = d.storedPages ?? d.pageCount ?? 0;
           return (
-            <AccordionCard key={d.id} label={d.title} tag={role} title={d.title} testId="source-document" open={open.has(d.id)} onToggle={() => toggle(d.id)}
+            <AccordionCard key={d.id} label={d.title} tag={role} title={d.title} testId="source-document" domId={`source-${d.id}`} open={open.has(d.id)} onToggle={() => toggle(d.id)}
               menuLabel={`Actions for ${d.title}`}
               menu={editable ? [
                 { label: 'Edit', onSelect: () => setDialog({ kind: 'edit', doc: d }) },
@@ -211,7 +224,7 @@ export function SourcesSection({ api, version, me }: { api: FrameworkApi; versio
               </div>
               <div className="space-y-1">
                 <Shaded>Pages</Shaded>
-                <Pages api={api} doc={d} editable={editable} onChange={() => void refresh()} />
+                <Pages api={api} doc={d} editable={editable} onChange={() => void refresh()} {...(focus?.documentId === d.id ? { focus } : {})} />
               </div>
             </AccordionCard>
           );

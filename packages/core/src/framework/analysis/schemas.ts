@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 /** Prompt versions this code is written against; recorded on the run. */
-export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1' } as const;
+export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1' } as const;
 
 /** The survey's roles. "examples" is stored as the library's `sample_report` role, which never yields requirements. */
 export const SURVEY_ROLES = ['standards', 'guidance', 'policy_procedure', 'report_template', 'examples', 'other'] as const;
@@ -51,3 +51,14 @@ export const ExtractItemSchema = z.object({
 export type ExtractItem = z.infer<typeof ExtractItemSchema>;
 
 export const ExtractSchema = z.object({ items: z.array(ExtractItemSchema) });
+
+/** Step D: one answer per question of a recovery call. */
+export const RecoverSchema = z.object({
+  answers: z.array(z.object({
+    id: z.string(),
+    found: z.boolean(),
+    reason: z.string().nullish(),
+    items: z.array(ExtractItemSchema).default([]),
+  })),
+});
+export type RecoverAnswer = z.infer<typeof RecoverSchema>['answers'][number];

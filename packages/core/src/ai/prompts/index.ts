@@ -1,6 +1,7 @@
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
 import { ocrV1 } from './ocr.v1.js';
+import { recoverV1 } from './recover.v1.js';
 import { structureV1 } from './structure.v1.js';
 import { surveyV1 } from './survey.v1.js';
 
@@ -16,6 +17,8 @@ export const PROMPTS = {
   survey: { v1: surveyV1 },
   structure: { v1: structureV1 },
   extract: { v1: extractV1 },
+  // Step D: narrow questions about a few pages when the checks found a gap.
+  recover: { v1: recoverV1 },
 } as const satisfies Record<string, Record<string, string>>;
 
 export type PromptTask = keyof typeof PROMPTS;

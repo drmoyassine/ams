@@ -56,6 +56,7 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
   const [maxCost, setMaxCost] = useState(show(initial.maxCostUsdPerRun));
   const [inPrice, setInPrice] = useState(show(initial.inputUsdPerMTok));
   const [outPrice, setOutPrice] = useState(show(initial.outputUsdPerMTok));
+  const [rounds, setRounds] = useState(String(initial.maxRecoveryRounds));
   const [eEnabled, setEEnabled] = useState(e0.enabled);
   const [eUrl, setEUrl] = useState(e0.baseUrl ?? '');
   const [eModel, setEModel] = useState(e0.model ?? '');
@@ -74,6 +75,7 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
       const patch: UpdateAiSetting = {
         model: model.trim() || null, enabled,
         maxTokensPerRun: toNumber(maxTokens), maxCostUsdPerRun: toNumber(maxCost), inputUsdPerMTok: toNumber(inPrice), outputUsdPerMTok: toNumber(outPrice),
+        ...(rounds.trim() === '' ? {} : { maxRecoveryRounds: Number(rounds) }),
         ...(removeKey ? { apiKey: null } : apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
         embeddings: {
           enabled: eEnabled, baseUrl: eUrl.trim() || null, model: eModel.trim() || null, dimension: toNumber(eDim),
@@ -136,6 +138,10 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
             <Input aria-label="Price per million output tokens (USD)" inputMode="decimal" type="number" min={0} step="any" value={outPrice} onChange={(e) => setOutPrice(e.target.value)} disabled={!canEdit} />
           </label>
           <span className={`${hint} sm:col-span-2`}>A cost limit needs both prices, to count the cost. Take them from your provider's price list.</span>
+          <label className={field}>Recovery rounds
+            <Input aria-label="Recovery rounds" inputMode="numeric" type="number" min={0} max={5} step={1} value={rounds} onChange={(e) => setRounds(e.target.value)} disabled={!canEdit} />
+            <span className={hint}>After analysing a standard's sources, how many times to go back for what looks missing (a skipped number, a quote not found, a page nothing was taken from). 0 to 5; 0 turns it off. The limits above still apply.</span>
+          </label>
         </div>
       </Card>
 

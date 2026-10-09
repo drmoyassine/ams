@@ -27,10 +27,16 @@ export const AiSettingSchema = z.object({
   maxCostUsdPerRun: z.number().nullable(),
   inputUsdPerMTok: z.number().nullable(),
   outputUsdPerMTok: z.number().nullable(),
+  /** Check-and-recover rounds after the extraction of a framework analysis (0 switches them off). */
+  maxRecoveryRounds: z.number().int(),
   enabled: z.boolean(),
   embeddings: EmbeddingSettingSchema,
 });
 export type AiSetting = z.infer<typeof AiSettingSchema>;
+
+/** Check-and-recover rounds of a framework analysis: the default, and the most an administrator may set. */
+export const DEFAULT_MAX_RECOVERY_ROUNDS = 2;
+export const MAX_RECOVERY_ROUNDS_LIMIT = 5;
 
 const positive = z.number().positive().max(1_000_000_000);
 export const UpdateEmbeddingSettingSchema = z.object({
@@ -50,6 +56,7 @@ export const UpdateAiSettingSchema = z.object({
   maxCostUsdPerRun: positive.nullable().optional(),
   inputUsdPerMTok: positive.nullable().optional(),
   outputUsdPerMTok: positive.nullable().optional(),
+  maxRecoveryRounds: z.number().int().min(0).max(MAX_RECOVERY_ROUNDS_LIMIT).optional(),
   enabled: z.boolean().optional(),
   embeddings: UpdateEmbeddingSettingSchema.optional(),
 }).strict();

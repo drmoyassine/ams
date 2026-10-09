@@ -61,16 +61,17 @@ describe('framework analysis', () => {
     setAiModelForTests(fake.model);
     const run = await as('alo', (c) => startAnalysis(c, v.versionId));
     runId = run.id;
-    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1' } });
-    // One job per step: read x2, survey x2, structure, extract x3 (two windows of the handbook, one of the guide), write, finalise.
-    expect(await drain()).toBe(10);
-    expect(fake.calls).toHaveLength(6);
+    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1' } });
+    // One job per step: read x2, survey x2, structure, extract x3 (two windows of the handbook, one of the guide), then
+    // step D: gaps, recover x3 (1.9's and a note's quotes, 3.9.1's missing parent: all answered "not there"), gaps; write, finalise.
+    expect(await drain()).toBe(15);
+    expect(fake.calls).toHaveLength(9);
 
     const done = await as('alo', (c) => getAnalysisRun(c, runId));
     expect(done).toMatchObject({ status: 'succeeded', error: null, model: 'test' });
     expect(done.finishedAt).not.toBeNull();
     expect(done.progress).toMatchObject({ windowsTotal: 3, windowsDone: 3, items: 12 });
-    expect(done.usage).toEqual({ inputTokens: 60, outputTokens: 30, costUsd: null, calls: 6 });
+    expect(done.usage).toEqual({ inputTokens: 90, outputTokens: 45, costUsd: null, calls: 9 });
 
     // The level names apply to the draft.
     expect((await as('alo', (c) => getVersion(c, v.versionId))).levelLabels).toEqual(['Standard', 'Criterion', 'Indicator']);
@@ -108,11 +109,18 @@ describe('framework analysis', () => {
     expect(done.report.stats).toEqual({
       pagesRead: 10, requirementsByLevel: { Standard: 1, Criterion: 3, Indicator: 3 }, requirements: 7, notes: 3,
       quoteVerified: 8, quoteVerifiedShare: 0.8, unverified: 2, orphans: 1, lowConfidence: 1, added: 10, updated: 0, keptHumanEdits: 0,
+      dismissedSkipped: 0, gapsRecovered: 0, gapsUnresolved: 0, gapsConfirmedAbsent: 3, conflicts: 0, uncoveredPages: 0, recoveryRounds: 1,
     });
+    // The model confirmed each gap absent, with its reason; the gaps link to the requirement cards they are about.
+    const gaps = done.report.gaps as { key: string; kind: string; status: string; reason: string; requirementId: string | null }[];
+    expect(gaps.map((g) => [g.key.replace(/:[^:]*$/, (m) => (m.length > 12 ? ':…' : m)), g.kind, g.status])).toEqual([
+      ['req:3.9', 'missing_parent', 'confirmed_absent'], ['req:1.9', 'unverified_quote', 'confirmed_absent'], ['note:1.2.1:…', 'unverified_quote', 'confirmed_absent'],
+    ]);
+    expect(gaps.find((g) => g.key === 'req:1.9')).toMatchObject({ reason: 'It is not on these pages.', requirementId: code('1.9').id });
     expect((done.report.structure as { key_terms: unknown[] }).key_terms).toHaveLength(1);
 
     // The raw items are on record with how each fared.
-    const logged = await q(`select kind, flags, quote_verified from extraction_item where analysis_run_id = $1 order by (payload->>'seq')::int`, [runId]);
+    const logged = await q(`select kind, flags, quote_verified from extraction_item where analysis_run_id = $1 order by (payload->>'seq')::numeric`, [runId]);
     expect(logged).toHaveLength(12);
     expect(logged.find((l) => l.flags.includes('orphan_note'))).toBeUndefined();
     expect(logged.filter((l) => l.flags.includes('not_from_standards'))).toHaveLength(1);
@@ -121,7 +129,7 @@ describe('framework analysis', () => {
     // Each step recorded its model calls in its job's result (PRD 15.3).
     const jobs = await q(`select status, result from job where type = 'analyse' and payload->>'runId' = $1`, [runId]);
     expect(jobs.every((j) => j.status === 'succeeded')).toBe(true);
-    expect(jobs.flatMap((j) => j.result.ai ?? []).map((c: { task: string }) => c.task).sort()).toEqual(['extract', 'extract', 'extract', 'structure', 'survey', 'survey']);
+    expect(jobs.flatMap((j) => j.result.ai ?? []).map((c: { task: string }) => c.task).sort()).toEqual(['extract', 'extract', 'extract', 'recover', 'recover', 'recover', 'structure', 'survey', 'survey']);
   }, 120000);
 
   it('re-runs without duplicating, leaves what a person edited or made, and updates only untouched AI rows', async () => {
