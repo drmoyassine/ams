@@ -248,11 +248,66 @@ describe('version lifecycle', () => {
 
   it('reports the database publish gate as a conflict naming the rule', async () => {
     const x = await draft('gate');
-    await run('reviewer', (c) => reviewRequirement(c, x.std.id, 'approved'));
-    await run('reviewer', (c) => reviewReportTemplate(c, x.v.id, 'report', 'approved'));
-    // CFR 1.1 is still pending review.
     await run('lead', (c) => submitForReview(c, x.v.id));
-    await expect(run('admin', (c) => publishVersion(c, x.v.id))).rejects.toThrow(/publish gate: 1 requirement\(s\) are not approved/);
+    // An AI-made requirement without a source reference: only the database gate catches it.
+    await db.su.query(`insert into requirement (institution_id, framework_version_id, code, level_label, title, origin) values ($1, $2, 'CFR 9.9', 'CFR', 'x', 'ai')`, [ids.inst, x.v.id]);
+    await expect(run('admin', (c) => publishVersion(c, x.v.id))).rejects.toThrow(/publish gate: 1 AI-originated item\(s\) lack a source reference/);
+  });
+
+  describe('external standards: publishing is the review (DEC-022)', () => {
+    /** A draft as the framework analysis leaves it: AI rows, pending, with page and quote; one quote not found. */
+    async function analysed(edition: string) {
+      const x = await draft(edition);
+      await db.su.query(`delete from requirement where framework_version_id = $1 and code = 'CFR 1.1'`, [x.v.id]);
+      const ai = (code: string, quote: string, verified: boolean) => one(
+        `insert into requirement (institution_id, framework_version_id, parent_id, code, level_label, title, official_text, origin, source_document_id, source_page, source_quote, quote_verified)
+         values ($1, $2, $3, $4, 'CFR', $4, $5, 'ai', $6, 12, $5, $7) returning id`, [ids.inst, x.v.id, x.std.id, code, quote, x.doc.id, verified]);
+      const good = await ai('CFR 1.1', 'Institutions are required to complete the Compliance with Standards Worksheet', true);
+      const bad = await ai('CFR 1.2', 'A sentence the analysis could not find', false);
+      await db.su.query(
+        `insert into requirement_note (institution_id, requirement_id, type, text, authority, origin, source_document_id, source_page, source_quote, quote_verified)
+         values ($1, $2, 'guidance', 'Complete the worksheet', 'example', 'ai', $3, 12, 'complete the Compliance with Standards Worksheet', true)`, [ids.inst, good, x.doc.id]);
+      return { ...x, good, bad };
+    }
+
+    it('submits and publishes an analysis-made draft without approving any line, and records who published', async () => {
+      const x = await analysed('analysed');
+      const check = await run('lead', (c) => validateVersion(c, x.v.id));
+      expect(check.ok).toBe(true);
+      expect(check.warnings).toEqual([{ path: 'requirements', message: '1 requirement\'s quote was not found in the sources: CFR 1.2' }]);
+      await run('lead', (c) => submitForReview(c, x.v.id));
+      const published = await run('admin', (c) => publishVersion(c, x.v.id));
+      expect(published).toMatchObject({ status: 'published', publishedBy: ids.admin });
+      // Nothing was mass-approved; the version's publisher is the approval, and the rows are frozen as they were.
+      const rows = await run('lead', (c) => listRequirements(c, x.v.id));
+      expect(rows.every((r) => r.reviewStatus === 'pending' && r.reviewedBy === null)).toBe(true);
+      await expect(run('lead', (c) => updateRequirement(c, x.good, { title: 'x' }))).rejects.toThrow(/immutable/);
+    });
+
+    it('blocks submitting and publishing while a required note has no verified quote', async () => {
+      const x = await analysed('required-unverified');
+      await db.su.query(
+        `insert into requirement_note (institution_id, requirement_id, type, text, authority, origin, source_document_id, source_page, source_quote, quote_verified)
+         values ($1, $2, 'evidence_expectation', 'Provide minutes', 'required', 'ai', $3, 12, 'not on the page', false)`, [ids.inst, x.bad, x.doc.id]);
+      const check = await run('lead', (c) => validateVersion(c, x.v.id));
+      expect(check.ok).toBe(false);
+      expect(!check.ok && check.issues).toEqual([{ path: 'requirements.CFR 1.2.notes', message: expect.stringMatching(/"required" note needs a quote found on its source page/) }]);
+      await expect(run('lead', (c) => submitForReview(c, x.v.id))).rejects.toBeInstanceOf(ValidationError);
+      // Even past the service, the database refuses.
+      await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [x.v.id]);
+      await expect(run('admin', (c) => publishVersion(c, x.v.id))).rejects.toBeInstanceOf(ValidationError);
+      await expect(db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [x.v.id, ids.admin]))
+        .rejects.toThrow(/required note\(s\) lack a verified quote/);
+    });
+
+    it('a requirement whose quote was not found is a warning, not an error; a rejected line blocks', async () => {
+      const x = await analysed('warn-only');
+      const check = await run('lead', (c) => validateVersion(c, x.v.id));
+      expect(check).toMatchObject({ ok: true, warnings: [expect.objectContaining({ message: expect.stringContaining('CFR 1.2') })] });
+      await run('reviewer', (c) => reviewRequirement(c, x.bad, 'rejected'));
+      const rejected = await run('lead', (c) => validateVersion(c, x.v.id));
+      expect(!rejected.ok && rejected.issues.map((i) => i.path)).toEqual(['requirements.CFR 1.2']);
+    });
   });
 
   it('cannot publish without being in review, or an empty version', async () => {

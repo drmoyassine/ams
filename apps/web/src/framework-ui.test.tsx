@@ -225,16 +225,20 @@ describe('version page', () => {
     const note = await within(sub).findByTestId('note');
     expect(within(note).getByTestId('authority').textContent).toBe('Required');
     expect(within(note).getByTestId('quote-state').textContent).toBe('Quote verified');
-    expect(within(note).getByTestId('review').textContent).toBe('Pending review');
+    // An external standard's lines carry no review status: publishing the version is the review (DEC-022).
+    expect(within(note).queryByTestId('review')).toBeNull();
+    expect(within(note).queryByRole('button', { name: /Approve|Reject/ })).toBeNull();
+    expect(within(sub).queryByTestId('review')).toBeNull();
   });
 
-  it('edits a requirement and returns it to review; a viewer sees no edit controls', async () => {
+  it('edits a requirement without per-line review labels or approve/reject; a viewer sees no edit controls', async () => {
     const { version } = await importAs('admin', 'edit-flow', true);
     const user = userEvent.setup();
     const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
     const card = await screen.findByRole('region', { name: 'Measure 1-1' });
-    expect(within(card).getByTestId('review').textContent).toBe('Reviewed: approved');
+    expect(within(card).queryByTestId('review')).toBeNull(); // the seed-style auto-approved data shows no label
     await user.click(within(card).getByRole('button', { name: 'Actions for Measure 1-1' }));
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add measure', 'Edit', 'Delete']); // no Approve / Reject
     await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     const title = within(dialog).getByLabelText('Title');
@@ -242,7 +246,8 @@ describe('version page', () => {
     await user.type(title, 'Mission statement (revised)');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Measure 1-1' })).getByTestId('review').textContent).toBe('Pending review'));
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Measure 1-1' }).textContent).toContain('Mission statement (revised)'));
+    expect(within(screen.getByRole('region', { name: 'Measure 1-1' })).queryByTestId('review')).toBeNull();
     expect(screen.getByRole('region', { name: 'Measure 1-1' }).textContent).toContain('Mission statement (revised)');
     unmount();
 
@@ -299,9 +304,10 @@ describe('version page', () => {
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
     await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
     const notes = await screen.findAllByTestId('note');
-    const ai = notes.find((n) => within(n).getByTestId('authority').textContent === 'AI-suggested')!;
+    const analysisLabel = 'Suggested by the analysis (not confirmed in the source)';
+    const ai = notes.find((n) => within(n).getByTestId('authority').textContent === analysisLabel)!;
     await user.click(within(ai).getByRole('button', { name: 'Promote to suggested' }));
-    await waitFor(() => expect(screen.getAllByTestId('authority').map((a) => a.textContent)).not.toContain('AI-suggested'));
+    await waitFor(() => expect(screen.getAllByTestId('authority').map((a) => a.textContent)).not.toContain(analysisLabel));
     expect(screen.getAllByTestId('authority').map((a) => a.textContent)).toContain('Suggested');
   });
 
@@ -351,23 +357,17 @@ describe('version page', () => {
     expect(screen.queryByTestId('config-problems')).toBeNull(); // the configuration is valid
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
-    await user.click(screen.getByRole('button', { name: 'Publish' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/publish gate/);
     await user.click(screen.getByRole('button', { name: 'More actions' }));
     expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Download JSON', 'Return to draft']);
     await user.click(screen.getByRole('menuitem', { name: 'Return to draft' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Draft'));
 
-    // Approve everything through the API (as reviewers would on the cards), then publish.
-    const a = apiFor('admin');
-    for (const r of await a.requirements(version.id)) {
-      await a.reviewRequirement(r.id, 'approved');
-      for (const n of (await a.requirement(r.id)).notes) await a.reviewNote(n.id, 'approved');
-    }
-    await a.reviewTemplate(version.id, 'report', 'approved');
+    // Nothing is approved line by line: publishing the version is the review (DEC-022), and records who published.
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await user.click(await screen.findByRole('button', { name: 'Publish' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Published'));
+    expect(await apiFor('admin').version(version.id)).toMatchObject({ status: 'published', publishedBy: ids.admin });
+    expect((await apiFor('admin').requirements(version.id)).map((r) => r.reviewStatus)).toEqual(['pending', 'pending']); // not mass-approved
     expect(await screen.findByRole('button', { name: 'Start a new version' })).toBeTruthy();
 
     await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
@@ -379,6 +379,31 @@ describe('version page', () => {
     await user.click(screen.getByRole('button', { name: 'Lifecycle and vocabularies' }));
     expect(screen.getByText(/configuration is read-only/)).toBeTruthy();
     expect((screen.getByLabelText('Lifecycle template') as HTMLTextAreaElement).readOnly).toBe(true);
+  });
+
+  it('lists a required note without a verified quote as a problem, and a requirement quote not found as a softer warning', async () => {
+    const { version } = await importAs('lead', 'warnings');
+    const [std] = await apiFor('lead').requirements(version.id);
+    const doc = (await apiFor('lead').documents(version.id))[0]!;
+    await db.su.query(`update requirement set origin = 'ai', source_document_id = $2, source_page = 2, source_quote = 'not on the page', quote_verified = false where id = $1`, [std!.id, doc.id]);
+    const user = userEvent.setup();
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
+    const warn = await screen.findByTestId('content-warnings');
+    expect(warn.textContent).toContain('1 thing to check before publishing (not blocking)');
+    await user.click(within(warn).getByRole('button'));
+    expect(within(warn).getByRole('list', { name: 'Warnings' }).textContent).toContain('quote was not found in the sources: 1');
+    expect(screen.queryByTestId('config-problems')).toBeNull();
+    const card = screen.getByRole('region', { name: 'Standard 1' });
+    expect(within(card).getByTestId('ai-marker')).toBeTruthy();
+    expect(within(card).getByTestId('quote-not-found')).toBeTruthy();
+
+    await db.su.query(
+      `insert into requirement_note (institution_id, requirement_id, type, text, authority, origin, source_document_id, source_page, source_quote, quote_verified) values ($1, $2, 'guidance', 'Keep minutes', 'required', 'ai', $3, 2, 'minutes are kept', false)`,
+      [ids.inst, std!.id, doc.id]);
+    await user.click(screen.getByRole('button', { name: 'Submit for review' }));
+    expect((await screen.findByRole('list', { name: 'Problems' })).textContent).toMatch(/"required" note needs a quote found on its source page/);
+    expect(screen.getByTestId('version-status').textContent).toBe('Draft');
+    expect((await screen.findByTestId('config-problems')).textContent).toContain('1 problem to fix before this version can be published');
   });
 
   it('starts a new version from the header of a published one', async () => {
@@ -459,11 +484,6 @@ describe('version page', () => {
 
     // Once published, its sources are read, not edited.
     const a = apiFor('admin');
-    for (const r of await a.requirements(version.id)) {
-      await a.reviewRequirement(r.id, 'approved');
-      for (const n of (await a.requirement(r.id)).notes) await a.reviewNote(n.id, 'approved');
-    }
-    await a.reviewTemplate(version.id, 'report', 'approved');
     await a.submit(version.id);
     await a.publish(version.id);
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));

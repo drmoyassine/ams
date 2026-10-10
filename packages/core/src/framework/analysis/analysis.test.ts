@@ -11,7 +11,8 @@ import { pdf } from '../parse-fixtures.js';
 import { createRequirement, listRequirements, updateRequirement } from '../requirements.js';
 import { addSourceDocument, addSourcePage, listSourceDocuments, uploadSourceFile } from '../sources.js';
 import { getVersion } from '../common.js';
-import { createAccreditor, createFramework, createVersion, updateVersionConfig } from '../versions.js';
+import { createAccreditor, createFramework, createVersion, publishVersion, submitForReview, updateVersionConfig, validateVersion } from '../versions.js';
+import { upsertReportTemplate } from '../templates.js';
 import { FIXTURE_GUIDE, FIXTURE_HANDBOOK, fixtureResponder } from './fixture.js';
 import { cancelAnalysis, getAnalysisRun, listAnalysisRuns, startAnalysis } from './runs.js';
 
@@ -247,5 +248,35 @@ describe('framework analysis', () => {
     await expect(w.db.as({ userId: w.ids.alo, institutionId: w.ids.inst, role: 'ams_worker' }, (c) => c.query(`update requirement set title = 'x' where id = $1`, [r.id])))
       .rejects.toThrow(/only into a draft/);
     await w.db.su.query(`update framework_version set status = 'draft' where id = $1`, [v.versionId]);
+  }, 120000);
+
+  it('publishes an analysis-made draft as it stands: publishing is the review, no line is approved (DEC-022)', async () => {
+    const p = await draftWithSources('P');
+    setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
+    await as('alo', (c) => startAnalysis(c, p.versionId));
+    await drain();
+    // The accreditor's lifecycle and vocabularies are configured by a person, as for any standard.
+    await as('alo', async (c) => {
+      await updateVersionConfig(c, p.versionId, {
+        lifecycleTemplate: { phases: [{ type: 'self_study', name: 'Self-study', applies_to: ['reaffirmation'], milestones: [
+          { key: 'submit', name: 'Submit', type: 'submission', deliverable: { report_template_key: 'report' }, due: { anchor: 'submission_date', offset_days: 0 } }] }] },
+        decisionVocab: [{ code: 'ok', label: 'Accredited', outcome: 'accredited' }],
+        findingVocab: [{ code: 'rec', label: 'Recommendation', requires_action: true }],
+        responseVocab: [{ code: 'letter', label: 'Action letter', is_decision: true }],
+      });
+      await upsertReportTemplate(c, p.versionId, { key: 'report', name: 'Self-study', kind: 'self_study', structure: { sections: [{ key: 'A', title: 'Intro', block_type: 'narrative' }] } });
+    });
+    const before = await tree(p.versionId);
+    expect(before.every((r) => r.origin === 'ai' && r.reviewStatus === 'pending')).toBe(true);
+
+    // 1.9's quote was not found: a warning, not a problem.
+    const check = await as('alo', (c) => validateVersion(c, p.versionId));
+    expect(check).toMatchObject({ ok: true, warnings: [{ path: 'requirements', message: '1 requirement\'s quote was not found in the sources: 1.9' }] });
+    await as('alo', (c) => submitForReview(c, p.versionId));
+    const published = await as('admin', (c) => publishVersion(c, p.versionId));
+    expect(published).toMatchObject({ status: 'published', publishedBy: w.ids.admin });
+    // No row was marked approved: the version's publisher is the approval.
+    expect((await tree(p.versionId)).every((r) => r.reviewStatus === 'pending' && r.reviewedBy === null)).toBe(true);
+    expect((await notesOf(p.versionId)).every((n) => n.review_status === 'pending')).toBe(true);
   }, 120000);
 });

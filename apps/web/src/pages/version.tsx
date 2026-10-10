@@ -69,6 +69,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const [issues, setIssues] = useState<Issue[]>([]);
   const [newVersion, setNewVersion] = useState(false);
   const [showProblems, setShowProblems] = useState(false);
+  const [showWarnings, setShowWarnings] = useState(false);
   const [focusRequirement, setFocusRequirement] = useState<string | null>(null);
   const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
@@ -88,7 +89,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const act = async (fn: () => Promise<unknown>) => {
     setError(''); setIssues([]);
     try { await fn(); await refresh(); return true; } catch (e) {
-      if (e instanceof ApiError) { setError(e.message); setIssues(e.issues); return false; }
+      if (e instanceof ApiError) { setError(e.message); setIssues(e.issues); void qc.invalidateQueries({ queryKey: ['validation', versionId] }); return false; }
       throw e;
     }
   };
@@ -103,6 +104,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
     ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => { if (window.confirm(`Retire ${versionLabel(version.edition)}? It stays readable but is no longer offered for new engagements.`)) void act(() => api.retire(version.id)); } }] : []),
   ];
   const problems = validation.data && !validation.data.ok ? validation.data.issues : [];
+  const warnings = validation.data?.warnings ?? [];
 
   return (
     <section className="space-y-4">
@@ -145,9 +147,17 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
       {problems.length > 0 && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm wrap-anywhere text-amber-900" data-testid="config-problems">
           <button type="button" className="underline" aria-expanded={showProblems} onClick={() => setShowProblems(!showProblems)}>
-            {problems.length} configuration problem{problems.length === 1 ? '' : 's'} to fix before this version can be published
+            {problems.length} problem{problems.length === 1 ? '' : 's'} to fix before this version can be published
           </button>
           {showProblems && <ul aria-label="Configuration issues" className="mt-2 list-disc space-y-1 ps-5">{problems.map((i, n) => <li key={n}><code>{i.path}</code>: {i.message}</li>)}</ul>}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm wrap-anywhere text-muted-foreground" data-testid="content-warnings">
+          <button type="button" className="underline" aria-expanded={showWarnings} onClick={() => setShowWarnings(!showWarnings)}>
+            {warnings.length} thing{warnings.length === 1 ? '' : 's'} to check before publishing (not blocking)
+          </button>
+          {showWarnings && <ul aria-label="Warnings" className="mt-2 list-disc space-y-1 ps-5">{warnings.map((i, n) => <li key={n}>{i.message}</li>)}</ul>}
         </div>
       )}
       {!internal && (

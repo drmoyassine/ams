@@ -12,8 +12,8 @@ async function one(sql: string, params: unknown[] = []): Promise<string> {
 const fails = (sql: string, params: unknown[], pattern: RegExp) => expect(db.su.query(sql, params)).rejects.toThrow(pattern);
 
 /** A draft version with one approved requirement, note, template, source document and page. */
-async function makeVersion(edition: string) {
-  const v = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, $3) returning id`, [ids.inst, ids.fw, edition]);
+async function makeVersion(edition: string, fw = ids.fw) {
+  const v = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, $3) returning id`, [ids.inst, fw, edition]);
   const d = await one(
     `insert into source_document (institution_id, framework_version_id, title, role, authority, file_path, sha256) values ($1, $2, 'Doc', 'standards', 'binding', 'p', $3) returning id`,
     [ids.inst, v, 'b'.repeat(64)]);
@@ -40,6 +40,7 @@ beforeAll(async () => {
   ids.user = await one(`insert into app_user (institution_id, full_name, email) values ($1, 'A', 'a@x.org') returning id`, [ids.inst]);
   ids.acc = await one(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'A', 'A', 'institutional') returning id`, [ids.inst]);
   ids.fw = await one(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'F', 'institution') returning id`, [ids.inst, ids.acc]);
+  ids.iqf = await one(`insert into framework (institution_id, accreditor_id, name, scope, internal) values ($1, $2, 'IQF', 'institution', true) returning id`, [ids.inst, ids.acc]);
 });
 afterAll(() => db.close());
 
@@ -100,26 +101,44 @@ describe('invariant 1: published is frozen', () => {
 });
 
 describe('invariant 2: publish gate', () => {
-  async function inReview(edition: string) {
-    const x = await makeVersion(edition);
+  async function inReview(edition: string, fw = ids.fw) {
+    const x = await makeVersion(edition, fw);
     await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [x.v]);
     return x;
   }
   const tryPublish = (v: string) =>
     db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [v, ids.user]);
 
-  it('refuses while a requirement is not approved', async () => {
-    const x = await inReview('gate-req');
+  it('internal framework: refuses while a requirement is not approved (unchanged by DEC-022)', async () => {
+    const x = await inReview('gate-req', ids.iqf);
     await db.su.query(`update requirement set review_status = 'pending' where id = $1`, [x.r]);
     await expect(tryPublish(x.v)).rejects.toThrow(/1 requirement\(s\) are not approved/);
     await db.su.query(`update requirement set review_status = 'approved' where id = $1`, [x.r]);
     await tryPublish(x.v);
   });
 
-  it('refuses while a note is not approved', async () => {
-    const x = await inReview('gate-note');
-    await db.su.query(`update requirement_note set review_status = 'rejected' where id = $1`, [x.n]);
+  it('internal framework: refuses while a note is not approved', async () => {
+    const x = await inReview('gate-note', ids.iqf);
+    await db.su.query(`update requirement_note set review_status = 'pending' where id = $1`, [x.n]);
     await expect(tryPublish(x.v)).rejects.toThrow(/note\(s\) are not approved/);
+  });
+
+  it('external standard: pending AI-made rows publish, and stay pending and frozen (DEC-022)', async () => {
+    const x = await inReview('gate-ext-pending');
+    await db.su.query(`update requirement set review_status = 'pending', origin = 'ai', source_document_id = $2, source_page = 1, source_quote = 'q' where id = $1`, [x.r, x.d]);
+    await db.su.query(`update requirement_note set review_status = 'pending', origin = 'ai', source_document_id = $2, source_page = 1, source_quote = 'q' where id = $1`, [x.n, x.d]);
+    await tryPublish(x.v);
+    expect((await db.su.query(`select review_status from requirement where id = $1`, [x.r])).rows[0].review_status).toBe('pending');
+    await fails(`update requirement set review_status = 'approved' where id = $1`, [x.r], /immutable/);
+    await fails(`update requirement_note set review_status = 'approved' where id = $1`, [x.n], /immutable/);
+  });
+
+  it('external standard: refuses while a line was rejected', async () => {
+    const x = await inReview('gate-ext-rejected');
+    await db.su.query(`update requirement_note set review_status = 'rejected' where id = $1`, [x.n]);
+    await expect(tryPublish(x.v)).rejects.toThrow(/1 requirement\(s\) or note\(s\) were rejected/);
+    await db.su.query(`update requirement_note set review_status = 'pending' where id = $1`, [x.n]);
+    await tryPublish(x.v);
   });
 
   it('refuses a required note without a verified quote', async () => {

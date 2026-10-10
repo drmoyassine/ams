@@ -209,7 +209,43 @@ export async function loadConfig(ctx: Ctx, versionId: string): Promise<unknown> 
   };
 }
 
-export async function validateVersion(ctx: Ctx, versionId: string): Promise<{ ok: true; config?: FrameworkConfig } | { ok: false; issues: { path: string; message: string }[] }> {
+type Issue = { path: string; message: string };
+export type VersionValidation =
+  | { ok: true; config?: FrameworkConfig; warnings?: Issue[] }
+  | { ok: false; issues: Issue[]; warnings?: Issue[] };
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * What an external standard's content must satisfy before it is published (DEC-022): publishing the version is the review,
+ * so pending rows (the analysis's or an import's) do not block. A `required` note must have a verified quote (DEC-006),
+ * and a row a person rejected must be edited or deleted first; both block. A requirement whose quote was not found in the
+ * sources is only a warning: the wording is still the accreditor's to check, and the person publishing does.
+ */
+async function checkExternalContent(ctx: Ctx, versionId: string): Promise<{ issues: Issue[]; warnings: Issue[] }> {
+  const reqs = await ctx.tx.select({
+    id: requirement.id, code: requirement.code, reviewStatus: requirement.reviewStatus, sourceQuote: requirement.sourceQuote, quoteVerified: requirement.quoteVerified,
+  }).from(requirement).where(eq(requirement.frameworkVersionId, versionId)).orderBy(asc(requirement.code));
+  const notes = reqs.length ? await ctx.tx.select({
+    requirementId: requirementNote.requirementId, authority: requirementNote.authority, quoteVerified: requirementNote.quoteVerified, reviewStatus: requirementNote.reviewStatus,
+  }).from(requirementNote).where(inArray(requirementNote.requirementId, reqs.map((r) => r.id))) : [];
+  const codeOf = new Map(reqs.map((r) => [r.id, r.code]));
+  const issues: Issue[] = [];
+  for (const n of notes) {
+    if (n.authority === 'required' && !n.quoteVerified) {
+      issues.push({ path: `requirements.${codeOf.get(n.requirementId)}.notes`, message: 'a "required" note needs a quote found on its source page; correct the quote or change the note\'s authority' });
+    }
+  }
+  for (const r of reqs) if (r.reviewStatus === 'rejected') issues.push({ path: `requirements.${r.code}`, message: 'this requirement was rejected; edit or delete it' });
+  for (const n of notes) if (n.reviewStatus === 'rejected') issues.push({ path: `requirements.${codeOf.get(n.requirementId)}.notes`, message: 'a note here was rejected; edit or delete it' });
+  const unverified = reqs.filter((r) => r.sourceQuote && !r.quoteVerified);
+  const warnings: Issue[] = unverified.length
+    ? [{ path: 'requirements', message: `${plural(unverified.length, 'requirement\'s quote was', 'requirements\' quotes were')} not found in the sources: ${unverified.map((r) => r.code).join(', ')}` }]
+    : [];
+  return { issues, warnings };
+}
+
+export async function validateVersion(ctx: Ctx, versionId: string): Promise<VersionValidation> {
   await require_(ctx, 'framework:read');
   if (await isInternalVersion(ctx, versionId)) {
     // The institution's own framework has no accreditor lifecycle, vocabularies or report templates: only its level names.
@@ -218,12 +254,16 @@ export async function validateVersion(ctx: Ctx, versionId: string): Promise<{ ok
   }
   const raw = await loadConfig(ctx, versionId) as Record<string, unknown>;
   if (raw.rating_method === null) delete raw.rating_method;
-  return validateFrameworkConfig(raw);
+  const config = validateFrameworkConfig(raw);
+  const content = await checkExternalContent(ctx, versionId);
+  const issues = [...(config.ok ? [] : config.issues), ...content.issues];
+  if (issues.length) return { ok: false, issues, warnings: content.warnings };
+  return { ok: true, config: (config as { config: FrameworkConfig }).config, warnings: content.warnings };
 }
 
 async function assertReady(ctx: Ctx, versionId: string) {
   const result = await validateVersion(ctx, versionId);
-  if (!result.ok) throw new ValidationError('the framework configuration is not valid', result.issues);
+  if (!result.ok) throw new ValidationError('this version has problems to fix before it can be published', result.issues);
   const [anyRequirement] = await ctx.tx.select({ id: requirement.id }).from(requirement).where(eq(requirement.frameworkVersionId, versionId)).limit(1);
   if (!anyRequirement) throw new ValidationError('a framework version needs at least one requirement', [{ path: 'requirements', message: 'empty' }]);
 }
@@ -246,7 +286,11 @@ export async function returnToDraft(ctx: Ctx, versionId: string) {
   return transition(ctx, versionId, ['in_review'], 'draft');
 }
 
-/** Only a person with framework:publish (Admin) can publish. The database publish gate has the last word. */
+/**
+ * Only a person with framework:publish (Admin) can publish. For an external standard this is the review (DEC-022): the
+ * version's publishedBy/publishedAt record the person who approved its content; no row is marked approved one by one.
+ * The database publish gate has the last word.
+ */
 export async function publishVersion(ctx: Ctx, versionId: string) {
   await require_(ctx, 'framework:publish');
   assertHuman(ctx);

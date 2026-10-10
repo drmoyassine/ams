@@ -5,7 +5,7 @@ const AUTHORITY = {
   required: { label: 'Required', hint: 'The accreditor explicitly requires it', cls: 'bg-red-100 text-red-900 border-red-300' },
   example: { label: 'Example', hint: 'The accreditor gives it as an illustration', cls: 'bg-sky-100 text-sky-900 border-sky-300' },
   suggested: { label: 'Suggested', hint: 'The accreditor suggests it', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
-  ai_suggested: { label: 'AI-suggested', hint: 'Inferred by the AI; no source sentence requires it', cls: 'bg-purple-100 text-purple-900 border-purple-300' },
+  ai_suggested: { label: 'Suggested by the analysis (not confirmed in the source)', hint: 'The analysis inferred it; no sentence in the source was found to require it', cls: 'bg-purple-100 text-purple-900 border-purple-300' },
   institution_defined: { label: 'Institution-defined', hint: 'Added by the institution', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
 } as const;
 

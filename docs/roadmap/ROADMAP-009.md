@@ -47,6 +47,6 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | C | Analysis run: survey, structure, windowed extraction, quote check, write into the draft | Done — TASK-045 |
 | D | Gap finding and bounded recovery rounds; deletions remembered | Done — TASK-046 |
 | E | IQF mapping: hybrid shortlist (embeddings + trigram), AI judges, proposed new IQF items, accept/reject | Next |
-| F | Report screen, review UX, "Create from files", publish gate per DEC-022 (retire per-line approval) | Planned |
+| F | Report screen, review UX, "Create from files", publish gate per DEC-022 (retire per-line approval) | Publish gate and per-line approval retired — TASK-047; rest planned |
 | G | Real-document acceptance: §19.2 on WSCUC/PUC/ABET originals with a real key; compare with seed data | Needs key + files |
 | H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Planned |

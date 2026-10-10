@@ -169,7 +169,7 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       responses: { 200: { description: 'Configuration check; ok=false lists every issue', ...json(ValidationResultSchema) }, ...errors },
     }), async (c) => {
       const r = await validateVersion(c.get('ctx'), c.req.valid('param').id);
-      return c.json({ ok: r.ok, issues: r.ok ? [] : r.issues }, 200);
+      return c.json({ ok: r.ok, issues: r.ok ? [] : r.issues, warnings: r.warnings ?? [] }, 200);
     })
 
     .openapi(secured(registry, deps, {

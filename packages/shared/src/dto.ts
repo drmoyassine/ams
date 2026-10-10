@@ -81,8 +81,10 @@ export const SourcePageSchema = z.object({
   id: z.string(), sourceDocumentId: z.string(), pageNo: z.number(), text: z.string(), method: z.enum(['pdf_text', 'ocr', 'table', 'slide', 'sheet']), reviewed: z.boolean(), needsOcr: z.boolean(), fromFile: z.boolean(),
 });
 export const RequirementDetailSchema = z.object({ requirement: RequirementSchema, notes: z.array(NoteSchema) });
+/** ok=false lists the problems that block submitting and publishing; warnings never block (DEC-022). */
 export const ValidationResultSchema = z.object({
   ok: z.boolean(), issues: z.array(z.object({ path: z.string(), message: z.string() })),
+  warnings: z.array(z.object({ path: z.string(), message: z.string() })),
 });
 export const ImportResultSchema = z.object({
   version: VersionSchema, counts: z.object({ requirements: z.number(), documents: z.number(), templates: z.number() }),

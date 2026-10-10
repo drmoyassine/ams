@@ -20,8 +20,12 @@ export function useAction(onError: (m: string) => void, invalidate: () => Promis
   });
 }
 
-export function NotePanel({ api, note, editable, canReview, invalidate, setError }: {
-  api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
+/**
+ * One note of a requirement. `perLineReview` is for the internal framework only: an external standard's notes are not
+ * approved one by one; publishing the version is the review (DEC-022), so they show no review status or approve/reject.
+ */
+export function NotePanel({ api, note, editable, canReview, perLineReview = true, invalidate, setError }: {
+  api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; perLineReview?: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
 }) {
   const act = useAction(setError, invalidate);
   return (
@@ -29,7 +33,7 @@ export function NotePanel({ api, note, editable, canReview, invalidate, setError
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <AuthorityBadge authority={note.authority} />
         <span className="text-xs text-muted-foreground">{note.type.replace('_', ' ')}</span>
-        <ReviewBadge status={note.reviewStatus} />
+        {perLineReview && <ReviewBadge status={note.reviewStatus} />}
         {note.authority === 'required' && <span className="text-xs" data-testid="quote-state">{note.quoteVerified ? 'Quote verified' : 'Quote NOT verified'}</span>}
         {note.origin === 'ai' && <AiMarker />}
         {note.origin === 'ai' && note.sourceQuote && !note.quoteVerified && <QuoteNotFoundBadge />}
@@ -37,7 +41,7 @@ export function NotePanel({ api, note, editable, canReview, invalidate, setError
       <p className="text-sm"><ContentText>{note.text}</ContentText></p>
       {note.sourceQuote && <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground"><ContentText>{note.sourceQuote}</ContentText> <span>(page {note.sourcePage})</span></blockquote>}
       <div className="mt-2 flex flex-wrap gap-2">
-        {canReview && editable && <>
+        {perLineReview && canReview && editable && <>
           <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'approved'))}>Approve note</Button>
           <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'rejected'))}>Reject note</Button>
         </>}

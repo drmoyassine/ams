@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
-import { AiMarker, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
+import { AiMarker, QuoteNotFoundBadge } from '../../components/badges';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
@@ -71,7 +71,7 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
         </label>
         <label className="text-sm"><input type="checkbox" name="assessable" aria-label="Assessable" defaultChecked={editing ? editing.isAssessable : true} /> Assessable (not just a heading)</label>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <p className="text-xs text-muted-foreground">{editing ? 'Saving returns it to review.' : 'It is added to this draft and reviewed before the version is published.'}</p>
+        <p className="text-xs text-muted-foreground">{editing ? 'The change is part of this draft until the version is published.' : 'It is added to this draft; publishing the version is the review.'}</p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
           <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add requirement'}</Button>
@@ -83,13 +83,13 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
 
 interface NodeProps {
   api: FrameworkApi; version: Version; me: Me | undefined; r: Requirement; all: Requirement[]; levels: string[];
-  editable: boolean; canReview: boolean; open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
+  editable: boolean; open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
   onAddChild: (r: Requirement) => void; onEdit: (r: Requirement) => void; setError: (m: string) => void; invalidateTree: () => Promise<unknown>;
 }
 
 /** One requirement as a card; its children follow indented below it. */
 function Node(p: NodeProps) {
-  const { api, version, r, all, levels, editable, canReview, open, toggle, act } = p;
+  const { api, version, r, all, levels, editable, open, toggle, act } = p;
   const qc = useQueryClient();
   const isOpen = open.has(r.id);
   const children = all.filter((x) => x.parentId === r.id);
@@ -100,7 +100,6 @@ function Node(p: NodeProps) {
   const childLevel = levels[Math.min((r.depth ?? 0) + 1, levels.length - 1)];
   const menu = [
     ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
-    ...(canReview ? [{ label: 'Approve', onSelect: () => void act(() => api.reviewRequirement(r.id, 'approved')) }, { label: 'Reject', onSelect: () => void act(() => api.reviewRequirement(r.id, 'rejected')) }] : []),
     ...(editable ? [{ label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${nameOf(r)}?`)) void act(() => api.deleteRequirement(r.id)); } }] : []),
   ];
   return (
@@ -112,7 +111,6 @@ function Node(p: NodeProps) {
           <span className="text-xs text-muted-foreground">{r.levelLabel}</span>
           {r.origin === 'ai' && <AiMarker />}
           {r.origin === 'ai' && r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
-          <ReviewBadge status={r.reviewStatus} />
         </span>}
         hover={(
           <HoverCard>
@@ -133,7 +131,7 @@ function Node(p: NodeProps) {
         <div className="space-y-1">
           <Shaded>Notes</Shaded>
           <ul className="space-y-2">
-            {(detail.data?.notes ?? []).map((n) => <NotePanel key={n.id} api={api} note={n} editable={editable || canReview} canReview={canReview} invalidate={invalidate} setError={p.setError} />)}
+            {(detail.data?.notes ?? []).map((n) => <NotePanel key={n.id} api={api} note={n} editable={editable} canReview={false} perLineReview={false} invalidate={invalidate} setError={p.setError} />)}
             {detail.data?.notes.length === 0 && <li className="text-sm text-muted-foreground">No notes.</li>}
           </ul>
           {editable && <AddNote api={api} requirementId={r.id} docs={docs.data ?? []} invalidate={invalidate} setError={p.setError} />}
@@ -150,8 +148,9 @@ function Node(p: NodeProps) {
 
 /**
  * An external standard's requirements, laid out like the internal framework's: full-width closable cards with a shaded
- * tag, items indented under their parent, a ⋯ menu to add, edit, review or delete (while the version is a draft), and
- * "+ Requirement" opening a dialog. Notes (guidance, expectations) sit inside each card. Evidence is not linked here:
+ * tag, items indented under their parent, a ⋯ menu to add, edit or delete (while the version is a draft), and
+ * "+ Requirement" opening a dialog. Lines are not approved one by one: publishing the version is the review (DEC-022), so
+ * the cards show provenance (AI, source page and quote, a quote not found) but no review status. Notes (guidance, expectations) sit inside each card. Evidence is not linked here:
  * it is linked once to the internal standards these map onto.
  */
 export function ExternalRequirements({ api, version, me, focusId }: { api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null }) {
@@ -165,7 +164,6 @@ export function ExternalRequirements({ api, version, me, focusId }: { api: Frame
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(invalidateTree); };
   const draft = version.status === 'draft';
   const editable = draft && can(me, 'framework:write');
-  const canReview = draft && can(me, 'framework:review');
   const all = tree.data ?? [];
   const tops = all.filter((r) => !r.parentId);
   const levels = (version.levelLabels as string[] | undefined) ?? [];
@@ -199,7 +197,7 @@ export function ExternalRequirements({ api, version, me, focusId }: { api: Frame
     if (r) close();
   };
   const nodeProps = {
-    api, version, me, all, levels, editable, canReview, open, toggle, act, setError, invalidateTree,
+    api, version, me, all, levels, editable, open, toggle, act, setError, invalidateTree,
     onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }), onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
   };
 

@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-10 — Publishing is the review for external standards (TASK-047)
+
+DEC-022 applied to the publish gate. Decisions: DEC-006, DEC-022.
+- **The old rule lived only in the database:** `enforce_publish_gate()` (0005) demanded every requirement and note approved. Core never checked review status; the UI added per-line Approve/Reject and review badges. Migration 0042 replaces the function body: for an external standard pending rows publish (a rejected row still blocks); the internal quality framework keeps the 0005 rule. Required-note quote and AI source-reference checks stay for both. No rows are mass-approved; `published_by`/`published_at` is the approval, and pending AI rows are frozen as pending.
+- **Validation now covers content, not just configuration,** for external versions: a `required` note without a verified quote (and a rejected line) is a blocking issue; requirements whose quote was not found are a non-blocking `warnings` entry on the validation result and API. The version page shows warnings in a softer banner below the amber problems banner.
+- **UI:** external requirement cards and notes show provenance only (AI marker, page and quote, "Quote not found in source"); `ai_suggested` reads "Suggested by the analysis (not confirmed in the source)". The IQF's own requirement view (RequirementsTab) keeps its approve/reject, and `NotePanel` takes `perLineReview` to tell the two apart.
+- Learning: the analysis writer and the gap finder treat any non-pending row as a person's (`reviewStatus !== 'pending'` locks it), so seed data imported with `autoApprove` stays locked against re-runs even though the UI no longer shows the label.
+
+---
+
 ## 2026-10-09 — Framework analysis check and recover: exhaustive but bounded (TASK-046)
 
 Step D of the framework analysis pipeline. Decisions: DEC-002, DEC-006, DEC-012, DEC-022.

@@ -112,19 +112,9 @@ describe('framework API', () => {
     expect(dupe.body.message).toMatch(/requirement_version_code_idx/);
   });
 
-  it('refuses to publish while content is unreviewed, then publishes after review', async () => {
-    expect((await call('lead', 'POST', `/api/framework-versions/${versionId}/submit`)).status).toBe(200);
-    const early = await call('admin', 'POST', `/api/framework-versions/${versionId}/publish`);
-    expect(early.status).toBe(409);
-    expect(early.body.message).toMatch(/publish gate/);
-    expect((await call('lead', 'POST', `/api/framework-versions/${versionId}/return-to-draft`)).status).toBe(200);
-
-    const tree = (await call('reviewer', 'GET', `/api/framework-versions/${versionId}/requirements`)).body as { id: string }[];
-    for (const r of tree) expect((await call('reviewer', 'POST', `/api/requirements/${r.id}/review`, { decision: 'approved' })).status).toBe(200);
-    const detail = await call('reviewer', 'GET', `/api/requirements/${tree[1]!.id}`);
-    expect((await call('reviewer', 'POST', `/api/notes/${detail.body.notes[0].id}/review`, { decision: 'approved' })).status).toBe(200);
-    expect((await call('reviewer', 'POST', `/api/framework-versions/${versionId}/report-templates/report/review`, { decision: 'approved' })).status).toBe(200);
-
+  it('publishes an external standard without per-line approval: the publisher is the review (DEC-022)', async () => {
+    const check = await call('lead', 'GET', `/api/framework-versions/${versionId}/validation`);
+    expect(check.body).toEqual({ ok: true, issues: [], warnings: [] });
     expect((await call('lead', 'POST', `/api/framework-versions/${versionId}/submit`)).status).toBe(200);
     expect((await call('lead', 'POST', `/api/framework-versions/${versionId}/publish`)).status).toBe(403);
     const published = await call('admin', 'POST', `/api/framework-versions/${versionId}/publish`);
@@ -177,7 +167,7 @@ describe('framework API', () => {
     expect(badTemplate.status).toBe(400);
     expect(badTemplate.body.issues[0].message).toMatch(/data_table needs columns/);
     const validation = await call('lead', 'GET', `/api/framework-versions/${vid}/validation`);
-    expect(validation.body).toEqual({ ok: true, issues: [] });
+    expect(validation.body).toEqual({ ok: true, issues: [], warnings: [] });
     expect((await call('lead', 'DELETE', `/api/framework-versions/${vid}/report-templates/report`)).status).toBe(204);
     expect((await call('lead', 'GET', `/api/framework-versions/${vid}/validation`)).body.ok).toBe(false);
   });

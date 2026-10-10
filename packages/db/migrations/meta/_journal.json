@@ -295,6 +295,13 @@
       "when": 1791542735109,
       "tag": "0041_analysis_recovery_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791600000000,
+      "tag": "0042_external_publish_gate",
+      "breakpoints": true
     }
   ]
 }
