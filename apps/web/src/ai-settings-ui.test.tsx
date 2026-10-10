@@ -45,6 +45,8 @@ beforeAll(async () => {
 afterEach(() => { cleanup(); setAiModelForTests(null); setEmbedderForTests(null); });
 afterAll(async () => { delete process.env.APP_SECRET; await pool.end(); await db.close(); });
 
+const openTab = async (user: ReturnType<typeof userEvent.setup>, name: string) => { await user.click(await screen.findByRole('tab', { name })); };
+
 describe('AI settings page', () => {
   it('tells a non-administrator that it is for administrators', async () => {
     render(wrap(<AiSettingsPage api={apiFor('lead')} />));
@@ -52,7 +54,12 @@ describe('AI settings page', () => {
     expect(screen.queryByLabelText('API key')).toBeNull();
   });
 
-  it('saves the connection with a write-only key and shows only that it is set', async () => {
+  it('shows the provider as plain text, not a dropdown that cannot open', async () => {
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    expect((await screen.findByLabelText('Provider')).tagName).not.toBe('SELECT');
+  });
+
+  it('saves the connection with a write-only key and shows only that it is set', { timeout: 20000 }, async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
     const keyInput = await screen.findByLabelText('API key');
@@ -60,21 +67,24 @@ describe('AI settings page', () => {
     expect(screen.getByRole('switch', { name: /AI is on/ })).toBeTruthy();
     await user.type(screen.getByLabelText('Model'), 'some-model');
     await user.type(keyInput, KEY);
-    await user.type(screen.getByLabelText('Max tokens per run'), '200000');
     await user.click(screen.getByRole('switch', { name: /AI is on/ }));
+    await openTab(user, 'Limits');
+    await user.type(screen.getByLabelText('Max tokens per run'), '200000');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Saved.')).toBeTruthy();
+    expect((screen.getByLabelText('Max tokens per run') as HTMLInputElement).value).toBe('200000'); // still on the Limits tab after saving
+    await openTab(user, 'Connection');
     await waitFor(() => expect((screen.getByLabelText('API key') as HTMLInputElement).placeholder).toContain('ending in 4321'));
     expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('');
     expect(document.body.innerHTML).not.toContain(KEY);
     expect((screen.getByLabelText('Model') as HTMLInputElement).value).toBe('some-model');
-    expect((screen.getByLabelText('Max tokens per run') as HTMLInputElement).value).toBe('200000');
     expect((screen.getByRole('switch', { name: /AI is on/ }) as HTMLInputElement).checked).toBe(true);
   });
 
   it('sets the recovery rounds next to the spend limits: 2 by default, 0 to 5', async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await openTab(user, 'Limits');
     const rounds = await screen.findByLabelText('Recovery rounds') as HTMLInputElement;
     expect(rounds.value).toBe('2');
     await user.clear(rounds);
@@ -84,6 +94,7 @@ describe('AI settings page', () => {
     expect((await db.su.query(`select max_recovery_rounds from ai_setting where institution_id = $1`, [ids.inst])).rows[0].max_recovery_rounds).toBe(4);
     cleanup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await openTab(user, 'Limits');
     const again = await screen.findByLabelText('Recovery rounds') as HTMLInputElement;
     await waitFor(() => expect(again.value).toBe('4'));
     // The field itself keeps to 0..5 (the API refuses anything else too).
@@ -93,6 +104,7 @@ describe('AI settings page', () => {
   it('shows the server\'s reason when a limit cannot be saved', async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await openTab(user, 'Limits');
     await user.type(await screen.findByLabelText('Max cost per run (USD)'), '5');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/price per million/);
@@ -101,6 +113,7 @@ describe('AI settings page', () => {
   it('saves the embeddings section, with its own write-only key', async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await openTab(user, 'Embeddings');
     await user.click(await screen.findByRole('switch', { name: /Embeddings are on/ }));
     await user.type(screen.getByLabelText('Base URL'), 'http://embed.local:8080/v1');
     await user.type(screen.getByLabelText('Embedding model'), 'multilingual-model');

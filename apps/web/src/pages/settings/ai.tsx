@@ -8,6 +8,12 @@ import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 
+const TABS = [
+  { id: 'connection', label: 'Connection' },
+  { id: 'limits', label: 'Limits' },
+  { id: 'embeddings', label: 'Embeddings' },
+] as const;
+type Tab = (typeof TABS)[number]['id'];
 const field = 'flex flex-col gap-1 text-sm';
 const hint = 'text-xs text-muted-foreground';
 const toNumber = (v: string) => (v.trim() === '' ? null : Number(v));
@@ -45,7 +51,7 @@ function KeyField({ label, configured, last4, value, onChange, remove, onRemove,
   );
 }
 
-function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSetting; canEdit: boolean }) {
+function AiForm({ api, initial, canEdit, tab, setTab }: { api: SettingsApi; initial: AiSetting; canEdit: boolean; tab: Tab; setTab: (t: Tab) => void }) {
   const qc = useQueryClient();
   const e0 = initial.embeddings;
   const [model, setModel] = useState(initial.model ?? '');
@@ -94,18 +100,24 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
   const dirty = apiKey !== '' || eKey !== '';
 
   return (
-    <form onSubmit={submit} className="space-y-6" aria-label="AI settings" autoComplete="off">
-      <Card>
+    <form onSubmit={submit} className="space-y-4" aria-label="AI settings" autoComplete="off">
+      <div role="tablist" aria-label="AI settings sections" className="flex gap-1 overflow-x-auto border-b border-border">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" id={`ai-tab-${t.id}`} aria-selected={tab === t.id} aria-controls={`ai-panel-${t.id}`} onClick={() => setTab(t.id)}
+            className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
+        ))}
+      </div>
+      {tab === 'connection' && <div role="tabpanel" id="ai-panel-connection" aria-labelledby="ai-tab-connection"><Card>
         <h2 className="mb-1 text-lg font-semibold">Model</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          {canEdit ? 'Used when standards are analysed. Anything the model writes stays a proposal until a person accepts it.' : 'Only an administrator can change these.'}
+          {canEdit ? 'Used to analyse standards. Its output is a draft until a person publishes it.' : 'Only an administrator can change these.'}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={field}>Provider
-            <select aria-label="Provider" className="rounded-md border border-border bg-background px-2 py-2 text-sm" value={initial.provider} disabled>
-              <option value="anthropic">Anthropic</option>
-            </select>
-          </label>
+          <div className={field}>
+            <span>Provider</span>
+            <span aria-label="Provider" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">Anthropic</span>
+            <span className={hint}>The only provider available for now.</span>
+          </div>
           <label className={field}>Model
             <Input aria-label="Model" value={model} onChange={(e) => setModel(e.target.value)} disabled={!canEdit} placeholder="Model name from your provider" />
           </label>
@@ -116,14 +128,14 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
             </KeyField>
           </div>
           <div className="sm:col-span-2">
-            <Switch label="AI is on" checked={enabled} onChange={setEnabled} disabled={!canEdit} description="When off, document analysis jobs stop with a clear message instead of calling the model." />
+            <Switch label="AI is on" checked={enabled} onChange={setEnabled} disabled={!canEdit} description="Off: analysis stops instead of calling the model." />
           </div>
         </div>
-      </Card>
+      </Card></div>}
 
-      <Card>
+      {tab === 'limits' && <div role="tabpanel" id="ai-panel-limits" aria-labelledby="ai-tab-limits"><Card>
         <h2 className="mb-1 text-lg font-semibold">Spend limits</h2>
-        <p className="mb-3 text-sm text-muted-foreground">Per run, meaning one background job. A run stops when a limit is reached. Leave a limit empty for none.</p>
+        <p className="mb-3 text-sm text-muted-foreground">Per analysis run. It stops when a limit is reached. Empty means no limit.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={field}>Max tokens per run
             <Input aria-label="Max tokens per run" inputMode="numeric" type="number" min={1} step={1} value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} disabled={!canEdit} />
@@ -137,19 +149,19 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
           <label className={field}>Price per million output tokens (USD)
             <Input aria-label="Price per million output tokens (USD)" inputMode="decimal" type="number" min={0} step="any" value={outPrice} onChange={(e) => setOutPrice(e.target.value)} disabled={!canEdit} />
           </label>
-          <span className={`${hint} sm:col-span-2`}>A cost limit needs both prices, to count the cost. Take them from your provider's price list.</span>
+          <span className={`${hint} sm:col-span-2`}>A cost limit needs both prices (from your provider's price list).</span>
           <label className={field}>Recovery rounds
             <Input aria-label="Recovery rounds" inputMode="numeric" type="number" min={0} max={5} step={1} value={rounds} onChange={(e) => setRounds(e.target.value)} disabled={!canEdit} />
-            <span className={hint}>After analysing a standard's sources, how many times to go back for what looks missing (a skipped number, a quote not found, a page nothing was taken from). 0 to 5; 0 turns it off. The limits above still apply.</span>
+            <span className={hint}>How many times to re-read pages where something looks missing. 0 to 5; 0 is off.</span>
           </label>
         </div>
-      </Card>
+      </Card></div>}
 
-      <Card>
+      {tab === 'embeddings' && <div role="tabpanel" id="ai-panel-embeddings" aria-labelledby="ai-tab-embeddings"><Card>
         <h2 className="mb-1 text-lg font-semibold">Embeddings</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Ranks which requirements to compare. It only orders a shortlist; it never decides anything. Without it, ranking uses wording and codes alone.
-          Works with any OpenAI-compatible endpoint, hosted or inside your own network. Only standards' wording is sent: never evidence or data.
+          Helps find similar requirements, including across languages. Optional. Any OpenAI-compatible endpoint, hosted or your own.
+          Only standards' wording is sent, never evidence or data.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -173,10 +185,10 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
             </KeyField>
           </div>
         </div>
-      </Card>
+      </Card></div>}
 
       {canEdit && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-background px-1 py-3 items-center gap-3">
           <Button type="submit" disabled={save.isPending}>Save</Button>
           <Button type="button" variant="outline" onClick={runTest} disabled={testing || dirty} title={dirty ? 'Save the new key first' : undefined}>
             {testing ? 'Testing…' : 'Test connection'}
@@ -205,15 +217,17 @@ function AiForm({ api, initial, canEdit }: { api: SettingsApi; initial: AiSettin
   );
 }
 
-/** Settings -> AI: the connection, spend limits and embeddings. Administrators only; the key is write-only. */
+/** Settings -> AI: connection, limits and embeddings, one tab each. Administrators only; the key is write-only. */
 export function AiSettingsPage({ api: override }: { api?: SettingsApi }) {
   const api = useSettingsApi(override);
   const me = useMe(api);
   const allowed = can(me.data, 'ai:manage');
+  // Lives here, not in the form: a save re-keys the form, and the person should stay on the tab they were using.
+  const [tab, setTab] = useState<Tab>('connection');
   const { data, error } = useQuery({ queryKey: ['ai-settings'], queryFn: () => api.aiSettings(), enabled: allowed });
   if (me.data && !allowed) return <Card><p className="text-sm text-muted-foreground">Only an administrator can see the AI settings.</p></Card>;
   if (error) return <Card><p role="alert" className="text-sm text-red-700">{error instanceof Error ? error.message : 'Could not load the AI settings'}</p></Card>;
   if (!data) return <Card><p className="text-sm text-muted-foreground">Loading…</p></Card>;
   // Keyed by the saved values so a save (or another admin's change) refreshes the form, and a background refetch does not reset typing.
-  return <AiForm key={JSON.stringify(data)} api={api} initial={data} canEdit={allowed} />;
+  return <AiForm key={JSON.stringify(data)} api={api} initial={data} canEdit={allowed} tab={tab} setTab={setTab} />;
 }

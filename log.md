@@ -403,3 +403,7 @@ Learnings to carry forward:
 ## 2026-10-05 — Framework adopted
 
 Adopted `vibe-engineering-framework` through `vef setup`; `vef check` confirmed deterministic core enforcement. Framework docs (VISION, ROADMAP, TASKS, DECISIONS) are the public reading surfaces over canonical records. Claude Code skills (`/tasks`, `/roadmap`, `/decisions`, `/bugs`, `/apply`) were installed in `.claude/skills/`.
+
+## 2026-10-10 — Settings → AI split into tabs
+
+Connection, Limits and Embeddings are now tabs (the tab survives a save); the Save / Test connection bar stays at the bottom. The provider was a disabled one-option dropdown that looked broken; it is now plain text. Help text shortened.
