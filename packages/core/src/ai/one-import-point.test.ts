@@ -27,6 +27,14 @@ describe('AI import point', () => {
   it('imports the AI SDK and its providers only under packages/core/src/ai', () => {
     expect(scan(['apps', 'packages'], /from\s+['"](ai|ai\/test|@ai-sdk\/[^'"]+)['"]/, (rel) => rel.startsWith('packages/core/src/ai/'))).toEqual([]);
   });
+  it('chooses a provider only in model.ts: each provider package is imported there and nowhere else', () => {
+    const providers = /from\s+['"]@ai-sdk\/(anthropic|openai|google|openai-compatible)['"]/;
+    expect(scan(['apps', 'packages'], providers, (rel) => rel === 'packages/core/src/ai/model.ts')).toEqual([]);
+    const model = readFileSync(join(ROOT, 'packages/core/src/ai/model.ts'), 'utf8');
+    for (const pkg of ['anthropic', 'openai', 'google', 'openai-compatible']) expect(model).toContain(`'@ai-sdk/${pkg}'`);
+    // Every provider the settings accept has a branch in model.ts, and no other file switches on the provider name.
+    expect(scan(['apps', 'packages'], /case\s+'(anthropic|openai_compatible)'/, (rel) => rel === 'packages/core/src/ai/model.ts')).toEqual([]);
+  });
   it('lets the API and the SPA reach a model only through the settings connection test', () => {
     expect(scan(['apps/api/src', 'apps/web/src'], /\b(aiExtract|aiOcr|embed|runInAiScope|loadAiRuntime|upsertEmbeddings|createModel)\b\s*[(<]/, () => false)).toEqual([]);
   });

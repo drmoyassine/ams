@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_PROVIDERS, type AiProvider } from './ai.js';
 
 /** Every runtime setting comes from the environment (DEC-008). Only open standards: PostgreSQL, S3, SMTP, OIDC. */
 export const envSchema = z.object({
@@ -29,15 +30,32 @@ export const envSchema = z.object({
   // Encrypts secrets stored in the database (the AI provider key). Falls back to AUTH_SECRET when unset; changing it
   // makes stored keys unreadable, so they must be entered again in Settings -> AI.
   APP_SECRET: z.string().min(32).optional(),
-  AI_PROVIDER: z.string().default('anthropic'),
+  AI_PROVIDER: z.enum(AI_PROVIDERS).default('anthropic'),
   AI_MODEL: z.string().optional(),
+  // Only for AI_PROVIDER=openai_compatible (OpenRouter, Ollama, vLLM, LM Studio, Azure ...); the key is optional there.
+  AI_BASE_URL: z.url().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
+  OPENAI_COMPATIBLE_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** The AI settings the environment can supply when Settings -> AI has none (DEC-012, DEC-021). */
-export const aiEnvSchema = envSchema.pick({ AI_PROVIDER: true, AI_MODEL: true, ANTHROPIC_API_KEY: true });
+export const aiEnvSchema = envSchema.pick({
+  AI_PROVIDER: true, AI_MODEL: true, AI_BASE_URL: true,
+  ANTHROPIC_API_KEY: true, OPENAI_API_KEY: true, GOOGLE_GENERATIVE_AI_API_KEY: true, OPENAI_COMPATIBLE_API_KEY: true,
+});
+type AiEnv = z.infer<typeof aiEnvSchema>;
+
+const ENV_KEY_NAME = {
+  anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY', openai_compatible: 'OPENAI_COMPATIBLE_API_KEY',
+} as const satisfies Record<AiProvider, keyof AiEnv>;
+/** The environment's API key for one provider (never another provider's), or undefined. */
+export const aiEnvKey = (env: AiEnv, provider: AiProvider): string | undefined => env[ENV_KEY_NAME[provider]];
+/** Providers that can run without a key (a local Ollama, for example). */
+export const aiKeyOptional = (provider: AiProvider) => provider === 'openai_compatible';
 export function loadAiEnv(source: Record<string, string | undefined> = process.env) {
   const present = Object.fromEntries(Object.entries(source).filter(([k, v]) => v !== '' && k in aiEnvSchema.shape));
   return aiEnvSchema.parse(present);

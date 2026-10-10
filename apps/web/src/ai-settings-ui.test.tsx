@@ -54,9 +54,29 @@ describe('AI settings page', () => {
     expect(screen.queryByLabelText('API key')).toBeNull();
   });
 
-  it('shows the provider as plain text, not a dropdown that cannot open', async () => {
+  it('has a real provider dropdown that opens, with the Base URL only for the OpenAI-compatible provider', async () => {
+    const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));
-    expect((await screen.findByLabelText('Provider')).tagName).not.toBe('SELECT');
+    const select = (await screen.findByLabelText('Provider')) as HTMLSelectElement;
+    expect(select.tagName).toBe('SELECT');
+    expect(select.disabled).toBe(false);
+    expect([...select.options].map((o) => o.value)).toEqual(['anthropic', 'openai', 'google', 'openai_compatible']);
+    expect(screen.queryByText(/only provider available/)).toBeNull();
+    expect(screen.queryByLabelText('Base URL')).toBeNull();
+    await user.selectOptions(select, 'openai');
+    expect(select.value).toBe('openai');
+    expect(screen.queryByLabelText('Base URL')).toBeNull();
+    await user.selectOptions(select, 'openai_compatible');
+    expect(screen.getByLabelText('Base URL')).toBeTruthy();
+    expect(screen.getByText(/Ollama: http:\/\/host:11434\/v1/)).toBeTruthy();
+    await user.selectOptions(select, 'google');
+    expect(screen.queryByLabelText('Base URL')).toBeNull();
+    // A native select: the browser gives it keyboard and touch handling. It must be reachable with Tab.
+    await user.tab();
+    await user.tab();
+    select.focus();
+    expect(document.activeElement).toBe(select);
+    expect(select.tabIndex).toBeGreaterThanOrEqual(0);
   });
 
   it('saves the connection with a write-only key and shows only that it is set', { timeout: 20000 }, async () => {
@@ -156,5 +176,40 @@ describe('AI settings page', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Saved.')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('API key-status').textContent).toBe('No key saved.'));
+  });
+
+  it('saves an OpenAI-compatible connection with its Base URL, and refuses a Base URL with credentials', async () => {
+    const user = userEvent.setup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await user.selectOptions(await screen.findByLabelText('Provider'), 'openai_compatible');
+    await user.clear(screen.getByLabelText('Model'));
+    await user.type(screen.getByLabelText('Model'), 'local-model');
+    await user.type(screen.getByLabelText('Base URL'), 'http://user:pw@host:11434/v1');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.queryByText('Saved.')).toBeNull();
+    await user.clear(screen.getByLabelText('Base URL'));
+    await user.type(screen.getByLabelText('Base URL'), 'http://host:11434/v1');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    await waitFor(() => expect((screen.getByLabelText('Provider') as HTMLSelectElement).value).toBe('openai_compatible'));
+    expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe('http://host:11434/v1');
+  });
+
+  it('removes the saved key when the provider changes, and tells the person first', async () => {
+    const user = userEvent.setup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    const select = (await screen.findByLabelText('Provider')) as HTMLSelectElement;
+    await user.selectOptions(select, 'anthropic');
+    await user.type(screen.getByLabelText('API key'), KEY);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('API key-status').textContent).toContain('A key is saved'));
+    await user.selectOptions(screen.getByLabelText('Provider'), 'openai');
+    expect(screen.getByText(/Changing the provider removes the saved API key/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('API key-status').textContent).toBe('No key saved.'));
+    expect(screen.queryByLabelText('Base URL')).toBeNull();
   });
 });

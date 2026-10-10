@@ -133,3 +133,15 @@ describe('secrets at rest', () => {
     expect(() => decryptSecret(`v1:${raw.toString('base64')}`, secret)).toThrow(/cannot be decrypted/);
   });
 });
+
+describe('aiOcr with a provider or model that cannot read images', () => {
+  it('fails with the typed AiCallError (no crash, no key); parseDocument records it as an OCR warning and the page stays needsOcr', async () => {
+    setAiModelForTests(createFakeAiModel([new Error('400 this model does not accept image input sk-secret-key-1234')]).model);
+    const runtime = createAiRuntime({ ...config, provider: 'openai_compatible', baseUrl: 'http://host/v1' });
+    const err = await inJob(() => aiOcr({ image: new Uint8Array([1, 2, 3]), lang: 'en', runtime })).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiCallError);
+    expect((err as Error).message).toContain('image input');
+    expect((err as Error).message).not.toContain('sk-secret-key-1234');
+    expect(runtime.calls[0]).toMatchObject({ task: 'ocr', provider: 'openai_compatible', ok: false });
+  });
+});

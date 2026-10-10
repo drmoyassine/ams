@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AiSetting, AiTestResult, UpdateAiSetting } from '@ams/shared';
+import { AI_PROVIDERS, AI_PROVIDER_LABELS, type AiProvider, type AiSetting, type AiTestResult, type UpdateAiSetting } from '@ams/shared';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -54,6 +54,8 @@ function KeyField({ label, configured, last4, value, onChange, remove, onRemove,
 function AiForm({ api, initial, canEdit, tab, setTab }: { api: SettingsApi; initial: AiSetting; canEdit: boolean; tab: Tab; setTab: (t: Tab) => void }) {
   const qc = useQueryClient();
   const e0 = initial.embeddings;
+  const [provider, setProvider] = useState<AiProvider>(initial.provider);
+  const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? '');
   const [model, setModel] = useState(initial.model ?? '');
   const [apiKey, setApiKey] = useState('');
   const [removeKey, setRemoveKey] = useState(false);
@@ -79,6 +81,7 @@ function AiForm({ api, initial, canEdit, tab, setTab }: { api: SettingsApi; init
     mutationFn: async () => {
       setError(null); setSaved(false);
       const patch: UpdateAiSetting = {
+        provider, baseUrl: provider === 'openai_compatible' ? baseUrl.trim() || null : null,
         model: model.trim() || null, enabled,
         maxTokensPerRun: toNumber(maxTokens), maxCostUsdPerRun: toNumber(maxCost), inputUsdPerMTok: toNumber(inPrice), outputUsdPerMTok: toNumber(outPrice),
         ...(rounds.trim() === '' ? {} : { maxRecoveryRounds: Number(rounds) }),
@@ -98,6 +101,7 @@ function AiForm({ api, initial, canEdit, tab, setTab }: { api: SettingsApi; init
   };
   const submit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
   const dirty = apiKey !== '' || eKey !== '';
+  const switching = provider !== initial.provider;
 
   return (
     <form onSubmit={submit} className="space-y-4" aria-label="AI settings" autoComplete="off">
@@ -113,17 +117,29 @@ function AiForm({ api, initial, canEdit, tab, setTab }: { api: SettingsApi; init
           {canEdit ? 'Used to analyse standards. Its output is a draft until a person publishes it.' : 'Only an administrator can change these.'}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className={field}>
-            <span>Provider</span>
-            <span aria-label="Provider" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">Anthropic</span>
-            <span className={hint}>The only provider available for now.</span>
-          </div>
-          <label className={field}>Model
+          <label className={field}>Provider
+            <select aria-label="Provider" value={provider} onChange={(e) => setProvider(e.target.value as AiProvider)} disabled={!canEdit}
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm">
+              {AI_PROVIDERS.map((p) => <option key={p} value={p}>{AI_PROVIDER_LABELS[p]}</option>)}
+            </select>
+            {switching && initial.keySource === 'settings'
+              ? <span className={hint}>Changing the provider removes the saved API key; enter the key for the new provider.</span>
+              : <span className={hint}>{provider === 'openai_compatible' ? 'Any server with an OpenAI-style API: OpenRouter, Ollama, vLLM, LM Studio, Azure and others.' : 'Which company runs the model.'}</span>}
+          </label>
+          {provider === 'openai_compatible' && (
+            <label className={field}>Base URL
+              <Input aria-label="Base URL" type="url" inputMode="url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} disabled={!canEdit} placeholder="https://host.example/v1" />
+              <span className={hint}>Ollama: http://host:11434/v1. No user name or password in the address.</span>
+            </label>
+          )}
+          <label className={`${field} ${provider === 'openai_compatible' ? 'sm:col-span-2' : ''}`}>Model
             <Input aria-label="Model" value={model} onChange={(e) => setModel(e.target.value)} disabled={!canEdit} placeholder="Model name from your provider" />
+            <span className={hint}>{provider === 'openai_compatible' ? 'The model name the server expects, as it lists it.' : `The model name exactly as ${AI_PROVIDER_LABELS[provider]} lists it.`}</span>
           </label>
           <div className="sm:col-span-2">
             <KeyField label="API key" configured={initial.keyConfigured && initial.keySource === 'settings'} last4={initial.keyLast4} value={apiKey} onChange={setApiKey}
               remove={removeKey} onRemove={setRemoveKey} disabled={!canEdit}>
+              {provider === 'openai_compatible' && <span className={hint}>Optional for servers that need no key.</span>}
               {initial.keySource === 'environment' && <span className={hint}>The server environment supplies a key; a key saved here takes precedence.</span>}
             </KeyField>
           </div>

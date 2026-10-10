@@ -2,7 +2,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { embedMany, generateText, Output } from 'ai';
 import type { z } from 'zod';
-import { loadAiEnv } from '@ams/shared';
+import { aiEnvKey, aiKeyOptional, loadAiEnv } from '@ams/shared';
 import { AiBudget, estimateTokens } from './budget.js';
 import { AiCallError, AiNotConfiguredError, AiScopeError, BudgetExceeded } from './errors.js';
 import { createEmbeddingModel, createModel, getTestEmbedder, hasTestModel, type AiConfig, type EmbedConfig } from './model.js';
@@ -57,8 +57,9 @@ export function assertAiScope(): void {
 /** Connection from the environment, used when a run has no saved settings. */
 export function envAiConfig(): AiConfig {
   const env = loadAiEnv();
-  if (!env.AI_MODEL || !env.ANTHROPIC_API_KEY) throw new AiNotConfiguredError();
-  return { provider: env.AI_PROVIDER, model: env.AI_MODEL, apiKey: env.ANTHROPIC_API_KEY };
+  const apiKey = aiEnvKey(env, env.AI_PROVIDER) ?? '';
+  if (!env.AI_MODEL || (!apiKey && !aiKeyOptional(env.AI_PROVIDER))) throw new AiNotConfiguredError();
+  return { provider: env.AI_PROVIDER, model: env.AI_MODEL, apiKey, baseUrl: env.AI_BASE_URL ?? null };
 }
 
 const DEFAULT_MAX_OUTPUT = 16_000;

@@ -88,7 +88,7 @@ describe('the worker opens the connection', () => {
   it('decrypts the key and builds the budget from the saved limits, only inside a job', async () => {
     await expect(asWorker((c) => loadAiRuntime(c))).rejects.toBeInstanceOf(AiScopeError);
     const rt = await inJob(() => asWorker((c) => loadAiRuntime(c)));
-    expect(rt.config).toEqual({ provider: 'anthropic', model: 'some-model', apiKey: KEY });
+    expect(rt.config).toEqual({ provider: 'anthropic', model: 'some-model', apiKey: KEY, baseUrl: null });
     expect(rt.budget.limits).toMatchObject({ maxTokens: 60000, maxCostUsd: 5, inputUsdPerMTok: 3, outputUsdPerMTok: 15 });
     expect(rt.embedding).toBeUndefined();
   });
@@ -215,5 +215,84 @@ describe('requirement embeddings', () => {
     expect(cosine([0, 0], [1, 1])).toBe(0);
     expect(cosine([1], [1, 2])).toBe(0);
     expect(cosine([1, 1], [-1, -1])).toBeCloseTo(-1);
+  });
+});
+
+describe('providers', () => {
+  const NEW_KEY = 'new-provider-key-5678';
+  const row = async () => (await db.su.query(`select provider, base_url, api_key_enc, api_key_last4, enabled from ai_setting`)).rows[0];
+  const env = (vars: Record<string, string | undefined>) => {
+    const keys = ['AI_PROVIDER', 'AI_MODEL', 'AI_BASE_URL', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'OPENAI_COMPATIBLE_API_KEY'];
+    const before = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    for (const k of keys) delete process.env[k];
+    for (const [k, v] of Object.entries(vars)) if (v !== undefined) process.env[k] = v;
+    return () => { for (const k of keys) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k]; } };
+  };
+
+  it('removes the saved key when the provider changes, so it is never sent to another company', async () => {
+    // Earlier tests left an Anthropic key saved and AI on.
+    expect(await row()).toMatchObject({ provider: 'anthropic', enabled: true });
+    expect((await row()).api_key_enc).toBeTruthy();
+    // AI is on and the new provider has no key: refused, and nothing changes.
+    await expect(as('admin', (c) => updateAiSettings(c, { provider: 'openai' }))).rejects.toThrow(/key for the new provider/);
+    expect(await row()).toMatchObject({ provider: 'anthropic', api_key_last4: 'abcd' });
+    // Switch off first: the switch itself drops the key.
+    const dto = await as('admin', (c) => updateAiSettings(c, { provider: 'openai', enabled: false }));
+    expect(dto).toMatchObject({ provider: 'openai', keyConfigured: false, keyLast4: null, keySource: 'none' });
+    expect(await row()).toMatchObject({ provider: 'openai', api_key_enc: null, api_key_last4: null });
+  });
+
+  it('keeps a key entered in the same save as the provider change, and keeps a key when the provider is unchanged', async () => {
+    const dto = await as('admin', (c) => updateAiSettings(c, { provider: 'google', apiKey: NEW_KEY }));
+    expect(dto).toMatchObject({ provider: 'google', keyConfigured: true, keyLast4: '5678' });
+    expect(await as('admin', (c) => updateAiSettings(c, { provider: 'google', maxTokensPerRun: 70000 }))).toMatchObject({ keyLast4: '5678' });
+    const rt = await inJob(() => asWorker((c) => loadAiRuntime(c, { requireEnabled: false })));
+    expect(rt.config).toMatchObject({ provider: 'google', apiKey: NEW_KEY, baseUrl: null });
+  });
+
+  it('openai_compatible: needs a valid Base URL, works without a key, and drops the URL for other providers', async () => {
+    await expect(as('admin', (c) => updateAiSettings(c, { provider: 'openai_compatible' }))).rejects.toThrow(/Base URL/);
+    await expect(as('admin', (c) => updateAiSettings(c, { provider: 'openai_compatible', baseUrl: 'ftp://host/v1' }))).rejects.toThrow(/http/);
+    await expect(as('admin', (c) => updateAiSettings(c, { provider: 'openai_compatible', baseUrl: 'http://u:p@host/v1' }))).rejects.toThrow(/user name or password/);
+    await expect(as('admin', (c) => updateAiSettings(c, { baseUrl: 'http://host/v1' }))).rejects.toThrow(/only for the OpenAI-compatible/);
+    const dto = await as('admin', (c) => updateAiSettings(c, { provider: 'openai_compatible', baseUrl: 'http://host:11434/v1', model: 'local', enabled: true }));
+    expect(dto).toMatchObject({ provider: 'openai_compatible', baseUrl: 'http://host:11434/v1', keyConfigured: false, enabled: true });
+    expect(await row()).toMatchObject({ base_url: 'http://host:11434/v1', api_key_enc: null });
+    const rt = await inJob(() => asWorker((c) => loadAiRuntime(c)));
+    expect(rt.config).toEqual({ provider: 'openai_compatible', model: 'local', apiKey: '', baseUrl: 'http://host:11434/v1' });
+    // Back to a hosted provider: the Base URL goes.
+    await as('admin', (c) => updateAiSettings(c, { provider: 'anthropic', apiKey: KEY, model: 'some-model' }));
+    expect(await row()).toMatchObject({ provider: 'anthropic', base_url: null, api_key_last4: 'abcd' });
+  });
+
+  it('test connection runs through the chosen provider settings', async () => {
+    const seenConfigs: unknown[] = [];
+    const fake = createFakeAiModel([{ ok: true }]);
+    setAiModelForTests((cfg) => { seenConfigs.push(cfg); return fake.model; });
+    await as('admin', (c) => updateAiSettings(c, { provider: 'openai_compatible', baseUrl: 'http://host:11434/v1', model: 'local' }));
+    expect(await as('admin', (c) => testAiConnection(c))).toMatchObject({ ok: true, model: 'local' });
+    expect(seenConfigs[0]).toMatchObject({ provider: 'openai_compatible', baseUrl: 'http://host:11434/v1' });
+    await as('admin', (c) => updateAiSettings(c, { provider: 'anthropic', apiKey: KEY, model: 'some-model' }));
+  });
+
+  it('environment fallback: the key of the chosen provider only, and a saved key still wins', async () => {
+    await db.su.query(`delete from ai_setting`);
+    const restore = env({ AI_PROVIDER: 'openai', AI_MODEL: 'env-model', ANTHROPIC_API_KEY: 'anthropic-env-key-1', OPENAI_API_KEY: 'openai-env-key-2222' });
+    try {
+      expect(await as('admin', (c) => getAiSettings(c))).toMatchObject({ provider: 'openai', model: 'env-model', keySource: 'environment', enabled: true });
+      expect((await inJob(() => asWorker((c) => loadAiRuntime(c)))).config).toMatchObject({ provider: 'openai', apiKey: 'openai-env-key-2222' });
+      // A saved key wins over the environment.
+      await as('admin', (c) => updateAiSettings(c, { provider: 'openai', apiKey: NEW_KEY, model: 'm', enabled: true }));
+      expect((await inJob(() => asWorker((c) => loadAiRuntime(c)))).config.apiKey).toBe(NEW_KEY);
+      // Another provider's environment key is never borrowed.
+      await as('admin', (c) => updateAiSettings(c, { provider: 'google', apiKey: null, enabled: false }));
+      await expect(inJob(() => asWorker((c) => loadAiRuntime(c, { requireEnabled: false })))).rejects.toThrow(/API key/);
+    } finally { restore(); }
+    // openai_compatible from the environment: Base URL from AI_BASE_URL, key optional.
+    await db.su.query(`delete from ai_setting`);
+    const restore2 = env({ AI_PROVIDER: 'openai_compatible', AI_MODEL: 'env-model', AI_BASE_URL: 'http://ollama:11434/v1' });
+    try {
+      expect((await inJob(() => asWorker((c) => loadAiRuntime(c)))).config).toEqual({ provider: 'openai_compatible', model: 'env-model', apiKey: '', baseUrl: 'http://ollama:11434/v1' });
+    } finally { restore2(); }
   });
 });

@@ -31,6 +31,18 @@ describe('ai_setting', () => {
   it('refuses non-positive limits', async () => {
     await expect(db.su.query(`update ai_setting set max_tokens_per_run = 0 where institution_id = $1`, [ids.a])).rejects.toThrow(/ai_setting_limits_check/);
   });
+
+  it('takes the four providers (migration 0043); a Base URL only goes with openai_compatible; existing rows stay anthropic', async () => {
+    expect((await db.su.query(`select provider, base_url from ai_setting where institution_id = $1`, [ids.a])).rows[0]).toEqual({ provider: 'anthropic', base_url: null });
+    for (const p of ['openai', 'google']) {
+      await db.su.query(`update ai_setting set provider = $2, base_url = null where institution_id = $1`, [ids.a, p]);
+    }
+    await expect(db.su.query(`update ai_setting set provider = 'cohere' where institution_id = $1`, [ids.a])).rejects.toThrow(/ai_setting_provider_check/);
+    await expect(db.su.query(`update ai_setting set provider = 'openai', base_url = 'http://host/v1' where institution_id = $1`, [ids.a])).rejects.toThrow(/ai_setting_base_url_check/);
+    await db.su.query(`update ai_setting set provider = 'openai_compatible', base_url = 'http://host:11434/v1' where institution_id = $1`, [ids.a]);
+    expect((await db.su.query(`select provider, base_url from ai_setting where institution_id = $1`, [ids.a])).rows[0]).toEqual({ provider: 'openai_compatible', base_url: 'http://host:11434/v1' });
+    await expect(db.su.query(`update ai_setting set provider = 'anthropic' where institution_id = $1`, [ids.a])).rejects.toThrow(/ai_setting_base_url_check/);
+  });
 });
 
 describe('embedding', () => {

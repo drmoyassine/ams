@@ -44,6 +44,8 @@ export const institution = pgTable('institution', {
 export const aiSetting = pgTable('ai_setting', {
   ...base(), ...tenant(),
   provider: text('provider').notNull().default('anthropic'),
+  /** Server address of an OpenAI-compatible provider (http(s), no credentials); null for the other providers. */
+  baseUrl: text('base_url'),
   model: text('model'),
   apiKeyEnc: text('api_key_enc'),
   apiKeyLast4: text('api_key_last4'),
@@ -63,7 +65,8 @@ export const aiSetting = pgTable('ai_setting', {
   embedDimension: integer('embed_dimension'),
 }, (t) => [
   uniqueIndex('ai_setting_institution_idx').on(t.institutionId),
-  oneOf('ai_setting_provider_check', t.provider, ['anthropic']),
+  oneOf('ai_setting_provider_check', t.provider, ['anthropic', 'openai', 'google', 'openai_compatible']),
+  check('ai_setting_base_url_check', sql`${t.baseUrl} is null or ${t.provider} = 'openai_compatible'`),
   check('ai_setting_limits_check', sql`(${t.maxTokensPerRun} is null or ${t.maxTokensPerRun} > 0) and (${t.maxCostUsdPerRun} is null or ${t.maxCostUsdPerRun} > 0)`),
   check('ai_setting_recovery_rounds_check', sql`${t.maxRecoveryRounds} between 0 and 5`),
 ]);

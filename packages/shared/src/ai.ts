@@ -1,8 +1,23 @@
 import { z } from 'zod';
 
-/** Providers the AI connection can use. Switching provider is configuration, not code (DEC-012); only one ships so far. */
-export const AI_PROVIDERS = ['anthropic'] as const;
+/**
+ * Providers the AI connection can use. Switching provider is configuration, not code (DEC-012).
+ * `openai_compatible` is any server that speaks the OpenAI chat API at a Base URL: OpenRouter, Ollama, vLLM, LM Studio, Azure and the like.
+ */
+export const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'openai_compatible'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
+export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+  anthropic: 'Anthropic', openai: 'OpenAI', google: 'Google (Gemini)', openai_compatible: 'OpenAI-compatible (custom Base URL)',
+};
+
+/** A provider-model Base URL: http(s), no embedded credentials (a key belongs in the key field). Returns an error message or null. */
+export function baseUrlProblem(value: string): string | null {
+  let url: URL;
+  try { url = new URL(value); } catch { return 'the Base URL is not a valid URL, for example http://host:11434/v1'; }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'the Base URL must start with http:// or https://';
+  if (url.username || url.password) return 'the Base URL must not contain a user name or password; put the key in the API key field';
+  return null;
+}
 
 /** Settings -> AI as the client sees it. The key itself never leaves the server: only whether one is set and its last 4 characters. */
 /** Embeddings (DEC-023): a separate OpenAI-compatible endpoint. Same rule for the key: only 'configured' and its last 4 characters. */
@@ -18,6 +33,8 @@ export type EmbeddingSetting = z.infer<typeof EmbeddingSettingSchema>;
 
 export const AiSettingSchema = z.object({
   provider: z.enum(AI_PROVIDERS),
+  /** Only for `openai_compatible`; null for the other providers. */
+  baseUrl: z.string().nullable(),
   model: z.string().nullable(),
   keyConfigured: z.boolean(),
   keyLast4: z.string().nullable(),
@@ -50,6 +67,8 @@ export const UpdateEmbeddingSettingSchema = z.object({
 /** `apiKey`: a string replaces the saved key, `null` removes it, absent keeps it. */
 export const UpdateAiSettingSchema = z.object({
   provider: z.enum(AI_PROVIDERS).optional(),
+  /** Required for `openai_compatible` (checked against the saved provider too); refused for the others. */
+  baseUrl: z.string().trim().min(1).max(500).refine((v) => baseUrlProblem(v) === null, { message: 'the Base URL must be an http(s) address without a user name or password' }).nullable().optional(),
   model: z.string().trim().min(1).max(200).nullable().optional(),
   apiKey: z.string().trim().min(8).max(500).nullable().optional(),
   maxTokensPerRun: z.number().int().positive().max(1_000_000_000).nullable().optional(),
@@ -59,7 +78,14 @@ export const UpdateAiSettingSchema = z.object({
   maxRecoveryRounds: z.number().int().min(0).max(MAX_RECOVERY_ROUNDS_LIMIT).optional(),
   enabled: z.boolean().optional(),
   embeddings: UpdateEmbeddingSettingSchema.optional(),
-}).strict();
+}).strict().superRefine((v, ctx) => {
+  if (v.provider && v.provider !== 'openai_compatible' && v.baseUrl) {
+    ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'a Base URL is only for the OpenAI-compatible provider' });
+  }
+  if (v.provider === 'openai_compatible' && v.baseUrl === null) {
+    ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'the OpenAI-compatible provider needs a Base URL' });
+  }
+});
 export type UpdateAiSetting = z.infer<typeof UpdateAiSettingSchema>;
 
 export const AiTestResultSchema = z.object({

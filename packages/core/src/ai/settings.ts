@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { aiSetting } from '@ams/db';
-import { DEFAULT_MAX_RECOVERY_ROUNDS, loadAiEnv, type AiSetting, type AiTestResult, type UpdateAiSetting } from '@ams/shared';
+import { aiEnvKey, aiKeyOptional, baseUrlProblem, DEFAULT_MAX_RECOVERY_ROUNDS, loadAiEnv, type AiProvider, type AiSetting, type AiTestResult, type UpdateAiSetting } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ValidationError } from '../ctx.js';
@@ -13,7 +13,13 @@ import { hasTestModel } from './model.js';
 import { decryptSecret, encryptSecret } from './crypto.js';
 
 const num = (v: string | null) => (v === null ? null : Number(v));
-const envKeyPresent = () => !!loadAiEnv().ANTHROPIC_API_KEY;
+/** The saved provider, else the environment's. */
+const providerOf = (row: typeof aiSetting.$inferSelect | undefined): AiProvider => (row?.provider as AiProvider | undefined) ?? loadAiEnv().AI_PROVIDER;
+/** The environment key for this provider only: another provider's key is never used. */
+const envKeyFor = (provider: AiProvider) => aiEnvKey(loadAiEnv(), provider);
+const envKeyPresent = (provider: AiProvider) => !!envKeyFor(provider);
+/** A provider that needs no key (local OpenAI-compatible server) counts as having one. */
+const keyUsable = (provider: AiProvider, saved: boolean) => saved || envKeyPresent(provider) || aiKeyOptional(provider);
 
 async function getRow(ctx: Ctx) {
   const [row] = await ctx.tx.select().from(aiSetting).where(eq(aiSetting.institutionId, ctx.caller.institutionId));
@@ -23,19 +29,21 @@ async function getRow(ctx: Ctx) {
 function toDto(row: typeof aiSetting.$inferSelect | undefined): AiSetting {
   const env = loadAiEnv();
   const keyConfigured = !!row?.apiKeyEnc;
+  const provider = providerOf(row);
   return {
-    provider: 'anthropic', // the only provider that ships; the column check keeps it so
+    provider,
+    baseUrl: row ? row.baseUrl : (provider === 'openai_compatible' ? env.AI_BASE_URL ?? null : null),
     model: row?.model ?? env.AI_MODEL ?? null,
-    keyConfigured: keyConfigured || envKeyPresent(),
+    keyConfigured: keyConfigured || envKeyPresent(provider),
     keyLast4: keyConfigured ? row!.apiKeyLast4 : null,
-    keySource: keyConfigured ? 'settings' : envKeyPresent() ? 'environment' : 'none',
+    keySource: keyConfigured ? 'settings' : envKeyPresent(provider) ? 'environment' : 'none',
     maxTokensPerRun: row?.maxTokensPerRun ?? null,
     maxCostUsdPerRun: num(row?.maxCostUsdPerRun ?? null),
     inputUsdPerMTok: num(row?.inputUsdPerMTok ?? null),
     outputUsdPerMTok: num(row?.outputUsdPerMTok ?? null),
     maxRecoveryRounds: row?.maxRecoveryRounds ?? DEFAULT_MAX_RECOVERY_ROUNDS,
     // With no saved settings the environment configuration is in force.
-    enabled: row ? row.enabled : envKeyPresent() && !!env.AI_MODEL,
+    enabled: row ? row.enabled : keyUsable(provider, false) && !!env.AI_MODEL,
     embeddings: {
       enabled: row?.embedEnabled ?? false,
       baseUrl: row?.embedBaseUrl ?? null,
@@ -58,19 +66,33 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
   assertHuman(ctx);
   await assertPermitted(ctx, 'ai:manage', { type: 'institution' });
   const existing = await getRow(ctx);
+  const provider: AiProvider = patch.provider ?? providerOf(existing);
+  // A saved key belongs to the provider it was entered for. Switching provider removes it unless a new key comes in the
+  // same save, so it is never sent to a different company.
+  const switched = patch.provider !== undefined && patch.provider !== providerOf(existing);
+  const dropSavedKey = switched && patch.apiKey === undefined && !!existing?.apiKeyEnc;
+  const baseUrl = provider !== 'openai_compatible' ? null : patch.baseUrl !== undefined ? patch.baseUrl : (switched ? null : existing ? existing.baseUrl : (provider === loadAiEnv().AI_PROVIDER ? loadAiEnv().AI_BASE_URL ?? null : null));
+  if (provider === 'openai_compatible') {
+    const problem = baseUrl ? baseUrlProblem(baseUrl) : 'the OpenAI-compatible provider needs a Base URL';
+    if (problem) throw new ValidationError(problem);
+  } else if (patch.baseUrl) {
+    throw new ValidationError('a Base URL is only for the OpenAI-compatible provider');
+  }
   const merged = {
     model: patch.model !== undefined ? patch.model : (existing?.model ?? null),
     maxCostUsdPerRun: patch.maxCostUsdPerRun !== undefined ? patch.maxCostUsdPerRun : num(existing?.maxCostUsdPerRun ?? null),
     inputUsdPerMTok: patch.inputUsdPerMTok !== undefined ? patch.inputUsdPerMTok : num(existing?.inputUsdPerMTok ?? null),
     outputUsdPerMTok: patch.outputUsdPerMTok !== undefined ? patch.outputUsdPerMTok : num(existing?.outputUsdPerMTok ?? null),
     enabled: patch.enabled ?? existing?.enabled ?? false,
-    hasKey: patch.apiKey !== undefined ? patch.apiKey !== null : !!existing?.apiKeyEnc,
+    hasKey: patch.apiKey !== undefined ? patch.apiKey !== null : dropSavedKey ? false : !!existing?.apiKeyEnc,
   };
   if (merged.maxCostUsdPerRun != null && (merged.inputUsdPerMTok == null || merged.outputUsdPerMTok == null)) {
     throw new ValidationError('a cost limit needs the price per million input and output tokens, to count the cost');
   }
   if (merged.enabled && (!merged.model && !loadAiEnv().AI_MODEL)) throw new ValidationError('choose a model before switching AI on');
-  if (merged.enabled && !merged.hasKey && !envKeyPresent()) throw new ValidationError('add an API key before switching AI on');
+  if (merged.enabled && !keyUsable(provider, merged.hasKey)) {
+    throw new ValidationError(dropSavedKey ? 'enter the API key for the new provider before switching AI on; the saved key belongs to the previous one' : 'add an API key before switching AI on');
+  }
   const emb = patch.embeddings;
   if (emb) {
     const next = {
@@ -86,7 +108,9 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
 
   const set: Partial<typeof aiSetting.$inferInsert> = {};
   if (patch.provider !== undefined) set.provider = patch.provider;
+  if (existing ? (existing.baseUrl ?? null) !== baseUrl : baseUrl !== null) set.baseUrl = baseUrl;
   if (patch.model !== undefined) set.model = patch.model;
+  if (dropSavedKey) { set.apiKeyEnc = null; set.apiKeyLast4 = null; }
   if (patch.apiKey !== undefined) {
     set.apiKeyEnc = patch.apiKey === null ? null : encryptSecret(patch.apiKey);
     set.apiKeyLast4 = patch.apiKey === null ? null : patch.apiKey.slice(-4);
@@ -124,7 +148,7 @@ export async function maxRecoveryRounds(ctx: Ctx): Promise<number> {
 
 /**
  * Opens the AI connection for one run: saved settings first, then the environment (AI_PROVIDER, AI_MODEL,
- * ANTHROPIC_API_KEY), with the institution's per-run limits as the budget. Job handlers call this once and pass the
+ * the provider's API key variable), with the institution's per-run limits as the budget. Job handlers call this once and pass the
  * runtime to every aiExtract / aiOcr, then store `runtime.calls` in the job result. Worker/job path only.
  */
 export async function loadAiRuntime(ctx: Ctx, opts: { requireEnabled?: boolean } = {}): Promise<AiRuntime> {
@@ -133,11 +157,13 @@ export async function loadAiRuntime(ctx: Ctx, opts: { requireEnabled?: boolean }
   const row = await getRow(ctx);
   if (row && !row.enabled && opts.requireEnabled !== false) throw new AiDisabledError();
   const model = row?.model ?? env.AI_MODEL;
-  const apiKey = row?.apiKeyEnc ? decryptSecret(row.apiKeyEnc) : env.ANTHROPIC_API_KEY;
-  const provider = row?.provider ?? env.AI_PROVIDER;
+  const provider = providerOf(row);
+  const apiKey = row?.apiKeyEnc ? decryptSecret(row.apiKeyEnc) : envKeyFor(provider);
+  const baseUrl = row ? row.baseUrl : (env.AI_BASE_URL ?? null);
   if (!hasTestModel()) {
     if (!model) throw new AiNotConfiguredError('AI has no model: choose one in Settings -> AI');
-    if (!apiKey) throw new AiNotConfiguredError('AI has no API key: add one in Settings -> AI');
+    if (provider === 'openai_compatible' && !baseUrl) throw new AiNotConfiguredError('AI has no Base URL: add one in Settings -> AI');
+    if (!apiKey && !aiKeyOptional(provider)) throw new AiNotConfiguredError('AI has no API key: add one in Settings -> AI');
   }
   const budget = new AiBudget({
     maxTokens: row?.maxTokensPerRun ?? null, maxCostUsd: num(row?.maxCostUsdPerRun ?? null),
@@ -146,7 +172,7 @@ export async function loadAiRuntime(ctx: Ctx, opts: { requireEnabled?: boolean }
   const embedding: EmbedConfig | undefined = row?.embedEnabled && row.embedBaseUrl && row.embedModel && row.embedDimension
     ? { baseUrl: row.embedBaseUrl, model: row.embedModel, dimension: row.embedDimension, apiKey: row.embedApiKeyEnc ? decryptSecret(row.embedApiKeyEnc) : '' }
     : undefined;
-  return createAiRuntime({ provider, model: model ?? 'test', apiKey: apiKey ?? '' }, budget, embedding);
+  return createAiRuntime({ provider, model: model ?? 'test', apiKey: apiKey ?? '', baseUrl: provider === 'openai_compatible' ? baseUrl : null }, budget, embedding);
 }
 
 /**
@@ -201,8 +227,10 @@ export async function aiReadiness(ctx: Ctx): Promise<{ ok: true } | { ok: false;
   const row = await getRow(ctx);
   if (row && !row.enabled) return { ok: false, reason: new AiDisabledError().message };
   if (hasTestModel()) return { ok: true };
-  if (!row && !(envKeyPresent() && env.AI_MODEL)) return { ok: false, reason: new AiNotConfiguredError().message };
+  const provider = providerOf(row);
+  if (!row && !(keyUsable(provider, false) && env.AI_MODEL)) return { ok: false, reason: new AiNotConfiguredError().message };
   if (!(row?.model ?? env.AI_MODEL)) return { ok: false, reason: 'AI has no model: choose one in Settings -> AI' };
-  if (!row?.apiKeyEnc && !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'AI has no API key: add one in Settings -> AI' };
+  if (provider === 'openai_compatible' && !(row ? row.baseUrl : env.AI_BASE_URL)) return { ok: false, reason: 'AI has no Base URL: add one in Settings -> AI' };
+  if (!keyUsable(provider, !!row?.apiKeyEnc)) return { ok: false, reason: 'AI has no API key: add one in Settings -> AI' };
   return { ok: true };
 }

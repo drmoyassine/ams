@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-10 — Settings -> AI: more providers than Anthropic (TASK-048)
+
+Decisions: DEC-012 (switching provider is configuration).
+- **The limit was ours, not the SDK's:** only `@ai-sdk/anthropic` was installed and the provider was shown as fixed text. Now `anthropic`, `openai`, `google` and `openai_compatible` (Base URL: OpenRouter, Ollama, vLLM, LM Studio, Azure ...) are choices; `model.ts` stays the only place a provider is chosen and the only importer of the provider packages (the import-point test now says so).
+- **A saved key belongs to its provider.** Switching provider removes it unless a new key arrives in the same save (the safe option over "require re-entering later", because the old key must never reach another company). Migration 0043 adds `ai_setting.base_url` (only `openai_compatible` may hold one) and widens the provider check.
+- **Environment fallback is per provider:** `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `AI_BASE_URL` beside `ANTHROPIC_API_KEY`; another provider's variable is never borrowed. An OpenAI-compatible server may run without a key.
+- Learning: OCR already degrades safely. A model that rejects images raises `AiCallError`, `parseDocument` turns it into a warning and the page stays `needsOcr`. For `openai_compatible` the schema only reaches the model if `supportsStructuredOutputs` is on, so it is.
+
+---
+
 ## 2026-10-10 — Publishing is the review for external standards (TASK-047)
 
 DEC-022 applied to the publish gate. Decisions: DEC-006, DEC-022.
