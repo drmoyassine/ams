@@ -218,3 +218,43 @@ export const UpdateMappingSchema = z.object({
   relation: z.enum(MAPPING_RELATIONS).optional(), rationale: z.string().trim().nullable().optional(),
 }).strict();
 export type UpdateMapping = z.infer<typeof UpdateMappingSchema>;
+
+// ---- Suggested new IQF items and bulk acceptance (step E; DEC-021/022/023) -------------------------------------------
+
+export const IQF_PROPOSAL_STATUSES = ['pending', 'accepted', 'dismissed'] as const;
+export const IqfProposalLinkSchema = z.object({
+  externalCode: z.string(), externalRequirementId: z.string().nullable(), externalTitle: z.string().nullable(),
+  relation: z.enum(MAPPING_RELATIONS), reason: z.string().nullable(),
+});
+/** A new item of the quality framework the analysis suggests. Nothing is in the framework until a person accepts it. */
+export const IqfItemProposalSchema = z.object({
+  id: z.string(),
+  status: z.enum(IQF_PROPOSAL_STATUSES),
+  parentCode: z.string().nullable(), parentTitle: z.string().nullable(),
+  levelLabel: z.string(), code: z.string(), title: z.string(),
+  description: z.string().nullable(), reason: z.string().nullable(),
+  links: z.array(IqfProposalLinkSchema),
+  /** The item that accepting created (in the quality framework's draft). */
+  acceptedRequirementId: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type IqfItemProposal = z.infer<typeof IqfItemProposalSchema>;
+export const IqfProposalsSchema = z.object({
+  /** The quality framework's draft version: where an accepted item goes. Null when it has none (start a new version first). */
+  draftVersionId: z.string().nullable(),
+  proposals: z.array(IqfItemProposalSchema),
+});
+export type IqfProposals = z.infer<typeof IqfProposalsSchema>;
+/** Changes a person makes while accepting: any of them replaces the suggested value. */
+export const AcceptIqfProposalSchema = z.object({
+  code: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  description: z.string().trim().nullable().optional(),
+  parentCode: z.string().trim().min(1).nullable().optional(),
+}).strict();
+export type AcceptIqfProposal = z.infer<typeof AcceptIqfProposalSchema>;
+/** "Accept all in this view": the visible suggested links; only those that say "covers" are accepted. */
+export const AcceptCoversSchema = z.object({ ids: z.array(z.uuid()).min(1).max(1000) }).strict();
+export type AcceptCovers = z.infer<typeof AcceptCoversSchema>;
+export const AcceptCoversResultSchema = z.object({ accepted: z.number().int(), skipped: z.number().int() });
+export type AcceptCoversResult = z.infer<typeof AcceptCoversResultSchema>;

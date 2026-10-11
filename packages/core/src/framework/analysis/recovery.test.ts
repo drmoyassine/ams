@@ -68,7 +68,7 @@ describe('check and recover', () => {
     const { run, jobs, calls } = await analyse(d.versionId, responder);
     expect(run.status).toBe('succeeded');
     // read, survey, structure, extract, gaps, recover x3, gaps, recover, gaps, write, finalise.
-    expect(jobs).toBe(13);
+    expect(jobs).toBe(14); // and the IQF mapping's first step, which ends the run (no quality framework here)
     expect(calls).toBe(7);
 
     const reqs = await tree(d.versionId);

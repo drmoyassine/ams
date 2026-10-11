@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 /** Prompt versions this code is written against; recorded on the run. */
-export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1' } as const;
+export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1' } as const;
 
 /** The survey's roles. "examples" is stored as the library's `sample_report` role, which never yields requirements. */
 export const SURVEY_ROLES = ['standards', 'guidance', 'policy_procedure', 'report_template', 'examples', 'other'] as const;

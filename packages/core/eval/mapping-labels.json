@@ -1,0 +1,22 @@
+{
+  "_about": "Hand-labelled set for the IQF mapping shortlist (DEC-023). Per demo standard (packages/db/fixtures/<name>.json): external requirement code -> codes of the generic starting template's items (packages/core/src/framework/internal-template.ts) that answer it, completely or in part. The demo data has no requirement mappings of its own (only glossary terms), so these labels are the set. Conservative: a requirement is listed only where its wording makes the answer clear. The Arabic standard is labelled too: lexical ranking cannot meet Arabic wording against English items, which is what embeddings are for.",
+  "sets": {
+    "wscuc-2023": {
+      "CFR 1.1": ["1.1"], "CFR 1.2": ["1.3"], "CFR 1.3": ["1.4"], "CFR 1.5": ["1.4"], "CFR 1.6": ["1.4"],
+      "CFR 2.1": ["2.1"], "CFR 2.2": ["2.1"], "CFR 2.3": ["2.2"], "CFR 2.4": ["2.3"], "CFR 2.5": ["5.1"], "CFR 2.8": ["6.1"],
+      "CFR 2.10": ["4.3"], "CFR 2.11": ["4.3"], "CFR 2.12": ["4.2"], "CFR 2.13": ["4.2"],
+      "CFR 3.1": ["5.1"], "CFR 3.2": ["5.1"], "CFR 3.3": ["5.2", "5.3"], "CFR 3.4": ["7.1"], "CFR 3.5": ["7.1"], "CFR 3.6": ["7.2", "7.3"],
+      "CFR 3.7": ["1.2"], "CFR 3.8": ["1.2"], "CFR 3.9": ["1.2"], "CFR 3.10": ["8.2"],
+      "CFR 4.1": ["8.1"], "CFR 4.2": ["8.2"], "CFR 4.3": ["4.4"], "CFR 4.4": ["8.2"], "CFR 4.5": ["8.3"], "CFR 4.6": ["8.3"], "CFR 4.7": ["1.2"], "CFR 4.8": ["1.3"]
+    },
+    "abet-eac-2027-28": {
+      "Criterion 1": ["4.3"], "Criterion 2": ["2.2"], "Criterion 3": ["2.2"], "Criterion 4": ["8.2", "8.3"], "Criterion 5": ["2.1"],
+      "Criterion 6": ["5.1"], "Criterion 7": ["7.2"], "Criterion 8": ["7.1"]
+    },
+    "puc-2019": {
+      "1-1": ["1.1"], "1-2": ["1.3"], "2-1": ["2.1"], "2-3": ["2.3", "8.1"], "2-4": ["3.3", "7.3"], "3-1": ["1.2"], "3-2": ["1.2"], "3-5": ["1.4"],
+      "4-1": ["4.1"], "4-3": ["4.2"], "4-5": ["3.2"], "5-1": ["5.1"], "6-1": ["7.1"], "6-2": ["7.2"], "6-3": ["7.2"],
+      "7-1": ["6.1"], "7-2": ["6.1"], "7-3": ["6.1"]
+    }
+  }
+}

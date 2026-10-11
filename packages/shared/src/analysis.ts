@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Framework analysis (PRD 15, step C): a background run that reads a draft version's sources and writes requirements and
  * notes into that draft in the accreditor's exact wording. Each stage is its own small job; the run records where it is.
  */
-export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'finalise'] as const;
+export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'embed', 'map', 'propose_new', 'finalise'] as const;
 export type AnalysisStage = (typeof ANALYSIS_STAGES)[number];
 
 export const ANALYSIS_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled'] as const;
@@ -28,6 +28,11 @@ export const AnalysisProgressSchema = z.object({
   gapsOpen: z.number().int().optional(),
   tasksTotal: z.number().int().optional(),
   tasksDone: z.number().int().optional(),
+  /** IQF mapping (step E): requirements judged so far / to judge, and new-item groups drafted so far / to draft. */
+  mapDone: z.number().int().optional(),
+  mapTotal: z.number().int().optional(),
+  groupsDone: z.number().int().optional(),
+  groupsTotal: z.number().int().optional(),
 });
 export type AnalysisProgress = z.infer<typeof AnalysisProgressSchema>;
 
@@ -72,6 +77,41 @@ export const AnalysisStatsSchema = z.object({
   recoveryRounds: z.number().int().optional(),
 });
 export type AnalysisStats = z.infer<typeof AnalysisStatsSchema>;
+
+/**
+ * What the IQF mapping stages report (step E), under `report.mapping`. Counts only: no score, no percentage of
+ * "coverage" and no similarity number (DEC-023).
+ */
+export const AnalysisMappingSchema = z.object({
+  /** Why mapping did not run (no quality framework yet, or it has no items); null when it ran. */
+  skipped: z.string().nullable(),
+  /** The IQF version the candidates came from. */
+  iqfVersionId: z.string().nullable(),
+  /** 'hybrid': words and meaning (embeddings); 'lexical only': words alone. */
+  retrieval: z.enum(['hybrid', 'lexical only']),
+  embeddings: z.object({ used: z.boolean(), embedded: z.number().int(), reused: z.number().int(), note: z.string().nullable() }),
+  /** Requirements that could be mapped (assessable, with wording). */
+  requirements: z.number().int(),
+  /** Requirements sent to the model, and those left alone because a person had already decided about them. */
+  judged: z.number().int(),
+  skippedDecided: z.number().int(),
+  /** Judged requirements with at least one suggested link, and those without any. */
+  mapped: z.number().int(),
+  noSuggestion: z.number().int(),
+  /** Links suggested by relation; `kept` counts suggestions a person had rejected, which are not offered again. */
+  links: z.object({ covers: z.number().int(), partly_covers: z.number().int(), related: z.number().int(), kept: z.number().int() }),
+  /** New IQF items proposed. */
+  newItems: z.number().int(),
+  shortlist: z.object({ requirements: z.number().int(), candidates: z.number().int(), perRequirement: z.number(), padded: z.number().int(), size: z.number().int() }),
+  /** Codes of the requirements judged (so the new-item stage works from the same set), and those with no suggestion. */
+  judgedCodes: z.array(z.string()),
+  noSuggestionCodes: z.array(z.string()),
+  /** Requirements with no covering or partly covering suggestion: the ones new IQF items are drafted for. */
+  unplacedCodes: z.array(z.string()),
+  /** Set when the spend limit ended the mapping early. */
+  stopped: z.enum(['budget']).nullable(),
+});
+export type AnalysisMapping = z.infer<typeof AnalysisMappingSchema>;
 
 /** What the check-and-recover passes look for (step D). */
 export const ANALYSIS_GAP_KINDS = ['numbering_gap', 'missing_parent', 'unverified_quote', 'low_confidence', 'uncovered_page', 'conflict'] as const;

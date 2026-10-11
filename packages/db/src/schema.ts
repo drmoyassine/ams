@@ -584,12 +584,46 @@ export const requirementMapping = pgTable('requirement_mapping', {
   reviewStatus: text('review_status', { enum: REVIEW_STATUSES }).notNull().default('pending'),
   reviewedBy: uuid('reviewed_by').references((): AnyPgColumn => appUser.id),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  /** A person changed a link the analysis proposed (set by the database): a later run leaves it alone. */
+  ...editedByPerson(),
 }, (t) => [
   uniqueIndex('requirement_mapping_unique_idx').on(t.frameworkId, t.externalCode, t.internalCode),
   index('requirement_mapping_internal_idx').on(t.internalFrameworkId, t.internalCode),
   oneOf('requirement_mapping_relation_check', t.relation, MAPPING_RELATIONS),
   oneOf('requirement_mapping_origin_check', t.origin, ORIGINS),
   oneOf('requirement_mapping_review_status_check', t.reviewStatus, REVIEW_STATUSES),
+]);
+
+export const IQF_PROPOSAL_STATUSES = ['pending', 'accepted', 'dismissed', 'superseded'] as const;
+/**
+ * A NEW item of the institution's quality framework (IQF) the analysis suggests because nothing in it fits some external
+ * requirements (step E, DEC-021/022/023). Only a proposal: nothing is in the IQF until a person accepts it, which creates
+ * the item in the IQF's draft and the links (accepted). The wording is the model's, in the IQF's own terms. The external
+ * requirements are named by code within the standard (like requirement_mapping), `links` holds each one's relation and the
+ * model's reason. Dismissed and accepted proposals are remembered, so a re-run does not propose the same need again.
+ */
+export const iqfItemProposal = pgTable('iqf_item_proposal', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  internalFrameworkId: uuid('internal_framework_id').notNull().references(() => framework.id),
+  analysisRunId: uuid('analysis_run_id').references(() => analysisRun.id),
+  status: text('status', { enum: IQF_PROPOSAL_STATUSES }).notNull().default('pending'),
+  /** The IQF item it would sit under, by code; null for a top-level item. */
+  parentCode: text('parent_code'),
+  levelLabel: text('level_label').notNull(),
+  code: text('code').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  reason: text('reason'),
+  links: jsonb('links').$type<{ externalCode: string; relation: string; reason: string | null }[]>().notNull().default(sql`'[]'::jsonb`),
+  decidedBy: uuid('decided_by').references((): AnyPgColumn => appUser.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  acceptedRequirementId: uuid('accepted_requirement_id').references((): AnyPgColumn => requirement.id, { onDelete: 'set null' }),
+}, (t) => [
+  index('iqf_item_proposal_version_idx').on(t.frameworkVersionId, t.status),
+  oneOf('iqf_item_proposal_status_check', t.status, IQF_PROPOSAL_STATUSES),
+  check('iqf_item_proposal_links_check', sql`jsonb_typeof(${t.links}) = 'array'`),
 ]);
 
 // ---- 6.5 Evidence (M3) ----------------------------------------------------------------------------------------

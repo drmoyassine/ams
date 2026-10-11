@@ -67,10 +67,11 @@ describe('framework analysis', () => {
     setAiModelForTests(fake.model);
     const run = await as('alo', (c) => startAnalysis(c, v.versionId));
     runId = run.id;
-    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1' } });
+    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1' } });
     // One job per step: read x2, survey x2, structure, extract x3 (two windows of the handbook, one of the guide), then
     // step D: gaps, recover x3 (1.9's and a note's quotes, 3.9.1's missing parent: all answered "not there"), gaps; write, finalise.
-    expect(await drain()).toBe(15);
+    // Then the IQF mapping's first step, which ends the run here: this institution has no quality framework to map onto.
+    expect(await drain()).toBe(16);
     expect(fake.calls).toHaveLength(9);
 
     const done = await as('alo', (c) => getAnalysisRun(c, runId));
@@ -124,6 +125,7 @@ describe('framework analysis', () => {
     ]);
     expect(gaps.find((g) => g.key === 'req:1.9')).toMatchObject({ reason: 'It is not on these pages.', requirementId: code('1.9').id });
     expect((done.report.structure as { key_terms: unknown[] }).key_terms).toHaveLength(1);
+    expect(done.report.mapping).toMatchObject({ skipped: expect.stringMatching(/no quality framework/), judged: 0, newItems: 0 });
 
     // The raw items are on record with how each fared.
     const logged = await q(`select kind, flags, quote_verified from extraction_item where analysis_run_id = $1 order by (payload->>'seq')::numeric`, [runId]);
