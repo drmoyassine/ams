@@ -1,9 +1,17 @@
-import { strToU8 } from 'fflate';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { pdf, W, para, zip } from './parse-fixtures.js';
-import { detectFormat, parseCsvRecords, parseDocument, UnsupportedDocumentError } from './parse-document.js';
+import { docx, pdf, png, pptx, xlsx, zip } from './parse-fixtures.js';
+import { detectFormat, DocumentReadError, findLibreOffice, parseDocument, UnsupportedDocumentError } from './parse-document.js';
 
+const enc = (s: string) => new TextEncoder().encode(s);
 const longText = 'The institution publishes its mission statement and reviews it every year with its board. '.repeat(3);
+
+// Office, OpenDocument, spreadsheet and CSV files are converted by LibreOffice inside liteparse. CI installs it; a
+// machine without it skips these tests (the PDF and error tests still run).
+const soffice = await findLibreOffice();
+const office = describe.skipIf(!soffice);
+if (!soffice) console.warn('soffice not found: the Office-format tests in parse-document.test.ts are skipped (install libreoffice-writer, -calc and -impress)');
 
 describe('parseDocument: PDF', () => {
   it('returns text per page and flags a page with no text layer as needing OCR', async () => {
@@ -13,6 +21,7 @@ describe('parseDocument: PDF', () => {
     expect(doc.pages[0]!.text).toContain('Institutions must publish their mission.');
     expect(doc.pages[0]).toMatchObject({ method: 'pdf_text', needsOcr: false });
     expect(doc.pages[1]).toMatchObject({ text: '', needsOcr: true, method: 'pdf_text' });
+    expect(doc.pages[1]!.warnings.join()).toMatch(/needs OCR: (scanned|no-text)/);
     expect(doc.pages[2]!.needsOcr).toBe(false);
   }, 30000);
 
@@ -34,71 +43,166 @@ describe('parseDocument: PDF', () => {
     const b = await parseDocument({ bytes: pdf([null]), fileName: 'x.pdf', ocrPage: async () => ' ' });
     expect(b.pages[0]!.needsOcr).toBe(true);
   }, 30000);
+
+  it('normalises text to NFC', async () => {
+    const doc = await parseDocument({ bytes: pdf([null]), fileName: 'x.pdf', ocrPage: async () => 'Cafe\u0301' });
+    expect(doc.pages[0]!.text).toBe('Caf\u00e9');
+  }, 30000);
 });
 
-describe('parseDocument: Office and CSV', () => {
-  it('splits a DOCX at top-level headings and renders tables', async () => {
-    const body = [para('Standards', 'Heading1'), para('Standard 1 text.'), '<w:tbl><w:tr><w:tc>' + para('Code') + '</w:tc><w:tc>' + para('Title') + '</w:tc></w:tr><w:tr><w:tc>' + para('1.1') + '</w:tc><w:tc>' + para('Mission &amp; vision') + '</w:tc></w:tr></w:tbl>',
-      para('Guidance', 'Heading1'), para('الرسالة والأهداف')].join('');
-    const bytes = zip({ 'word/document.xml': `<w:document ${W}><w:body>${body}</w:body></w:document>` });
+describe('parseDocument: format detection and errors', () => {
+  it('detects the format from the name, the mime type, then the content', () => {
+    expect(detectFormat({ bytes: new Uint8Array(), fileName: 'a.XLSX' })).toBe('xlsx');
+    expect(detectFormat({ bytes: new Uint8Array(), mime: 'text/csv; charset=utf-8' })).toBe('csv');
+    expect(detectFormat({ bytes: docx([{ text: 'x' }]) })).toBe('docx');
+    expect(detectFormat({ bytes: xlsx([{ name: 'S', rows: [['a']] }]) })).toBe('xlsx');
+    expect(detectFormat({ bytes: pptx([{ title: 'x' }]) })).toBe('pptx');
+    expect(detectFormat({ bytes: png() })).toBe('png');
+    expect(detectFormat({ bytes: pdf(['x']) })).toBe('pdf');
+    expect(detectFormat({ bytes: enc('hello') })).toBeNull();
+  });
+
+  it('refuses what it cannot read, with a typed error', async () => {
+    await expect(parseDocument({ bytes: enc('hello'), fileName: 'a.txt' })).rejects.toBeInstanceOf(UnsupportedDocumentError);
+    await expect(parseDocument({ bytes: new Uint8Array(), fileName: 'a.pdf' })).rejects.toThrow(/empty/);
+  });
+
+  it('reports a file that is not what its name says as corrupt, before any converter runs', async () => {
+    for (const fileName of ['broken.docx', 'broken.xlsx', 'broken.pptx', 'broken.odt', 'broken.pdf', 'broken.rtf']) {
+      const err = await parseDocument({ bytes: enc('not a real file'), fileName }).catch((e) => e);
+      expect(err).toBeInstanceOf(DocumentReadError);
+      expect(err).toMatchObject({ code: 'corrupt' });
+      expect(err.message).toMatch(/could not be read/);
+    }
+  });
+
+  it('reports a damaged PDF as corrupt, not a crash', async () => {
+    const err = await parseDocument({ bytes: enc('%PDF-1.4 garbage that is not a pdf'), fileName: 'x.pdf' }).catch((e) => e);
+    expect(err).toMatchObject({ code: 'corrupt' });
+    expect(err.message).toMatch(/PDF file could not be read/);
+  }, 30000);
+
+  it('names LibreOffice when it is missing, instead of crashing', async () => {
+    const path = process.env.PATH;
+    process.env.PATH = '/nonexistent';
+    try {
+      const err = await parseDocument({ bytes: docx([{ text: 'x' }]), fileName: 'a.docx' }).catch((e) => e);
+      expect(err).toBeInstanceOf(DocumentReadError);
+      expect(err).toMatchObject({ code: 'converter_missing' });
+      expect(err.message).toMatch(/LibreOffice is not installed on the parser service/);
+    } finally { process.env.PATH = path; }
+  }, 30000);
+
+  it('stops a file that takes too long', async () => {
+    const was = process.env.PARSER_TIMEOUT_SECONDS;
+    process.env.PARSER_TIMEOUT_SECONDS = '0.001';
+    try {
+      const err = await parseDocument({ bytes: pdf([longText]), fileName: 'a.pdf' }).catch((e) => e);
+      expect(err).toMatchObject({ code: 'timeout' });
+      expect(err.message).toMatch(/took longer than/);
+    } finally { if (was === undefined) delete process.env.PARSER_TIMEOUT_SECONDS; else process.env.PARSER_TIMEOUT_SECONDS = was; }
+  }, 30000);
+
+  it('reads only up to the page cap and says so', async () => {
+    const was = process.env.PARSER_MAX_PAGES;
+    process.env.PARSER_MAX_PAGES = '2';
+    try {
+      const doc = await parseDocument({ bytes: pdf([longText, longText, longText]), fileName: 'a.pdf' });
+      expect(doc.pages).toHaveLength(2);
+      expect(doc.warnings.join()).toMatch(/first 2 of 3 pages/);
+    } finally { if (was === undefined) delete process.env.PARSER_MAX_PAGES; else process.env.PARSER_MAX_PAGES = was; }
+  }, 30000);
+});
+
+office('parseDocument: Office, OpenDocument, spreadsheets, CSV and images (liteparse + LibreOffice)', () => {
+  it('reads a DOCX: headings and tables as text, a page per printed page, no OCR needed', async () => {
+    const bytes = docx([{ text: 'Standards', style: 'Heading1' }, { text: 'Standard 1 text about mission.' }, { table: [['Code', 'Title'], ['1.1', 'Mission']] }, { pageBreak: true }, { text: 'Guidance for reviewers.' }]);
     const doc = await parseDocument({ bytes, fileName: 'handbook.docx' });
     expect(doc.format).toBe('docx');
-    expect(doc.pages).toHaveLength(2);
-    expect(doc.pages[0]!.text).toBe('Standards\nStandard 1 text.\nCode | Title\n1.1 | Mission & vision');
-    expect(doc.pages[1]!.text).toContain('الرسالة والأهداف');
+    expect(doc.pages.map((p) => p.pageNo)).toEqual([1, 2]);
+    expect(doc.pages[0]!.text).toContain('Standard 1 text about mission.');
+    expect(doc.pages[0]!.text).toMatch(/Code\s+Title\n1\.1\s+Mission/);
+    expect(doc.pages[1]!.text).toBe('Guidance for reviewers.');
     expect(doc.pages.every((p) => p.method === 'pdf_text' && !p.needsOcr)).toBe(true);
-  });
+  }, 60000);
 
-  it('makes a page per worksheet, as a text table, using shared and inline strings', async () => {
-    const bytes = zip({
-      'xl/workbook.xml': '<workbook xmlns:r="x"><sheets><sheet name="Metrics" sheetId="1" r:id="rId1"/><sheet name="Blank" sheetId="2" r:id="rId2"/><sheet name="Notes" sheetId="3" r:id="rId3"/></sheets></workbook>',
-      'xl/_rels/workbook.xml.rels': '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Target="/xl/worksheets/sheet3.xml"/></Relationships>',
-      'xl/sharedStrings.xml': '<sst><si><t>Year</t></si><si><t>Graduates</t></si></sst>',
-      'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row><row r="2"><c r="A2"><v>2024</v></c><c r="C2"><v>5</v></c></row></sheetData></worksheet>',
-      'xl/worksheets/sheet2.xml': '<worksheet><sheetData/></worksheet>',
-      'xl/worksheets/sheet3.xml': '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Hello</t></is></c><c r="B1" t="b"><v>1</v></c></row></sheetData></worksheet>',
-    });
+  it('reads an Arabic DOCX (the letters survive; liteparse may reorder words, which the AI steps tolerate)', async () => {
+    const doc = await parseDocument({ bytes: docx([{ text: 'رسالة المؤسسة', rtl: true }, { text: 'الأهداف الاستراتيجية', rtl: true }]), fileName: 'ar.docx' });
+    const letters = (s: string) => [...s.replace(/[^\p{L}]/gu, '')].sort().join('');
+    expect(letters(doc.pages[0]!.text)).toBe(letters('رسالة المؤسسة الأهداف الاستراتيجية'));
+  }, 60000);
+
+  it('reads a spreadsheet: a page per sheet, rows as lines of text', async () => {
+    const bytes = xlsx([{ name: 'Metrics', rows: [['Year', 'Graduates'], ['2024', 5], ['2025', 7]] }, { name: 'Notes', rows: [['Hello', 'World']] }]);
     const doc = await parseDocument({ bytes, mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     expect(doc.format).toBe('xlsx');
-    expect(doc.pages.map((p) => p.text)).toEqual(['Sheet: Metrics\nYear | Graduates\n2024 |  | 5', 'Sheet: Notes\nHello | TRUE']);
-    expect(doc.pages.every((p) => p.method === 'sheet')).toBe(true);
-    expect(doc.warnings.join()).toContain('Blank');
-  });
+    expect(doc.pages).toHaveLength(2);
+    expect(doc.pages[0]!.text).toMatch(/^Year\s+Graduates\n2024\s+5\n2025\s+7$/);
+    expect(doc.pages[1]!.text).toMatch(/^Hello\s+World$/);
+    expect(doc.pages.every((p) => p.method === 'sheet' && !p.needsOcr)).toBe(true);
+  }, 60000);
 
-  it('makes a page per slide, in presentation order, with notes', async () => {
-    const A = 'xmlns:a="a" xmlns:p="p"';
-    const sp = (t: string, ph = '') => `<p:sp><p:nvSpPr><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>${t}</a:t></a:r></a:p></p:txBody></p:sp>`;
-    const bytes = zip({
-      'ppt/presentation.xml': '<p:presentation xmlns:r="r"><p:sldIdLst><p:sldId id="1" r:id="rId2"/><p:sldId id="2" r:id="rId1"/></p:sldIdLst></p:presentation>',
-      'ppt/_rels/presentation.xml.rels': '<Relationships><Relationship Id="rId1" Target="slides/slide1.xml"/><Relationship Id="rId2" Target="slides/slide2.xml"/></Relationships>',
-      'ppt/slides/slide1.xml': `<p:sld ${A}>${sp('Opening')}${sp('1', '<p:ph type="sldNum"/>')}</p:sld>`,
-      'ppt/slides/slide2.xml': `<p:sld ${A}>${sp('Accreditation timeline')}${sp('Second line')}</p:sld>`,
-      'ppt/slides/_rels/slide2.xml.rels': '<Relationships><Relationship Id="rId1" Target="../notesSlides/notesSlide1.xml"/></Relationships>',
-      'ppt/notesSlides/notesSlide1.xml': `<p:notes ${A}>${sp('', '<p:ph type="sldImg"/>')}${sp('Say this aloud', '<p:ph type="body"/>')}</p:notes>`,
-    });
-    const doc = await parseDocument({ bytes, fileName: 'deck.pptx' });
-    expect(doc.pages.map((p) => p.text)).toEqual(['Accreditation timeline\nSecond line\n\nNotes:\nSay this aloud', 'Opening']);
+  it('reads a PPTX: a page per slide, in slide order', async () => {
+    const doc = await parseDocument({ bytes: pptx([{ title: 'Opening', lines: ['First point'] }, { title: 'Timeline', lines: ['Second point'] }, { title: '' }]), fileName: 'deck.pptx' });
+    expect(doc.pages.map((p) => p.pageNo)).toEqual([1, 2, 3]);
+    expect(doc.pages[0]!.text).toContain('Opening');
+    expect(doc.pages[1]!.text).toContain('Second point');
     expect(doc.pages.every((p) => p.method === 'slide')).toBe(true);
-  });
+    // a slide without text is kept (slide numbers stay true) and said to be empty, but it is not sent to OCR
+    expect(doc.pages[2]).toMatchObject({ text: '', needsOcr: false });
+    expect(doc.pages[2]!.warnings.join()).toMatch(/no text/);
+  }, 60000);
 
-  it('chunks a CSV with the header repeated, honouring quoted commas and newlines', async () => {
-    const rows = Array.from({ length: 250 }, (_, i) => `${i + 1},"Program, ${i + 1}"`).join('\n');
-    const doc = await parseDocument({ bytes: strToU8(`\uFEFFid,name\n${rows}\n`), fileName: 'programs.csv' });
-    expect(doc.pages).toHaveLength(3);
-    expect(doc.pages.every((p) => p.text.startsWith('id | name\n') && p.method === 'table')).toBe(true);
-    expect(doc.pages[0]!.text.split('\n')).toHaveLength(101);
-    expect(doc.pages[2]!.text.split('\n').at(-1)).toBe('250 | Program, 250');
-    expect(parseCsvRecords('a;b\n"x\ny";2\r\n')).toEqual([['a', 'b'], ['x\ny', '2']]);
-  });
+  it('reads CSV (comma, semicolon and tab delimited, quoted fields, Arabic) as table pages without the converter noise', async () => {
+    const a = await parseDocument({ bytes: enc('﻿id,name\n1,"Program, one"\n2,هندسة\n'), fileName: 'programs.csv' });
+    expect(a.format).toBe('csv');
+    expect(a.pages[0]!.method).toBe('table');
+    expect(a.pages[0]!.text).toMatch(/^id\s+name\n1\s+Program, one\n2\s+هندسة$/);
+    const b = await parseDocument({ bytes: enc('id;name\n1;Mechanical\n'), fileName: 'semi.csv' });
+    expect(b.pages[0]!.text).toMatch(/^id\s+name\n1\s+Mechanical$/);
+    const c = await parseDocument({ bytes: enc('id\tname\n1\tCivil\n'), fileName: 'tabs.tsv' });
+    expect(c.pages[0]!.text).toMatch(/^id\s+name\n1\s+Civil$/);
+  }, 60000);
 
-  it('normalises to NFC and detects the format from content when the name is unhelpful', async () => {
-    const bytes = zip({ 'word/document.xml': `<w:document ${W}><w:body>${para('Café')}</w:body></w:document>` });
-    expect(detectFormat({ bytes })).toBe('docx');
-    expect((await parseDocument({ bytes })).pages[0]!.text).toBe('Café');
-  });
+  it('reads RTF through the same path', async () => {
+    const rtf = await parseDocument({ bytes: enc('{\\rtf1\\ansi Mission statement of the institution.}'), fileName: 'a.rtf' });
+    expect(rtf.pages[0]!.text).toBe('Mission statement of the institution.');
+  }, 60000);
 
-  it('refuses what it cannot read', async () => {
-    await expect(parseDocument({ bytes: strToU8('hello'), fileName: 'a.txt' })).rejects.toBeInstanceOf(UnsupportedDocumentError);
-    await expect(parseDocument({ bytes: strToU8('not a zip'), fileName: 'a.docx' })).rejects.toThrow(/not a valid Office file/);
+  it('treats an image as a one-page scan: no text, needs OCR, and the OCR hook gets the picture', async () => {
+    const plain = await parseDocument({ bytes: png(), fileName: 'scan.png' });
+    expect(plain.format).toBe('png');
+    expect(plain.pages).toHaveLength(1);
+    expect(plain.pages[0]).toMatchObject({ pageNo: 1, text: '', needsOcr: true });
+    expect(plain.pages[0]!.warnings.join()).toContain('needs OCR');
+    const seen: number[] = [];
+    const doc = await parseDocument({ bytes: png(), fileName: 'scan.png', language: 'ar', ocrPage: async (p) => { seen.push(p.image[1]!); return 'نص من الصورة'; } });
+    expect(seen).toEqual([0x50]);
+    expect(doc.pages[0]).toMatchObject({ text: 'نص من الصورة', method: 'ocr', needsOcr: false });
+  }, 60000);
+
+  it('reports a damaged Office file (a zip that is not a document) as corrupt', async () => {
+    const err = await parseDocument({ bytes: zip({ 'readme.txt': 'nothing here' }), fileName: 'broken.docx' }).catch((e) => e);
+    expect(err).toBeInstanceOf(DocumentReadError);
+    expect(err).toMatchObject({ code: 'corrupt' });
+    expect(err.message).toMatch(/DOCX file could not be read/);
+  }, 60000);
+});
+
+describe('liteparse import point (DEC-011)', () => {
+  const root = resolve(import.meta.dirname, '../../../..');
+  function* files(dir: string): Generator<string> {
+    for (const e of readdirSync(dir)) {
+      if (['node_modules', 'dist', 'dist-types', 'migrations'].includes(e)) continue;
+      const path = join(dir, e);
+      if (statSync(path).isDirectory()) yield* files(path);
+      else if (/\.(ts|tsx|mjs)$/.test(e) && !/\.test\.tsx?$/.test(e)) yield path;
+    }
+  }
+  const importers = (pattern: RegExp) => ['apps', 'packages'].flatMap((d) => [...files(join(root, d))]).filter((f) => pattern.test(readFileSync(f, 'utf8'))).map((f) => relative(root, f));
+
+  it('imports liteparse only in parse-document.ts, and no other document-format library anywhere', () => {
+    expect(importers(/from\s+['"]@llamaindex\/liteparse['"]/)).toEqual(['packages/core/src/framework/parse-document.ts']);
+    expect(importers(/from\s+['"](fflate|jszip|mammoth|pdfjs-dist|pdf-parse|xlsx|unzipper|adm-zip)['"]/)).toEqual([]);
   });
 });

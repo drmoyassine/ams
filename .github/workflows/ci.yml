@@ -30,6 +30,9 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # liteparse converts every non-PDF format with LibreOffice (writer, calc, impress) and some images with ImageMagick;
+      # the parse-document tests need them (they skip with a message when soffice is missing).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress imagemagick fonts-noto-core fonts-liberation
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm build

@@ -109,7 +109,7 @@ export function templateRoutes(registry: RouteRegistry, deps: ChainDeps, options
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/source-documents/{id}/read', access: requires('framework:write'), tags: tag,
-      description: 'Queues reading the stored file into page text (PDF, DOCX, XLSX, PPTX, CSV). Pages a person edited or reviewed are kept.',
+      description: 'Queues reading the stored file into page text (PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV, images), all read with liteparse. Pages a person edited or reviewed are kept.',
       request: { params: idParam },
       responses: { 202: { description: 'Queued', ...json(z.object({ jobId: z.string(), textStatus: z.literal('queued') })) }, ...errors },
     }), async (c) => c.json(await requestTextExtraction(c.get('ctx'), c.req.valid('param').id), 202))

@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Every format is read by liteparse; the parser image gets LibreOffice (TASK-052, DEC-011)
+
+Decisions: DEC-011 (amended), DEC-008.
+- **Owner decision reversed the TASK-043 shortcut:** `parseDocument()` no longer has its own DOCX/XLSX/PPTX/CSV readers or `fflate`. liteparse reads every format; for non-PDF it converts with LibreOffice (found as `soffice`/`libreoffice` on PATH). Only the `parser` image installs LibreOffice (writer, calc, impress), ImageMagick and Noto/Liberation fonts. Learning: the sandbox had `libreoffice-core` alone, which silently fails every conversion ("source file could not be loaded"); writer, calc and impress are separate packages.
+- **What liteparse returns:** pages are the printed pages of the converted PDF. DOCX/ODT/RTF: pages by page break; spreadsheets: a page per sheet, but a wide or long sheet continues on further pages (print layout), and tables are space-aligned text, not `a | b`; presentations: a page per slide, speaker notes are not included; images: one page, no text, flagged `scanned` (so OCR via the hook). CSV/TSV are not recognised from bytes (liteparse sees `.txt` and refuses), so the bytes go in as a temp `.csv`, with `;` and tab delimiters rewritten to commas first because LibreOffice split on commas only here.
+- **Arabic got worse for Office files:** the converted PDF's words come back in visual order and with lam-alef pairs swapped (a native-PDF limitation of liteparse that already applied to Arabic PDFs). Letters are all there; word order is not reliable. Quote matching (which normalises) can miss a verbatim Arabic quote from a DOCX; OCR of the page image through the hook is the way round it and is not applied automatically because the page has a text layer.
+- **needsOcr** now comes from liteparse's per-page reasons: `scanned`/`garbled`, or (PDF and images) under 20 characters. `sparse-text` alone is ignored because liteparse flags nearly every normal short page with it; `embedded-images`/`vector-text` give a warning only.
+- **Failure is a typed `DocumentReadError`** (unsupported, corrupt, converter_missing, timeout) recorded by `extract_text` as failed with the reason. Each file is parsed in a killable liteparse worker process (`PARSER_TIMEOUT_SECONDS`, `PARSER_MAX_PAGES`). Legacy DOC, XLS, PPT, plus ODT/ODS/ODP, RTF, TSV and PNG/JPEG/TIFF/WebP/BMP/GIF are now readable too.
+- Not verified: the Docker build (no registry here). After the first deploy check `docker compose logs parser` for "libreoffice found", then read a DOCX, an XLSX and an Arabic DOCX from the Sources screen.
 ## 2026-10-11 — Three background services; the app prepares Garage (TASK-049, DEC-024)
 
 Decisions: DEC-024 (new), DEC-010, DEC-011, DEC-012, DEC-008.

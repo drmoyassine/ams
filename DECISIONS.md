@@ -588,7 +588,10 @@ decision: >-
   Use liteparse (owned) behind parseDocument(). Implement Appendix D requirements (LP1–LP10) in the liteparse
   repository, release with semver, pin in AMS. Gate the framework compiler (M7) on the Appendix D test corpus.
 rationale: One isomorphic parser with native → OCR → VLM cascade that the team controls.
-consequences: Parallel workstream in a second repository; accreditor documents stay private to AMS fixtures.
+consequences: >-
+  Parallel workstream in a second repository; accreditor documents stay private to AMS fixtures.
+  Amendment (2026-10-11, TASK-052): all formats go through liteparse; the parser image includes LibreOffice and ImageMagick.
+  The home-made DOCX/XLSX/PPTX/CSV readers (and fflate) are gone; Office, OpenDocument, RTF, spreadsheet, CSV and image files are converted by liteparse itself, so the parser service needs LibreOffice (writer, calc, impress) and ImageMagick installed. The app, worker and agent images do not.
 tags:
   - ams
 last_updated: '2026-10-05'

@@ -17,8 +17,8 @@ export const ROLE_LABEL: Record<SourceRole, string> = {
 };
 export const AUTHORITY_LABEL: Record<SourceAuthority, string> = { binding: 'Binding', interpretive: 'Interpretive', informational: 'Informational' };
 const select = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm';
-/** What a source's original can be: PDF, Word, Excel, PowerPoint or CSV (the first five can be read into pages). */
-const FILE_ACCEPT = 'application/pdf,.pdf,.docx,.doc,.xlsx,.pptx,.csv,text/csv';
+/** What a source's original can be: everything parseDocument() reads with liteparse (PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV, images). */
+const FILE_ACCEPT = 'application/pdf,.pdf,.docx,.doc,.odt,.rtf,.xlsx,.xls,.ods,.csv,.tsv,text/csv,.pptx,.ppt,.odp,image/png,image/jpeg,image/tiff,image/webp,.png,.jpg,.jpeg,.tif,.tiff,.webp';
 const kb = (n: number | null) => (n === null ? '' : n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
 /** Where reading a source's file stands, in words. */
@@ -29,7 +29,7 @@ export function readStatus(d: SourceDocument): string {
     case 'extracted': return `Read: ${pages} page${pages === 1 ? '' : 's'}`;
     case 'ocr_needed': { const n = d.needsOcrPages ?? 0; return `Read: ${pages} page${pages === 1 ? '' : 's'}, ${n} need${n === 1 ? 's' : ''} OCR`; }
     case 'ocr_done': return `Read and OCR done: ${pages} page${pages === 1 ? '' : 's'}`;
-    case 'failed': return 'The file could not be read. Check that it is a PDF, DOCX, XLSX, PPTX or CSV that opens.';
+    case 'failed': return 'The file could not be read. Check that it is a PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV or image file that opens.';
     default: return 'Not read yet';
   }
 }

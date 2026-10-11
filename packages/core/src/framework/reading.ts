@@ -7,7 +7,7 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError } from '../ctx.js';
 import { enqueueJob } from '../jobs/jobs.js';
 import { getDraftVersion, getSourceDocument, getVersion, require_ } from './common.js';
-import { detectFormat, parseDocument, type OcrPageHook } from './parse-document.js';
+import { detectFormat, parseDocument, UNSUPPORTED_FILE_MESSAGE, type OcrPageHook } from './parse-document.js';
 import { loadSourceFile } from './sources.js';
 
 /** Queues the reading of a draft version's source file. The page text appears when the worker has finished. */
@@ -17,7 +17,7 @@ export async function requestTextExtraction(ctx: Ctx, documentId: string) {
   await getDraftVersion(ctx, doc.frameworkVersionId);
   if (!doc.fileName) throw new ConflictError('upload the file first; there is nothing to read');
   if (!detectFormat({ bytes: new Uint8Array(), fileName: doc.fileName, mime: doc.mime })) {
-    throw new ConflictError('this file type cannot be read; use PDF, DOCX, XLSX, PPTX or CSV');
+    throw new ConflictError(UNSUPPORTED_FILE_MESSAGE);
   }
   await ctx.tx.update(sourceDocument).set({ textStatus: 'queued' }).where(eq(sourceDocument.id, documentId));
   const job = await enqueueJob(ctx, { type: 'extract_text', payload: { sourceDocumentId: documentId } });

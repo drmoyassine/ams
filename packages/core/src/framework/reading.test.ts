@@ -77,7 +77,7 @@ describe('extract_text', () => {
     await as('alo', (c) => requestTextExtraction(c, csv.id));
     await work();
     const pages = await as('alo', (c) => listSourcePages(c, csv.id));
-    expect(pages.map((p) => [p.method, p.text])).toEqual([['table', 'id | name\n1 | Mechanical\n2 | Civil']]);
+    expect(pages.map((p) => [p.method, p.text.replace(/[ \t]+/g, ' ')])).toEqual([['table', 'id name\n1 Mechanical\n2 Civil']]);
     expect((await as('alo', (c) => listSourceDocuments(c, ids.draft!))).find((d) => d.id === csv.id)).toMatchObject({ textStatus: 'extracted' });
   }, 60000);
 
@@ -89,7 +89,7 @@ describe('extract_text', () => {
     expect((await as('alo', (c) => listSourceDocuments(c, ids.draft!))).find((d) => d.id === bad.id)).toMatchObject({ textStatus: 'failed' });
     const { rows } = await w.db.su.query(`select status, result from job where id = $1`, [q.jobId]);
     expect(rows[0].status).toBe('succeeded');
-    expect(rows[0].result).toMatchObject({ ok: false, error: expect.stringMatching(/not a valid Office file/) });
+    expect(rows[0].result).toMatchObject({ ok: false, error: expect.stringMatching(/DOCX file could not be read/) });
   }, 60000);
 });
 
