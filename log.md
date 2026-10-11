@@ -453,3 +453,7 @@ Adopted `vibe-engineering-framework` through `vef setup`; `vef check` confirmed 
 ## 2026-10-10 — Settings → AI split into tabs
 
 Connection, Limits and Embeddings are now tabs (the tab survives a save); the Save / Test connection bar stays at the bottom. The provider was a disabled one-option dropdown that looked broken; it is now plain text. Help text shortened.
+
+## 2026-10-11 — Migration order fix (0044)
+
+0044's journal timestamp was earlier than 0043's. Drizzle applies only migrations newer than the last one applied, so a database that already had 0043 would have silently skipped 0044 (the IQF proposals table). Its timestamp now sits between 0043 and 0045. Safe because no database can have applied 0044 before 0043.
