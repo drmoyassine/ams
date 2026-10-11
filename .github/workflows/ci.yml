@@ -30,9 +30,10 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # liteparse converts every non-PDF format with LibreOffice (writer, calc, impress) and some images with ImageMagick;
-      # the parse-document tests need them (they skip with a message when soffice is missing).
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress imagemagick fonts-noto-core fonts-liberation
+      # PDF, Word, Excel, CSV and images are read by the owned @drmoyassine/liteparse (no system packages). LibreOffice is
+      # only for the temporary fallback formats (PowerPoint, OpenDocument, RTF, legacy DOC/XLS); the fallback tests in
+      # parse-document.test.ts skip with a message when soffice is missing. Fonts: Arabic and Latin for rendering and conversion.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress fonts-noto-core fonts-liberation
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm build

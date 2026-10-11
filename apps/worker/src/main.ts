@@ -13,12 +13,13 @@ await boss.start();
 // One entry point for the three background services (DEC-024); which one this is comes from WORKER_QUEUES / WORKER_NAME.
 const queues = await startWorker(boss, pool, { store: s3Store(env), queues: env.WORKER_QUEUES });
 console.log(JSON.stringify({ level: 'info', msg: 'worker started', name: env.WORKER_NAME, queues }));
-// The service that reads documents (extract_text) needs LibreOffice for every format but PDF and images (DEC-011).
+// The service that reads documents (extract_text) reads PDF, Word, Excel, CSV and images with the owned liteparse; only the
+// temporary fallback formats (PowerPoint, OpenDocument, RTF, legacy DOC/XLS) need LibreOffice (DEC-011).
 if (queues.includes('extract_text')) {
   const soffice = await findLibreOffice();
   console.log(JSON.stringify(soffice
     ? { level: 'info', msg: 'libreoffice found', path: soffice }
-    : { level: 'warn', msg: 'libreoffice (soffice) NOT found: Word, Excel, PowerPoint, OpenDocument, RTF and CSV files will fail to read; only PDF and images work' }));
+    : { level: 'warn', msg: 'libreoffice (soffice) NOT found: PowerPoint, OpenDocument, RTF and legacy DOC/XLS files will fail to read; PDF, DOCX, XLSX, CSV and images are unaffected' }));
 }
 
 const shutdown = async () => {

@@ -43,3 +43,5 @@ Built:
 Worse than the old readers: Arabic word order in converted Office files (liteparse returns visual order); spreadsheets are space-aligned text (no `a | b`), wide sheets spill onto extra pages, and sheet names appear only if the file prints them; speaker notes are not read; DOCX pages follow the printed layout instead of headings; page fonts matter (a missing font changes the text).
 
 Not done: the Docker build was not run here (no registry); nothing in the OCR path was run against a real provider; an orphaned `soffice` after a timeout kill was not seen in tests but is not guarded against.
+
+Superseded in part by TASK-053 (2026-10-11): the owner decided on the owned `@drmoyassine/liteparse`, which is not the package built here. The upstream package and LibreOffice remain only as a temporary fallback for PowerPoint, OpenDocument, RTF and legacy Word/Excel; ImageMagick is no longer installed.

@@ -6,7 +6,7 @@ import { buildWorld, type World } from '../engagement/test-support.js';
 import { createFakeAiModel, setAiModelForTests } from '../ai/index.js';
 import { handlers } from '../jobs/handlers.js';
 import { runJob } from '../jobs/run.js';
-import { pdf } from './parse-fixtures.js';
+import { pdf, xlsx } from './parse-fixtures.js';
 import { requestTextExtraction } from './reading.js';
 import { addSourceDocument, listSourceDocuments, listSourcePages, setSourcePage, uploadSourceFile } from './sources.js';
 import { newVersionFrom } from './versions.js';
@@ -77,8 +77,19 @@ describe('extract_text', () => {
     await as('alo', (c) => requestTextExtraction(c, csv.id));
     await work();
     const pages = await as('alo', (c) => listSourcePages(c, csv.id));
-    expect(pages.map((p) => [p.method, p.text.replace(/[ \t]+/g, ' ')])).toEqual([['table', 'id name\n1 Mechanical\n2 Civil']]);
+    expect(pages.map((p) => [p.method, p.text])).toEqual([['table', 'id,name\n1,Mechanical\n2,Civil']]);
     expect((await as('alo', (c) => listSourceDocuments(c, ids.draft!))).find((d) => d.id === csv.id)).toMatchObject({ textStatus: 'extracted' });
+  }, 60000);
+
+  it('stores a page per sheet for a workbook and names the parser in the job result', async () => {
+    const book = await as('alo', (c) => addSourceDocument(c, { versionId: ids.draft!, title: 'Supplement tables', role: 'other', authority: 'informational' }));
+    await as('alo', (c) => uploadSourceFile(c, book.id, { fileName: 'tables.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: xlsx([{ name: 'Table 5-1', rows: [['Course', 'Credits'], ['MATH', 3]] }, { name: 'Table 6-1', rows: [['Name', 'Rank'], ['Ali', 'Prof']] }]) }));
+    const q = await as('alo', (c) => requestTextExtraction(c, book.id));
+    await work();
+    const pages = await as('alo', (c) => listSourcePages(c, book.id));
+    expect(pages.map((p) => [p.pageNo, p.method, p.text])).toEqual([[1, 'sheet', '# Table 5-1\nCourse,Credits\nMATH,3'], [2, 'sheet', '# Table 6-1\nName,Rank\nAli,Prof']]);
+    const { rows } = await w.db.su.query(`select result from job where id = $1`, [q.jobId]);
+    expect(rows[0].result.parser).toMatchObject({ name: '@drmoyassine/liteparse', fallback: false, version: expect.any(String), configHash: expect.any(String) });
   }, 60000);
 
   it('marks a file it cannot read as failed, with the reason, instead of retrying', async () => {

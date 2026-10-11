@@ -16,11 +16,15 @@
     "@ams/db": "workspace:*",
     "@ams/shared": "workspace:*",
     "@aws-sdk/client-s3": "^3.1146.0",
-    "@llamaindex/liteparse": "^2.15.1",
+    "@drmoyassine/liteparse": "0.5.0",
+    "@llamaindex/liteparse": "2.15.1",
+    "@napi-rs/canvas": "0.1.100",
     "ai": "^7.0.133",
     "drizzle-orm": "^0.45.3",
+    "pdfjs-dist": "4.10.38",
     "pg": "^8.23.1",
     "pg-boss": "^12.36.0",
+    "sharp": "^0.35.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {

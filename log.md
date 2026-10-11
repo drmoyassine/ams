@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Switched to the owned @drmoyassine/liteparse; upstream kept only as a fallback (TASK-053, DEC-011)
+
+Decisions: DEC-011 (amended again). ROADMAP-008.
+- **The TASK-052 entry below describes the wrong package.** Steps A–D used the unrelated `@llamaindex/liteparse` (PDFium + LibreOffice). The owner chose the owned `@drmoyassine/liteparse` 0.5.0 (https://github.com/drmoyassine/liteparse): pure JS, pdfjs-dist for PDF, mammoth for DOCX, SheetJS for XLSX/CSV, injectable raster, OCR and vision gateway. Written up in `docs/liteparse-appendix-d-status.md` (per LP1–LP10 and D.3 case: met / partly / not met, what the AMS wrapper does, and the changes to make in the liteparse repository, by importance).
+- **Learnings about the library** (all by experiment): a digital PDF comes back as ONE page; scan-or-digital is decided once from the first three pages (a scanned page 1 sent all three pages to the vision model); native text has no line breaks, so words fuse across lines; DOCX and Office files are one page; the multi-sheet XLSX is `# Sheet` + CSV; RTF and unknown kinds are decoded as text and, with a vision gateway set, sent to it; UTF-16 CSV is taken for audio and BOM-less UTF-8 CSV is read as Windows-1252; the README's "diacritics are stripped by default" is about speech only (documents keep tashkeel); it never normalises to NFC; `@napi-rs/canvas` 1.x breaks pdfjs 4.10 page rendering (0.1.100 works); its `xlsx` dependency is a cdn.sheetjs.com tarball (blocked by the egress proxy: overridden to `@e965/xlsx@0.20.3` on npm).
+- **The wrapper's trick:** `parseDocument()` opens the PDF with pdfjs itself and gives liteparse an injected pdfjs that shows ONE page, so classification, extraction, rendering and escalation happen per page with true page numbers; the vision hook is its `vlm` gateway. Costs two text extractions per page and no process isolation (timeouts are cooperative).
+- **Formats it lacks** (PowerPoint, OpenDocument, RTF, legacy DOC/XLS) keep working through `parse-document-fallback.ts`, the only user of the upstream package and of LibreOffice; ImageMagick is gone from the parser image. Delete the fallback when the owner's library reads them.
+- **Local OCR (RapidOCR) was not enabled:** it needs `onnxruntime-node` (install fetches from nuget) and three model files (Hugging Face), both unreachable here, and its model is English only. `PARSER_LOCAL_OCR=rapidocr` exists, off.
+- Not verified: the Docker build; the D.3 documents; a real vision model. After the first deploy check `docker compose logs parser` for "libreoffice found", then read a text PDF, a scanned PDF, an Arabic DOCX, a two-sheet XLSX and a PPTX and check the job result's `parser` field.
+
 ## 2026-10-11 — Every format is read by liteparse; the parser image gets LibreOffice (TASK-052, DEC-011)
 
 Decisions: DEC-011 (amended), DEC-008.

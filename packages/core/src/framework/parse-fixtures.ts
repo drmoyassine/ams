@@ -6,13 +6,17 @@ const enc = new TextEncoder();
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
 const u16 = (n: number) => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; };
 
-/** A tiny valid PDF: one page per entry; null makes a blank page (a scan with no text layer). */
+/**
+ * A tiny valid PDF: one page per entry; null makes a blank page (a scan with no text layer). A "\n" starts a new line
+ * (each line is its own text object, so text that would run past the page edge can be wrapped by the caller).
+ */
 export function pdf(pages: (string | null)[]): Uint8Array {
   const objs: string[] = [];
   const kids = pages.map((_, i) => `${3 + i * 2} 0 R`).join(' ');
   objs.push('<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
   pages.forEach((t, i) => {
-    const content = t === null ? '' : `BT /F1 12 Tf 72 700 Td (${t}) Tj ET`;
+    const pdfString = (s: string) => s.replace(/[\\()]/g, (c) => `\\${c}`);
+    const content = t === null ? '' : t.split('\n').map((line, n) => `BT /F1 12 Tf 72 ${700 - n * 16} Td (${pdfString(line)}) Tj ET`).join('\n');
     objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${4 + i * 2} 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>`,
       `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
   });

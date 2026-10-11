@@ -511,7 +511,7 @@ describe('version page', () => {
     // The worker picks the job up.
     await runJob(pool, 'extract_text', queued.shift(), handlers, { store });
     await waitFor(() => expect(within(card).getByRole('status', { name: 'Reading status of Programs list' }).textContent).toBe('Read: 1 page'));
-    expect((await within(card).findByLabelText('Text of page 1') as HTMLTextAreaElement).value.replace(/[ \t]+/g, ' ')).toBe('id name\n1 Mechanical\n2 Civil');
+    expect((await within(card).findByLabelText('Text of page 1') as HTMLTextAreaElement).value).toBe('id,name\n1,Mechanical\n2,Civil');
     expect(within(card).getByRole('button', { name: 'Read this file again' })).toBeTruthy();
     cleanup();
 

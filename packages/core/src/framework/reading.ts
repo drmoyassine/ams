@@ -7,7 +7,7 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError } from '../ctx.js';
 import { enqueueJob } from '../jobs/jobs.js';
 import { getDraftVersion, getSourceDocument, getVersion, require_ } from './common.js';
-import { detectFormat, parseDocument, UNSUPPORTED_FILE_MESSAGE, type OcrPageHook } from './parse-document.js';
+import { detectFormat, parseDocument, UNSUPPORTED_FILE_MESSAGE, type OcrPageHook, type ParserInfo } from './parse-document.js';
 import { loadSourceFile } from './sources.js';
 
 /** Queues the reading of a draft version's source file. The page text appears when the worker has finished. */
@@ -36,6 +36,8 @@ export interface ExtractTextResult {
   /** Pages left as they were because a person typed, corrected or reviewed them. */
   keptPages?: number;
   needsOcr?: number;
+  /** Which parser read the file and with what settings (there is no column for it on source_page). */
+  parser?: ParserInfo;
   warnings?: string[];
 }
 
@@ -94,5 +96,5 @@ export async function extractText(
     .where(and(eq(sourcePage.sourceDocumentId, id), eq(sourcePage.needsOcr, true)));
   await ctx.tx.update(sourceDocument).set({ pageCount: parsed.pages.length, textStatus: needsOcr ? 'ocr_needed' : 'extracted' }).where(eq(sourceDocument.id, id));
   const warnings = [...(opts.notes ?? []), ...parsed.warnings, ...parsed.pages.flatMap((p) => p.warnings.map((w) => `page ${p.pageNo}: ${w}`))];
-  return { ok: true, format: parsed.format, pages: parsed.pages.length, written, keptPages: parsed.pages.length - written, needsOcr, warnings };
+  return { ok: true, format: parsed.format, pages: parsed.pages.length, written, keptPages: parsed.pages.length - written, needsOcr, parser: parsed.parser, warnings };
 }

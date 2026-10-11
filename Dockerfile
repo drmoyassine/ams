@@ -1,9 +1,10 @@
 # One image definition, four targets: `app` (Hono API + built SPA) and the three background services `worker`, `parser`
 # and `agent` (DEC-024). The three run the same entry point (apps/worker/dist/main.js); the role comes from the
 # environment (WORKER_QUEUES and WORKER_NAME, set per service in compose.yaml), so there is one code path and the targets
-# differ only by name. The base is shared, so liteparse is installed in every target; only `parser` (and `parser` alone)
-# parses documents at run time, and only `parser` gets LibreOffice and ImageMagick (liteparse converts every non-PDF
-# format with them, DEC-011), so the app, worker and agent images stay slim.
+# differ only by name. The base is shared, so the parsers are installed in every target (pure JavaScript plus the prebuilt
+# sharp and @napi-rs/canvas binaries, which need no apt packages on node:22-slim); only `parser` (and `parser` alone)
+# parses documents at run time, and only `parser` gets LibreOffice, for the temporary fallback formats (DEC-011), so the
+# app, worker and agent images stay slim.
 # Per service: `agent` needs the AI settings (AI_*, *_API_KEY) and outbound internet;
 # `parser` needs S3 and DATABASE_URL; `worker` needs DATABASE_URL and S3; none of them needs the Garage admin variables.
 FROM node:22-slim AS build
@@ -31,15 +32,20 @@ FROM base AS worker
 CMD ["node", "apps/worker/dist/main.js"]
 
 FROM base AS parser
-# liteparse reads Word, Excel, PowerPoint, OpenDocument, RTF and CSV by converting them to PDF with LibreOffice
-# (`soffice` on PATH), and some image formats with ImageMagick (`convert`). Only the three LibreOffice components
-# needed are installed (writer: DOC/DOCX/ODT/RTF, calc: XLS/XLSX/ODS/CSV, impress: PPT/PPTX/ODP), without recommended
-# packages (no Java, no GUI). Fonts: Noto covers Arabic and Latin, Liberation matches the metrics of Arial/Times New
-# Roman so converted pages break as they did in Word. HOME is writable for the non-root user (LibreOffice profile).
+# PDF, Word, Excel, CSV and images are read by the owned @drmoyassine/liteparse in plain Node (pdfjs-dist, mammoth,
+# SheetJS; scanned pages are rendered with sharp and @napi-rs/canvas, whose prebuilt Linux binaries come with the pnpm
+# install). LibreOffice is here ONLY for the temporary fallback reader (packages/core/src/framework/parse-document-fallback.ts):
+# PowerPoint, OpenDocument, RTF and legacy DOC/XLS, which the owned library does not read yet. Delete the apt block below
+# when it does (docs/liteparse-appendix-d-status.md). Only the three components needed are installed (writer: DOC/ODT/RTF,
+# calc: XLS/ODS, impress: PPT/PPTX/ODP), without recommended packages (no Java, no GUI). Fonts: Noto covers Arabic and Latin,
+# Liberation matches the metrics of Arial/Times New Roman; they also let pdfjs draw pages whose fonts are not embedded
+# when a page is rendered for the vision model. HOME is writable for the non-root user (LibreOffice profile).
+# Optional local OCR (PARSER_LOCAL_OCR=rapidocr) additionally needs onnxruntime-node and the RapidOCR model files baked
+# into the image (RAPIDOCR_MODEL_PATH); it is off and not installed, see the status document.
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress \
-      imagemagick fonts-noto-core fonts-liberation \
+      fonts-noto-core fonts-liberation \
  && rm -rf /var/lib/apt/lists/* \
  && fc-cache -f
 ENV HOME=/home/node

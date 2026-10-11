@@ -1,19 +1,29 @@
 // parseDocument(): the ONE place the AMS reads a file into per-page text (DEC-011, PRD 15.1 step 3).
 //
-// - EVERY format goes through liteparse (the only import of it in the repository): PDF directly; Office and OpenDocument
-//   files, RTF, spreadsheets and CSV are converted to PDF by liteparse itself with LibreOffice (the parser image has
-//   it); images are rendered by liteparse (ImageMagick for the formats PDFium cannot read). No other format library.
-// - liteparse's own OCR is switched off. Its per-page verdict (`complexity.needsOcr` with reasons: scanned, no-text,
-//   garbled, ...) decides `needsOcr`; if the caller injects an `ocrPage` hook (aiOcr, Step B) it is called with the
-//   rendered page image. No model is called from this file.
-// - Pages are what liteparse returns: real pages for PDF, a page per slide for presentations, the printed pages of the
-//   converted document for DOCX/ODT/RTF, the printed pages of each sheet for spreadsheets and CSV, one page per image.
-// Host-agnostic: bytes in, pages out. Text is NFC (Arabic is first-class content).
-import { constants } from 'node:fs';
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
-import { LiteParse, ParseTimeoutError, type LiteParseConfig, type ParseResult } from '@llamaindex/liteparse';
+// The parser is the owned @drmoyassine/liteparse (isomorphic, pure JS), imported only in this file:
+//   - PDF: pdfjs-dist (its peer) gives the text layer; pages that have none are rendered (sharp + @napi-rs/canvas) and
+//     read by the vision hook (`ocrPage`, i.e. aiOcr with our budget, logging and language hint) or, when switched on,
+//     by local RapidOCR first. liteparse decides native / ocr / vlm per call, so this file calls it ONE PAGE AT A TIME:
+//     the injected pdfjs shows it a single page (see `pageLibrary`). That gives true per-page method attribution and
+//     per-page escalation, which its whole-document result does not (it joins a digital PDF into one page and decides
+//     scanned-or-not once, from the first three pages).
+//   - DOCX, XLSX, CSV/TSV and images: one liteparse call. It returns one page for each; XLSX sheets are split back
+//     into pages here from its own "# Sheet" headers (the only structure it exposes). See
+//     docs/liteparse-appendix-d-status.md for what it cannot do yet (DOCX pages/headings, table structure, ...).
+//   - PowerPoint, OpenDocument, RTF and legacy DOC/XLS are NOT read by it: parse-document-fallback.ts (temporary).
+// What this file adds on top: format detection and magic-number checks, typed errors, time and page limits, NFC, the
+// one-page-per-call plumbing, a text-layer quality check (liteparse has none), line breaks kept in native text, UTF-16
+// CSV and non-PNG image conversion, and the budget on AI-read pages. No model is called from here: the vision hook is
+// injected by the caller. Host-agnostic: bytes in, pages out. Text is NFC (Arabic is first-class content).
+import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import type { OcrEngine, PdfLibrary, RasterAdapter, VlmGateway } from '@drmoyassine/liteparse';
+import { FALLBACK_PARSER, findLibreOffice, isFallbackFormat, readWithFallback, type FallbackPage } from './parse-document-fallback.js';
+import { DocumentReadError, UnsupportedDocumentError } from './parse-errors.js';
+
+export { DocumentReadError, UnsupportedDocumentError, findLibreOffice };
+export type { DocumentReadErrorCode } from './parse-errors.js';
 
 export type PageMethod = 'pdf_text' | 'ocr' | 'table' | 'slide' | 'sheet';
 export type DocumentFormat =
@@ -23,7 +33,7 @@ export type DocumentFormat =
 export interface ParsedDocumentPage {
   pageNo: number;
   text: string;
-  /** pdf_text: the text layer (or converted document text); slide/sheet/table: the page of a presentation/spreadsheet/CSV; ocr: read by the OCR hook. */
+  /** pdf_text: the text layer (or the text of a Word document); slide/sheet/table: a presentation slide, a spreadsheet sheet, a CSV; ocr: read by local OCR or the vision hook. */
   method: PageMethod;
   /** The page has no usable text layer: it should be read by OCR (or a vision model). */
   needsOcr: boolean;
@@ -46,22 +56,22 @@ export interface ParseDocumentInput {
   ocrMaxPages?: number;
 }
 
+/** Who read the file, for the job result (there is no column for it on source_page). */
+export interface ParserInfo {
+  name: string;
+  version: string;
+  /** Hash of the settings that change what the parser returns (reproducibility, LP8). */
+  configHash: string;
+  /** True when the temporary fallback reader (not the owned parser) read this file. */
+  fallback: boolean;
+}
+
 export interface ParsedDocument {
   format: DocumentFormat;
   pages: ParsedDocumentPage[];
   /** Document-level notes (e.g. pages beyond the page cap were not read). */
   warnings: string[];
-}
-
-export type DocumentReadErrorCode = 'unsupported' | 'corrupt' | 'converter_missing' | 'timeout';
-
-/** A file that cannot be read, with a reason a person can act on. Recorded on the document; never retried. */
-export class DocumentReadError extends Error {
-  readonly status = 400;
-  constructor(readonly code: DocumentReadErrorCode, message: string) { super(message); this.name = 'DocumentReadError'; }
-}
-export class UnsupportedDocumentError extends DocumentReadError {
-  constructor(message: string) { super('unsupported', message); this.name = 'UnsupportedDocumentError'; }
+  parser: ParserInfo;
 }
 
 /** A page with fewer non-space characters than this is treated as having no text layer. */
@@ -69,22 +79,24 @@ export const MIN_PAGE_TEXT_CHARS = 20;
 /** Per-file limits (env-tunable on the parser service). */
 const timeoutMs = () => Math.max(0.001, Number(process.env.PARSER_TIMEOUT_SECONDS ?? 300)) * 1000;
 const maxPages = () => Math.max(1, Number(process.env.PARSER_MAX_PAGES ?? 1000));
+const pageTimeoutMs = () => Math.max(1, Number(process.env.PARSER_PAGE_TIMEOUT_SECONDS ?? 120)) * 1000;
+const rasterMaxEdge = () => Math.max(400, Number(process.env.PARSER_RASTER_MAX_EDGE ?? 2000));
 
-type Kind = 'pdf' | 'text' | 'sheet' | 'slides' | 'image';
+type Kind = 'pdf' | 'docx' | 'sheet' | 'csv' | 'image' | 'fallback';
 const FORMATS: Record<DocumentFormat, { kind: Kind; ext: string[]; mime: string[] }> = {
   pdf: { kind: 'pdf', ext: ['pdf'], mime: ['application/pdf'] },
-  docx: { kind: 'text', ext: ['docx'], mime: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
-  doc: { kind: 'text', ext: ['doc'], mime: ['application/msword'] },
-  odt: { kind: 'text', ext: ['odt'], mime: ['application/vnd.oasis.opendocument.text'] },
-  rtf: { kind: 'text', ext: ['rtf'], mime: ['application/rtf', 'text/rtf'] },
+  docx: { kind: 'docx', ext: ['docx'], mime: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
+  doc: { kind: 'fallback', ext: ['doc'], mime: ['application/msword'] },
+  odt: { kind: 'fallback', ext: ['odt'], mime: ['application/vnd.oasis.opendocument.text'] },
+  rtf: { kind: 'fallback', ext: ['rtf'], mime: ['application/rtf', 'text/rtf'] },
   xlsx: { kind: 'sheet', ext: ['xlsx'], mime: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] },
-  xls: { kind: 'sheet', ext: ['xls'], mime: ['application/vnd.ms-excel'] },
-  ods: { kind: 'sheet', ext: ['ods'], mime: ['application/vnd.oasis.opendocument.spreadsheet'] },
-  csv: { kind: 'sheet', ext: ['csv'], mime: ['text/csv', 'application/csv'] },
-  tsv: { kind: 'sheet', ext: ['tsv'], mime: ['text/tab-separated-values'] },
-  pptx: { kind: 'slides', ext: ['pptx'], mime: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'] },
-  ppt: { kind: 'slides', ext: ['ppt'], mime: ['application/vnd.ms-powerpoint'] },
-  odp: { kind: 'slides', ext: ['odp'], mime: ['application/vnd.oasis.opendocument.presentation'] },
+  xls: { kind: 'fallback', ext: ['xls'], mime: ['application/vnd.ms-excel'] },
+  ods: { kind: 'fallback', ext: ['ods'], mime: ['application/vnd.oasis.opendocument.spreadsheet'] },
+  csv: { kind: 'csv', ext: ['csv'], mime: ['text/csv', 'application/csv'] },
+  tsv: { kind: 'csv', ext: ['tsv'], mime: ['text/tab-separated-values'] },
+  pptx: { kind: 'fallback', ext: ['pptx'], mime: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'] },
+  ppt: { kind: 'fallback', ext: ['ppt'], mime: ['application/vnd.ms-powerpoint'] },
+  odp: { kind: 'fallback', ext: ['odp'], mime: ['application/vnd.oasis.opendocument.presentation'] },
   png: { kind: 'image', ext: ['png'], mime: ['image/png'] },
   jpg: { kind: 'image', ext: ['jpg', 'jpeg'], mime: ['image/jpeg'] },
   tiff: { kind: 'image', ext: ['tif', 'tiff'], mime: ['image/tiff'] },
@@ -130,55 +142,7 @@ export function detectFormat(input: Pick<ParseDocumentInput, 'bytes' | 'mime' | 
   return null;
 }
 
-// ------------------------------------------------------------------------------------------ LibreOffice check
-
-/** The LibreOffice binary liteparse will use (`soffice` or `libreoffice` on PATH), or null. Used for the startup log. */
-export async function findLibreOffice(): Promise<string | null> {
-  for (const dir of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
-    for (const name of ['libreoffice', 'soffice']) {
-      try { await access(join(dir, name), constants.X_OK); return join(dir, name); } catch { /* next */ }
-    }
-  }
-  return null;
-}
-
-// ------------------------------------------------------------------------------------------------- parsing
-
-const nfc = (s: string) => s.normalize('NFC');
-
-/** Replacement characters or private-use glyphs in bulk mean the embedded text layer is corrupted (LP3). */
-function garbled(text: string): boolean {
-  const chars = [...text.replace(/\s/g, '')];
-  if (chars.length < MIN_PAGE_TEXT_CHARS) return false;
-  const bad = chars.filter((c) => c === '�' || (c >= '' && c <= '') || c.charCodeAt(0) < 32).length;
-  return bad / chars.length > 0.3;
-}
-
-/** Reads a file into ordered pages. Throws DocumentReadError (UnsupportedDocumentError for a type it cannot read). */
-export async function parseDocument(input: ParseDocumentInput): Promise<ParsedDocument> {
-  const format = detectFormat(input);
-  if (!format) throw new UnsupportedDocumentError(UNSUPPORTED_FILE_MESSAGE);
-  if (!input.bytes.byteLength) throw new UnsupportedDocumentError('the file is empty');
-  const kind = FORMATS[format].kind;
-  checkSignature(format, input.bytes);
-  const source = await prepareSource(format, input.bytes);
-  try {
-    const run = (extra: Partial<LiteParseConfig> = {}) => liteparse(format, source.input, extra);
-    const result = await run({ includeComplexity: true } as Partial<LiteParseConfig>);
-    const errors = new Map(result.pageErrors.map((e) => [e.pageNum, e.message]));
-    const pages = result.pages.map((p) => readPage(p as unknown as LiteParsePage, format, kind, errors.get(p.pageNum)));
-    const warnings: string[] = [];
-    if (result.totalPages > result.pages.length) warnings.push(`only the first ${result.pages.length} of ${result.totalPages} pages were read (PARSER_MAX_PAGES)`);
-    if (input.ocrPage) await runOcrHook(input, pages, (extra) => run(extra));
-    return { format, pages: pages.map((p) => ({ ...p, text: nfc(p.text) })), warnings };
-  } finally {
-    await source.cleanup();
-  }
-}
-
-interface LiteParsePage { pageNum: number; text: string; complexity?: { needsOcr: boolean; reasons: string[] } }
-
-/** Magic-number checks, so a renamed or truncated file is a clear error and not a mis-read (LibreOffice would open plain text as a document). */
+/** Magic-number checks, so a renamed or truncated file is a clear error and not a mis-read (liteparse would treat plain text as a document). */
 function checkSignature(format: DocumentFormat, b: Uint8Array) {
   const bad = (what: string) => new DocumentReadError('corrupt', `the ${format.toUpperCase()} file could not be read: it is not a valid ${what}`);
   if (format === 'pdf' && !contains(b.subarray(0, 1024), '%PDF-')) throw bad('PDF');
@@ -187,123 +151,382 @@ function checkSignature(format: DocumentFormat, b: Uint8Array) {
   if (format === 'rtf' && !has(b, '{\\rtf')) throw bad('RTF file');
 }
 
-// CSV/TSV: liteparse picks text formats by file extension and LibreOffice splits only on commas here, so the delimiter is
-// normalised to a comma first (quotes honoured). That is the only pre-processing; the reading is liteparse's.
-function toCommaCsv(bytes: Uint8Array): Uint8Array {
-  let text: string;
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) text = new TextDecoder('utf-16le').decode(bytes.subarray(2));
-  else if (bytes[0] === 0xfe && bytes[1] === 0xff) text = new TextDecoder('utf-16be').decode(bytes.subarray(2));
-  else text = new TextDecoder('utf-8').decode(bytes);
-  const first = text.split(/\r?\n/, 1)[0] ?? '';
-  const delim = [',', ';', '\t'].map((d) => [d, first.split(d).length] as const).sort((a, b) => b[1] - a[1])[0]![0];
-  if (delim === ',' && !(bytes[0] === 0xff || bytes[0] === 0xfe)) return bytes;
-  const out: string[] = []; let field = ''; let row: string[] = []; let quoted = false;
-  // A field keeps its own quotes; an unquoted one that holds a comma (the file's delimiter was another character) gets them.
-  const fin = (f: string) => (f.startsWith('"') || !f.includes(',') ? f : `"${f}"`);
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]!;
-    if (quoted) { if (ch === '"') { if (text[i + 1] === '"') { field += '""'; i++; } else { quoted = false; field += ch; } } else field += ch; }
-    else if (ch === '"' && field === '') { quoted = true; field += ch; }
-    else if (ch === delim) { row.push(fin(field)); field = ''; }
-    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(fin(field)); field = ''; out.push(row.join(',')); row = []; }
-    else field += ch;
+// ------------------------------------------------------------------------------------------ the owned parser
+
+type Lite = typeof import('@drmoyassine/liteparse');
+let liteLoad: Promise<Lite> | undefined;
+/** Loads liteparse on first use (and keeps its one line of start-up logging out of the service log). */
+function loadLiteparse(): Promise<Lite> {
+  liteLoad ??= (async () => {
+    const log = console.log;
+    console.log = (...args: unknown[]) => { if (!(typeof args[0] === 'string' && args[0].startsWith('[ocr-worker]'))) log(...args); };
+    try { return await import('@drmoyassine/liteparse'); } finally { console.log = log; }
+  })();
+  return liteLoad;
+}
+
+/** The structural slice of pdfjs this file uses (the library types are not imported: pdfjs is liteparse's optional peer). */
+interface PdfTextItem { str?: string; hasEOL?: boolean }
+interface PdfPageProxy {
+  getViewport(o: { scale: number }): { width: number; height: number };
+  render(o: Record<string, unknown>): { promise: Promise<void> };
+  getTextContent(): Promise<{ items: PdfTextItem[] }>;
+  cleanup?(): void;
+}
+interface PdfDocProxy { numPages: number; getPage(n: number): Promise<PdfPageProxy>; destroy?(): Promise<void> }
+interface PdfJs { getDocument(p: Record<string, unknown>): { promise: Promise<PdfDocProxy> }; GlobalWorkerOptions?: { workerSrc?: string }; version?: string }
+
+const require = createRequire(import.meta.url);
+let pdfjsLoad: Promise<PdfJs> | undefined;
+const loadPdfjs = () => (pdfjsLoad ??= (async () => {
+  const spec = 'pdfjs-dist/legacy/build/pdf.mjs'; // the build for Node (the default build needs browser globals)
+  return (await import(spec)) as PdfJs;
+})());
+const pdfjsRoot = () => dirname(require.resolve('pdfjs-dist/package.json'));
+
+/** pdfjs drops a text-less item's line end unless it is marked; liteparse collapses all whitespace, so line ends travel as this character. */
+const EOL = '\u0085';
+const fromEol = (s: string) => s.replace(/[ \t]*\u0085[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+/** Stands in for the bytes of a PDF whose pages liteparse reads through the injected pdfjs: only the magic number is looked at. */
+// (Copies into this realm's Uint8Array: liteparse checks `instanceof Uint8Array`, which fails for bytes from another realm, e.g. jsdom's.)
+const PDF_STUB = new Uint8Array(new TextEncoder().encode('%PDF-1.7\n'));
+
+interface PageView { library: PdfLibrary; plainText: () => Promise<string> }
+/**
+ * An injected pdfjs that shows liteparse a one-page document: page `pageNo` of the real, already opened file. liteparse
+ * then classifies, extracts, renders and escalates THAT page alone. `blank` hides the text layer (a corrupted layer is
+ * re-read as a scan). The text items are marked with line ends and the text the page has is kept for `plainText()`.
+ */
+function pageLibrary(pdfjs: PdfJs, doc: PdfDocProxy, pageNo: number, blank: boolean): PageView {
+  let real: Promise<PdfPageProxy> | undefined;
+  let content: Promise<string> | undefined;
+  const page = () => (real ??= doc.getPage(pageNo));
+  const text = () => (content ??= page().then((p) => p.getTextContent()).then((c) => c.items.map((i) => (i.str ?? '') + (i.hasEOL ? EOL : '')).join('')));
+  const proxy = async (): Promise<PdfDocProxy> => {
+    const p = await page();
+    const shown: PdfPageProxy = {
+      getViewport: (o) => p.getViewport(o),
+      render: (o) => p.render(o),
+      getTextContent: async () => {
+        if (blank) return { items: [] };
+        const c = await p.getTextContent();
+        return { items: c.items.map((i) => (i.hasEOL ? { ...i, str: (i.str ?? '') + EOL } : i)) };
+      },
+    };
+    return { numPages: 1, getPage: async () => shown };
+  };
+  const library = { getDocument: () => ({ promise: proxy() }), GlobalWorkerOptions: pdfjs.GlobalWorkerOptions } as unknown as PdfLibrary;
+  return { library, plainText: async () => (blank ? '' : fromEol(await text())) };
+}
+
+// ---------------------------------------------------------------------------------------- text-layer quality
+
+const nonSpace = (s: string) => s.replace(/\s/g, '').length;
+/** Characters that do not belong inside a word of normal text: what a mis-mapped font puts in place of letters. */
+const NOISE_IN_WORD = /\p{L}[€£¥¢§¤¦¬¨´^~|\\{}]|[€£¥¢§¤¦¬¨´^~|\\{}]\p{L}/u;
+
+/**
+ * Is this native text layer corrupted (LP3)? liteparse has no text-quality check, so this is ours: replacement
+ * characters, private-use glyphs or control characters in bulk, or a tenth of the words holding a symbol where a letter
+ * should be ("Asflranc€"). A letter swapped for another letter ("Accrtditation") cannot be seen without a dictionary.
+ */
+export function textLayerLooksCorrupt(text: string): boolean {
+  const chars = [...text.replace(/\s/g, '')];
+  if (chars.length < MIN_PAGE_TEXT_CHARS) return false;
+  const bad = chars.filter((c) => c === '�' || (c >= '' && c <= '') || c.charCodeAt(0) < 32).length;
+  if (bad / chars.length > 0.3) return true;
+  const words = text.split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  return words.length >= 20 && words.filter((w) => NOISE_IN_WORD.test(w)).length / words.length > 0.1;
+}
+
+// -------------------------------------------------------------------------------------------- configuration
+
+interface Runtime { lite: Lite; raster?: RasterAdapter; localOcr?: OcrEngine }
+
+let rasterLoad: Promise<{ raster?: RasterAdapter; note?: string }> | undefined;
+/** The page renderer (sharp + @napi-rs/canvas); without it scanned pages cannot be sent to a vision model. */
+function loadRaster(): Promise<{ raster?: RasterAdapter; note?: string }> {
+  rasterLoad ??= (async () => {
+    try {
+      const { createSharpRaster } = await import('@drmoyassine/liteparse/raster/sharp');
+      const base = await createSharpRaster();
+      const raster: RasterAdapter = { ...base, rasterizePdfPage: (doc, i, o) => base.rasterizePdfPage(doc, i, { maxEdge: rasterMaxEdge(), ...o }) };
+      return { raster };
+    } catch (e) {
+      return { note: `scanned pages cannot be rendered on this service (sharp or @napi-rs/canvas failed to load: ${(e as Error).message})` };
+    }
+  })();
+  return rasterLoad;
+}
+
+const localOcrLoads = new Map<string, Promise<{ engine?: OcrEngine; note?: string }>>();
+/**
+ * Local OCR (RapidOCR on onnxruntime-node) before the vision model. OFF unless PARSER_LOCAL_OCR=rapidocr. It needs the
+ * `onnxruntime-node` package and the three model files in RAPIDOCR_MODEL_PATH (ch_PP-OCRv4_det_infer.onnx,
+ * en_PP-OCRv4_rec_infer.onnx, ppocr-en-dict.txt), baked into the image: nothing is downloaded at run time. The packaged
+ * recognition model is English only, so it is used for English sources only (see docs/liteparse-appendix-d-status.md).
+ */
+function loadLocalOcr(): Promise<{ engine?: OcrEngine; note?: string }> {
+  if (process.env.PARSER_LOCAL_OCR !== 'rapidocr') return Promise.resolve({});
+  const modelPath = process.env.RAPIDOCR_MODEL_PATH;
+  const key = modelPath ?? '';
+  if (!localOcrLoads.has(key)) {
+    localOcrLoads.set(key, (async () => {
+      try {
+        const { createRapidOcrServerEngine } = await import('@drmoyassine/liteparse/ocr/rapidocr-server');
+        return { engine: await createRapidOcrServerEngine({ modelPath }) };
+      } catch (e) {
+        return { note: `local OCR (PARSER_LOCAL_OCR=rapidocr) is not available, scanned pages go to the vision model: ${(e as Error).message}` };
+      }
+    })());
   }
-  if (field || row.length) { row.push(fin(field)); out.push(row.join(',')); }
-  return new TextEncoder().encode(`${out.join('\n')}\n`);
+  return localOcrLoads.get(key)!;
 }
 
-/** What is handed to liteparse: the bytes (it recognises the type from the content), or a temp file for CSV/TSV. */
-async function prepareSource(format: DocumentFormat, bytes: Uint8Array): Promise<{ input: string | Uint8Array; cleanup: () => Promise<void> }> {
-  if (format !== 'csv' && format !== 'tsv') return { input: bytes, cleanup: async () => undefined };
-  const dir = await mkdtemp(join(tmpdir(), 'ams-parse-'));
-  const path = join(dir, `${CSV_STEM}.csv`);
-  await writeFile(path, toCommaCsv(bytes));
-  return { input: path, cleanup: () => rm(dir, { recursive: true, force: true }) };
+/** Identifies the parser and the settings that decide what it returns, for the job result. */
+function parserInfo(lite: Lite, local: boolean): ParserInfo {
+  const settings = { parser: lite.VERSION, minPageTextChars: MIN_PAGE_TEXT_CHARS, rasterMaxEdge: rasterMaxEdge(), localOcr: local, eol: true };
+  return { name: '@drmoyassine/liteparse', version: lite.VERSION, configHash: createHash('sha256').update(JSON.stringify(settings)).digest('hex').slice(0, 16), fallback: false };
 }
-const CSV_STEM = 'ams_csv_input';
 
-/** One liteparse call in a killable worker process, so a runaway conversion cannot stall or crash the parser. */
-async function liteparse(format: DocumentFormat, input: string | Uint8Array, extra: Partial<LiteParseConfig>): Promise<ParseResult> {
-  const parser = new LiteParse({
-    ocrEnabled: false, quiet: true, continueOnPageError: true, outputFormat: 'json',
-    maxPages: maxPages(), poolSize: 1, parseTimeoutMs: timeoutMs(), ...extra,
-  } as Partial<LiteParseConfig>);
+// ------------------------------------------------------------------------------------------------- parsing
+
+const nfc = (s: string) => s.normalize('NFC');
+
+/** Reads a file into ordered pages. Throws DocumentReadError (UnsupportedDocumentError for a type it cannot read). */
+export async function parseDocument(input: ParseDocumentInput): Promise<ParsedDocument> {
+  const format = detectFormat(input);
+  if (!format) throw new UnsupportedDocumentError(UNSUPPORTED_FILE_MESSAGE);
+  if (!input.bytes.byteLength) throw new UnsupportedDocumentError('the file is empty');
+  checkSignature(format, input.bytes);
+  const kind = FORMATS[format].kind;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs());
   try {
-    return await parser.parse(input as Buffer | string);
+    const done = kind === 'fallback' ? await readFallback(format, input)
+      : kind === 'pdf' ? await readPdf(input, abort.signal)
+        : await readOther(format, kind, input, abort.signal);
+    return { format, ...done, pages: done.pages.map((p) => ({ ...p, text: nfc(p.text) })) };
   } catch (e) {
-    throw mapError(format, e);
+    throw mapError(format, e, abort.signal);
   } finally {
-    parser.close();
+    clearTimeout(timer);
   }
 }
 
-function mapError(format: DocumentFormat, e: unknown): DocumentReadError {
+function mapError(format: DocumentFormat, e: unknown, signal: AbortSignal): DocumentReadError {
   if (e instanceof DocumentReadError) return e;
   const name = format.toUpperCase();
-  if (e instanceof ParseTimeoutError) return new DocumentReadError('timeout', `the ${name} file took longer than ${Math.round(e.timeoutMs / 1000)} seconds to read and was stopped`);
-  const msg = String((e as Error)?.message ?? e).replace(/^liteparse worker process died while parsing [^:]*: /, '');
-  if (/libreoffice is not installed/i.test(msg)) {
-    return new DocumentReadError('converter_missing', `LibreOffice is not installed on the parser service, so ${name} files cannot be read (install libreoffice-core with writer, calc and impress; the parser image includes them)`);
-  }
-  if (/magick/i.test(msg)) return new DocumentReadError('converter_missing', `ImageMagick is not installed on the parser service, so ${name} files cannot be read (the parser image includes it): ${msg}`);
-  return new DocumentReadError('corrupt', `the ${name} file could not be read (${msg})`);
+  const err = e as Error;
+  if (signal.aborted || err?.name === 'AbortError') return new DocumentReadError('timeout', `the ${name} file took longer than ${Math.round(timeoutMs() / 1000)} seconds to read and was stopped`);
+  if (err?.name === 'PasswordException') return new DocumentReadError('corrupt', `the ${name} file could not be read (it is password protected)`);
+  return new DocumentReadError('corrupt', `the ${name} file could not be read (${err?.message ?? e})`);
 }
 
-const HARD_REASONS = ['scanned', 'garbled'];
-const SOFT_REASONS = ['embedded-images', 'vector-text', 'annotation-text'];
+type Done = Pick<ParsedDocument, 'pages' | 'warnings' | 'parser'>;
 
-function readPage(p: LiteParsePage, format: DocumentFormat, kind: Kind, error?: string): ParsedDocumentPage {
-  let text = (p.text ?? '').trim();
-  const warnings: string[] = [];
-  if (error) warnings.push(`page could not be read: ${error}`);
-  if (kind === 'sheet') text = tidySheet(text, format);
-  const reasons = p.complexity?.reasons ?? [];
-  const chars = text.replace(/\s/g, '').length;
-  const corrupt = kind === 'pdf' && garbled(text);
-  if (corrupt) { text = ''; warnings.push('the text layer looks corrupted'); }
-  // Pages that are pictures: scanned/garbled by liteparse's own verdict; a PDF page with (almost) no text is one too.
-  // A converted document's short page (a title slide, a heading) is not: its text is exact, so it is not sent to OCR.
-  const hard = reasons.filter((r) => HARD_REASONS.includes(r) && !(kind !== 'pdf' && kind !== 'image' && r === 'garbled'));
-  const needsOcr = corrupt || hard.length > 0 || ((kind === 'pdf' || kind === 'image') && chars < MIN_PAGE_TEXT_CHARS);
-  if (needsOcr) warnings.push(`needs OCR: ${(corrupt ? ['garbled', ...hard] : hard.length ? hard : [chars ? 'sparse-text' : 'no-text']).join(', ')}`);
-  else if (!chars) warnings.push(kind === 'slides' ? 'the slide has no text (it may hold only pictures)' : 'the page has no text');
-  const soft = reasons.filter((r) => SOFT_REASONS.includes(r));
-  if (soft.length && !needsOcr) warnings.push(`the page has content that may not be in its text (${soft.join(', ')})`);
-  const method: PageMethod = kind === 'slides' ? 'slide' : kind === 'sheet' ? (format === 'csv' || format === 'tsv' ? 'table' : 'sheet') : 'pdf_text';
-  return { pageNo: p.pageNum, text, method, needsOcr, warnings };
+// ---------------------------------------------------------------------------------------------- fallback
+
+async function readFallback(format: DocumentFormat, input: ParseDocumentInput): Promise<Done> {
+  if (!isFallbackFormat(format)) throw new UnsupportedDocumentError(UNSUPPORTED_FILE_MESSAGE);
+  const { pages, warnings } = await readWithFallback(format, input.bytes, { timeoutMs: timeoutMs(), maxPages: maxPages() });
+  const method = { text: 'pdf_text', sheet: 'sheet', slides: 'slide' } as const;
+  const lite = await loadLiteparse();
+  return {
+    pages: pages.map((p: FallbackPage) => ({ pageNo: p.pageNo, text: p.text, method: method[p.kind], needsOcr: false, warnings: p.warnings })),
+    warnings,
+    parser: { ...parserInfo(lite, false), name: FALLBACK_PARSER.name, version: FALLBACK_PARSER.version, fallback: true },
+  };
 }
 
-/** The printed page of a sheet: drops LibreOffice's default "Page N" footer, the temp CSV's name header and the alignment indent of each line. */
-function tidySheet(text: string, format: DocumentFormat): string {
-  const lines = text.split('\n').map((l) => l.replace(/\s+$/, ''));
-  const trim = () => { while (lines.length && !lines.at(-1)) lines.pop(); while (lines.length && !lines[0]) lines.shift(); };
-  trim();
-  if (lines.length && /^\s*Page \d+$/.test(lines.at(-1)!)) { lines.pop(); trim(); }
-  if ((format === 'csv' || format === 'tsv') && lines[0]?.trim() === CSV_STEM) { lines.shift(); trim(); }
-  return lines.map((l) => l.trim()).join('\n');
+// ------------------------------------------------------------------------------------------------- PDF
+
+/** Pages the vision hook may read in one file (Settings -> AI -> Reading); liteparse asks the hook through `vlm`. */
+interface Budget { used: number; limit: number }
+/** What happened when the hook was asked about one page, for the page's warnings. */
+interface HookNote { error?: string; empty?: boolean; limit?: number }
+
+/** liteparse's vision gateway, backed by the caller's OCR hook: counts pages against the budget and never throws. */
+function hookGateway(input: ParseDocumentInput, pageNo: number, budget: Budget, note: HookNote, textOf: () => Promise<string>): VlmGateway | undefined {
+  if (!input.ocrPage) return undefined;
+  return {
+    async readImage(png) {
+      if (budget.used >= budget.limit) { note.limit = budget.limit; return ''; }
+      budget.used++;
+      try {
+        const text = (await input.ocrPage!({ pageNo, image: png, language: input.language ?? 'en', text: await textOf() }))?.trim() ?? '';
+        if (!text) note.empty = true;
+        return text;
+      } catch (e) { note.error = (e as Error).message; return ''; }
+    },
+  };
 }
 
-/** Renders the pages that need OCR and hands each to the injected hook. A failure leaves the page marked needsOcr. */
-async function runOcrHook(input: ParseDocumentInput, pages: ParsedDocumentPage[], run: (extra: Partial<LiteParseConfig>) => Promise<ParseResult>) {
-  const all = pages.filter((p) => p.needsOcr);
-  if (!all.length || !input.ocrPage) return;
-  const limit = input.ocrMaxPages ?? Number.POSITIVE_INFINITY;
-  const wanted = all.slice(0, limit);
-  for (const p of all.slice(limit)) p.warnings.push(`not read by AI: the limit of ${limit} AI-read pages per file is reached (Settings -> AI)`);
-  if (!wanted.length) return;
-  let shots: Map<number, { imageBuffer: Buffer | Uint8Array }>;
+/** Why a page that needs OCR was not read, as warnings. */
+function ocrWarnings(note: HookNote, extra: string | undefined): string[] {
+  if (note.error) return [`OCR failed: ${note.error}`];
+  if (note.empty) return ['OCR returned no text'];
+  if (note.limit !== undefined) return [`not read by AI: the limit of ${note.limit} AI-read pages per file is reached (Settings -> AI)`];
+  return extra ? [extra] : [];
+}
+
+async function readPdf(input: ParseDocumentInput, signal: AbortSignal): Promise<Done> {
+  const lite = await loadLiteparse();
+  const [pdfjs, rasterLoaded, local] = await Promise.all([loadPdfjs(), loadRaster(), loadLocalOcr()]);
+  const root = pdfjsRoot();
+  let doc: PdfDocProxy;
   try {
-    shots = new Map((await run({ extractScreenshots: true, targetPages: wanted.map((p) => p.pageNo).join(',') })).screenshots.map((s) => [s.pageNum, s]));
+    doc = await pdfjs.getDocument({
+      data: new Uint8Array(input.bytes), standardFontDataUrl: `${join(root, 'standard_fonts')}/`, cMapUrl: `${join(root, 'cmaps')}/`, cMapPacked: true,
+      isEvalSupported: false, verbosity: 0,
+    }).promise;
   } catch (e) {
-    for (const p of wanted) p.warnings.push(`the page could not be rendered for OCR: ${(e as Error).message}`);
-    return;
+    throw mapError('pdf', e, signal);
   }
-  for (const p of wanted) {
-    const shot = shots.get(p.pageNo);
-    if (!shot) { p.warnings.push('the page could not be rendered for OCR'); continue; }
-    try {
-      const text = (await input.ocrPage({ pageNo: p.pageNo, image: new Uint8Array(shot.imageBuffer), language: input.language ?? 'en', text: p.text }))?.trim();
-      if (text) { p.text = text; p.method = 'ocr'; p.needsOcr = false; } else p.warnings.push('OCR returned no text');
-    } catch (e) { p.warnings.push(`OCR failed: ${(e as Error).message}`); }
+  const warnings: string[] = [];
+  const total = doc.numPages;
+  const count = Math.min(total, maxPages());
+  if (count < total) warnings.push(`only the first ${count} of ${total} pages were read (PARSER_MAX_PAGES)`);
+  const budget: Budget = { used: 0, limit: input.ocrMaxPages ?? Number.POSITIVE_INFINITY };
+  // The packaged recognition model reads English only: it is used when the caller says the source is English.
+  const localOcr = input.language === 'en' ? local.engine : undefined;
+  const rt: Runtime = { lite, raster: rasterLoaded.raster, localOcr };
+  const pages: ParsedDocumentPage[] = [];
+  try {
+    for (let n = 1; n <= count; n++) {
+      if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+      pages.push(await readPdfPage(rt, pdfjs, doc, n, input, budget, signal, rasterLoaded.note));
+    }
+  } finally {
+    await doc.destroy?.().catch(() => undefined);
   }
+  if (local.note) warnings.push(local.note);
+  return { pages, warnings, parser: parserInfo(lite, !!localOcr) };
+}
+
+/** One liteparse call on one page. `blank` hides the page's text layer, so it is read as a scan. */
+async function liteparsePage(rt: Runtime, pdfjs: PdfJs, doc: PdfDocProxy, n: number, input: ParseDocumentInput, budget: Budget, signal: AbortSignal, blank: boolean) {
+  const view = pageLibrary(pdfjs, doc, n, blank);
+  const note: HookNote = {};
+  const vlm = rt.raster ? hookGateway(input, n, budget, note, view.plainText) : undefined;
+  const result = await rt.lite.parseDocument(PDF_STUB, {
+    filename: 'page.pdf', mime: 'application/pdf', pdfjs: view.library, ...(rt.raster ? { raster: rt.raster } : {}),
+    ...(vlm ? { vlm } : {}), ...(rt.localOcr ? { ocrEngine: rt.localOcr } : {}),
+    maxBytes: Number.MAX_SAFE_INTEGER, maxChars: Number.MAX_SAFE_INTEGER, maxPages: 1, perPageTimeoutMs: pageTimeoutMs(), signal,
+  });
+  const page = result.pages[0];
+  const text = page?.text.trim() ?? '';
+  return { text: page && page.source === 'native' ? fromEol(text) : text, source: page && text ? page.source : 'none' as const, note, view };
+}
+
+/** One PDF page: native text when it has a usable layer, otherwise local OCR or the vision hook; always attributed. */
+async function readPdfPage(rt: Runtime, pdfjs: PdfJs, doc: PdfDocProxy, n: number, input: ParseDocumentInput, budget: Budget, signal: AbortSignal, rasterNote: string | undefined): Promise<ParsedDocumentPage> {
+  const warnings: string[] = [];
+  const first = await liteparsePage(rt, pdfjs, doc, n, input, budget, signal, false);
+  let { text, source, note } = first;
+  // What the page's own text layer holds: kept when nothing better is read, and what makes a page "sparse".
+  const layer = source === 'native' ? text : await first.view.plainText();
+  const corrupt = textLayerLooksCorrupt(layer);
+  const sparse = (source === 'native' || source === 'none') && nonSpace(layer) < MIN_PAGE_TEXT_CHARS;
+  if (source === 'native' && (corrupt || sparse) && input.ocrPage && rt.raster) {
+    // A corrupted layer is never trusted, and a page with almost no text is a picture: read it as a scan.
+    const again = await liteparsePage(rt, pdfjs, doc, n, input, budget, signal, true);
+    note = again.note;
+    if (again.source === 'ocr' || again.source === 'vlm') {
+      text = again.text; source = again.source;
+      if (corrupt) warnings.push('the text layer looked corrupted; the page was read as a scan');
+    } else if (corrupt) { text = ''; source = 'none'; }
+  } else if (corrupt) { text = ''; source = 'none'; }
+  if (source === 'none' && !corrupt) text = layer; // text under the OCR threshold is kept, flagged
+  const needsOcr = source === 'none' || (source === 'native' && sparse);
+  if (needsOcr) {
+    warnings.push(`needs OCR: ${corrupt ? 'garbled' : text ? 'sparse-text' : 'no-text'}`);
+    if (corrupt && source === 'none') warnings.push('the text layer looks corrupted');
+    warnings.push(...ocrWarnings(note, input.ocrPage && !rt.raster ? rasterNote ?? 'the page cannot be rendered on this service' : undefined));
+  }
+  return { pageNo: n, text, method: source === 'ocr' || source === 'vlm' ? 'ocr' : 'pdf_text', needsOcr, warnings };
+}
+
+// ------------------------------------------------------------------------- DOCX, XLSX, CSV/TSV and images
+
+async function readOther(format: DocumentFormat, kind: Kind, input: ParseDocumentInput, signal: AbortSignal): Promise<Done> {
+  const lite = await loadLiteparse();
+  let bytes = input.bytes;
+  let filename = `file.${format === 'tsv' ? 'csv' : format}`;
+  if (kind === 'csv') bytes = csvBytes(bytes); // liteparse finds the delimiter itself; a TSV is shown to it as a .csv
+  const run = (extra: Record<string, unknown> = {}) => lite.parseDocument(new Uint8Array(bytes), {
+    filename, maxBytes: Number.MAX_SAFE_INTEGER, maxChars: Number.MAX_SAFE_INTEGER, signal, perPageTimeoutMs: pageTimeoutMs(), ...extra,
+  });
+
+  if (kind !== 'image') {
+    const info = parserInfo(lite, false);
+    const r = await run();
+    const failed = r.warnings.map((w) => /extractor failed: (.*)$/.exec(w)?.[1]).find(Boolean);
+    if (failed) throw new DocumentReadError('corrupt', `the ${format.toUpperCase()} file could not be read (${failed})`);
+    const text = (r.pages[0]?.text ?? '').trim();
+    if (!text) return { pages: [], warnings: [`the ${format.toUpperCase()} file has no text`], parser: info };
+    if (kind === 'sheet') {
+      const sheets = splitSheets(text);
+      return { pages: sheets.map((s, i) => ({ pageNo: i + 1, text: s, method: 'sheet', needsOcr: false, warnings: s.includes('\n') ? [] : ['the sheet has no cells'] })), warnings: [], parser: info };
+    }
+    const warnings = kind === 'docx' ? ['a Word document is read as one page: the parser does not report its page breaks or headings yet'] : [];
+    return { pages: [{ pageNo: 1, text, method: kind === 'csv' ? 'table' : 'pdf_text', needsOcr: false, warnings: [] }], warnings, parser: info };
+  }
+
+  // An image is a one-page scan: local OCR (English sources, when switched on), then the vision hook.
+  const converted = await toPng(format, bytes);
+  if (converted) ({ bytes, filename } = converted); else filename = format === 'jpg' ? 'page.jpg' : 'page.png';
+  const local = await loadLocalOcr();
+  const localOcr = input.language === 'en' ? local.engine : undefined;
+  const budget: Budget = { used: 0, limit: input.ocrMaxPages ?? Number.POSITIVE_INFINITY };
+  const note: HookNote = {};
+  const vlm = hookGateway(input, 1, budget, note, async () => '');
+  const r = await run({ ...(vlm ? { vlm } : {}), ...(localOcr ? { ocrEngine: localOcr } : {}) });
+  const text = r.pages[0]?.text.trim() ?? '';
+  const parser = parserInfo(lite, !!localOcr);
+  if (text) return { pages: [{ pageNo: 1, text, method: 'ocr', needsOcr: false, warnings: [] }], warnings: [], parser };
+  return { pages: [{ pageNo: 1, text: '', method: 'pdf_text', needsOcr: true, warnings: ['needs OCR: no-text', ...ocrWarnings(note, undefined)] }], warnings: local.note ? [local.note] : [], parser };
+}
+
+
+/**
+ * CSV text as UTF-8 with a byte-order mark, which is what liteparse (SheetJS) needs to read it as UTF-8: without the mark
+ * it decodes UTF-8 as Windows-1252 (Arabic becomes mojibake), and a UTF-16 file (Excel's "Unicode text") is mistaken
+ * for audio. A file that is not valid UTF-8 is read as Windows-1252, as Excel does.
+ */
+function csvBytes(b: Uint8Array): Uint8Array {
+  let text: string;
+  if (b[0] === 0xff && b[1] === 0xfe) text = new TextDecoder('utf-16le').decode(b.subarray(2));
+  else if (b[0] === 0xfe && b[1] === 0xff) text = new TextDecoder('utf-16be').decode(b.subarray(2));
+  else {
+    try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(b); } catch { text = new TextDecoder('windows-1252').decode(b); }
+  }
+  return new TextEncoder().encode(`\ufeff${text.replace(/^\ufeff/, '')}`);
+}
+
+/** The image formats a vision model may not accept (TIFF, BMP, GIF, WebP) become PNG, the first frame only. */
+async function toPng(format: DocumentFormat, bytes: Uint8Array): Promise<{ bytes: Uint8Array; filename: string } | null> {
+  if (format === 'png' || format === 'jpg') return null;
+  try {
+    const { default: sharp } = await import('sharp');
+    return { bytes: new Uint8Array(await sharp(bytes).png().toBuffer()), filename: 'page.png' };
+  } catch (e) {
+    throw new DocumentReadError('corrupt', `the ${format.toUpperCase()} image could not be read (${(e as Error).message})`);
+  }
+}
+
+/**
+ * liteparse writes a workbook with several sheets as "# Sheet name" followed by that sheet's rows as CSV, and a workbook
+ * with one sheet without any header. So the sheets are split back at the "# name" lines. A first-column cell that is
+ * itself "# something" with no comma on its row would be taken for a sheet header (a limit of the format; the page text
+ * keeps everything either way). A single sheet's name is not available.
+ */
+function splitSheets(text: string): string[] {
+  if (!text.startsWith('# ')) return [text];
+  const sheets: string[][] = [];
+  for (const line of text.split('\n')) {
+    if (/^# [^,]*$/.test(line)) sheets.push([line]);
+    else sheets.at(-1)!.push(line);
+  }
+  return sheets.map((s) => s.join('\n').trim());
 }
