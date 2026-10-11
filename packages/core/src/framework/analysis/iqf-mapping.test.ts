@@ -231,8 +231,10 @@ describe('IQF mapping after an analysis run', () => {
 
   it('uses embeddings when they are on (and only reuses unchanged vectors), and falls back to words alone when the endpoint fails', async () => {
     const d = await draftWithSources('E');
+    const embedAccount = (await w.db.su.query(
+      `insert into ai_account (institution_id, name, provider, base_url) values ($1, 'Embeddings', 'openai_compatible', 'http://embed.invalid/v1') returning id`, [w.ids.inst])).rows[0].id as string;
     await w.db.su.query(
-      `insert into ai_setting (institution_id, model, enabled, embed_enabled, embed_base_url, embed_model, embed_dimension) values ($1, 'm', true, true, 'http://embed.invalid/v1', 'emb', 32)`, [w.ids.inst]);
+      `insert into ai_setting (institution_id, model, enabled, embed_enabled, embed_account_id, embed_model, embed_dimension) values ($1, 'm', true, true, $2, 'emb', 32)`, [w.ids.inst, embedAccount]);
     try {
       const embedder = createFakeEmbedder();
       setEmbedderForTests(embedder);
@@ -265,12 +267,13 @@ describe('IQF mapping after an analysis run', () => {
       expect(report.report.mapping).toMatchObject({ retrieval: 'lexical only', embeddings: { used: false, note: expect.stringMatching(/Lexical only.*endpoint down/) } });
     } finally {
       await w.db.su.query(`delete from ai_setting where institution_id = $1`, [w.ids.inst]);
+      await w.db.su.query(`delete from ai_account where institution_id = $1`, [w.ids.inst]);
     }
   }, 120000);
 
   it('the spend limit ends the mapping, not the run: the requirements stay and the run finishes, saying so', async () => {
     // $1 per call; the 9 calls of steps C and D leave room for the map call only with a limit above 9; at 8.5 the map call is refused.
-    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 8.5, 100000, 0)`, [w.ids.inst]);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, cap_unit, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 'usd', 8.5, 100000, 0)`, [w.ids.inst]);
     try {
       const d = await draftWithSources('B1');
       const fake = createFakeAiModel([mappingResponder(fixtureResponder(), firstScript())]);

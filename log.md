@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Settings -> AI redesigned around accounts (TASK-051, DEC-025)
+
+Decisions: DEC-025 (new), DEC-012, DEC-023, DEC-008. ROADMAP-009.
+- **Credentials and choices are separate now.** `ai_account` holds a label, provider and an encrypted key (write-only, last 4 shown); `ai_setting` says which account + model each role uses (analysis, reading/vision, embeddings) and holds the one cap. Switching OpenAI <-> Gemini is a dropdown; the same OpenAI account serves analysis and embeddings. OpenRouter is a provider of its own (fixed address, same openai-compatible package, `model.ts` still the one import point).
+- **Nothing the person cannot know is asked for.** Model ids come from the provider's own list (server side, metadata call, 10-minute cache, typed-id fallback); the embedding vector size is found by a probe call; prices are never typed: a USD cap exists only where the list publishes the price (OpenRouter), otherwise the cap is tokens. Learning: kind classification must trust the provider's metadata (Google `supportedGenerationMethods`, OpenRouter modalities) and use id heuristics only as a fallback.
+- **Reading finally has settings.** OCR on/off, an optional separate vision model, a per-file page cap (pages beyond it are not even rendered) and a language hint. The hint overrides the source language because every source has one (default English), so a fallback-only hint would never apply. Learning: with a different reading account that has no key, the analysis must still run; the runtime carries `visionError` and `extract_text` leaves pages flagged with the reason.
+- **Migration 0045 moves, it does not re-encrypt.** The old connection and embeddings endpoint become accounts with the ciphertext copied as is (same `APP_SECRET`), legacy key columns are cleared, legacy columns stay unused. Tested against a database built to 0044 and seeded old-style. Pre-existing hazard noticed: migration 0044's journal `when` is earlier than 0043's, and drizzle skips migrations older than the last applied one, so a database that had 0043 but not 0044 would skip 0044; check `iqf_item_proposal` exists on deployed databases.
+- Not verified against real providers (no network here); the list and embeddings shapes are tested from fixtures and stubbed requests.
+
 ## 2026-10-11 — Three background services; the app prepares Garage (TASK-049, DEC-024)
 
 Decisions: DEC-024 (new), DEC-010, DEC-011, DEC-012, DEC-008.

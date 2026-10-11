@@ -44,7 +44,18 @@ export interface ExtractTextResult {
  * a page a person edited or reviewed), flags pages that need OCR and sets the document's text status.
  * A file that cannot be read is a result ("failed" with the reason), not a crash: trying again would not help.
  */
-export async function extractText(ctx: Ctx, payload: Record<string, unknown>, opts: { ocrPage?: OcrPageHook } = {}): Promise<ExtractTextResult> {
+export async function extractText(
+  ctx: Ctx, payload: Record<string, unknown>,
+  opts: {
+    ocrPage?: OcrPageHook;
+    /** Pages of one file the AI may read (Settings -> AI -> Reading); the rest stay flagged needsOcr with a warning. */
+    ocrMaxPages?: number;
+    /** Settings -> AI language hint; null is Auto: each source's own language. A hint is used for every scanned page. */
+    ocrLanguage?: string | null;
+    /** Added to the result's warnings, e.g. why scanned pages were not read by the AI. */
+    notes?: string[];
+  } = {},
+): Promise<ExtractTextResult> {
   const { sourceDocumentId: id } = PayloadSchema.parse(payload);
   const doc = await getSourceDocument(ctx, id);
   const fail = async (error: string): Promise<ExtractTextResult> => {
@@ -57,7 +68,10 @@ export async function extractText(ctx: Ctx, payload: Record<string, unknown>, op
   let parsed;
   try {
     const file = await loadSourceFile(ctx, id);
-    parsed = await parseDocument({ bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: doc.language, ...(opts.ocrPage ? { ocrPage: opts.ocrPage } : {}) });
+    parsed = await parseDocument({
+      bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: opts.ocrLanguage || doc.language,
+      ...(opts.ocrPage ? { ocrPage: opts.ocrPage } : {}), ...(opts.ocrMaxPages !== undefined ? { ocrMaxPages: opts.ocrMaxPages } : {}),
+    });
   } catch (e) {
     return fail((e as Error).message);
   }
@@ -79,6 +93,6 @@ export async function extractText(ctx: Ctx, payload: Record<string, unknown>, op
   const [{ n: needsOcr } = { n: 0 }] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(sourcePage)
     .where(and(eq(sourcePage.sourceDocumentId, id), eq(sourcePage.needsOcr, true)));
   await ctx.tx.update(sourceDocument).set({ pageCount: parsed.pages.length, textStatus: needsOcr ? 'ocr_needed' : 'extracted' }).where(eq(sourceDocument.id, id));
-  const warnings = [...parsed.warnings, ...parsed.pages.flatMap((p) => p.warnings.map((w) => `page ${p.pageNo}: ${w}`))];
+  const warnings = [...(opts.notes ?? []), ...parsed.warnings, ...parsed.pages.flatMap((p) => p.warnings.map((w) => `page ${p.pageNo}: ${w}`))];
   return { ok: true, format: parsed.format, pages: parsed.pages.length, written, keptPages: parsed.pages.length - written, needsOcr, warnings };
 }

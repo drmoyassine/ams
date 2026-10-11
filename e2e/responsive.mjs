@@ -79,6 +79,7 @@ async function startApp() {
     await db.close().catch((e) => console.error(`could not drop test database: ${e.message}`));
   };
   try {
+    process.env.APP_SECRET ??= 'responsive-check-secret-0123456789abcdef'; // encrypts the AI account keys the seed saves
     const auth = createAuth(pool, { AUTH_SECRET: 'responsive-check-secret-0123456789abcdef', APP_URL: base, OIDC_PROVIDER_ID: 'oidc' });
     await api.seedAdmin(pool, auth, { INSTITUTION_NAME: 'Gulf University of Science and Technology', ADMIN_EMAIL: EMAIL, ADMIN_PASSWORD: PASSWORD });
     await api.seedFrameworks(pool);
@@ -136,6 +137,11 @@ async function seedDemo(db, base) {
         {"key":"req:CFR 3.9","kind":"numbering_gap","status":"confirmed_absent","code":"CFR 3.9","documentId":null,"page":null,"round":1,"attempts":1,"detail":"between CFR 3.8 and CFR 3.10","reason":"The numbering goes from 3.8 to 3.10.","requirementId":null}]}')`, [inst, draft.id]);
   } catch (e) { console.warn(`seed: analysis draft skipped (${e.message})`); }
   const warn = (what, e) => console.warn(`seed: ${what} skipped (${e.message})`);
+  // Two saved AI accounts (the screen opens on Models when there are some), so the cards, the model pickers and the add dialog have content.
+  try {
+    await call('POST', '/api/settings/ai/accounts', { name: 'Work OpenAI with a rather long label to check wrapping', provider: 'openai', apiKey: 'sk-responsive-check-1234' });
+    await call('POST', '/api/settings/ai/accounts', { name: 'Home Gemini', provider: 'google', apiKey: 'gkey-responsive-check-5678' });
+  } catch (e) { warn('ai accounts', e); }
   try {
     const eng = await call('POST', '/api/engagements', { frameworkVersionId: versionId, subjectType: 'program', subjectId: program, kind: 'initial', reviewYear: 2027, leadUserId: admin });
     ids.engagementId = eng.engagement.id;
@@ -182,6 +188,9 @@ function pagesFor(ids) {
     { name: 'settings-quality-framework', path: '/settings/quality-framework' },
     { name: 'settings-external-standards', path: '/settings/external-standards' },
     { name: 'settings-ai', path: '/settings/ai' },
+    { name: 'settings-ai-accounts', path: '/settings/ai', action: clickTab('Accounts') },
+    { name: 'settings-ai-add-account', path: '/settings/ai', action: async (page) => { await clickTab('Accounts')(page); await page.getByRole('button', { name: 'Add account' }).first().click(); } },
+    { name: 'settings-ai-limits', path: '/settings/ai', action: clickTab('Limits') },
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
     ids.draftId && { name: 'version-sources', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },

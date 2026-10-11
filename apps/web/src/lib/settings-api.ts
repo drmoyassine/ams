@@ -1,4 +1,4 @@
-import type { AiSetting, AiTestResult, UpdateAiSetting, CreateOrgUnit, CreateProgram, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
+import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateProgram, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 
@@ -10,7 +10,14 @@ export function settingsApi(api: Api = defaultApi) {
     updateInstitution: (json: UpdateInstitution) => api.api.institution.$patch({ json }).then((r) => unwrap<Institution>(r)),
     aiSettings: () => api.api.settings.ai.$get().then((r) => unwrap<AiSetting>(r)),
     updateAiSettings: (json: UpdateAiSetting) => api.api.settings.ai.$put({ json }).then((r) => unwrap<AiSetting>(r)),
-    testAi: () => api.api.settings.ai.test.$post().then((r) => unwrap<AiTestResult>(r)),
+    testAi: (role: AiRole = 'analysis') => api.api.settings.ai.test.$post({ json: { role } }).then((r) => unwrap<AiTestResult>(r)),
+    aiAccounts: () => api.api.settings.ai.accounts.$get().then((r) => unwrap<AiAccount[]>(r)),
+    createAiAccount: (json: CreateAiAccount) => api.api.settings.ai.accounts.$post({ json }).then((r) => unwrap<AiAccount>(r)),
+    updateAiAccount: (id: string, json: UpdateAiAccount) => api.api.settings.ai.accounts[':id'].$patch({ param: { id }, json }).then((r) => unwrap<AiAccount>(r)),
+    deleteAiAccount: (id: string) => api.api.settings.ai.accounts[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    testAiAccount: (id: string, json: AiAccountTest = {}) => api.api.settings.ai.accounts[':id'].test.$post({ param: { id }, json }).then((r) => unwrap<AiTestResult>(r)),
+    aiModels: (id: string, kind?: Exclude<AiModelKind, 'other'>, refresh = false) =>
+      api.api.settings.ai.accounts[':id'].models.$get({ param: { id }, query: { ...(kind ? { kind } : {}), ...(refresh ? { refresh: 'true' as const } : {}) } }).then((r) => unwrap<AiModelList>(r)),
     orgUnits: () => api.api['org-units'].$get().then((r) => unwrap<OrgUnit[]>(r)),
     createOrgUnit: (json: Partial<CreateOrgUnit> & Pick<CreateOrgUnit, 'type' | 'nameEn'>) => api.api['org-units'].$post({ json }).then((r) => unwrap<OrgUnit>(r)),
     updateOrgUnit: (id: string, json: UpdateOrgUnit) => api.api['org-units'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<OrgUnit>(r)),

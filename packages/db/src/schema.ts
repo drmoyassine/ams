@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  ANALYSIS_STAGES, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
+  AI_PROVIDERS, ANALYSIS_STAGES, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
   MILESTONE_TYPES, PHASE_TYPES, ROLES,
 } from '@ams/shared';
 import {
@@ -37,30 +37,71 @@ export const institution = pgTable('institution', {
 }, (t) => [check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`)]);
 
 /**
- * The institution's AI connection (Settings -> AI, DEC-021): one row per institution. The provider key is stored
- * encrypted (AES-256-GCM, key derived from APP_SECRET); `api_key_last4` is all the client ever sees of it.
- * Limits apply per run (one job). The worker reads this row; only an admin writes it.
+ * A saved AI connection (Settings -> AI -> Accounts, DEC-025): a user label, a provider and its key. The key is stored
+ * encrypted (AES-256-GCM, key derived from APP_SECRET); `api_key_last4` is all the client ever sees of it. A null key
+ * means the server environment's key for that provider is used (and none is needed for a keyless OpenAI-compatible server).
+ * `base_url` is only for `openai_compatible`: OpenRouter's address is fixed inside packages/core.
+ */
+export const aiAccount = pgTable('ai_account', {
+  ...base(), ...tenant(),
+  name: text('name').notNull(),
+  provider: text('provider').notNull(),
+  baseUrl: text('base_url'),
+  apiKeyEnc: text('api_key_enc'),
+  apiKeyLast4: text('api_key_last4'),
+}, (t) => [
+  uniqueIndex('ai_account_name_idx').on(t.institutionId, sql`lower(${t.name})`),
+  index('ai_account_institution_idx').on(t.institutionId),
+  oneOf('ai_account_provider_check', t.provider, AI_PROVIDERS),
+  check('ai_account_base_url_check', sql`${t.baseUrl} is null or ${t.provider} = 'openai_compatible'`),
+]);
+
+/**
+ * Which account and model does what (Settings -> AI -> Models), the reading options and the cap (DEC-025): one row per
+ * institution. The worker reads this row (and ai_account); only an admin writes them. The cap applies per run (one analysis).
+ * Since migration 0045 the provider, key and Base URL live in ai_account. The columns `provider`, `base_url`,
+ * `api_key_*`, `embed_base_url` and `embed_api_key_*` are LEGACY: the migration copied them into accounts and cleared
+ * the keys; nothing reads or writes them any more. `model` is the analysis model, `embed_model` / `embed_dimension` the
+ * embedding model and the size found by the probe call. `input_usd_per_mtok` / `output_usd_per_mtok` are no longer typed:
+ * they hold the price of the analysis model taken from the provider's own model list when it gives one (for a USD cap).
  */
 export const aiSetting = pgTable('ai_setting', {
   ...base(), ...tenant(),
+  /** @deprecated legacy, see above. */
   provider: text('provider').notNull().default('anthropic'),
-  /** Server address of an OpenAI-compatible provider (http(s), no credentials); null for the other providers. */
+  /** @deprecated legacy, see above. */
   baseUrl: text('base_url'),
   model: text('model'),
+  /** @deprecated legacy, cleared by migration 0045. */
   apiKeyEnc: text('api_key_enc'),
+  /** @deprecated legacy. */
   apiKeyLast4: text('api_key_last4'),
+  analysisAccountId: uuid('analysis_account_id').references(() => aiAccount.id),
   maxTokensPerRun: integer('max_tokens_per_run'),
   maxCostUsdPerRun: numeric('max_cost_usd_per_run', { precision: 12, scale: 4 }),
+  /** Which cap applies: 'tokens' (max_tokens_per_run) or 'usd' (max_cost_usd_per_run, needs the two prices). */
+  capUnit: text('cap_unit').notNull().default('tokens'),
   inputUsdPerMTok: numeric('input_usd_per_mtok', { precision: 12, scale: 4 }),
   outputUsdPerMTok: numeric('output_usd_per_mtok', { precision: 12, scale: 4 }),
   /** Check-and-recover rounds after a framework analysis's extraction (step D); 0 switches them off. */
   maxRecoveryRounds: integer('max_recovery_rounds').notNull().default(2),
   enabled: boolean('enabled').notNull().default(false),
-  // Embeddings (DEC-023): a separate OpenAI-compatible endpoint, off by default. The key is encrypted like the one above.
+  // Reading / vision (aiOcr): null account and model mean "the same as analysis".
+  visionAccountId: uuid('vision_account_id').references(() => aiAccount.id),
+  visionModel: text('vision_model'),
+  ocrEnabled: boolean('ocr_enabled').notNull().default(true),
+  ocrMaxPages: integer('ocr_max_pages').notNull().default(200),
+  /** Hint for a source that has no language of its own; null is Auto. */
+  ocrLanguage: text('ocr_language'),
+  // Embeddings (DEC-023): the account must be of a provider that has embedding models; off by default.
   embedEnabled: boolean('embed_enabled').notNull().default(false),
+  embedAccountId: uuid('embed_account_id').references(() => aiAccount.id),
+  /** @deprecated legacy, see above. */
   embedBaseUrl: text('embed_base_url'),
   embedModel: text('embed_model'),
+  /** @deprecated legacy, cleared by migration 0045. */
   embedApiKeyEnc: text('embed_api_key_enc'),
+  /** @deprecated legacy. */
   embedApiKeyLast4: text('embed_api_key_last4'),
   embedDimension: integer('embed_dimension'),
 }, (t) => [
@@ -69,6 +110,8 @@ export const aiSetting = pgTable('ai_setting', {
   check('ai_setting_base_url_check', sql`${t.baseUrl} is null or ${t.provider} = 'openai_compatible'`),
   check('ai_setting_limits_check', sql`(${t.maxTokensPerRun} is null or ${t.maxTokensPerRun} > 0) and (${t.maxCostUsdPerRun} is null or ${t.maxCostUsdPerRun} > 0)`),
   check('ai_setting_recovery_rounds_check', sql`${t.maxRecoveryRounds} between 0 and 5`),
+  oneOf('ai_setting_cap_unit_check', t.capUnit, ['tokens', 'usd']),
+  check('ai_setting_ocr_max_pages_check', sql`${t.ocrMaxPages} between 1 and 5000`),
 ]);
 
 /** The only things that may be embedded (DEC-023): framework text. Evidence, datasets, responses, requests and letters never are. */

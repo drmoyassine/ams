@@ -127,4 +127,72 @@ describe('extract_text with Settings -> AI', () => {
     expect(fake.calls).toHaveLength(0);
     await w.db.su.query(`delete from ai_setting`);
   }, 60000);
+
+  const scannedMany = async (title: string, pages: number) => {
+    const d = await as('alo', (c) => addSourceDocument(c, { versionId: ids.draft!, title, role: 'other', authority: 'informational' }));
+    await as('alo', (c) => uploadSourceFile(c, d.id, { fileName: 'scan.pdf', mime: 'application/pdf', bytes: pdf([text, ...Array.from({ length: pages }, () => null)]) }));
+    const q = await as('alo', (c) => requestTextExtraction(c, d.id));
+    return { id: d.id, jobId: q.jobId };
+  };
+  const result = async (jobId: string) => (await w.db.su.query(`select result from job where id = $1`, [jobId])).rows[0].result as { warnings: string[]; needsOcr: number; ai?: unknown[] };
+
+  it('"Read scanned pages with AI" off: no model call, pages stay flagged, and the result says why', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const fake = createFakeAiModel(['should not be used']);
+    setAiModelForTests(fake.model);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, ocr_enabled) values ($1, 'm', true, false)`, [w.ids.inst]);
+    const d = await scanned('Scan ocr off');
+    await work();
+    expect((await as('alo', (c) => listSourcePages(c, d.id))).map((p) => [p.pageNo, p.needsOcr])).toEqual([[1, false], [2, true]]);
+    expect(fake.calls).toHaveLength(0);
+    expect((await result(d.jobId)).warnings.join(' ')).toMatch(/"Read scanned pages with AI" is off/);
+    await w.db.su.query(`delete from ai_setting`);
+  }, 60000);
+
+  it('"Max AI-read pages per file" caps the pages sent to the model; the rest stay flagged with a warning', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const fake = createFakeAiModel(['Text read from the scan.']);
+    setAiModelForTests(fake.model);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, ocr_max_pages) values ($1, 'm', true, 2)`, [w.ids.inst]);
+    const d = await scannedMany('Scan capped', 4);
+    await work();
+    const pages = await as('alo', (c) => listSourcePages(c, d.id));
+    expect(pages.map((p) => [p.pageNo, p.method, p.needsOcr])).toEqual([[1, 'pdf_text', false], [2, 'ocr', false], [3, 'ocr', false], [4, 'pdf_text', true], [5, 'pdf_text', true]]);
+    expect(fake.calls).toHaveLength(2);
+    const r = await result(d.jobId);
+    expect(r.needsOcr).toBe(2);
+    expect(r.warnings.join(' ')).toMatch(/not read by AI: the limit of 2 AI-read pages per file/);
+    await w.db.su.query(`delete from ai_setting`);
+  }, 60000);
+
+  it('reads with the reading model of its own account, and the language hint overrides the source language', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const configs: { provider: string; model: string }[] = [];
+    const fake = createFakeAiModel(['Text read from the scan.']);
+    setAiModelForTests((cfg) => { configs.push(cfg); return fake.model; });
+    const acc = (await w.db.su.query(`insert into ai_account (institution_id, name, provider, base_url) values ($1, 'Cheap vision', 'openai_compatible', 'http://vision.invalid/v1') returning id`, [w.ids.inst])).rows[0].id as string;
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, vision_account_id, vision_model, ocr_language) values ($1, 'm', true, $2, 'cheap-vision', 'ar')`, [w.ids.inst, acc]);
+    const d = await scanned('Scan vision');
+    await work();
+    expect((await as('alo', (c) => listSourcePages(c, d.id))).map((p) => p.method)).toEqual(['pdf_text', 'ocr']);
+    expect(configs[0]).toMatchObject({ provider: 'openai_compatible', model: 'cheap-vision' });
+    expect(JSON.stringify(fake.calls[0])).toContain('Language hint: ar');
+    expect((await result(d.jobId)).ai).toEqual([expect.objectContaining({ task: 'ocr', provider: 'openai_compatible', model: 'cheap-vision', ok: true })]);
+    await w.db.su.query(`delete from ai_setting`);
+    await w.db.su.query(`delete from ai_account`);
+  }, 60000);
+
+  it('a reading account that cannot be used leaves the pages flagged, with the reason, instead of failing the job', async () => {
+    const fake = createFakeAiModel(['should not be used']);
+    setAiModelForTests(fake.model);
+    const acc = (await w.db.su.query(`insert into ai_account (institution_id, name, provider) values ($1, 'No key', 'google') returning id`, [w.ids.inst])).rows[0].id as string;
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, vision_account_id, vision_model) values ($1, 'm', true, $2, 'v')`, [w.ids.inst, acc]);
+    const d = await scanned('Scan bad vision');
+    await work();
+    expect((await as('alo', (c) => listSourcePages(c, d.id))).map((p) => p.needsOcr)).toEqual([false, true]);
+    expect(fake.calls).toHaveLength(0);
+    expect((await result(d.jobId)).warnings.join(' ')).toMatch(/not read by the AI: AI has no API key/);
+    await w.db.su.query(`delete from ai_setting`);
+    await w.db.su.query(`delete from ai_account`);
+  }, 60000);
 });
