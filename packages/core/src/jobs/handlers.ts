@@ -13,14 +13,22 @@ export type JobHandler = (ctx: Ctx, payload: Record<string, unknown>) => Promise
  */
 export const handlers: Partial<Record<JobType, JobHandler>> = {
   extract_text: async (ctx, payload) => {
-    // Scanned pages are read by the AI when Settings -> AI has it on; the page images count against the run's budget and
-    // every call is recorded in the result. With AI off or not set up, those pages stay flagged needsOcr.
+    // Scanned pages are read by the AI when Settings -> AI has it on (the reading model, else the analysis model) and
+    // "Read scanned pages with AI" is on; at most "Max AI-read pages per file" pages per file, counted against the cap and
+    // recorded in the result. Off, capped, or AI not set up: those pages stay flagged needsOcr, with a warning saying why.
+    // The settings are read through this job's identity-carrying transaction, like every other setting.
     const runtime = await loadAiRuntime(ctx).catch((e: unknown) => {
       if (e instanceof AiDisabledError || e instanceof AiNotConfiguredError) return null;
       throw e;
     });
     if (!runtime) return extractText(ctx, payload);
-    const result = await extractText(ctx, payload, { ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, runtime })).text });
+    const ocr = runtime.ocr ?? { enabled: true, maxPages: Number.MAX_SAFE_INTEGER, language: null };
+    if (!ocr.enabled) return extractText(ctx, payload, { notes: ['scanned pages were not read by the AI: "Read scanned pages with AI" is off (Settings -> AI)'] });
+    if (runtime.visionError) return extractText(ctx, payload, { notes: [`scanned pages were not read by the AI: ${runtime.visionError}`] });
+    const result = await extractText(ctx, payload, {
+      ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, runtime })).text,
+      ocrMaxPages: ocr.maxPages, ocrLanguage: ocr.language,
+    });
     return { ...result, ai: runtime.calls };
   },
   // One step of a framework analysis run; each step queues the next (framework/analysis/stages.ts).

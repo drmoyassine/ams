@@ -136,7 +136,7 @@ describe('check and recover', () => {
 
   it('stops recovering when the spend limit is reached, and still writes everything and succeeds', async () => {
     // $1 per call; the limit lets the survey, structure and extraction through and refuses the first recovery call.
-    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 2.5, 100000, 0)`, [w.ids.inst]);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, cap_unit, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 'usd', 2.5, 100000, 0)`, [w.ids.inst]);
     const d = await draft();
     const r = await analyse(d.versionId, gappyResponder());
     expect(r.calls).toBe(3);

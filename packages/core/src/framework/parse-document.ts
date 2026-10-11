@@ -42,6 +42,8 @@ export interface ParseDocumentInput {
   /** Language hint (e.g. 'en', 'ar'); passed on to the OCR hook. */
   language?: string;
   ocrPage?: OcrPageHook;
+  /** At most this many pages are rendered and handed to the OCR hook; the rest stay flagged `needsOcr` with a warning. */
+  ocrMaxPages?: number;
 }
 
 export interface ParsedDocument {
@@ -283,8 +285,12 @@ function tidySheet(text: string, format: DocumentFormat): string {
 
 /** Renders the pages that need OCR and hands each to the injected hook. A failure leaves the page marked needsOcr. */
 async function runOcrHook(input: ParseDocumentInput, pages: ParsedDocumentPage[], run: (extra: Partial<LiteParseConfig>) => Promise<ParseResult>) {
-  const wanted = pages.filter((p) => p.needsOcr);
-  if (!wanted.length || !input.ocrPage) return;
+  const all = pages.filter((p) => p.needsOcr);
+  if (!all.length || !input.ocrPage) return;
+  const limit = input.ocrMaxPages ?? Number.POSITIVE_INFINITY;
+  const wanted = all.slice(0, limit);
+  for (const p of all.slice(limit)) p.warnings.push(`not read by AI: the limit of ${limit} AI-read pages per file is reached (Settings -> AI)`);
+  if (!wanted.length) return;
   let shots: Map<number, { imageBuffer: Buffer | Uint8Array }>;
   try {
     shots = new Map((await run({ extractScreenshots: true, targetPages: wanted.map((p) => p.pageNo).join(',') })).screenshots.map((s) => [s.pageNum, s]));

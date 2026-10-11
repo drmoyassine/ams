@@ -316,6 +316,13 @@
       "when": 1791695353312,
       "tag": "0044_iqf_mapping_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791701527573,
+      "tag": "0045_ai_accounts",
+      "breakpoints": true
     }
   ]
 }

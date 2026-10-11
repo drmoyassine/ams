@@ -8,7 +8,7 @@ Loaded at the start of every Claude session in this repo. This file covers proje
 
 **The specification is `docs/PRD.md`.** Read §0 before any work. Build in the milestone order of PRD §18.4; each milestone's "done when" test must pass before the next starts. Roadmap items `ROADMAP-001…011` mirror the milestones; tasks hang off them.
 
-**Stack (DEC-007…DEC-015):** TypeScript · React SPA (Vite, TanStack Router/Query, shadcn/ui, Tiptap, TanStack Table) · Hono API on Node (Zod, OpenAPI, typed RPC client) · PostgreSQL 16 + Drizzle (SQL migrations, RLS, triggers) · Better Auth (OIDC/SAML/password) · S3-compatible storage · pg-boss background services (worker · parser · agent, DEC-024) · liteparse (`parseDocument()`) · Vercel AI SDK + Anthropic (`aiExtract`/`aiOcr`) · Docker + Compose.
+**Stack (DEC-007…DEC-015):** TypeScript · React SPA (Vite, TanStack Router/Query, shadcn/ui, Tiptap, TanStack Table) · Hono API on Node (Zod, OpenAPI, typed RPC client) · PostgreSQL 16 + Drizzle (SQL migrations, RLS, triggers) · Better Auth (OIDC/SAML/password) · S3-compatible storage · pg-boss background services (worker · parser · agent, DEC-024) · liteparse (`parseDocument()`) · Vercel AI SDK with configurable providers: Anthropic, OpenAI, Google, OpenRouter, OpenAI-compatible (`aiExtract`/`aiOcr`) · Docker + Compose.
 
 ## Skills (invoke directly)
 

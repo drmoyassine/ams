@@ -44,12 +44,13 @@ export const envSchema = z.object({
   APP_SECRET: z.string().min(32).optional(),
   AI_PROVIDER: z.enum(AI_PROVIDERS).default('anthropic'),
   AI_MODEL: z.string().optional(),
-  // Only for AI_PROVIDER=openai_compatible (OpenRouter, Ollama, vLLM, LM Studio, Azure ...); the key is optional there.
+  // Only for AI_PROVIDER=openai_compatible (Ollama, vLLM, LM Studio, Azure ...; OpenRouter has its own provider); the key is optional there.
   AI_BASE_URL: z.url().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
   OPENAI_COMPATIBLE_API_KEY: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -57,12 +58,12 @@ export type Env = z.infer<typeof envSchema>;
 /** The AI settings the environment can supply when Settings -> AI has none (DEC-012, DEC-021). */
 export const aiEnvSchema = envSchema.pick({
   AI_PROVIDER: true, AI_MODEL: true, AI_BASE_URL: true,
-  ANTHROPIC_API_KEY: true, OPENAI_API_KEY: true, GOOGLE_GENERATIVE_AI_API_KEY: true, OPENAI_COMPATIBLE_API_KEY: true,
+  ANTHROPIC_API_KEY: true, OPENAI_API_KEY: true, GOOGLE_GENERATIVE_AI_API_KEY: true, OPENAI_COMPATIBLE_API_KEY: true, OPENROUTER_API_KEY: true,
 });
 type AiEnv = z.infer<typeof aiEnvSchema>;
 
 const ENV_KEY_NAME = {
-  anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY', openai_compatible: 'OPENAI_COMPATIBLE_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY', openrouter: 'OPENROUTER_API_KEY', openai_compatible: 'OPENAI_COMPATIBLE_API_KEY',
 } as const satisfies Record<AiProvider, keyof AiEnv>;
 /** The environment's API key for one provider (never another provider's), or undefined. */
 export const aiEnvKey = (env: AiEnv, provider: AiProvider): string | undefined => env[ENV_KEY_NAME[provider]];

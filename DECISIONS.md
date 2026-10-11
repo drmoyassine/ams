@@ -1181,3 +1181,76 @@ related_decisions:
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 ---
+
+---
+
+## DEC-025 — AI accounts and role assignments: saved connections, one model per role, a single cap
+
+---
+id: DEC-025
+title: 'AI accounts and role assignments: saved connections, one model per role, a single cap'
+status: accepted
+context: >-
+  Settings → AI held one connection (provider, key, model) plus a separate embeddings endpoint with its own key, a typed
+  vector dimension and four limit and price inputs. Switching between an OpenAI and a Gemini meant retyping keys,
+  OpenRouter had to be set up as a generic OpenAI-compatible server, the same OpenAI key could not serve embeddings, model
+  names had to be typed from memory, prices had to be looked up by hand, and the reading (OCR) of scanned pages silently used
+  the analysis model with no settings of its own.
+decision: >-
+  1. Accounts. A saved connection is a row in ai_account (tenant RLS, audit): a label, a provider (anthropic, openai, google,
+     openrouter, openai_compatible), a Base URL for openai_compatible only, and an API key encrypted at rest with the
+     existing AES-256-GCM / APP_SECRET helper. The key is write-only: the API returns whether one is set and its last 4
+     characters. Changing an account's provider removes its key unless a new one comes in the same save. An account in
+     use by a role cannot be deleted. OpenRouter is a standard provider with a fixed address (built into packages/core),
+     served through the existing openai-compatible package; model.ts stays the one import point.
+  2. Assignments. ai_setting (still one row per institution) says which account and model each role uses: Analysis
+     (generation, aiExtract), Reading / vision (aiOcr; "same as analysis" by default), Embeddings (account and embedding
+     model; only providers that have embedding models, so not Anthropic; the same account may serve analysis and
+     embeddings, with no second key). Embeddings call the right API per provider (OpenAI, OpenRouter and compatible
+     servers: the OpenAI-style /embeddings API; Google: its embedding model). The vector dimension is never typed: a probe
+     call finds it when the assignment is saved or tested. The global "AI is on" switch stays. With no account assigned to
+     analysis, the environment (AI_PROVIDER, AI_MODEL, <PROVIDER>_API_KEY including OPENROUTER_API_KEY, AI_BASE_URL) is
+     used as before.
+  3. Model lists are fetched, not typed or hardcoded. A server-side metadata call per account (no inference, no
+     institution data, so it is outside the AI scope like Test connection) lists the provider's models, normalised to
+     id, name, kind (chat, embedding, other), image support and, when the provider's own list gives them, prices
+     (OpenRouter does). Cached in memory for 10 minutes per account, with a Refresh. A failure shows its reason and the
+     screen falls back to typing a model id. No model identifiers or prices are written in the repository.
+  4. One cap per analysis run, no price inputs. The unit is tokens (always available, provider independent) or US dollars
+     (only when the analysis model's price is known from the provider's list, stored when the model is chosen). The
+     four previous limit and price inputs are gone from the screen and the API.
+  5. Reading settings. "Read scanned pages with AI (OCR)" on or off, the reading model (item 2), "Max AI-read pages per
+     file" (default 200; the rest stay flagged needsOcr with a warning, as when OCR is off or unavailable) and an optional
+     language hint (Auto by default). They are read by extract_text through the normal identity-carrying job transaction.
+  6. Migration 0045 (forward-only) turns the existing saved connection and embeddings endpoint into accounts, copying the
+     key ciphertext unchanged (same APP_SECRET, nothing to retype), points the assignments at them, and clears the legacy
+     key columns. The legacy provider, Base URL and key columns stay, unused, so a rolling deploy never meets a missing
+     column; a later migration may drop them.
+rationale: >-
+  Credentials are entered once and reused; choosing what each task uses is one dropdown; the screen asks for nothing a
+  person cannot know (model names, prices, vector sizes) and offers only what the provider confirms. Reading gets the
+  settings it always needed. All of it stays configuration, so DEC-002, DEC-008 and the one-import-point rule hold.
+consequences: >-
+  Extends DEC-012 (provider choice is configuration; model.ts stays the single import point) and DEC-023 (embeddings are
+  assigned like any role; the endpoint is an account, the dimension is detected). Embeddings are no longer limited to a
+  separate OpenAI-compatible endpoint: OpenAI, Google and OpenRouter work directly. A USD cap exists only where a provider's
+  list publishes prices; OCR calls are counted with the analysis model's price when a USD cap is in force. The model-list
+  call is an extra outbound request from the API process (not the worker), to the account's provider only. If APP_SECRET
+  changes, stored account keys must be entered again, as before.
+tags:
+  - ams
+last_updated: '2026-10-11'
+related_decisions:
+  - id: DEC-012
+    name: Vercel AI SDK with the Anthropic provider behind aiExtract/aiOcr
+    url: /DECISIONS.md#DEC-012
+  - id: DEC-023
+    name: Embeddings rank IQF mapping candidates; vectors are stored in plain PostgreSQL arrays
+    url: /DECISIONS.md#DEC-023
+  - id: DEC-021
+    name: Framework analysis may send the institution's IQF text to the AI
+    url: /DECISIONS.md#DEC-021
+  - id: DEC-008
+    name: Host-agnostic deployment on open standards
+    url: /DECISIONS.md#DEC-008
+---

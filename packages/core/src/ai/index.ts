@@ -39,10 +39,29 @@ export interface AiRuntime {
   calls: AiUsage[];
   /** The embedding endpoint, when Settings -> AI has embeddings switched on (DEC-023). */
   embedding?: EmbedConfig;
+  /** The reading / vision connection (aiOcr) when it differs from `config`; absent means "the same as analysis". */
+  vision?: AiConfig;
+  /** Why the assigned reading model cannot be used (no key, ...); reading then leaves pages flagged "needs OCR". */
+  visionError?: string;
+  /** The document-reading options of Settings -> AI (OCR on/off, page cap, language hint). */
+  ocr?: OcrSettings;
 }
 
-export const createAiRuntime = (config: AiConfig, budget: AiBudget = new AiBudget(), embedding?: EmbedConfig): AiRuntime =>
-  ({ config, budget, calls: [], ...(embedding ? { embedding } : {}) });
+/** Scanned-page reading options (Settings -> AI -> Models -> Reading). */
+export interface OcrSettings {
+  enabled: boolean;
+  /** At most this many pages of one file are read by the AI. */
+  maxPages: number;
+  /** For a source with no language of its own; null is Auto. */
+  language: string | null;
+}
+
+export const createAiRuntime = (
+  config: AiConfig, budget: AiBudget = new AiBudget(), embedding?: EmbedConfig, extra: { vision?: AiConfig; visionError?: string; ocr?: OcrSettings } = {},
+): AiRuntime => ({
+  config, budget, calls: [], ...(embedding ? { embedding } : {}),
+  ...(extra.vision ? { vision: extra.vision } : {}), ...(extra.visionError ? { visionError: extra.visionError } : {}), ...(extra.ocr ? { ocr: extra.ocr } : {}),
+});
 
 // ---- Where AI may run -------------------------------------------------------------------------------------------
 // Model calls happen in the worker (DEC-012). `runJob` opens the 'job' scope around every handler; the settings
@@ -142,7 +161,9 @@ export interface AiOcrParams {
 /** Reads the text off a page image (scanned or corrupted pages). liteparse's vision fallback is wired to this. */
 export async function aiOcr(p: AiOcrParams): Promise<{ text: string; usage: AiUsage }> {
   assertAiScope();
-  const runtime = p.runtime ?? createAiRuntime(hasTestModel() ? { provider: 'test', model: 'test', apiKey: '' } : envAiConfig());
+  const whole = p.runtime ?? createAiRuntime(hasTestModel() ? { provider: 'test', model: 'test', apiKey: '' } : envAiConfig());
+  // The reading model, when Settings -> AI assigns one; else the analysis model. Same budget and call log either way.
+  const runtime: AiRuntime = whole.vision ? { ...whole, config: whole.vision } : whole;
   const version = p.promptVersion ?? 'v1';
   const system = `${getPrompt('ocr', version)} Language hint: ${p.lang}.`;
   // An image costs roughly its pixel area / 750 tokens; the byte size is the only thing known here.
@@ -170,9 +191,9 @@ export async function embed(texts: string[], opts: { runtime?: AiRuntime; budget
   const cfg = base?.embedding;
   const test = getTestEmbedder();
   if (!cfg && !test) throw new AiNotConfiguredError('Embeddings are not set up: switch them on in Settings -> AI');
-  const embedConfig: EmbedConfig = cfg ?? { baseUrl: 'test', model: 'test-embedder', apiKey: '', dimension: 32 };
+  const embedConfig: EmbedConfig = cfg ?? { provider: 'test', baseUrl: null, model: 'test-embedder', apiKey: '', dimension: 32 };
   const runtime: AiRuntime = {
-    config: { provider: 'openai-compatible', model: embedConfig.model, apiKey: embedConfig.apiKey },
+    config: { provider: embedConfig.provider, model: embedConfig.model, apiKey: embedConfig.apiKey },
     budget: opts.budget ?? base?.budget ?? new AiBudget(), calls: base?.calls ?? [],
   };
   const { value, usage } = await tracked(
@@ -191,9 +212,11 @@ export async function embed(texts: string[], opts: { runtime?: AiRuntime; budget
           vectors.push(...r.embeddings); tokens += r.usage.tokens;
         }
       }
-      const bad = vectors.findIndex((v) => v.length !== embedConfig.dimension);
       if (vectors.length !== texts.length) throw new Error(`the embedding endpoint returned ${vectors.length} vectors for ${texts.length} texts`);
-      if (bad >= 0) throw new Error(`the embedding endpoint returned ${vectors[bad]!.length} dimensions, but ${embedConfig.dimension} are set`);
+      // A dimension of 0 is a probe: the size is being detected, so any consistent size is fine.
+      const expected = embedConfig.dimension > 0 ? embedConfig.dimension : (vectors[0]?.length ?? 0);
+      const bad = vectors.findIndex((v) => v.length !== expected);
+      if (bad >= 0) throw new Error(`the embedding endpoint returned ${vectors[bad]!.length} dimensions, but ${expected} ${embedConfig.dimension > 0 ? 'are set' : 'were expected'}`);
       return { value: vectors, inputTokens: tokens, outputTokens: 0 };
     },
   );

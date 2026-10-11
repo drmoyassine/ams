@@ -181,7 +181,7 @@ describe('framework analysis', () => {
   it('stops at the per-run budget as failed, with the reason, keeping what was written so far', async () => {
     const d = await draftWithSources('B');
     // $1 per call (10 input tokens at $100,000 per million); the limit lets four calls through.
-    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 3.5, 100000, 0)`, [w.ids.inst]);
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, cap_unit, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 'usd', 3.5, 100000, 0)`, [w.ids.inst]);
     try {
       const fake = createFakeAiModel([fixtureResponder()]);
       setAiModelForTests(fake.model);

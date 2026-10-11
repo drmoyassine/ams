@@ -8,12 +8,13 @@ import type { TestEmbedder } from './model.js';
 export function createFakeEmbedder(): TestEmbedder & { calls: string[][] } {
   const calls: string[][] = [];
   const fn = ((texts: string[], config: { dimension: number }) => {
+    const dim = config.dimension > 0 ? config.dimension : 32; // 0: a probe, the size is being detected
     calls.push(texts);
     const vectors = texts.map((t) => {
-      const v = new Array<number>(config.dimension).fill(0);
+      const v = new Array<number>(dim).fill(0);
       for (const word of t.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)) {
         const h = createHash('sha256').update(word).digest();
-        for (let i = 0; i < 3; i++) v[h.readUInt16BE(i * 2) % config.dimension]! += 1;
+        for (let i = 0; i < 3; i++) v[h.readUInt16BE(i * 2) % dim]! += 1;
       }
       return v;
     });
