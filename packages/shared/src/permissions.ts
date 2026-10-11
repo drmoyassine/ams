@@ -81,6 +81,41 @@ export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify
 export type JobType = (typeof JOB_TYPES)[number];
 
 /**
+ * Which background service takes each job type (DEC-024). Every job type belongs to exactly one group, so adding a type
+ * forces a decision here (a test checks the table and the compose file agree).
+ *   worker  general work that needs neither document parsing nor a model: exports, notifications
+ *   parser  reads documents (CPU and memory heavy)
+ *   agent   everything that calls an AI provider; the only service that needs outbound internet; parses no documents
+ */
+export const QUEUE_GROUPS = {
+  worker: ['export', 'notify'],
+  parser: ['extract_text'],
+  agent: ['analyse', 'ai_extract', 'ocr'],
+} as const satisfies Record<string, readonly JobType[]>;
+export type QueueGroup = keyof typeof QUEUE_GROUPS;
+export const QUEUE_GROUP_NAMES = Object.keys(QUEUE_GROUPS) as QueueGroup[];
+
+/** The service that takes a job type. */
+export function queueGroupOf(type: JobType): QueueGroup {
+  const g = QUEUE_GROUP_NAMES.find((name) => (QUEUE_GROUPS[name] as readonly JobType[]).includes(type));
+  if (!g) throw new Error(`Job type ${type} is not in any queue group`);
+  return g;
+}
+
+/**
+ * Reads WORKER_QUEUES: comma-separated job types. Unset means every type (local development, tests). An empty list or an
+ * unknown name is refused, so a typo can never leave a job type with nobody to run it.
+ */
+export function parseWorkerQueues(raw: string | undefined): JobType[] {
+  if (raw === undefined) return [...JOB_TYPES];
+  const names = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!names.length) throw new Error(`WORKER_QUEUES is empty; list at least one of: ${JOB_TYPES.join(', ')}`);
+  const unknown = names.filter((n) => !(JOB_TYPES as readonly string[]).includes(n));
+  if (unknown.length) throw new Error(`WORKER_QUEUES names unknown job type(s) ${unknown.join(', ')}; known: ${JOB_TYPES.join(', ')}`);
+  return [...new Set(names)] as JobType[];
+}
+
+/**
  * What travels through the queue. The identity is the user who queued the job (or a named system identity with
  * `userId: null`); the worker runs the job as that identity so RLS and the audit trigger apply (DEC-010).
  */

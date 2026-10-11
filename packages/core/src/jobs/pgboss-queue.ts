@@ -8,7 +8,7 @@ export async function ensureQueues(boss: PgBoss): Promise<void> {
 }
 
 export const pgBossQueue = (boss: PgBoss): JobQueue => ({
-  async send(type, envelope) {
-    await boss.send(type, envelope, { retryLimit: 3, retryBackoff: true });
+  async send(type, envelope, opts) {
+    await boss.send(type, envelope, { retryLimit: 3, retryBackoff: true, ...(opts?.delaySeconds ? { startAfter: opts.delaySeconds } : {}) });
   },
 });

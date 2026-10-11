@@ -1120,3 +1120,61 @@ related_decisions:
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 ---
+
+---
+
+## DEC-024 — Background work runs as three services from one codebase: worker, parser, agent
+
+---
+id: DEC-024
+title: 'Background work runs as three services from one codebase: worker, parser, agent'
+status: accepted
+context: >-
+  One worker process took every job type. Reading documents (liteparse) is CPU and memory heavy and can starve the
+  model-calling steps of a framework analysis; only the model-calling steps need outbound internet; and a single
+  process cannot be sized, restarted or network-restricted per kind of work. The object store was prepared by a separate
+  one-shot compose service (garage-init), which hosts such as Easypanel handled poorly.
+decision: >-
+  1. Three services, one image definition and one entry point (apps/worker/dist/main.js). The role comes from the
+     environment: WORKER_QUEUES (comma-separated job types, validated against JOB_TYPES; unset means all types so local
+     development and tests work; empty or unknown names are refused) and WORKER_NAME (log label).
+     worker = general jobs (export, notify); parser = document reading (extract_text); agent = everything that calls an
+     AI provider (analyse, ai_extract, ocr, and future mapping and report jobs).
+  2. Every job type belongs to exactly one service through one table, QUEUE_GROUPS in packages/shared. A test checks the
+     table covers every job type once and that compose.yaml's WORKER_QUEUES equal it, so adding a job type forces a
+     decision.
+  3. The agent does not parse documents. When an analysis source has a file but no page text, the read stage queues an
+     extract_text job (the parser takes it) and the analyse job re-queues itself with a delay, a bounded number of times;
+     a failed or never-finished reading ends the run with a clear message.
+  4. Only the agent needs outbound internet (AI providers, embeddings). The parser calls a provider only for the optional
+     OCR of scanned pages and degrades to "needs OCR" without one. Nothing is enforced in compose, so it runs unchanged on
+     shared hosts; the split makes egress restrictable on the others.
+  5. The app prepares the Garage object store itself before it serves (layout, S3 key, bucket, grant), only when
+     GARAGE_ADMIN_URL is set, idempotently and fatally on failure. The garage-init service is removed. The three
+     background services start after the app is healthy, so the database is migrated and the bucket exists.
+rationale: >-
+  Isolation of heavy parsing from model calls, per-service sizing and network policy, and one code path with no
+  duplicated entry points. The bootstrap belongs with the app because it is part of making the app's own storage ready,
+  and a failure should stop the app rather than leave it half-configured.
+consequences: >-
+  Deployments run four application containers (app, worker, parser, agent) instead of two. A new job type must be added
+  to QUEUE_GROUPS and the matching WORKER_QUEUES in compose.yaml. The five-step chain, the worker database role and the
+  one-import-point rules (DEC-011, DEC-012) are unchanged: the roles differ only by which queues they subscribe to. The
+  OCR of scanned pages inside extract_text no longer counts against an analysis run's budget.
+tags:
+  - ams
+last_updated: '2026-10-11'
+related_decisions:
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+  - id: DEC-011
+    name: liteparse for document parsing, co-developed to AMS requirements
+    url: /DECISIONS.md#DEC-011
+  - id: DEC-012
+    name: Vercel AI SDK with the Anthropic provider behind aiExtract/aiOcr
+    url: /DECISIONS.md#DEC-012
+  - id: DEC-008
+    name: Host-agnostic deployment on open standards
+    url: /DECISIONS.md#DEC-008
+---

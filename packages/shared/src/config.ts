@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AI_PROVIDERS, type AiProvider } from './ai.js';
+import { parseWorkerQueues } from './permissions.js';
 
 /** Every runtime setting comes from the environment (DEC-008). Only open standards: PostgreSQL, S3, SMTP, OIDC. */
 export const envSchema = z.object({
@@ -13,6 +14,17 @@ export const envSchema = z.object({
   S3_BUCKET: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
+  // Garage admin API. Set only where the object store is a Garage node the app should prepare itself (layout, key, bucket)
+  // before it serves; leave unset on any other S3 host (AWS S3, MinIO ...), where nothing is bootstrapped.
+  GARAGE_ADMIN_URL: z.url().optional(),
+  GARAGE_ADMIN_TOKEN: z.string().min(1).optional(),
+  GARAGE_BOOTSTRAP_ATTEMPTS: z.coerce.number().int().positive().default(60),
+  GARAGE_BOOTSTRAP_DELAY_MS: z.coerce.number().int().nonnegative().default(2000),
+  // Background services (DEC-024): which job types this process takes (unset = every type) and its label in logs.
+  WORKER_QUEUES: z.string().optional().transform((v, ctx) => {
+    try { return parseWorkerQueues(v); } catch (e) { ctx.addIssue({ code: 'custom', message: (e as Error).message }); return z.NEVER; }
+  }),
+  WORKER_NAME: z.string().min(1).default('worker'),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   // Seed administrator, created on first start when the database has no institution.
   INSTITUTION_NAME: z.string().min(1).optional(),
@@ -63,7 +75,8 @@ export function loadAiEnv(source: Record<string, string | undefined> = process.e
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   // An empty value (as in a copied .env.example) means "not set".
-  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''));
+  // Except WORKER_QUEUES: set but empty is a mistake that would leave job types without a service, so it is refused.
+  const present = Object.fromEntries(Object.entries(source).filter(([k, v]) => v !== '' || k === 'WORKER_QUEUES'));
   const parsed = envSchema.safeParse(present);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');

@@ -3,7 +3,8 @@ import type { JobEnvelope, JobType } from '@ams/shared';
 
 /** Where services hand work to the background worker. The pg-boss implementation lives in jobs/pgboss-queue.ts. */
 export interface JobQueue {
-  send(type: JobType, envelope: JobEnvelope): Promise<void>;
+  /** `delaySeconds` holds the job back that long (a step that is waiting for another job to finish). */
+  send(type: JobType, envelope: JobEnvelope, opts?: { delaySeconds?: number }): Promise<void>;
 }
 
 /** Passed to every service function: the caller's transaction and identity. Services never open connections. */

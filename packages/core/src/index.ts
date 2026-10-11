@@ -23,3 +23,4 @@ export * from './evidence/dataset.js';
 export * from './evidence/forms.js';
 export * from './evidence/memory-store.js';
 export * from './evidence/s3-store.js';
+export * from './evidence/garage-bootstrap.js';

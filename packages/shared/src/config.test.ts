@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from './config.js';
+import { JOB_TYPES, QUEUE_GROUPS, QUEUE_GROUP_NAMES, queueGroupOf } from './permissions.js';
 
 const base = {
   APP_URL: 'http://localhost:3000',
@@ -27,5 +28,24 @@ describe('loadEnv', () => {
   });
   it('rejects a short auth secret', () => {
     expect(() => loadEnv({ ...base, AUTH_SECRET: 'short' })).toThrow(/AUTH_SECRET/);
+  });
+  it('WORKER_QUEUES: every job type when unset, a validated list when set, refused when empty or unknown', () => {
+    expect(loadEnv(base).WORKER_QUEUES).toEqual([...JOB_TYPES]);
+    expect(loadEnv({ ...base, WORKER_QUEUES: 'extract_text, notify' }).WORKER_QUEUES).toEqual(['extract_text', 'notify']);
+    expect(() => loadEnv({ ...base, WORKER_QUEUES: '' })).toThrow(/WORKER_QUEUES is empty/);
+    expect(() => loadEnv({ ...base, WORKER_QUEUES: ' , ' })).toThrow(/WORKER_QUEUES is empty/);
+    expect(() => loadEnv({ ...base, WORKER_QUEUES: 'notify,analyze' })).toThrow(/unknown job type\(s\) analyze/);
+  });
+  it('every job type belongs to exactly one queue group', () => {
+    const all = QUEUE_GROUP_NAMES.flatMap((g) => [...QUEUE_GROUPS[g]]);
+    expect([...all].sort()).toEqual([...JOB_TYPES].sort());
+    expect(new Set(all).size).toBe(all.length);
+    for (const t of JOB_TYPES) expect(QUEUE_GROUPS[queueGroupOf(t)]).toContain(t);
+  });
+  it('Garage bootstrap settings are optional', () => {
+    const env = loadEnv(base);
+    expect(env.GARAGE_ADMIN_URL).toBeUndefined();
+    expect(env.GARAGE_BOOTSTRAP_ATTEMPTS).toBe(60);
+    expect(loadEnv({ ...base, GARAGE_ADMIN_URL: 'http://garage:3903' }).GARAGE_ADMIN_URL).toBe('http://garage:3903');
   });
 });

@@ -21,17 +21,26 @@ graph LR
     API --> PG[(PostgreSQL 16)]
     API --> S3
     API -->|enqueue| PG
-    Worker[worker: pg-boss jobs] --> PG
+    Worker[worker: export, notify] --> PG
     Worker --> S3
-    Worker -->|parseDocument| LP[liteparse]
-    Worker -->|aiExtract / aiOcr| AI[AI SDK → Anthropic]
-    LP -->|VLM fallback = aiOcr| AI
-    Worker -.->|P1: datasetSource.fetch| Cube[Governed metrics layer]
+    Parser[parser: extract_text] --> PG
+    Parser --> S3
+    Parser -->|parseDocument| LP[liteparse]
+    Agent[agent: analyse, ai_extract, ocr] --> PG
+    Agent -->|extract_text job| PG
+    Agent -->|aiExtract / aiOcr| AI[AI SDK → AI provider]
+    LP -.->|optional OCR of scanned pages = aiOcr| AI
+    Agent -.->|P1: datasetSource.fetch| Cube[Governed metrics layer]
+    API -->|bootstrap, only if GARAGE_ADMIN_URL| S3
     API -->|OIDC / SAML| IdP[Institutional IdP]
 ```
 
 - **app** — Hono on Node. The only entry point for data access. Serves the built SPA. ([DEC-009](DECISIONS.md#DEC-009))
-- **worker** — pg-boss jobs: text extraction/OCR, AI extraction, exports (DOCX/PDF/XLSX/ZIP), notifications, dataset refresh. Same transaction helper and identity rules as the API. ([DEC-010](DECISIONS.md#DEC-010))
+- **worker, parser, agent** — pg-boss jobs, run as three services from one codebase and one entry point (`apps/worker/dist/main.js`); `WORKER_QUEUES` (job types) and `WORKER_NAME` tell them apart, and `QUEUE_GROUPS` in `packages/shared` assigns every job type to exactly one of them. Same transaction helper and identity rules as the API for all three. ([DEC-024](DECISIONS.md#DEC-024), [DEC-010](DECISIONS.md#DEC-010))
+  - **worker** — general jobs: exports (DOCX/PDF/XLSX/ZIP), notifications, dataset refresh.
+  - **parser** — reads documents (`extract_text`, liteparse via `parseDocument()`); CPU and memory heavy, so it is sized on its own. It calls a model only for the optional OCR of scanned pages. ([DEC-011](DECISIONS.md#DEC-011))
+  - **agent** — everything that calls an AI provider: framework analysis steps (`analyse`), `ai_extract`, `ocr`, and future mapping and report jobs; the only service that needs outbound internet. It never parses a document: when an analysis source has no page text its `read` stage queues an `extract_text` job for the parser and re-queues itself with a delay (bounded) until the pages exist. ([DEC-012](DECISIONS.md#DEC-012))
+  - Start order: `app` runs migrations and, when `GARAGE_ADMIN_URL` is set, prepares Garage (layout, key, bucket, grant) before it serves; the three services start once the app is healthy.
 - **PostgreSQL** — single database; RLS, immutability and audit triggers, job queue. ([DEC-007](DECISIONS.md#DEC-007))
 - **Object storage** — any S3-compatible service; private buckets; SHA-256 per object. ([DEC-008](DECISIONS.md#DEC-008))
 - **External** — institutional IdP (OIDC/SAML), AI provider (framework documents only), and in P1 the governed metrics layer. ([DEC-013](DECISIONS.md#DEC-013), [DEC-014](DECISIONS.md#DEC-014))
@@ -41,7 +50,7 @@ graph LR
 ```
 apps/web         React SPA (Vite) — UI only
 apps/api         Hono routes, middleware, OpenAPI
-apps/worker      pg-boss job handlers
+apps/worker      pg-boss subscriptions (one entry point; role by WORKER_QUEUES)
 packages/core    service modules: org, framework, engagement, evidence, reports,
                  responses, decisions, compiler, assessment
 packages/db      Drizzle schema, SQL migrations (RLS, triggers), fixtures

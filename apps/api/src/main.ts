@@ -5,7 +5,7 @@ import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PgBoss } from 'pg-boss';
 import pg from 'pg';
-import { ensureQueues, pgBossQueue, s3Store } from '@ams/core';
+import { bootstrapGarageFromEnv, ensureQueues, pgBossQueue, s3Store } from '@ams/core';
 import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
@@ -13,6 +13,13 @@ import { createAuth, sessionAuthenticator } from './auth.js';
 import { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
 
 const env = loadEnv();
+
+// When the object store is a Garage node this deployment runs (GARAGE_ADMIN_URL set), prepare it before anything serves:
+// layout, the S3 key, the bucket and the grant. Idempotent; a failure stops the start rather than serve half-configured.
+// The parser, agent and worker services wait for this app to be healthy, so the bucket exists before they touch files.
+const garage = await bootstrapGarageFromEnv(env, { log: (m) => console.log(JSON.stringify({ level: 'info', msg: 'garage bootstrap', detail: m })) });
+if (garage) console.log(JSON.stringify({ level: 'info', msg: 'garage ready', ...garage }));
+
 const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
 
 // Forward-only SQL migrations, applied before anything else touches the database. The worker never migrates.

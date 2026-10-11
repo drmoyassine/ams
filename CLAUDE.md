@@ -8,7 +8,7 @@ Loaded at the start of every Claude session in this repo. This file covers proje
 
 **The specification is `docs/PRD.md`.** Read §0 before any work. Build in the milestone order of PRD §18.4; each milestone's "done when" test must pass before the next starts. Roadmap items `ROADMAP-001…011` mirror the milestones; tasks hang off them.
 
-**Stack (DEC-007…DEC-015):** TypeScript · React SPA (Vite, TanStack Router/Query, shadcn/ui, Tiptap, TanStack Table) · Hono API on Node (Zod, OpenAPI, typed RPC client) · PostgreSQL 16 + Drizzle (SQL migrations, RLS, triggers) · Better Auth (OIDC/SAML/password) · S3-compatible storage · pg-boss worker · liteparse (`parseDocument()`) · Vercel AI SDK + Anthropic (`aiExtract`/`aiOcr`) · Docker + Compose.
+**Stack (DEC-007…DEC-015):** TypeScript · React SPA (Vite, TanStack Router/Query, shadcn/ui, Tiptap, TanStack Table) · Hono API on Node (Zod, OpenAPI, typed RPC client) · PostgreSQL 16 + Drizzle (SQL migrations, RLS, triggers) · Better Auth (OIDC/SAML/password) · S3-compatible storage · pg-boss background services (worker · parser · agent, DEC-024) · liteparse (`parseDocument()`) · Vercel AI SDK + Anthropic (`aiExtract`/`aiOcr`) · Docker + Compose.
 
 ## Skills (invoke directly)
 
@@ -105,14 +105,14 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 | Surface | How |
 |---|---|
 | Unit + integration tests | `pnpm test` (Vitest) |
-| End-to-end | `pnpm test:e2e` — `scripts/smoke.sh` against the running Compose stack (health, login, protected route, worker). Playwright browser tests join when the SPA has real flows |
+| End-to-end | `pnpm test:e2e` — `scripts/smoke.sh` against the running Compose stack (health, login, protected route, worker, parser and agent). Playwright browser tests join when the SPA has real flows |
 | Responsive layout | `pnpm test:responsive` (`--report-only` to not fail) — `e2e/responsive.mjs` boots the API + built SPA on a fresh test DB (needs PostgreSQL and `pnpm build`), signs in with Chromium and checks the main screens at 375/768/1280px for horizontal scroll; screenshots to `e2e/screenshots/` (gitignored). Playwright is not a repo dependency: uses `PLAYWRIGHT_MODULE` (default `/opt/node-tools/node_modules/playwright/index.mjs`) |
 | Route permission coverage | `pnpm test:routes` — enumerates Hono routes; fails on any route without `requires(...)` |
 | Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger. Needs PostgreSQL (`TEST_DATABASE_ADMIN_URL`, default `postgres://postgres:postgres@localhost:5432/postgres`) |
 | Types and lint | `pnpm typecheck && pnpm lint` |
 | Project memory | `npx vef check` (also in CI via `.github/workflows/vef.yml`) |
 | Local stack | `docker compose up` — app on :3000, Postgres :5432, Garage S3 :3900 (admin :3903) |
-| Logs | Structured JSON to stdout from `app` and `worker` |
+| Logs | Structured JSON to stdout from `app`, `worker`, `parser` and `agent` |
 
 (Commands above are created in M0 / TASK-001…009; keep this table accurate when they change.)
 

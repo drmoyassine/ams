@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Three background services; the app prepares Garage (TASK-049, DEC-024)
+
+Decisions: DEC-024 (new), DEC-010, DEC-011, DEC-012, DEC-008.
+- **One worker became three:** `worker` (export, notify), `parser` (extract_text), `agent` (analyse, ai_extract, ocr). Same code and entry point; `WORKER_QUEUES` picks the job types, `QUEUE_GROUPS` in `packages/shared` is the single table, and a test parses `compose.yaml` to keep them equal. Unset `WORKER_QUEUES` still means every type, so local dev and tests are unchanged.
+- **The agent no longer reads files.** The analysis `read` stage queues `extract_text` for the parser and waits by re-queuing itself (5 s, at most 360 looks); the pending job is kept in the run report. Learning: a retried job must not queue the reading twice, so the queued job id is recorded in the same transaction as the enqueue. Scanned-page OCR stays inside `extract_text` (liteparse hands each page image to the hook while parsing), so the parser makes the model call for it; separating it would mean re-parsing in the agent. It degrades to `needsOcr` without a provider.
+- **Garage setup moved into the app:** `garage-init` (a one-shot compose service that Easypanel handled badly) is gone; `bootstrapGarage` runs before the API serves when `GARAGE_ADMIN_URL` is set and stops the start on failure. The simplest robust wait order: the three services depend on `app: service_healthy`, and the app is healthy only after migrations and the bucket exist, so nothing else needs a shared step. The app health check got a 180 s start period for that reason.
+- Not verified on a live stack (no Docker daemon here); CI `compose-smoke` is the check.
+
+---
+
 ## 2026-10-10 — Settings -> AI: more providers than Anthropic (TASK-048)
 
 Decisions: DEC-012 (switching provider is configuration).

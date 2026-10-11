@@ -8,7 +8,7 @@ import { NotFoundError } from '../ctx.js';
  * Records a job row as the caller (audited, RLS-scoped) and publishes it to the queue once the transaction commits,
  * so a rolled-back request never leaves work behind.
  */
-export async function enqueueJob(ctx: Ctx, input: { type: JobType; payload: Record<string, unknown> }) {
+export async function enqueueJob(ctx: Ctx, input: { type: JobType; payload: Record<string, unknown>; delaySeconds?: number }) {
   const [row] = await ctx.tx.insert(job).values({
     institutionId: ctx.caller.institutionId, type: input.type, payload: input.payload,
   }).returning();
@@ -18,7 +18,7 @@ export async function enqueueJob(ctx: Ctx, input: { type: JobType; payload: Reco
     institutionId: ctx.caller.institutionId,
     userId: ctx.caller.userId,
     actorType: ctx.caller.actorType ?? (ctx.caller.userId ? 'user' : 'system'),
-  }));
+  }, input.delaySeconds ? { delaySeconds: input.delaySeconds } : undefined));
   return { id: created.id, status: created.status };
 }
 

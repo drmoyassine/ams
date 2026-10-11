@@ -1,7 +1,7 @@
 // Framework analysis end to end (PRD 15, step C): a person starts it, the worker runs it one small job at a time, and
 // the draft version gets the accreditor's requirements in their exact wording, with page, quote and verification.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { JobEnvelope } from '@ams/shared';
+import type { JobEnvelope, JobType } from '@ams/shared';
 import { ConflictError, ForbiddenError, type Ctx, type JobQueue } from '../../ctx.js';
 import { buildWorld, type World } from '../../engagement/test-support.js';
 import { createFakeAiModel, setAiModelForTests } from '../../ai/index.js';
@@ -15,15 +15,20 @@ import { createAccreditor, createFramework, createVersion, publishVersion, submi
 import { upsertReportTemplate } from '../templates.js';
 import { FIXTURE_GUIDE, FIXTURE_HANDBOOK, fixtureResponder } from './fixture.js';
 import { cancelAnalysis, getAnalysisRun, listAnalysisRuns, startAnalysis } from './runs.js';
+import { MAX_READ_WAITS } from './stages.js';
 
 let w: World;
-const sent: JobEnvelope[] = [];
-const queue: JobQueue = { send: async (_t, e) => { sent.push(e); } };
+// Every job goes through the fake queue with its type, so extract_text (the parser's) and analyse (the agent's) both run.
+const sent: (JobEnvelope & { type: JobType })[] = [];
+const queue: JobQueue = { send: async (type, e) => { sent.push({ ...e, type }); } };
 const as = <T>(who: string, fn: (c: Ctx) => Promise<T>) => w.as(who, (c) => fn({ ...c, queue, afterCommit: (f) => { void f(); } }));
 /** The worker: runs queued analysis steps until none is left (each step queues the next). */
 async function drain(max = 100) {
   let n = 0;
-  while (sent.length && n++ < max) await runJob(w.pool, 'analyse', sent.shift(), handlers, { store: w.store, queue });
+  while (sent.length && n++ < max) {
+    const { type, ...env } = sent.shift()!;
+    await runJob(w.pool, type, env, handlers, { store: w.store, queue });
+  }
   return n;
 }
 const q = async (sql: string, p: unknown[] = []) => (await w.db.su.query(sql, p)).rows;
@@ -194,7 +199,7 @@ describe('framework analysis', () => {
     }
   }, 120000);
 
-  it('reads a source that has a file but no page text first (step A, inline)', async () => {
+  it('a source with a file but no page text is read by the parser first: the agent queues extract_text and waits', async () => {
     const d = await as('alo', async (c) => {
       const acc = await createAccreditor(c, { name: 'Invented Council C', shortName: 'ICC', type: 'institutional' });
       const fw = await createFramework(c, { accreditorId: acc.id, name: 'S', scope: 'institution' });
@@ -205,11 +210,55 @@ describe('framework analysis', () => {
     });
     setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
     const run = await as('alo', (c) => startAnalysis(c, d.versionId));
-    await drain();
+    // The read step queues extract_text and itself (delayed); the parser's job runs, then the read step finds the pages.
+    const jobs: string[] = [];
+    while (sent.length && jobs.length < 100) {
+      jobs.push(sent[0]!.type);
+      const { type, ...env } = sent.shift()!;
+      await runJob(w.pool, type, env, handlers, { store: w.store, queue });
+    }
+    expect(jobs.slice(0, 4)).toEqual(['analyse', 'extract_text', 'analyse', 'analyse']);
+    expect(jobs.filter((t) => t === 'extract_text')).toHaveLength(1);
     expect((await q(`select count(*)::int n from source_page where source_document_id = $1`, [d.doc]))[0].n).toBe(4);
     const done = await as('alo', (c) => getAnalysisRun(c, run.id));
     expect(done.status).toBe('succeeded');
     expect((await tree(d.versionId)).map((r) => r.code)).toContain('1.1.1');
+  }, 120000);
+
+  it('a read that fails for good, or never finishes, ends the run with a clear message', async () => {
+    const mk = (edition: string) => as('alo', async (c) => {
+      const acc = await createAccreditor(c, { name: `Invented Council ${edition}`, shortName: `IC${edition}`, type: 'institutional' });
+      const fw = await createFramework(c, { accreditorId: acc.id, name: 'S', scope: 'institution' });
+      const ver = await createVersion(c, { frameworkId: fw.id, edition });
+      const doc = await addSourceDocument(c, { versionId: ver.id, title: 'Handbook', role: 'standards', authority: 'binding' });
+      await uploadSourceFile(c, doc.id, { fileName: 'h.pdf', mime: 'application/pdf', bytes: pdf(['One page']) });
+      return ver.id;
+    });
+    setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
+
+    // The reading job is lost its last attempt: the run fails with the job's own error.
+    const a = await mk('R1');
+    const runA = await as('alo', (c) => startAnalysis(c, a));
+    const readStep = sent.shift()!;
+    await runJob(w.pool, readStep.type, readStep, handlers, { store: w.store, queue }); // queues extract_text + a delayed read
+    const extract = sent.shift()!;
+    expect(extract.type).toBe('extract_text');
+    await w.db.su.query(`update job set status = 'failed', attempts = 4, error = 'worker crashed' where id = $1`, [extract.jobId]);
+    await drain();
+    expect(await as('alo', (c) => getAnalysisRun(c, runA.id))).toMatchObject({ status: 'failed', error: 'reading "Handbook" failed: worker crashed' });
+
+    // Nobody takes the reading job (no parser running): after the bounded number of waits the run fails.
+    const b = await mk('R2');
+    const runB = await as('alo', (c) => startAnalysis(c, b));
+    let waits = 0;
+    while (sent.length && waits < MAX_READ_WAITS + 5) {
+      const { type, ...env } = sent.shift()!;
+      if (type === 'extract_text') continue; // never picked up
+      await runJob(w.pool, type, env, handlers, { store: w.store, queue });
+      waits++;
+    }
+    expect(waits).toBe(MAX_READ_WAITS + 1);
+    expect(await as('alo', (c) => getAnalysisRun(c, runB.id))).toMatchObject({ status: 'failed', error: expect.stringMatching(/did not finish in time.*parser service/) });
   }, 120000);
 
   it('refuses to start without a draft, sources, AI or permission, and while a run is active', async () => {

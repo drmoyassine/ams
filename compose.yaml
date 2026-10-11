@@ -13,7 +13,7 @@ services:
       retries: 10
 
   garage:
-    # S3-compatible object storage (Garage). Pinned: the admin API used by scripts/garage-init.mjs is v1.
+    # S3-compatible object storage (Garage). Pinned: the admin API the app's startup bootstrap uses is v1.
     image: dxflrs/garage:v1.0.1
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}
@@ -31,32 +31,66 @@ services:
       retries: 6
       start_period: 10s
 
-  garage-init:
-    image: node:22-slim
-    depends_on:
-      garage: { condition: service_healthy }
-    environment:
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET:-ams}
-    volumes: [./scripts/garage-init.mjs:/init.mjs:ro]
-    command: ["node", "/init.mjs"]
-    restart: "no"
-
   app:
     build: { context: ., target: app }
     env_file: .env
+    environment:
+      # The app prepares Garage itself before it serves (layout, S3 key, bucket, grant; packages/core garage-bootstrap).
+      # Leave GARAGE_ADMIN_URL out on any other S3 host (AWS S3, MinIO ...): nothing is then bootstrapped.
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
     depends_on:
       postgres: { condition: service_healthy }
-      garage-init: { condition: service_completed_successfully }
+      garage: { condition: service_healthy }
+
+  # ---- Background work: three services from one image definition and one entry point (apps/worker/dist/main.js) ----
+  # They differ only in WORKER_QUEUES (the job types each takes; the table is QUEUE_GROUPS in packages/shared, and a test
+  # checks these values against it). They start only once the app is healthy: the app migrates the database and creates
+  # the bucket before it serves, so by then both exist. (DEC-024)
+  #
+  # Network: only `agent` needs outbound internet (AI providers, embeddings). `app`, `parser` and `worker` need only
+  # postgres and garage. Nothing is restricted here, so this runs unchanged on Easypanel; restrict egress for the others
+  # on your host if you want to. The AI_* / *_API_KEY variables are read by `agent` (and by `parser` only for the
+  # optional OCR of scanned pages, which falls back to "needs OCR" when it cannot reach a provider); `app` and `worker`
+  # never need them.
 
   worker:
+    # General work: export, notify. Needs neither document parsing nor a model.
     build: { context: ., target: worker }
     env_file: .env
+    environment:
+      WORKER_NAME: worker
+      WORKER_QUEUES: export,notify
     depends_on:
       postgres: { condition: service_healthy }
-      garage-init: { condition: service_completed_successfully }
+      garage: { condition: service_healthy }
+      app: { condition: service_healthy }
+
+  parser:
+    # Document reading (extract_text): CPU and memory heavy, so it is its own service and can be sized on its own.
+    build: { context: ., target: parser }
+    env_file: .env
+    environment:
+      WORKER_NAME: parser
+      WORKER_QUEUES: extract_text
+    depends_on:
+      postgres: { condition: service_healthy }
+      garage: { condition: service_healthy }
+      app: { condition: service_healthy }
+
+  agent:
+    # Everything that calls an AI model: framework analysis steps, and future mapping and report jobs. It parses no
+    # documents: a source without page text is queued to `parser` and the analysis waits for it.
+    # This is the only service that needs outbound internet.
+    build: { context: ., target: agent }
+    env_file: .env
+    environment:
+      WORKER_NAME: agent
+      WORKER_QUEUES: analyse,ai_extract,ocr
+    depends_on:
+      postgres: { condition: service_healthy }
+      garage: { condition: service_healthy }
+      app: { condition: service_healthy }
 
 volumes:
   pgdata:

@@ -10,8 +10,9 @@ const boss = new PgBoss(env.DATABASE_URL);
 boss.on('error', (err) => console.error(JSON.stringify({ level: 'error', msg: 'pg-boss', err: String(err) })));
 
 await boss.start();
-await startWorker(boss, pool, { store: s3Store(env) });
-console.log(JSON.stringify({ level: 'info', msg: 'worker started' }));
+// One entry point for the three background services (DEC-024); which one this is comes from WORKER_QUEUES / WORKER_NAME.
+const queues = await startWorker(boss, pool, { store: s3Store(env), queues: env.WORKER_QUEUES });
+console.log(JSON.stringify({ level: 'info', msg: 'worker started', name: env.WORKER_NAME, queues }));
 
 const shutdown = async () => {
   await boss.stop();

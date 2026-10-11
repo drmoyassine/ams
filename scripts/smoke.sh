@@ -26,6 +26,13 @@ curl -fsS "$BASE/openapi.json" | grep -q '/api/programs'
 curl -fsS "$BASE/" | grep -qi '<div id="root">'
 
 if command -v docker >/dev/null && docker compose ps worker >/dev/null 2>&1; then
-  docker compose logs worker | grep -q 'worker started' || { echo "worker did not start"; exit 1; }
+  for svc in worker parser agent; do
+    ok=0
+    for _ in $(seq 1 30); do
+      if docker compose logs "$svc" 2>/dev/null | grep -q 'worker started'; then ok=1; break; fi
+      sleep 1
+    done
+    [ "$ok" = 1 ] || { echo "$svc did not start"; exit 1; }
+  done
 fi
 echo "smoke test passed"

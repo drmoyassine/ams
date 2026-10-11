@@ -35,7 +35,7 @@ vef check
 
 ```bash
 pnpm install
-docker compose up -d postgres garage garage-init   # local services
+docker compose up -d postgres garage   # local services (set GARAGE_ADMIN_URL=http://localhost:3903 in .env so the API prepares the bucket on start)
 pnpm db:migrate && pnpm db:seed        # schema + fixtures
 pnpm dev                                # api + web + worker in watch mode
 pnpm typecheck && pnpm lint

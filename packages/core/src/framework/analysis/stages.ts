@@ -2,7 +2,9 @@
 // each queuing the next. The run row holds the stage and the position inside it (progress.cursor); a job whose stage and
 // cursor no longer match the run does nothing, so a retried or duplicated job is harmless and a crashed one resumes.
 //
-//   read      one source per job: reads its file into pages (step A, inline) when it has no page text yet
+//   read      one source per job: when it has a file but no page text yet, queues an extract_text job (the parser service
+//             reads documents; the agent never does) and waits for it by re-queuing itself with a delay, a bounded number
+//             of times. The reading failing, or taking longer than the bound, ends the run with a clear message.
 //   survey    one source per job: the AI proposes its role, language and outline
 //   structure one job: the AI proposes the level names, numbering, key terms and scope across the sources
 //   extract   one window of ~8 pages (1 page overlap) per job: the AI proposes requirements and notes (Appendix B)
@@ -17,11 +19,10 @@ import { analysisRun, extractionItem, frameworkVersion, job, requirement, source
 import { ACTIVE_ANALYSIS_STATUSES, ANALYSIS_STAGES, type AnalysisGap, type AnalysisProgress, type AnalysisStage, type AnalysisStats, type AnalysisUsage } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../../ctx.js';
-import { AiDisabledError, AiNotConfiguredError, aiExtract, aiOcr, BudgetExceeded, type AiRuntime } from '../../ai/index.js';
+import { AiDisabledError, AiNotConfiguredError, aiExtract, BudgetExceeded, type AiRuntime } from '../../ai/index.js';
 import { loadAiRuntime, maxRecoveryRounds } from '../../ai/settings.js';
 import { enqueueJob } from '../../jobs/jobs.js';
 import { getVersion } from '../common.js';
-import { extractText } from '../reading.js';
 import { formatPages, NOTE_ROLES, pageWindows, REQUIREMENT_ROLES, type DocInfo } from './merge.js';
 import { findGaps } from './gaps.js';
 import { gapCounts, planTasks, reconcileGaps, type RecoveryState, type RecoveryStop } from './recovery.js';
@@ -48,6 +49,8 @@ interface Report {
   structure?: Structure & { levelLabelsApplied: string[] | null };
   plan?: { windows: Window[] };
   readErrors?: Record<string, string>;
+  /** The extract_text job queued for each source being read, and how many times this run has waited for it. */
+  readJobs?: Record<string, { jobId: string; waits: number }>;
   stats?: AnalysisStats;
   /** Step D: every gap found, with where it ended up, and the state of the recovery rounds. */
   gaps?: AnalysisGap[];
@@ -55,7 +58,11 @@ interface Report {
   [k: string]: unknown;
 }
 type Next = { stage: AnalysisStage; cursor: number } | 'done';
-interface Step { next: Next; progress?: Partial<AnalysisProgress>; report?: Partial<Report> }
+interface Step {
+  next: Next; progress?: Partial<AnalysisProgress>; report?: Partial<Report>;
+  /** Queue the next job this many seconds from now (the step is waiting for another job). */
+  delaySeconds?: number;
+}
 
 /** Ends the run as failed with this reason; not retried (trying again would not help). */
 class AnalysisStop extends Error {}
@@ -77,7 +84,7 @@ async function step<T>(ctx: Ctx, fn: () => Promise<T>): Promise<T> {
 async function sources(ctx: Ctx, versionId: string) {
   return ctx.tx.select({
     id: sourceDocument.id, title: sourceDocument.title, role: sourceDocument.role, roleOrigin: sourceDocument.roleOrigin,
-    language: sourceDocument.language, fileName: sourceDocument.fileName,
+    language: sourceDocument.language, fileName: sourceDocument.fileName, textStatus: sourceDocument.textStatus,
     pages: sql<number>`(select count(*)::int from source_page p where p.source_document_id = source_document.id)`,
   }).from(sourceDocument).where(eq(sourceDocument.frameworkVersionId, versionId)).orderBy(asc(sourceDocument.createdAt), asc(sourceDocument.title), asc(sourceDocument.id));
 }
@@ -95,17 +102,47 @@ function docInfo(docs: Awaited<ReturnType<typeof sources>>, report: Report): Map
 
 // ---- The steps ---------------------------------------------------------------------------------------------------
 
-async function read(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report): Promise<Step> {
+/** How long a waiting `read` step sleeps before looking again, and how many looks it makes (about 30 minutes in all). */
+export const READ_WAIT_SECONDS = 5;
+export const MAX_READ_WAITS = 360;
+
+async function read(ctx: Ctx, run: Run, cursor: number, _runtime: AiRuntime, report: Report): Promise<Step> {
   const docs = await sources(ctx, run.frameworkVersionId);
   const d = docs[cursor];
+  const progress = { docsTotal: docs.length, docsDone: Math.min(cursor + 1, docs.length) };
   const after = (extra: Partial<Report> = {}): Step => ({
     next: cursor + 1 < docs.length ? { stage: 'read', cursor: cursor + 1 } : { stage: 'survey', cursor: 0 },
-    progress: { docsTotal: docs.length, docsDone: Math.min(cursor + 1, docs.length) }, report: extra,
+    progress, report: extra,
   });
   if (!d || d.pages > 0 || !d.fileName) return after();
-  // Step A inline: scanned pages are read by the AI under this run's budget.
-  const r = await extractText(ctx, { sourceDocumentId: d.id }, { ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, runtime })).text });
-  return after(r.ok ? {} : { readErrors: { ...report.readErrors, [d.id]: r.error ?? 'the file could not be read' } });
+  const label = `"${d.title}"`;
+  const queued = report.readJobs?.[d.id];
+  const wait = (readJobs: NonNullable<Report['readJobs']>): Step => ({
+    next: { stage: 'read', cursor }, progress: { ...progress, docsDone: cursor }, report: { readJobs }, delaySeconds: READ_WAIT_SECONDS,
+  });
+
+  if (!queued) {
+    // The agent does not parse documents: the parser service does, from the same stored file. OCR of scanned pages, where
+    // Settings -> AI has it on, happens in that job, so it is not part of this run's budget.
+    await ctx.tx.update(sourceDocument).set({ textStatus: 'queued' }).where(eq(sourceDocument.id, d.id));
+    const j = await enqueueJob(ctx, { type: 'extract_text', payload: { sourceDocumentId: d.id } });
+    return wait({ ...report.readJobs, [d.id]: { jobId: j.id, waits: 0 } });
+  }
+
+  const [j] = await ctx.tx.select({ status: job.status, attempts: job.attempts, error: job.error, result: job.result }).from(job).where(eq(job.id, queued.jobId));
+  if (!j) throw new AnalysisStop(`reading ${label} stopped: its reading job ${queued.jobId} no longer exists`);
+  if (j.status === 'succeeded') {
+    const result = (j.result ?? {}) as { ok?: boolean; error?: string };
+    // A file that cannot be read is recorded and the run goes on with the other sources, as before.
+    return after({ readErrors: { ...report.readErrors, [d.id]: result.ok === false ? result.error ?? 'the file could not be read' : 'the file has no text to read' } });
+  }
+  if (j.status === 'failed' && j.attempts >= MAX_ANALYSIS_ATTEMPTS) {
+    throw new AnalysisStop(`reading ${label} failed: ${j.error ?? 'the reading job stopped without an answer'}`);
+  }
+  if (queued.waits + 1 >= MAX_READ_WAITS) {
+    throw new AnalysisStop(`reading ${label} did not finish in time (the reading job is ${j.status}); is the parser service running?`);
+  }
+  return wait({ ...report.readJobs, [d.id]: { ...queued, waits: queued.waits + 1 } });
 }
 
 const SURVEY_PAGES = 30;
@@ -364,7 +401,7 @@ async function save(ctx: Ctx, run: Run, stage: AnalysisStage, s: Step, usage: An
   const [row] = await ctx.tx.update(analysisRun).set({
     stage: at.stage, progress, usage, report, model, status: done ? 'succeeded' : 'running', ...(done ? { finishedAt: new Date(), error: null } : {}),
   }).where(and(eq(analysisRun.id, run.id), inArray(analysisRun.status, ACTIVE))).returning({ id: analysisRun.id });
-  if (row && !done) await enqueueJob(ctx, { type: 'analyse', payload: { runId: run.id, stage: at.stage, cursor: at.cursor } });
+  if (row && !done) await enqueueJob(ctx, { type: 'analyse', payload: { runId: run.id, stage: at.stage, cursor: at.cursor }, ...(s.delaySeconds ? { delaySeconds: s.delaySeconds } : {}) });
   return !!row;
 }
 
