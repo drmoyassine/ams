@@ -1,9 +1,10 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
+  MergeRequirementSchema, SplitRequirementSchema, listReviewItems, mergeRequirement, splitRequirement,
   indentRequirement, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement,
 } from '@ams/core';
-import { NoteSchema, RequirementDetailSchema, RequirementSchema, toDto } from '@ams/shared';
+import { MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -67,6 +68,27 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       method: 'delete', path: '/api/requirements/{id}', access: requires('framework:write'), tags: tag,
       request: { params: idParam }, responses: noContent,
     }), async (c) => { await deleteRequirement(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/review-items', access: requires('framework:read'), tags: tag,
+      description: 'The requirements and notes of a version that deserve a look first: quote not found, low confidence, placed at the top level for want of a parent, suggested by the analysis.',
+      request: { params: idParam },
+      responses: { 200: { description: 'Only items with at least one reason', ...json(ReviewItemsSchema) }, ...errors },
+    }), async (c) => c.json(toDto(ReviewItemsSchema, await listReviewItems(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/merge', access: requires('framework:write'), tags: tag,
+      description: 'Merges this requirement into another of the same draft: its notes and children move to the target, which keeps its own wording unless asked. Refused on a published version.',
+      request: { params: idParam, body: { required: true, ...json(MergeRequirementSchema) } },
+      responses: { 200: { description: 'Merged; the target as it is now', ...json(MergeResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(MergeResultSchema, await mergeRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/split', access: requires('framework:write'), tags: tag,
+      description: 'Moves a chosen part of the requirement\'s text out into a new sibling requirement with its own code. Both keep the source; the new one\'s quote is verified against the stored page. Refused on a published version.',
+      request: { params: idParam, body: { required: true, ...json(SplitRequirementSchema) } },
+      responses: { 201: { description: 'Split', ...json(SplitResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(SplitResultSchema, await splitRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/requirements/{id}/review', access: requires('framework:review'), tags: tag,

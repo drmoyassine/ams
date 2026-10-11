@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle */
+/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, Buffer */
 // Responsiveness check (`pnpm test:responsive`): boots the real API + built SPA against a fresh test database, signs in
 // through the login page in Chromium, and visits the main screens at 375, 768 and 1280 px. For each page and width it
 // asserts the page does not scroll horizontally and saves a full-page screenshot to e2e/screenshots/<width>/<page>.png.
@@ -136,6 +136,17 @@ async function seedDemo(db, base) {
         {"key":"conflict:CFR 1.1","kind":"conflict","status":"conflict","code":"CFR 1.1","documentId":null,"page":null,"round":0,"attempts":0,"detail":"different wording in two documents (pages 12 and 47)","reason":null,"requirementId":null},
         {"key":"req:CFR 3.9","kind":"numbering_gap","status":"confirmed_absent","code":"CFR 3.9","documentId":null,"page":null,"round":1,"attempts":1,"detail":"between CFR 3.8 and CFR 3.10","reason":"The numbering goes from 3.8 to 3.10.","requirementId":null}]}')`, [inst, draft.id]);
   } catch (e) { console.warn(`seed: analysis draft skipped (${e.message})`); }
+  // The same draft gets a source with page text and requirements citing it, for the split view and "Needs a look".
+  if (ids.draftId) {
+    try {
+      const [{ id: doc }] = await q(`insert into source_document (institution_id, framework_version_id, title, role, authority, file_path, sha256) values ($1,$2,'Accreditation handbook (responsive check)','standards','binding','p',$3) returning id`, [inst, ids.draftId, 'e'.repeat(64)]);
+      await q(`insert into source_page (institution_id, source_document_id, page_no, text, method) values ($1,$2,1,$3,'pdf_text'),($1,$2,2,$4,'pdf_text')`,
+        [inst, doc, 'Institutions must publish their mission statement and review it every year, together with a very long unbroken wording that has to wrap on a phone rather than push the page sideways.', 'يَجِبُ أَنْ تَكُونَ لِلْمُؤَسَّسَةِ رِسَالَةٌ مُعْلَنَةٌ وَمُعْتَمَدَةٌ تُراجَعُ كُلَّ سَنَةٍ.']);
+      const reqs = await q(`select id from requirement where framework_version_id = $1 and parent_id is null order by display_order, code limit 2`, [ids.draftId]);
+      if (reqs[0]) await q(`update requirement set origin = 'ai', source_document_id = $2, source_page = 1, source_quote = 'must publish their mission statement', quote_verified = true where id = $1`, [reqs[0].id, doc]);
+      if (reqs[1]) await q(`update requirement set origin = 'ai', source_document_id = $2, source_page = 2, source_quote = 'a quote that is not on the page at all', quote_verified = false where id = $1`, [reqs[1].id, doc]);
+    } catch (e) { console.warn(`seed: split-view sources skipped (${e.message})`); }
+  }
   const warn = (what, e) => console.warn(`seed: ${what} skipped (${e.message})`);
   // Two saved AI accounts (the screen opens on Models when there are some), so the cards, the model pickers and the add dialog have content.
   try {
@@ -174,6 +185,16 @@ async function expandFirst(page) {
   return false;
 }
 const clickTab = (name) => async (page) => { await page.getByRole('tab', { name }).first().click(); };
+const FILES = [
+  { name: 'Accreditation handbook 2027 with a long name.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 handbook') },
+  { name: 'دليل المعايير والمؤشرات الخاصة باعتماد المؤسسات.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('docx') },
+  { name: 'criteria.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('xlsx') },
+];
+const openCreateFromFiles = async (page) => { await page.getByRole('button', { name: 'Create from files' }).first().click(); await page.getByRole('dialog').waitFor(); };
+const menuItem = (item) => async (page) => {
+  await page.getByRole('button', { name: /^Actions for / }).first().click();
+  await page.getByRole('menuitem', { name: item }).click();
+};
 
 function pagesFor(ids) {
   return [
@@ -195,6 +216,28 @@ function pagesFor(ids) {
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
     ids.draftId && { name: 'version-sources', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
     ids.draftId && { name: 'version-report', path: `/settings/versions/${ids.draftId}?tab=report` },
+    // F2: Create from files, and the split view of a draft's requirements (the viewer beside the list on wide screens, a bottom sheet on small ones).
+    { name: 'create-from-files', path: '/settings/external-standards', action: openCreateFromFiles },
+    { name: 'create-from-files-filled', path: '/settings/external-standards', action: async (page) => {
+      await openCreateFromFiles(page);
+      await page.getByLabel('Accreditor', { exact: true }).selectOption({ label: 'A new accreditor…' });
+      await page.getByLabel('Accreditor name').fill('Responsive Check Accreditation Council with a long name');
+      await page.getByLabel('Accreditor short name').fill('RCAC');
+      await page.getByLabel('Standard name').fill('Institutional Standards for the responsive check');
+      await page.getByLabel('Edition').fill('2027');
+      await page.getByLabel('Choose files').setInputFiles(FILES);
+      await page.getByTestId('chosen-file').first().waitFor();
+    } },
+    ids.draftId && { name: 'version-split-view', path: `/settings/versions/${ids.draftId}`, action: async (page) => {
+      await page.getByTestId('requirement-card').first().getByRole('button', { expanded: false }).first().click();
+      await page.getByRole('button', { name: /^Show the source of / }).first().click();
+      await page.getByTestId('source-page-text').waitFor();
+    } },
+    ids.draftId && { name: 'version-needs-a-look', path: `/settings/versions/${ids.draftId}`, action: async (page) => {
+      await page.getByRole('button', { name: /^Quote not found/ }).first().click();
+    } },
+    ids.draftId && { name: 'version-merge-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Merge into another requirement')(page); await page.getByRole('dialog').waitFor(); } },
+    ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
 
@@ -290,6 +333,7 @@ async function main() {
           await page.screenshot({ path: join(dir, `${p.name}.png`), fullPage: true });
         } catch (e) {
           results.push({ width, name: p.name, error: e.message.split('\n')[0] });
+          await page.screenshot({ path: join(dir, `${p.name}.error.png`), fullPage: true }).catch(() => undefined); // to see where it stopped
         }
       }
       if (errors.length) console.warn(`page errors at ${width}px:\n  ${[...new Set(errors)].join('\n  ')}`);

@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type {
   AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
-  SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
+  SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
 import { api as defaultApi, type createApi } from './api';
@@ -14,6 +14,12 @@ export type Note = z.infer<typeof NoteSchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type SourceDocument = z.infer<typeof SourceDocumentSchema>;
 export type SourcePage = z.infer<typeof SourcePageSchema>;
+export type SourcePageView = z.infer<typeof SourcePageViewSchema>;
+export type ReviewItems = z.infer<typeof ReviewItemsSchema>;
+export type StandardFromFiles = z.infer<typeof StandardFromFilesSchema>;
+export type SourceLimits = z.infer<typeof SourceLimitsSchema>;
+export type MergeResult = z.infer<typeof MergeResultSchema>;
+export type SplitResult = z.infer<typeof SplitResultSchema>;
 export type RequirementDetail = z.infer<typeof RequirementDetailSchema>;
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 export type ImportResult = z.infer<typeof ImportResultSchema>;
@@ -64,6 +70,12 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       api.api.frameworks.$post({ json }).then((r) => unwrap<{ id: string }>(r)),
     createVersion: (frameworkId: string, json: { edition: string; changeSummary?: string }) =>
       api.api.frameworks[':id'].versions.$post({ param: { id: frameworkId }, json }).then((r) => unwrap<Version>(r)),
+    /** "Create from files": the accreditor (new or existing), the standard, its draft and one source per file, in one request. The files are uploaded next, one by one. */
+    createStandardFromFiles: (json: {
+      accreditorId?: string; accreditor?: { name: string; shortName: string; type?: 'institutional' | 'programmatic' | 'regulatory'; country?: string };
+      name: string; scope: 'institution' | 'program' | 'both'; edition: string; files: { name: string; size?: number }[];
+    }) => v['from-files'].$post({ json }).then((r) => unwrap<StandardFromFiles>(r)),
+    sourceLimits: () => api.api['source-limits'].$get().then((r) => unwrap<SourceLimits>(r)),
     qualityFramework: () => api.api['quality-framework'].$get().then((r) => unwrap<QualityFramework>(r)),
     addQualityItem: (versionId: string, json: { code: string; title: string; description?: string }) =>
       v[':id']['quality-items'].$post({ param: { id: versionId }, json }).then((r) => unwrap<Requirement>(r)),
@@ -148,6 +160,14 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     pages: (id: string) => api.api['source-documents'][':id'].pages.$get({ param: { id } }).then((r) => unwrap<SourcePage[]>(r)),
     setPage: (id: string, pageNo: number, text: string) =>
       api.api['source-documents'][':id'].pages[':pageNo'].$put({ param: { id, pageNo: String(pageNo) }, json: { text } }).then((r) => unwrap<SourcePage>(r)),
+    /** One page for the split view, with the stretch the quote matches (found on the server by the verifier's matcher). */
+    pageView: (id: string, pageNo: number, quote?: string) =>
+      api.api['source-documents'][':id'].pages[':pageNo'].view.$get({ param: { id, pageNo: String(pageNo) }, query: quote ? { quote } : {} }).then((r) => unwrap<SourcePageView>(r)),
+    reviewItems: (versionId: string) => v[':id']['review-items'].$get({ param: { id: versionId } }).then((r) => unwrap<ReviewItems>(r)),
+    mergeRequirement: (id: string, json: { intoId: string; useMergedWording?: boolean }) =>
+      api.api.requirements[':id'].merge.$post({ param: { id }, json }).then((r) => unwrap<MergeResult>(r)),
+    splitRequirement: (id: string, json: { part: string; code: string; title?: string }) =>
+      api.api.requirements[':id'].split.$post({ param: { id }, json }).then((r) => unwrap<SplitResult>(r)),
     deletePage: (id: string, pageNo: number) => api.api['source-documents'][':id'].pages[':pageNo'].$delete({ param: { id, pageNo: String(pageNo) } }).then((r) => unwrap<void>(r)),
     /** Framework analysis (step C): runs over the draft's sources, newest first; start; one run; cancel. */
     analysisRuns: (versionId: string) => v[':id'].analysis.$get({ param: { id: versionId } }).then((r) => unwrap<AnalysisRun[]>(r)),

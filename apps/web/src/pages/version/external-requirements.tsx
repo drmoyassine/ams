@@ -1,23 +1,28 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { AiMarker, QuoteNotFoundBadge } from '../../components/badges';
+import { BottomSheet } from '../../components/bottom-sheet';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { distinctTitle } from '../../lib/format';
-import type { FrameworkApi, Requirement, Version } from '../../lib/framework-api';
+import type { FrameworkApi, MergeResult, Requirement, SplitResult, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
+import { LOOK_HINT, LOOK_KINDS, LOOK_LABEL, lookCounts, lookItems, nextLookItem, visibleRequirements, type LookKind } from './needs-look';
 import { AddNote, NotePanel } from './requirements-tab';
+import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
+import { SourceViewer, useWide, type Citation } from './source-viewer';
 
-/** The shaded tag: the code, with the level in front when the code alone is only a number ("Criterion 3", "Item 3(1)"). */
-const tagOf = (r: Requirement) => (/[\p{L}]/u.test(r.code) ? r.code : `${r.levelLabel} ${r.code}`);
 /** What follows the tag: the title, unless it only repeats the code. */
 const titleOf = (r: Requirement) => distinctTitle(r.code, r.title);
-const nameOf = (r: Requirement) => [tagOf(r), titleOf(r)].filter(Boolean).join(' · ');
+const clip = (s: string, n = 48) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/** The requirement or note whose source is shown beside the list. */
+type Selection = { kind: 'requirement' | 'note'; id: string; requirementId: string } | null;
 
 interface DialogValues { code: string; title: string; description: string; assessable: boolean; level: string; parentId: string }
 
@@ -85,32 +90,47 @@ interface NodeProps {
   api: FrameworkApi; version: Version; me: Me | undefined; r: Requirement; all: Requirement[]; levels: string[];
   editable: boolean; open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
   onAddChild: (r: Requirement) => void; onEdit: (r: Requirement) => void; setError: (m: string) => void; invalidateTree: () => Promise<unknown>;
+  /** The item whose source is shown, and how to show another's (`sheet`: also open the bottom sheet on a small screen). */
+  selected: Selection; onSelect: (s: NonNullable<Selection>, sheet?: boolean) => void;
+  /** Why an item needs a look, by requirement or note id; the requirements to show while a filter is on (null: all). */
+  look: Map<string, LookKind[]>; visible: Set<string> | null;
+  onMerge: (r: Requirement) => void; onSplit: (r: Requirement) => void; onMove: (r: Requirement) => void;
 }
 
 /** One requirement as a card; its children follow indented below it. */
 function Node(p: NodeProps) {
-  const { api, version, r, all, levels, editable, open, toggle, act } = p;
+  const { api, version, r, all, levels, editable, open, toggle, act, selected, look } = p;
   const qc = useQueryClient();
   const isOpen = open.has(r.id);
-  const children = all.filter((x) => x.parentId === r.id);
+  const allChildren = all.filter((x) => x.parentId === r.id);
+  const children = allChildren.filter((x) => !p.visible || p.visible.has(x.id));
   const top = !r.parentId;
   const detail = useQuery({ queryKey: ['requirement', r.id], queryFn: () => api.requirement(r.id), enabled: isOpen });
   const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id), enabled: isOpen && editable });
   const invalidate = async () => { await qc.invalidateQueries({ queryKey: ['requirement', r.id] }); await p.invalidateTree(); };
   const childLevel = levels[Math.min((r.depth ?? 0) + 1, levels.length - 1)];
+  const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
+  const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
   const menu = [
+    ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
     ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
-    ...(editable ? [{ label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${nameOf(r)}?`)) void act(() => api.deleteRequirement(r.id)); } }] : []),
+    ...(editable ? [
+      { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
+      { label: 'Split', onSelect: () => p.onSplit(r) },
+      { label: 'Move to…', onSelect: () => p.onMove(r) },
+      { label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${nameOf(r)}?`)) void act(() => api.deleteRequirement(r.id)); } },
+    ] : []),
   ];
   return (
     <>
       <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
         open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tagOf(r)}`} menu={menu}
-        meta={<span className="flex items-center gap-2">
-          {children.length > 0 && <span className="text-xs text-muted-foreground">{children.length} {children.length === 1 ? 'item' : 'items'}</span>}
+        meta={<span className="flex flex-wrap items-center gap-2">
+          {allChildren.length > 0 && <span className="text-xs text-muted-foreground">{allChildren.length} {allChildren.length === 1 ? 'item' : 'items'}</span>}
           <span className="text-xs text-muted-foreground">{r.levelLabel}</span>
           {r.origin === 'ai' && <AiMarker />}
-          {r.origin === 'ai' && r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
+          {r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
+          {reasons.map((k) => <span key={k} title={LOOK_HINT[k]} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{LOOK_LABEL[k]}</span>)}
         </span>}
         hover={(
           <HoverCard>
@@ -127,11 +147,18 @@ function Node(p: NodeProps) {
               <ContentText>{r.sourceQuote}</ContentText> <span>(page {r.sourcePage})</span>
             </blockquote>
           )}
+          {r.sourceDocumentId && (
+            <Button type="button" variant="outline" className="mt-1 px-3 py-1" aria-label={`Show the source of ${tagOf(r)}`} aria-pressed={selected?.kind === 'requirement' && selected.id === r.id} onClick={showSource}>Source</Button>
+          )}
         </div>
         <div className="space-y-1">
           <Shaded>Notes</Shaded>
           <ul className="space-y-2">
-            {(detail.data?.notes ?? []).map((n) => <NotePanel key={n.id} api={api} note={n} editable={editable} canReview={false} perLineReview={false} invalidate={invalidate} setError={p.setError} />)}
+            {(detail.data?.notes ?? []).map((n) => (
+              <NotePanel key={n.id} api={api} note={n} editable={editable} canReview={false} perLineReview={false} invalidate={invalidate} setError={p.setError}
+                selected={selected?.kind === 'note' && selected.id === n.id} reasons={(look.get(n.id) ?? []).filter((k) => k !== 'quoteNotFound').map((k) => LOOK_LABEL[k])}
+                onShowSource={() => p.onSelect({ kind: 'note', id: n.id, requirementId: r.id }, true)} />
+            ))}
             {detail.data?.notes.length === 0 && <li className="text-sm text-muted-foreground">No notes.</li>}
           </ul>
           {editable && <AddNote api={api} requirementId={r.id} docs={docs.data ?? []} invalidate={invalidate} setError={p.setError} />}
@@ -148,26 +175,50 @@ function Node(p: NodeProps) {
 
 /**
  * An external standard's requirements, laid out like the internal framework's: full-width closable cards with a shaded
- * tag, items indented under their parent, a ⋯ menu to add, edit or delete (while the version is a draft), and
- * "+ Requirement" opening a dialog. Lines are not approved one by one: publishing the version is the review (DEC-022), so
- * the cards show provenance (AI, source page and quote, a quote not found) but no review status. Notes (guidance, expectations) sit inside each card. Evidence is not linked here:
- * it is linked once to the internal standards these map onto.
+ * tag, items indented under their parent, a ⋯ menu to add, edit, merge, split, move or delete (while the version is a draft),
+ * and "+ Requirement" opening a dialog. Lines are not approved one by one: publishing the version is the review (DEC-022), so
+ * the cards show provenance (AI, source page and quote, a quote not found) but no review status. Notes (guidance, expectations)
+ * sit inside each card. Evidence is not linked here: it is linked once to the internal standards these map onto.
+ *
+ * Split view (PRD 15.1 step 6): selecting a requirement or note shows where it comes from, the stored page text of its source
+ * with the cited quote highlighted: beside the list on wide screens (each scrolls on its own), in a bottom sheet opened from
+ * the card's Source button on small ones. "Needs a look" chips filter the list to what a person should check first.
  */
-export function ExternalRequirements({ api, version, me, focusId }: { api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null }) {
+export function ExternalRequirements({ api, version, me, focusId, onOpenSource }: {
+  api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null;
+  /** Opens a source page in the Sources section. */ onOpenSource?: (documentId: string, page: number) => void;
+}) {
   const qc = useQueryClient();
+  const wide = useWide();
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'merge' | 'split' | 'move'; item: Requirement } | null>(null);
+  const [selected, setSelected] = useState<Selection>(null);
+  const [sheet, setSheet] = useState(false);
+  const [filter, setFilter] = useState<LookKind | null>(null);
+  const [lastLook, setLastLook] = useState<string | null>(null);
+  const [scrollTo, setScrollTo] = useState<{ kind: 'requirement' | 'note'; id: string } | null>(null);
   const tree = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
-  const invalidateTree = () => qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+  const review = useQuery({ queryKey: ['review-items', version.id], queryFn: () => api.reviewItems(version.id) });
+  const documents = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id) });
+  const invalidateTree = async () => {
+    await qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+    await qc.invalidateQueries({ queryKey: ['review-items', version.id] });
+  };
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(invalidateTree); };
   const draft = version.status === 'draft';
   const editable = draft && can(me, 'framework:write');
-  const all = tree.data ?? [];
+  const all = useMemo(() => tree.data ?? [], [tree.data]);
   const tops = all.filter((r) => !r.parentId);
   const levels = (version.levelLabels as string[] | undefined) ?? [];
-  const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const select = (s: NonNullable<Selection>, withSheet = false) => { setSelected(s); if (withSheet && !wide) setSheet(true); };
+  const toggle = (id: string) => {
+    const opening = !open.has(id);
+    setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    if (opening) setSelected({ kind: 'requirement', id, requirementId: id }); // the viewer beside the list follows the card you open
+  };
   const close = () => { setDialog(null); setError(''); };
   const loaded = !!tree.data;
   useEffect(() => {
@@ -177,6 +228,78 @@ export function ExternalRequirements({ api, version, me, focusId }: { api: Frame
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, [focusId, loaded]);
 
+  // ---- Needs a look ----
+  const items = useMemo(() => lookItems(review.data, all), [review.data, all]);
+  const counts = useMemo(() => lookCounts(items), [items]);
+  const look = useMemo(() => new Map(items.map((i) => [i.id, i.reasons] as const)), [items]);
+  const visible = useMemo(() => visibleRequirements(filter, items, all), [filter, items, all]);
+  const goNext = useCallback(() => {
+    const target = nextLookItem(items, lastLook, filter);
+    if (!target) return;
+    setLastLook(target.id);
+    setOpen((s) => new Set([...s, target.requirementId]));
+    setSelected({ kind: target.kind, id: target.id, requirementId: target.requirementId });
+    setScrollTo({ kind: target.kind, id: target.id });
+  }, [items, lastLook, filter]);
+  const nextRef = useRef(goNext);
+  nextRef.current = goNext;
+  const dialogOpen = dialog !== null;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'n' || e.ctrlKey || e.metaKey || e.altKey || dialogOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      e.preventDefault();
+      nextRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dialogOpen]);
+  // After "Next", bring the item into view and give it the keyboard focus (a note may still be loading: look for a moment).
+  useEffect(() => {
+    if (!scrollTo) return;
+    let tries = 0;
+    const find = () => {
+      const el = document.getElementById(scrollTo.kind === 'note' ? `note-${scrollTo.id}` : `requirement-${scrollTo.id}`);
+      if (el) {
+        if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+        const target = scrollTo.kind === 'note' ? el : el.querySelector<HTMLElement>('button[aria-expanded]');
+        target?.focus({ preventScroll: true });
+        setScrollTo(null);
+        return true;
+      }
+      return ++tries > 30;
+    };
+    if (find()) return;
+    const t = setInterval(() => { if (find()) clearInterval(t); }, 100);
+    return () => clearInterval(t);
+  }, [scrollTo]);
+
+  // ---- The source of the selected item ----
+  const selectedReq = selected ? all.find((r) => r.id === selected.requirementId) : undefined;
+  const selectedDetail = useQuery({ queryKey: ['requirement', selected?.requirementId], queryFn: () => api.requirement(selected!.requirementId), enabled: !!selected });
+  const citations: Citation[] = useMemo(() => {
+    if (!selected || !selectedReq) return [];
+    const title = (id: string) => documents.data?.find((d) => d.id === id)?.title ?? 'Source';
+    const own: Citation[] = selectedReq.sourceDocumentId && selectedReq.sourcePage
+      ? [{ key: `r:${selectedReq.id}`, label: `${tagOf(selectedReq)} · ${title(selectedReq.sourceDocumentId)}, page ${selectedReq.sourcePage}`, documentId: selectedReq.sourceDocumentId, page: selectedReq.sourcePage, quote: selectedReq.sourceQuote }]
+      : [];
+    const notes: Citation[] = (selectedDetail.data?.notes ?? []).filter((n) => n.sourceDocumentId && n.sourcePage).map((n) => ({
+      key: `n:${n.id}`, label: `Note “${clip(n.text)}” · ${title(n.sourceDocumentId!)}, page ${n.sourcePage}`, documentId: n.sourceDocumentId!, page: n.sourcePage!, quote: n.sourceQuote,
+    }));
+    const first = selected.kind === 'note' ? `n:${selected.id}` : `r:${selectedReq.id}`;
+    return [...own, ...notes].sort((a, b) => Number(b.key === first) - Number(a.key === first));
+  }, [selected, selectedReq, selectedDetail.data, documents.data]);
+  const viewerTitle = selectedReq ? `${nameOf(selectedReq)}${selected?.kind === 'note' ? ' (note)' : ''}` : '';
+  const viewer = selected && selectedReq
+    ? <SourceViewer key={`${selected.kind}:${selected.id}`} api={api} title={viewerTitle} citations={citations} {...(onOpenSource ? { onOpenInSources: onOpenSource } : {})} />
+    : <p className="text-sm text-muted-foreground">Select a requirement or a note to see where it comes from: the page of the source, with its quote highlighted.</p>;
+
+  // ---- Saving ----
+  const afterChange = async () => {
+    await invalidateTree();
+    await qc.invalidateQueries({ queryKey: ['requirement'] });
+  };
   const saveNew = async (v: DialogValues) => {
     setError('');
     const r = await run(() => api.createRequirement(version.id, {
@@ -196,26 +319,99 @@ export function ExternalRequirements({ api, version, me, focusId }: { api: Frame
     await qc.invalidateQueries({ queryKey: ['requirement', item.id] });
     if (r) close();
   };
-  const nodeProps = {
-    api, version, me, all, levels, editable, open, toggle, act, setError, invalidateTree,
-    onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }), onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
+  const saveMerge = async (item: Requirement, intoId: string, useMergedWording: boolean) => {
+    setError('');
+    const r = await run(() => api.mergeRequirement(item.id, { intoId, useMergedWording })) as MergeResult | undefined;
+    await afterChange();
+    if (!r) return;
+    setOpen((s) => new Set([...s, r.requirement.id]));
+    setSelected((cur) => (cur?.requirementId === item.id ? { kind: 'requirement', id: r.requirement.id, requirementId: r.requirement.id } : cur));
+    setNotice(`Merged ${tagOf(item)} into ${tagOf(r.requirement)}: ${r.movedNotes} note${r.movedNotes === 1 ? '' : 's'} and ${r.movedChildren} item${r.movedChildren === 1 ? '' : 's'} moved.${r.mappingsOnMergedCode ? ` ${r.mappingsOnMergedCode} link${r.mappingsOnMergedCode === 1 ? '' : 's'} to your standards still name the old code ${item.code}; they were not changed.` : ''}`);
+    close();
   };
+  const saveSplit = async (item: Requirement, v: { part: string; code: string; title: string }) => {
+    setError('');
+    const r = await run(() => api.splitRequirement(item.id, { part: v.part, code: v.code, ...(v.title ? { title: v.title } : {}) })) as SplitResult | undefined;
+    await afterChange();
+    if (!r) return;
+    setOpen((s) => new Set([...s, r.original.id, r.created.id]));
+    setSelected({ kind: 'requirement', id: r.created.id, requirementId: r.created.id });
+    setNotice(`Split ${tagOf(r.original)}: ${tagOf(r.created)} was created${r.created.quoteVerified ? '' : '. Its quote was not found on the source page, so it is marked Quote not found'}.`);
+    close();
+  };
+  const saveMove = async (item: Requirement, parentId: string | null) => {
+    setError('');
+    const r = await run(() => api.moveRequirement(item.id, { parentId }));
+    await invalidateTree();
+    if (r) { setOpen((s) => new Set([...s, item.id])); close(); }
+  };
+  const nodeProps = {
+    api, version, me, all, levels, editable, open, toggle, act, setError, invalidateTree, selected, onSelect: select, look, visible,
+    onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }), onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
+    onMerge: (item: Requirement) => { setError(''); setDialog({ kind: 'merge', item }); },
+    onSplit: (item: Requirement) => { setError(''); setDialog({ kind: 'split', item }); },
+    onMove: (item: Requirement) => { setError(''); setDialog({ kind: 'move', item }); },
+  };
+  const shown = tops.filter((r) => !visible || visible.has(r.id));
+  const flagged = items.length;
+
+  const list = (
+    <div className="space-y-2" aria-label="Requirements" role="list">
+      {shown.map((r) => <div role="listitem" key={r.id} className="space-y-2"><Node {...nodeProps} r={r} /></div>)}
+      {filter && shown.length === 0 && <p className="text-sm text-muted-foreground">Nothing is marked “{LOOK_LABEL[filter]}”.</p>}
+    </div>
+  );
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">{all.length} requirement{all.length === 1 ? '' : 's'}</span>
         {all.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
         {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Requirement</Button>}
       </div>
       {!draft && <p className="text-xs text-muted-foreground">This version is {version.status === 'in_review' ? 'in review' : 'published'} and fixed. Use Start a new version to change it.</p>}
+      {all.length > 0 && review.data && (
+        <section aria-label="Needs a look" className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
+          <span className="text-sm font-medium">Needs a look</span>
+          {LOOK_KINDS.map((k) => (
+            <button key={k} type="button" aria-pressed={filter === k} disabled={counts[k] === 0 && filter !== k} title={LOOK_HINT[k]} onClick={() => setFilter(filter === k ? null : k)}
+              className={`rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>
+              {LOOK_LABEL[k]} <span data-testid={`look-count-${k}`}>({counts[k]})</span>
+            </button>
+          ))}
+          {filter && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setFilter(null)}>Show all</Button>}
+          <Button type="button" variant="outline" className="ms-auto px-3 py-1" disabled={flagged === 0} aria-keyshortcuts="n" title="Shortcut: n" onClick={goNext}>Next item that needs a look</Button>
+          {flagged === 0 && <span className="basis-full text-xs text-muted-foreground">Nothing needs a look: every quote was found and nothing was left unplaced.</span>}
+        </section>
+      )}
       {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {notice && (
+        <p role="status" className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900">
+          <span className="min-w-0 flex-1 break-words">{notice}</span>
+          <button type="button" aria-label="Dismiss" className="shrink-0 underline" onClick={() => setNotice('')}>Dismiss</button>
+        </p>
+      )}
       {tree.data && all.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
-      <div className="space-y-2" aria-label="Requirements" role="list">
-        {tops.map((r) => <div role="listitem" key={r.id} className="space-y-2"><Node {...nodeProps} r={r} /></div>)}
-      </div>
+      {wide ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,22rem)] items-start gap-4">
+          <div className="max-h-[calc(100dvh-15rem)] min-w-0 overflow-y-auto pe-2" data-testid="requirement-list">{list}</div>
+          <aside aria-label="Source viewer" className="sticky top-2 max-h-[calc(100dvh-15rem)] min-w-0 overflow-y-auto rounded-lg border border-border p-3" data-testid="source-panel">{viewer}</aside>
+        </div>
+      ) : list}
+      {!wide && sheet && selected && (
+        <BottomSheet labelledBy="source-sheet-title" onClose={() => setSheet(false)}>
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <h2 id="source-sheet-title" className="min-w-0 pt-1 text-lg font-semibold break-words">Where this comes from</h2>
+            <Button type="button" variant="ghost" aria-label="Close" onClick={() => setSheet(false)}>✕</Button>
+          </div>
+          {viewer}
+        </BottomSheet>
+      )}
       {dialog?.kind === 'add' && <RequirementDialog editing={null} parent={dialog.parent} levels={levels} rows={all} error={error} onClose={close} onSave={saveNew} />}
       {dialog?.kind === 'edit' && <RequirementDialog editing={dialog.item} parent={null} levels={levels} rows={all} error={error} onClose={close} onSave={(v) => saveEdit(dialog.item, v)} />}
+      {dialog?.kind === 'merge' && <MergeDialog api={api} item={dialog.item} rows={all} error={error} onClose={close} onMerge={(into, mine) => saveMerge(dialog.item, into, mine)} />}
+      {dialog?.kind === 'split' && <SplitDialog item={dialog.item} error={error} onClose={close} onSplit={(v) => saveSplit(dialog.item, v)} />}
+      {dialog?.kind === 'move' && <MoveDialog item={dialog.item} rows={all} error={error} onClose={close} onMove={(parent) => saveMove(dialog.item, parent)} />}
     </div>
   );
 }

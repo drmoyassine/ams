@@ -91,6 +91,8 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
       setSettingsSection(section); setTab('settings');
     },
   };
+  // "Open in Sources" in the split view: the same focus mechanism the report uses.
+  const openSource = (documentId: string, page: number) => reportNav.onShowPage(documentId, page);
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
   const internal = !!version?.internal;
   const framework = useQuery({ queryKey: ['framework', version?.frameworkId], queryFn: () => api.framework(version!.frameworkId), enabled: !!version && !internal });
@@ -188,7 +190,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         </div>
       )}
       <div role="tabpanel">
-        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} />)}
+        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
         {!internal && tab === 'report' && <ReportTab api={api} versionId={version.id} runId={runId} onSelectRun={selectRun} nav={reportNav} title={`${f?.name ?? 'Standard'} ${versionLabel(version.edition)}`} />}
         {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(settingsSection ? { initial: settingsSection } : {})} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}

@@ -7,6 +7,7 @@ import { Dialog } from '../components/dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { CreateFromFilesDialog } from './create-from-files';
 import { ApiError, type FrameworkApi, type Issue } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
 
@@ -139,7 +140,7 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
   const { t } = useTranslation();
   const api = useApi(apiProp);
   const me = useMe(api);
-  const [creating, setCreating] = useState<null | 'choose' | 'import'>(null);
+  const [creating, setCreating] = useState<null | 'choose' | 'import' | 'files'>(null);
   const { data, isError } = useQuery({ queryKey: ['frameworks'], queryFn: () => api.frameworks() });
   const canWrite = can(me.data, 'framework:write');
 
@@ -147,15 +148,21 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="min-w-0 text-xl font-semibold break-words sm:text-2xl">{t('framework.title', 'External Standards')}</h1>
-        {canWrite && <Button type="button" onClick={() => setCreating('choose')}>New Standard</Button>}
+        {canWrite && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={() => setCreating('files')}>Create from files</Button>
+            <Button type="button" variant="outline" onClick={() => setCreating('choose')}>New Standard</Button>
+          </div>
+        )}
       </div>
       {isError && <p role="alert">Could not load standards.</p>}
       <p className="text-sm text-muted-foreground">Accreditors' standards. Add or import one, edit its requirements while it is a draft, then publish it; map its requirements to your internal standards in each version's Mappings tab.</p>
-      {data?.length === 0 && <p className="text-muted-foreground">No standards yet.{canWrite ? ' Use New Standard to import one or start from scratch.' : ''}</p>}
+      {data?.length === 0 && <p className="text-muted-foreground">No standards yet.{canWrite ? ' Use Create from files to add one from the accreditor documents, or New Standard to import or start from scratch.' : ''}</p>}
       <ul className="space-y-3" aria-label="Standards">
         {(data ?? []).map((f) => <li key={f.id}><StandardCard f={f} api={api} canWrite={canWrite} onImport={() => setCreating('import')} /></li>)}
       </ul>
-      {creating && <NewStandardDialog api={api} canReview={can(me.data, 'framework:review')} start={creating === 'import' ? 'import' : null} onClose={() => setCreating(null)} />}
+      {creating === 'files' && <CreateFromFilesDialog api={api} onClose={() => setCreating(null)} />}
+      {(creating === 'choose' || creating === 'import') && <NewStandardDialog api={api} canReview={can(me.data, 'framework:review')} start={creating === 'import' ? 'import' : null} onClose={() => setCreating(null)} />}
     </section>
   );
 }
