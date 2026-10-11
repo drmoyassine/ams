@@ -11,6 +11,7 @@
 //   recover   one question group per job (cursor = its index in the round): a targeted aiExtract (recover.v1) on a few
 //             pages; what it brings back is logged like the extraction's and goes through the same checks and merge
 //   write     one job: deterministic checks, merge, parents by code, upsert into the draft (write.ts)
+//   embed, map, propose_new   the IQF mapping (step E, mapping-stages.ts): suggested links and suggested new IQF items
 //   finalise  one job: counts, and the run succeeds
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { analysisRun, extractionItem, frameworkVersion, job, requirement, sourceDocument, sourcePage } from '@ams/db';
@@ -27,6 +28,7 @@ import { findGaps } from './gaps.js';
 import { gapCounts, planTasks, reconcileGaps, type RecoveryState, type RecoveryStop } from './recovery.js';
 import { getAnalysisRunRow } from './runs.js';
 import { ANALYSIS_PROMPTS, ExtractSchema, RecoverSchema, StructureSchema, SURVEY_ROLE_TO_DOCUMENT_ROLE, SurveySchema, type Structure } from './schemas.js';
+import { isMappingStage, MAPPING_STEPS, mappingBudgetStop } from './mapping-stages.js';
 import { loadRunState, writeAnalysis } from './write.js';
 import { normalizeCode } from './merge.js';
 
@@ -309,13 +311,13 @@ async function recover(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, r
 
 async function write(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime, report: Report): Promise<Step> {
   const stats = await writeAnalysis(ctx, run, docInfo(await sources(ctx, run.frameworkVersionId), report));
-  if (!report.recovery) return { next: { stage: 'finalise', cursor: 0 }, report: { stats } };
+  if (!report.recovery) return { next: { stage: 'embed', cursor: 0 }, report: { stats } };
   // Each gap links to the requirement card it is about, now that the rows exist.
   const ids = new Map((await ctx.tx.select({ id: requirement.id, code: requirement.code }).from(requirement).where(eq(requirement.frameworkVersionId, run.frameworkVersionId)))
     .map((r) => [normalizeCode(r.code), r.id]));
   const gapList = (report.gaps ?? []).map((g) => ({ ...g, requirementId: g.code ? ids.get(normalizeCode(g.code)) ?? null : null }));
   return {
-    next: { stage: 'finalise', cursor: 0 },
+    next: { stage: 'embed', cursor: 0 },
     report: { stats: { ...stats, ...gapCounts(gapList), recoveryRounds: report.recovery.rounds.length }, gaps: gapList },
   };
 }
@@ -332,7 +334,7 @@ async function finalise(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime
 }
 
 const STEPS: Record<AnalysisStage, (ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report) => Promise<Step>> = {
-  read, survey, structure, extract, gaps, recover, write, finalise,
+  read, survey, structure, extract, gaps, recover, write, ...MAPPING_STEPS, finalise,
 };
 
 // ---- Bookkeeping ---------------------------------------------------------------------------------------------------
@@ -412,6 +414,12 @@ export async function analyseJob(ctx: Ctx, payload: Record<string, unknown>) {
     if (e instanceof BudgetExceeded && p.stage === 'recover') {
       // The spend limit ends the recovery, not the run: the last check closes the round and everything is written.
       const s: Step = { next: { stage: 'gaps', cursor: (report.recovery?.round ?? 0) + 1 }, report: { recovery: { ...report.recovery!, stopped: 'budget' } } };
+      await save(ctx, run, p.stage, s, usage, runtime.config.model);
+      return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
+    }
+    if (e instanceof BudgetExceeded && isMappingStage(p.stage)) {
+      // The spend limit ends the mapping, not the run: the requirements are written and the suggestions so far stay.
+      const s = mappingBudgetStop(report);
       await save(ctx, run, p.stage, s, usage, runtime.config.model);
       return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
     }

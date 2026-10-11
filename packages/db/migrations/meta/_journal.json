@@ -309,6 +309,13 @@
       "when": 1791700000000,
       "tag": "0043_ai_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791695353312,
+      "tag": "0044_iqf_mapping_proposals",
+      "breakpoints": true
     }
   ]
 }

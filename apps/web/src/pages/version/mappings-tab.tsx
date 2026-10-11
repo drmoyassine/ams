@@ -10,6 +10,7 @@ import { requirementLabel } from '../../lib/format';
 import type { FrameworkApi, Mapping, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
+import { Suggestions } from './suggestions';
 
 const RELATION = { covers: 'Covers', partly_covers: 'Partly covers', related: 'Related' } as const;
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -25,7 +26,8 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
   const reqs = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const maps = useQuery({ queryKey: ['mappings', version.id], queryFn: () => api.mappings(version.id) });
   const run = useAction(setError);
-  const act = (fn: () => Promise<unknown>) => { setError(''); void run(fn).then(() => qc.invalidateQueries({ queryKey: ['mappings', version.id] })); };
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['mappings', version.id] }), qc.invalidateQueries({ queryKey: ['iqf-proposals', version.id] })]);
+  const act = (fn: () => Promise<unknown>) => { setError(''); void run(fn).then(() => refresh()); };
   const canWrite = can(me, 'framework:write');
   const canReview = can(me, 'framework:review');
 
@@ -57,10 +59,12 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
   };
 
   return (
+    <>
+    <Suggestions api={api} versionId={version.id} maps={maps.data} requirements={reqs.data} canReview={canReview} canWrite={canWrite} onChanged={() => void refresh()} />
     <div className="grid gap-6 md:grid-cols-2">
       <div className="min-w-0">
         <p className="mb-2 text-sm text-muted-foreground">Choose a requirement, then say which items of your internal quality framework answer it. Mappings are yours: they stay when this standard gets a new version.</p>
-        {stale.length > 0 && <p role="status" className="mb-2 text-sm text-amber-800">{stale.length} mapping{stale.length === 1 ? '' : 's'} point at something that no longer exists in this version or in your internal quality framework.</p>}
+        {stale.length > 0 && <p role="status" className="mb-2 text-sm text-amber-800">{stale.length} mapping{stale.length === 1 ? '' : 's'} point at something that is not in this version or not in the published version of your internal quality framework (yet).</p>}
         <ul role="tree" aria-label="Requirements to map" className="space-y-1">
           {rows.map((r) => (
             <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
@@ -90,7 +94,8 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
                       : <span className="font-medium">{RELATION[m.relation]}</span>}
                     <ContentText>{requirementLabel(m.internalCode, m.internalTitle ?? '')}</ContentText>
                     <ReviewBadge status={m.reviewStatus} />
-                    {m.stale && <span className="text-xs text-amber-800">no longer exists</span>}
+                    {m.origin === 'ai' && m.reviewStatus === 'pending' && <span className="text-xs text-muted-foreground">Suggested link</span>}
+                    {m.stale && <span className="text-xs text-amber-800">not in the published IQF or this version</span>}
                   </div>
                   {m.rationale && <p className="mt-1 text-muted-foreground"><ContentText>{m.rationale}</ContentText></p>}
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -120,5 +125,6 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -1,5 +1,7 @@
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
+import { mapV1 } from './map.v1.js';
+import { newiqfV1 } from './newiqf.v1.js';
 import { ocrV1 } from './ocr.v1.js';
 import { recoverV1 } from './recover.v1.js';
 import { structureV1 } from './structure.v1.js';
@@ -19,6 +21,9 @@ export const PROMPTS = {
   extract: { v1: extractV1 },
   // Step D: narrow questions about a few pages when the checks found a gap.
   recover: { v1: recoverV1 },
+  // Step E: judge shortlisted IQF items for each external requirement; draft new IQF items where nothing fits.
+  map: { v1: mapV1 },
+  newiqf: { v1: newiqfV1 },
 } as const satisfies Record<string, Record<string, string>>;
 
 export type PromptTask = keyof typeof PROMPTS;

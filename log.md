@@ -14,6 +14,17 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Analysis proposes links to the IQF and new IQF items (TASK-050)
+
+Decisions: DEC-006, DEC-021, DEC-022, DEC-023. ROADMAP-009 step E.
+- **Same job chain, three more stages:** `embed`, `map`, `propose_new` run after `write` and before `finalise` (no new job type; the `agent` service still runs `analyse`). Code lives in new files (`mapping-stages.ts`, `shortlist.ts`, `iqf-context.ts`, `mapping/proposals.ts`); `stages.ts` only routes to them and sends a spend-limit stop in these stages to `finalise` (the mapping ends, the run does not fail).
+- **Ranking never decides.** Shortlist = words (in-core BM25 over normalised, stemmed tokens with the Arabic folding of `quote-match.ts`, title containment, explicit code references) fused by rank with vector similarity when embeddings are on; padded with top-level IQF items when too few words match. The model judges each candidate (`map.v1`); similarity numbers are kept nowhere. No pg_trgm: the in-core scorer needs no extension (DEC-008).
+- **Proposals look like proposals.** Links reuse `requirement_mapping` (origin `ai`, review `pending`, reason in `rationale`); new items are `iqf_item_proposal` rows. Migration 0044: the worker can only insert pending proposals and refresh untouched ones (guard triggers, same style as 0039/0041); `edited_by_person` on links; the worker guard now also refuses the internal framework, so the worker can never write the IQF; the publish gate's "AI item needs a source page" is for external standards only (an accepted IQF item has none; the IQF still needs every item approved).
+- **The demo data has no external-to-IQF mappings** (only glossary terms), contrary to what the brief assumed, so the evaluation set is hand-labelled: 64 pairs in `packages/core/eval/mapping-labels.json`. Lexical recall@10: 48.4% overall (WSCUC 68.6%, ABET 77.8%, Arabic PUC 0.0%). The Arabic number is the case for embeddings; the hybrid number still needs a real endpoint (`pnpm analysis:eval-mapping` with `EMBED_*`). Accreditor names are not allowed in `packages/*/src` (DEC-002 test), so the labels are data outside `src`.
+- **Learnings:** a re-run must pre-check what the database guard would refuse (a refused update aborts the step's savepoint); the IQF has a fixed depth (its level names), so a new item proposed under the deepest level goes under its ancestor; accepting a proposal needs both `framework:review` and `framework:write`.
+
+---
+
 ## 2026-10-10 — Settings -> AI: more providers than Anthropic (TASK-048)
 
 Decisions: DEC-012 (switching provider is configuration).

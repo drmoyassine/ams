@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  AnalysisRun, ImportResultSchema, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
+  AcceptCoversResult, AcceptIqfProposal, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
@@ -22,7 +22,7 @@ export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Mappings = z.infer<typeof MappingsSchema>;
 export type Mapping = z.infer<typeof MappingSchema>;
 export type Issue = { path: string; message: string };
-export type { AnalysisRun };
+export type { AnalysisRun, AcceptCoversResult, AcceptIqfProposal, IqfItemProposal, IqfProposals };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
 export class ApiError extends Error {
@@ -81,6 +81,11 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       api.api.mappings[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Mapping>(r)),
     reviewMapping: (id: string, decision: 'approved' | 'rejected') =>
       api.api.mappings[':id'].review.$post({ param: { id }, json: { decision } }).then((r) => unwrap<Mapping>(r)),
+    /** Step E: suggested new quality framework items, accepting them, dismissing them, and accepting every suggested "covers" link of a list. */
+    iqfProposals: (versionId: string) => v[':id']['iqf-proposals'].$get({ param: { id: versionId } }).then((r) => unwrap<IqfProposals>(r)),
+    acceptIqfProposal: (id: string, json: AcceptIqfProposal) => api.api['iqf-proposals'][':id'].accept.$post({ param: { id }, json }).then((r) => unwrap<IqfItemProposal>(r)),
+    dismissIqfProposal: (id: string) => api.api['iqf-proposals'][':id'].dismiss.$post({ param: { id } }).then((r) => unwrap<IqfItemProposal>(r)),
+    acceptCovers: (versionId: string, ids: string[]) => v[':id'].mappings['accept-covers'].$post({ param: { id: versionId }, json: { ids } }).then((r) => unwrap<AcceptCoversResult>(r)),
     deleteMapping: (id: string) => api.api.mappings[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     setQualityLevels: (levelLabels: string[]) => api.api['quality-framework'].levels.$put({ json: { levelLabels } }).then((r) => unwrap<QualityFramework>(r)),
     importFile: (json: { file: unknown; edition?: string; autoApprove?: boolean }) =>

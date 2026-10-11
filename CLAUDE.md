@@ -109,6 +109,7 @@ These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
 | Responsive layout | `pnpm test:responsive` (`--report-only` to not fail) — `e2e/responsive.mjs` boots the API + built SPA on a fresh test DB (needs PostgreSQL and `pnpm build`), signs in with Chromium and checks the main screens at 375/768/1280px for horizontal scroll; screenshots to `e2e/screenshots/` (gitignored). Playwright is not a repo dependency: uses `PLAYWRIGHT_MODULE` (default `/opt/node-tools/node_modules/playwright/index.mjs`) |
 | Route permission coverage | `pnpm test:routes` — enumerates Hono routes; fails on any route without `requires(...)` |
 | Database rules | `pnpm db:test` — RLS isolation, immutability triggers, audit trigger. Needs PostgreSQL (`TEST_DATABASE_ADMIN_URL`, default `postgres://postgres:postgres@localhost:5432/postgres`) |
+| IQF mapping shortlist (DEC-023) | `pnpm analysis:eval-mapping` (needs `pnpm build`) — shortlist recall@10 of the lexical ranking over the hand-labelled set in `packages/core/eval/mapping-labels.json` (demo standards against the starting template's items); with `EMBED_BASE_URL`, `EMBED_MODEL`, `EMBED_DIMENSION` (and `EMBED_API_KEY`) set it also prints the hybrid (words + meaning) recall next to it. No database; the unit test covers the lexical path only |
 | Types and lint | `pnpm typecheck && pnpm lint` |
 | Project memory | `npx vef check` (also in CI via `.github/workflows/vef.yml`) |
 | Local stack | `docker compose up` — app on :3000, Postgres :5432, Garage S3 :3900 (admin :3903) |

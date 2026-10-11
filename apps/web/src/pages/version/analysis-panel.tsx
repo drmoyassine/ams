@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AnalysisGap, AnalysisGapKind, AnalysisGapStatus, AnalysisStage, AnalysisStats, AnalysisStatus } from '@ams/shared';
+import type { AnalysisGap, AnalysisGapKind, AnalysisGapStatus, AnalysisMapping, AnalysisStage, AnalysisStats, AnalysisStatus } from '@ams/shared';
 import { Button } from '../../components/ui/button';
 import { ContentText } from '../../components/content-text';
 import type { AnalysisRun, FrameworkApi } from '../../lib/framework-api';
@@ -9,7 +9,8 @@ import { useAction } from '../../lib/use-action';
 const STAGE_LABEL: Record<AnalysisStage, string> = {
   read: 'Reading the files', survey: 'Looking at each document', structure: 'Finding how the standards are organised',
   extract: 'Taking out requirements and notes', gaps: 'Checking for gaps', recover: 'Asking about the gaps',
-  write: 'Checking quotes and writing to the draft', finalise: 'Finishing',
+  write: 'Checking quotes and writing to the draft', embed: 'Preparing to compare with your quality framework', map: 'Suggesting links to your quality framework',
+  propose_new: 'Drafting new quality framework items', finalise: 'Finishing',
 };
 const STATUS_LABEL: Record<AnalysisStatus, string> = { queued: 'Queued', running: 'Running', succeeded: 'Finished', failed: 'Stopped', cancelled: 'Cancelled' };
 const STATUS_CLS: Record<AnalysisStatus, string> = {
@@ -49,8 +50,10 @@ export function progressText(r: AnalysisRun): string {
   if (r.stage === 'read' || r.stage === 'survey') { if (p.docsTotal) parts.push(`document ${Math.min((p.docsDone ?? 0) + 1, p.docsTotal)} of ${p.docsTotal}`); }
   if (checking && p.maxRounds !== undefined) parts.push(`round ${Math.max(1, p.round ?? 1)} of ${p.maxRounds}`);
   if (r.stage === 'recover' && p.tasksTotal) parts.push(`${p.tasksDone ?? 0}/${p.tasksTotal} questions`);
-  if (p.windowsTotal && !checking) parts.push(`${p.windowsDone ?? 0}/${p.windowsTotal} windows`);
-  if (p.items !== undefined) parts.push(`${n(p.items)} item${p.items === 1 ? '' : 's'} so far`);
+  if (p.windowsTotal && !checking && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${p.windowsDone ?? 0}/${p.windowsTotal} windows`);
+  if (r.stage === 'map' && p.mapTotal) parts.push(`${Math.min(p.mapDone ?? 0, p.mapTotal)}/${p.mapTotal} requirements`);
+  if (r.stage === 'propose_new' && p.groupsTotal) parts.push(`${Math.min(p.groupsDone ?? 0, p.groupsTotal)}/${p.groupsTotal} groups`);
+  if (p.items !== undefined && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${n(p.items)} item${p.items === 1 ? '' : 's'} so far`);
   parts.push(spendText(r.usage));
   return parts.join(' · ');
 }
@@ -70,6 +73,24 @@ export function statsText(s: AnalysisStats | undefined): string {
     ...(s.conflicts ? [plural(s.conflicts, 'conflict')] : []),
     ...(s.uncoveredPages ? [`${plural(s.uncoveredPages, 'page')} not covered`] : []),
     ...(s.dismissedSkipped ? [`${plural(s.dismissedSkipped, 'item')} you deleted ${s.dismissedSkipped === 1 ? 'was' : 'were'} not re-added`] : []),
+  ].join(' · ');
+}
+
+/**
+ * What the IQF mapping suggested, in words (step E): counts only, never a score or a share. Says how candidates were found
+ * ("words and meaning" or "words only") and why mapping did not run or stopped early.
+ */
+export function mappingText(m: AnalysisMapping | undefined): string {
+  if (!m) return '';
+  if (m.skipped) return `No links suggested: ${m.skipped.charAt(0).toLowerCase()}${m.skipped.slice(1)}`;
+  const by = [m.links.covers && `${m.links.covers} covers`, m.links.partly_covers && `${m.links.partly_covers} partly covers`, m.links.related && `${m.links.related} related`].filter(Boolean).join(', ');
+  return [
+    `Suggested links: ${plural(m.mapped, 'requirement')}${by ? ` (${by})` : ''}`,
+    ...(m.noSuggestion ? [`${m.noSuggestion} without a suggestion`] : []),
+    ...(m.newItems ? [`${plural(m.newItems, 'suggested new IQF item')}`] : []),
+    ...(m.skippedDecided ? [`${m.skippedDecided} already decided, left alone`] : []),
+    m.retrieval === 'hybrid' ? 'candidates found by words and meaning' : 'candidates found by words only',
+    ...(m.stopped === 'budget' ? ['stopped at the spend limit'] : []),
   ].join(' · ');
 }
 
@@ -179,6 +200,7 @@ export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten,
                 <span className={`rounded px-1.5 text-xs ${STATUS_CLS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
                 <span className="text-xs text-muted-foreground">{new Date(r.startedAt ?? r.createdAt).toLocaleString('en')}</span>
                 {stats && <span className="min-w-0 text-xs">{statsText(stats)}</span>}
+                {(r.report as { mapping?: AnalysisMapping }).mapping && <span data-testid="mapping-summary" className="min-w-0 text-xs">{mappingText((r.report as { mapping?: AnalysisMapping }).mapping)}</span>}
                 <span className="text-xs text-muted-foreground">{spendText(r.usage)}</span>
                 {r.status === 'failed' && r.error && <span className="min-w-0 text-xs text-red-700">{r.error}</span>}
               </li>
