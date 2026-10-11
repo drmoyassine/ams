@@ -126,6 +126,38 @@ describe('AI settings page', () => {
     expect((await db.su.query(`select api_key_enc from ai_account`)).rows[0].api_key_enc).not.toContain(KEY);
   });
 
+  it('adding an account saves only the account: the dialog form never submits the settings form around it', { timeout: 20000 }, async () => {
+    const user = userEvent.setup();
+    const api = apiFor('admin');
+    const saveSettings = vi.spyOn(api, 'updateAiSettings');
+    render(wrap(<AiSettingsPage api={api} />));
+    await user.click(await screen.findByRole('button', { name: 'Add account' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.closest('form')).toBeNull(); // forms do not nest
+    await user.selectOptions(within(dialog).getByLabelText('Provider'), 'openrouter');
+    await user.type(within(dialog).getByLabelText('API key'), 'sk-or-v1-abcdef123456');
+    await user.type(within(dialog).getByLabelText('API key'), '{Enter}');
+    const list = await screen.findByRole('list', { name: 'AI accounts' });
+    expect(within(list).getByRole('heading', { name: 'OpenRouter' })).toBeTruthy();
+    expect(saveSettings).not.toHaveBeenCalled();
+    // It is still there after a reload of the page.
+    cleanup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await user.click(await screen.findByRole('tab', { name: 'Accounts' }));
+    expect(within(await screen.findByRole('list', { name: 'AI accounts' })).getByRole('heading', { name: 'OpenRouter' })).toBeTruthy();
+  });
+
+  it('shows an unexplained failure inside the dialog instead of failing silently', async () => {
+    const user = userEvent.setup();
+    const api = apiFor('admin');
+    vi.spyOn(api, 'createAiAccount').mockRejectedValue(new Error('Failed to fetch'));
+    render(wrap(<AiSettingsPage api={api} />));
+    await user.click(await screen.findByRole('button', { name: 'Add account' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add account' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/could not be saved: Failed to fetch/);
+  });
+
   it('shows the server\'s reason when an account cannot be added', async () => {
     const user = userEvent.setup();
     render(wrap(<AiSettingsPage api={apiFor('admin')} />));

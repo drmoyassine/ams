@@ -457,3 +457,7 @@ Connection, Limits and Embeddings are now tabs (the tab survives a save); the Sa
 ## 2026-10-11 — Migration order fix (0044)
 
 0044's journal timestamp was earlier than 0043's. Drizzle applies only migrations newer than the last one applied, so a database that already had 0043 would have silently skipped 0044 (the IQF proposals table). Its timestamp now sits between 0043 and 0045. Safe because no database can have applied 0044 before 0043.
+
+## 2026-10-11 — Settings → AI: adding an account did not stick
+
+The Accounts panel (with its "Add account" dialog, itself a form) sat inside the settings form, so submitting the dialog also submitted the settings form, which saved settings in the same moment and re-keyed the page under the open dialog. The Accounts panel now sits outside the settings form, the settings form ignores submits that did not come from itself, and the dialog shows any unexplained failure instead of failing silently. Regression tests added.

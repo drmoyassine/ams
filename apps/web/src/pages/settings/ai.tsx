@@ -19,8 +19,8 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
-function AiForm({ api, initial, accounts, canEdit, tab, setTab, onAccountsChanged, saved, setSaved }: {
-  api: SettingsApi; initial: AiSetting; accounts: AiAccount[]; canEdit: boolean; tab: Tab; setTab: (t: Tab) => void; onAccountsChanged: () => void; saved: boolean; setSaved: (v: boolean) => void;
+function AiForm({ api, initial, accounts, canEdit, tab, setTab, saved, setSaved }: {
+  api: SettingsApi; initial: AiSetting; accounts: AiAccount[]; canEdit: boolean; tab: Tab; setTab: (t: Tab) => void; saved: boolean; setSaved: (v: boolean) => void;
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(initial));
@@ -48,7 +48,7 @@ function AiForm({ api, initial, accounts, canEdit, tab, setTab, onAccountsChange
       setError(e instanceof Error ? e.message : 'The test could not be run');
     }
   };
-  const submit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (e.target === e.currentTarget) save.mutate(); };
   const env = initial.environment;
 
   return (
@@ -70,11 +70,10 @@ function AiForm({ api, initial, accounts, canEdit, tab, setTab, onAccountsChange
             className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
         ))}
       </div>
-      <div role="tabpanel" id={`ai-panel-${tab}`} aria-labelledby={`ai-tab-${tab}`}>
-        {tab === 'accounts' && <AccountsTab api={api} accounts={accounts} canEdit={canEdit} onChanged={onAccountsChanged} />}
+      {tab !== 'accounts' && <div role="tabpanel" id={`ai-panel-${tab}`} aria-labelledby={`ai-tab-${tab}`}>
         {tab === 'models' && <ModelsTab api={api} accounts={accounts} settings={initial} draft={draft} setDraft={setDraft} canEdit={canEdit} dirty={dirty} tests={tests} runTest={runTest} />}
         {tab === 'limits' && <LimitsTab draft={draft} setDraft={setDraft} canEdit={canEdit} usdAvailable={initial.cap.usdAvailable} />}
-      </div>
+      </div>}
 
       {canEdit && tab !== 'accounts' && (
         <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-background px-1 py-3">
@@ -84,7 +83,6 @@ function AiForm({ api, initial, accounts, canEdit, tab, setTab, onAccountsChange
           {error && <span role="alert" className="text-sm text-red-700">{error}</span>}
         </div>
       )}
-      {canEdit && tab === 'accounts' && error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     </form>
   );
 }
@@ -108,7 +106,19 @@ export function AiSettingsPage({ api: override }: { api?: SettingsApi }) {
   // Opens on Accounts when there are none, else on Models; after that the person's own choice stands (adding the first account must not jump tabs).
   if (firstTab.current === null) firstTab.current = accounts.data.length ? 'models' : 'accounts';
   const onAccountsChanged = () => { void qc.invalidateQueries({ queryKey: ['ai-accounts'] }); void qc.invalidateQueries({ queryKey: ['ai-settings'] }); void qc.invalidateQueries({ queryKey: ['ai-models'] }); };
-  // Keyed by the saved values so a save (or another admin's change) refreshes the form, and a background refetch does not reset typing.
-  return <AiForm key={JSON.stringify(settings.data)} api={api} initial={settings.data} accounts={accounts.data} canEdit={allowed}
-    tab={tab ?? firstTab.current} setTab={setTab} onAccountsChanged={onAccountsChanged} saved={saved} setSaved={setSaved} />;
+  const current = tab ?? firstTab.current;
+  // The settings form is keyed by the saved values so a save (or another admin's change) refreshes it. The Accounts panel sits
+  // OUTSIDE that form: its dialog has its own <form> (forms cannot nest, and its submit must never save the settings) and it
+  // must survive the form being re-keyed while a person is typing a key.
+  return (
+    <div className="space-y-4">
+      <AiForm key={JSON.stringify(settings.data)} api={api} initial={settings.data} accounts={accounts.data} canEdit={allowed}
+        tab={current} setTab={setTab} saved={saved} setSaved={setSaved} />
+      {current === 'accounts' && (
+        <div role="tabpanel" id="ai-panel-accounts" aria-labelledby="ai-tab-accounts">
+          <AccountsTab api={api} accounts={accounts.data} canEdit={allowed} onChanged={onAccountsChanged} />
+        </div>
+      )}
+    </div>
+  );
 }

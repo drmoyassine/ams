@@ -47,6 +47,9 @@ function AccountDialog({ api, account, onClose, onSaved }: { api: SettingsApi; a
         return api.updateAiAccount(account.id, patch);
       });
       if (r) { onSaved(); onClose(); }
+    } catch (e) {
+      // Anything the server did not explain (a dropped connection, a non-JSON answer) still has to show: nothing may fail silently here.
+      setError(e instanceof Error ? `The account could not be saved: ${e.message}` : 'The account could not be saved.');
     } finally { setBusy(false); }
   };
 
