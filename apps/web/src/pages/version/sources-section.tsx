@@ -141,7 +141,10 @@ function Pages({ api, doc, editable, onChange, focus }: { api: FrameworkApi; doc
  * A version's sources: the accreditor's documents its requirements and notes come from, with each original file and the
  * text of its pages (quotes are verified against that text). Editable while the version is a draft.
  */
-export function SourcesSection({ api, version, me, onShowRequirement }: { api: FrameworkApi; version: Version; me: Me | undefined; onShowRequirement?: (id: string) => void }) {
+export function SourcesSection({ api, version, me, onShowRequirement, focusSource }: {
+  api: FrameworkApi; version: Version; me: Me | undefined; onShowRequirement?: (id: string) => void;
+  /** A source page to open when the section appears (the split view's "Open in Sources"). */ focusSource?: { documentId: string; page: number; n: number };
+}) {
   const qc = useQueryClient();
   // While a file is being read the list refreshes until the worker is done.
   const docs = useQuery({
@@ -156,6 +159,7 @@ export function SourcesSection({ api, version, me, onShowRequirement }: { api: F
     setOpen((s) => new Set([...s, documentId]));
     setFocus((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 }));
   }, []);
+  useEffect(() => { if (focusSource) showPage(focusSource.documentId, focusSource.page); }, [focusSource, showPage]);
   useEffect(() => {
     if (!focus) return;
     const el = document.getElementById(`source-${focus.documentId}`);

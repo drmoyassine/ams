@@ -110,8 +110,9 @@ function Details({ api, f, me }: { api: FrameworkApi; f: FrameworkListItem; me: 
 }
 
 /** A standard's settings: its details (any time), and its version's sources and configuration (while the version is a draft). */
-export function SettingsTab({ api, version, framework, me, glossary, initial = 'details', onShowRequirement }: {
+export function SettingsTab({ api, version, framework, me, glossary, initial = 'details', onShowRequirement, focusSource }: {
   api: FrameworkApi; version: Version; framework: FrameworkListItem | undefined; me: Me | undefined; glossary?: GlossaryApi; initial?: SettingsSection;
+  /** Opens a source on a page when the tab appears (the split view's "Open in Sources"). */ focusSource?: { documentId: string; page: number; n: number };
   /** Opens a requirement card on the Requirements tab (the analysis's gap links). */ onShowRequirement?: (id: string) => void;
 }) {
   const [section, setSection] = useState<SettingsSection>(initial);
@@ -125,7 +126,7 @@ export function SettingsTab({ api, version, framework, me, glossary, initial = '
       </nav>
       <div className="min-w-0 flex-1">
         {section === 'details' && (framework ? <Details api={api} f={framework} me={me} /> : <p className="text-sm">Loading…</p>)}
-        {section === 'sources' && <SourcesSection api={api} version={version} me={me} {...(onShowRequirement ? { onShowRequirement } : {})} />}
+        {section === 'sources' && <SourcesSection api={api} version={version} me={me} {...(onShowRequirement ? { onShowRequirement } : {})} {...(focusSource ? { focusSource } : {})} />}
         {section === 'lifecycle' && <ConfigTab api={api} version={version} me={me} />}
         {section === 'templates' && <TemplatesTab api={api} version={version} me={me} />}
         {section === 'terminology' && <TerminologyTab version={version} me={me} {...(glossary ? { glossary } : {})} />}

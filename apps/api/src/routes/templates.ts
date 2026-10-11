@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  deleteSourceDocument, deleteSourcePage, listSourcePages, MAX_SOURCE_BYTES, readSourceFile, setSourcePage, updateSourceDocument, UpdateSourceDocumentSchema,
+  deleteSourceDocument, deleteSourcePage, getSourcePageView, MAX_FILES_PER_STANDARD, MAX_VIEW_QUOTE, listSourcePages, MAX_SOURCE_BYTES, readSourceFile, setSourcePage, updateSourceDocument, UpdateSourceDocumentSchema,
   requestTextExtraction, uploadSourceFile, ValidationError,
   AddSourceDocumentSchema, addSourceDocument, addSourcePage, deleteReportTemplate, getSourcePage, listReportTemplates, listSourceDocuments,
   reviewReportTemplate, upsertReportTemplate,
 } from '@ams/core';
-import { SourceDocumentSchema, SourcePageSchema, TemplateSchema, TEMPLATE_KINDS, toDto } from '@ams/shared';
+import { SourceDocumentSchema, SourceLimitsSchema, SourcePageSchema, SourcePageViewSchema, TemplateSchema, TEMPLATE_KINDS, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -134,6 +134,21 @@ export function templateRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { params: z.object({ id: z.uuid(), pageNo: z.coerce.number().int().min(1) }) },
       responses: { 204: { description: 'Removed' }, ...errors },
     }), async (c) => { const { id, pageNo } = c.req.valid('param'); await deleteSourcePage(c.get('ctx'), id, pageNo); return c.body(null, 204); })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/source-documents/{id}/pages/{pageNo}/view', access: requires('framework:read'), tags: tag,
+      description: 'One page for the split-view review: the document, the numbers of its stored pages, the page text, and, when a quote is given, the stretch of the text it matches (found with the same matcher that verifies quotes).',
+      request: { params: z.object({ id: z.uuid(), pageNo: z.coerce.number().int().min(1) }), query: z.object({ quote: z.string().max(MAX_VIEW_QUOTE).optional() }) },
+      responses: { 200: { description: 'The page and the highlight', ...json(SourcePageViewSchema) }, ...errors },
+    }), async (c) => {
+      const { id, pageNo } = c.req.valid('param');
+      return c.json(toDto(SourcePageViewSchema, await getSourcePageView(c.get('ctx'), id, pageNo, c.req.valid('query').quote)), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/source-limits', access: requires('framework:read'), tags: tag,
+      responses: { 200: { description: 'Largest source file accepted and most files per new standard', ...json(SourceLimitsSchema) }, ...errors },
+    }), async (c) => c.json({ maxFileBytes: MAX_SOURCE_BYTES, maxFiles: MAX_FILES_PER_STANDARD }, 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/source-documents/{id}/pages/{pageNo}', access: requires('framework:read'), tags: tag,

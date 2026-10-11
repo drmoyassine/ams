@@ -24,23 +24,27 @@ export function useAction(onError: (m: string) => void, invalidate: () => Promis
  * One note of a requirement. `perLineReview` is for the internal framework only: an external standard's notes are not
  * approved one by one; publishing the version is the review (DEC-022), so they show no review status or approve/reject.
  */
-export function NotePanel({ api, note, editable, canReview, perLineReview = true, invalidate, setError }: {
+export function NotePanel({ api, note, editable, canReview, perLineReview = true, invalidate, setError, onShowSource, selected = false, reasons = [] }: {
   api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; perLineReview?: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
+  /** External standards' split view: shows the note's source page beside the list. */
+  onShowSource?: () => void; selected?: boolean; /** Why this note needs a look (see needs-look.ts), in words. */ reasons?: string[];
 }) {
   const act = useAction(setError, invalidate);
   return (
-    <li className="rounded border border-border p-3" data-testid="note">
+    <li id={`note-${note.id}`} tabIndex={-1} className={`scroll-mt-4 rounded border p-3 ${selected ? 'border-primary' : 'border-border'}`} data-testid="note" aria-current={selected ? 'true' : undefined}>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <AuthorityBadge authority={note.authority} />
         <span className="text-xs text-muted-foreground">{note.type.replace('_', ' ')}</span>
         {perLineReview && <ReviewBadge status={note.reviewStatus} />}
         {note.authority === 'required' && <span className="text-xs" data-testid="quote-state">{note.quoteVerified ? 'Quote verified' : 'Quote NOT verified'}</span>}
         {note.origin === 'ai' && <AiMarker />}
-        {note.origin === 'ai' && note.sourceQuote && !note.quoteVerified && <QuoteNotFoundBadge />}
+        {note.sourceQuote && !note.quoteVerified && <QuoteNotFoundBadge />}
+        {reasons.filter((r) => r !== 'Quote not found').map((r) => <span key={r} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{r}</span>)}
       </div>
       <p className="text-sm"><ContentText>{note.text}</ContentText></p>
       {note.sourceQuote && <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground"><ContentText>{note.sourceQuote}</ContentText> <span>(page {note.sourcePage})</span></blockquote>}
       <div className="mt-2 flex flex-wrap gap-2">
+        {onShowSource && note.sourceDocumentId && <Button type="button" variant="outline" className="px-3 py-1" aria-label={`Show the source of this note`} onClick={onShowSource}>Source</Button>}
         {perLineReview && canReview && editable && <>
           <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'approved'))}>Approve note</Button>
           <Button type="button" variant="ghost" onClick={() => act.mutate(() => api.reviewNote(note.id, 'rejected'))}>Reject note</Button>

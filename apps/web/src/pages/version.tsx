@@ -72,6 +72,9 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const [showWarnings, setShowWarnings] = useState(false);
   const [focusRequirement, setFocusRequirement] = useState<string | null>(null);
   const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
+  // "Open in Sources" in the split view: the Sources section, on that document and page.
+  const [sourceFocus, setSourceFocus] = useState<{ documentId: string; page: number; n: number } | null>(null);
+  const openSource = (documentId: string, page: number) => { setSourceFocus((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 })); setTab('settings'); };
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
   const internal = !!version?.internal;
   const framework = useQuery({ queryKey: ['framework', version?.frameworkId], queryFn: () => api.framework(version!.frameworkId), enabled: !!version && !internal });
@@ -169,9 +172,9 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         </div>
       )}
       <div role="tabpanel">
-        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} />)}
+        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
-        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(initialSection ? { initial: initialSection } : {})} onShowRequirement={showRequirement} />}
+        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(sourceFocus ? { initial: 'sources' as const, focusSource: sourceFocus } : initialSection ? { initial: initialSection } : {})} onShowRequirement={showRequirement} />}
       </div>
       {newVersion && (
         <NewVersionDialog from={version} error={error} onClose={() => { setNewVersion(false); setError(''); }}

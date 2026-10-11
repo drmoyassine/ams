@@ -80,6 +80,33 @@ export const SourceDocumentSchema = z.object({
 export const SourcePageSchema = z.object({
   id: z.string(), sourceDocumentId: z.string(), pageNo: z.number(), text: z.string(), method: z.enum(['pdf_text', 'ocr', 'table', 'slide', 'sheet']), reviewed: z.boolean(), needsOcr: z.boolean(), fromFile: z.boolean(),
 });
+/** One stored page of a source for the split-view review, with the cited quote located by the server's matcher (never the browser's). */
+export const SourcePageViewSchema = z.object({
+  document: z.object({
+    id: z.string(), title: z.string(), role: z.string(), language: z.string(), fileName: z.string().nullable(), mime: z.string().nullable(),
+    hasFile: z.boolean(), pageCount: z.number(),
+  }),
+  pageNos: z.array(z.number()),
+  page: z.object({ pageNo: z.number(), text: z.string(), method: z.string(), needsOcr: z.boolean() }).nullable(),
+  highlight: z.object({ start: z.number(), end: z.number(), score: z.number() }).nullable(),
+  quoteFoundOnPage: z.number().nullable(),
+  quoteGiven: z.boolean(),
+});
+/** Which items of a draft deserve a look first ("Needs a look"). Only items with at least one reason are listed. */
+export const ReviewItemsSchema = z.object({
+  requirements: z.array(z.object({ id: z.string(), quoteNotFound: z.boolean(), lowConfidence: z.boolean(), orphan: z.boolean() })),
+  notes: z.array(z.object({ id: z.string(), requirementId: z.string(), quoteNotFound: z.boolean(), lowConfidence: z.boolean(), suggested: z.boolean() })),
+});
+/** What "Create from files" made: the browser uploads each file to its document, then starts the analysis. */
+export const StandardFromFilesSchema = z.object({
+  accreditor: z.object({ id: z.string(), name: z.string(), shortName: z.string(), created: z.boolean() }),
+  framework: z.object({ id: z.string(), name: z.string(), scope: z.enum(['institution', 'program', 'both']) }),
+  version: z.object({ id: z.string(), edition: z.string(), status: z.string() }),
+  documents: z.array(z.object({ id: z.string(), title: z.string(), fileName: z.string() })),
+});
+export const SourceLimitsSchema = z.object({ maxFileBytes: z.number(), maxFiles: z.number() });
+export const MergeResultSchema = z.object({ requirement: RequirementSchema, movedChildren: z.number(), movedNotes: z.number(), mappingsOnMergedCode: z.number() });
+export const SplitResultSchema = z.object({ original: RequirementSchema, created: RequirementSchema });
 export const RequirementDetailSchema = z.object({ requirement: RequirementSchema, notes: z.array(NoteSchema) });
 /** ok=false lists the problems that block submitting and publishing; warnings never block (DEC-022). */
 export const ValidationResultSchema = z.object({

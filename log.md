@@ -471,3 +471,7 @@ Connection, Limits and Embeddings are now tabs (the tab survives a save); the Sa
 ## 2026-10-11 — Settings → AI: adding an account did not stick
 
 The Accounts panel (with its "Add account" dialog, itself a form) sat inside the settings form, so submitting the dialog also submitted the settings form, which saved settings in the same moment and re-keyed the page under the open dialog. The Accounts panel now sits outside the settings form, the settings form ignores submits that did not come from itself, and the dialog shows any unexplained failure instead of failing silently. Regression tests added.
+
+## 2026-10-11 — Create from files and the split-view review (F2, TASK-055)
+
+External Standards has a primary Create from files flow: one transaction makes the accreditor (or reuses one), the standard, a draft and one unset-role source per file; the browser uploads each file (retry per file) and starts the analysis, and an analysis that cannot start leaves the draft and files in place with the reason. The Requirements tab shows the cited page beside the list (bottom sheet on phones) with the quote highlighted: the range is computed on the server by the verifier's own matcher (`locateQuote`), never in the browser. Needs a look chips, merge, split and move were added; merge and split are audited by the row triggers and mark rows as edited by a person. No migration. The responsive run caught a picker bug (the file list was cleared before it was read).

@@ -2,12 +2,13 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   getFramework, updateAccreditor, UpdateAccreditorSchema, updateFramework, UpdateFrameworkSchema,
   MAX_LOGO_BYTES, readAccreditorLogo, removeAccreditorLogo, setAccreditorLogo, ValidationError,
+  CreateStandardFromFilesSchema, createStandardFromFiles,
   addQualityItem, applyQualityTemplate, editQualityItem, newQualityVersion, QualityItemSchema, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
 } from '@ams/core';
 import {
-  AccreditorSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, QualityFrameworkSchema, RequirementSchema, ValidationResultSchema, VersionSchema,
+  AccreditorSchema, StandardFromFilesSchema, FrameworkListItemSchema, FrameworkSchema, ImportResultSchema, NewVersionResultSchema, QualityFrameworkSchema, RequirementSchema, ValidationResultSchema, VersionSchema,
   toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -156,6 +157,13 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       const { file, edition, autoApprove } = c.req.valid('json');
       return c.json(toDto(ImportResultSchema, await importVersion(c.get('ctx'), file, { ...(edition ? { edition } : {}), ...(autoApprove ? { autoApprove } : {}) })), 201);
     })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/framework-versions/from-files', access: requires('framework:write'), tags: tag,
+      description: 'Creates (or reuses) the accreditor, the standard and its first draft version, and one source per file named, in one transaction. The files themselves are then uploaded to the returned documents, and the analysis is started.',
+      request: { body: { required: true, ...json(CreateStandardFromFilesSchema) } },
+      responses: { 201: { description: 'Created; upload each file to its document', ...json(StandardFromFilesSchema) }, ...errors },
+    }), async (c) => c.json(toDto(StandardFromFilesSchema, await createStandardFromFiles(c.get('ctx'), c.req.valid('json'))), 201))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/framework-versions/{id}', access: requires('framework:read'), tags: tag,

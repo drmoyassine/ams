@@ -238,7 +238,7 @@ describe('version page', () => {
     const card = await screen.findByRole('region', { name: 'Measure 1-1' });
     expect(within(card).queryByTestId('review')).toBeNull(); // the seed-style auto-approved data shows no label
     await user.click(within(card).getByRole('button', { name: 'Actions for Measure 1-1' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add measure', 'Edit', 'Delete']); // no Approve / Reject
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add measure', 'Edit', 'Merge into another requirement', 'Split', 'Move to…', 'Delete']); // no Approve / Reject
     await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     const title = within(dialog).getByLabelText('Title');
