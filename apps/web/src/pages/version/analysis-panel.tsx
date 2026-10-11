@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AnalysisGap, AnalysisGapKind, AnalysisGapStatus, AnalysisMapping, AnalysisStage, AnalysisStats, AnalysisStatus } from '@ams/shared';
 import { Button } from '../../components/ui/button';
@@ -149,9 +150,10 @@ function GapList({ gaps, stopped, documentTitle, onShowRequirement, onShowPage }
  * list polls), including the check-and-recover rounds; the last runs follow with their counts, and the latest finished
  * run its gaps. The full report and the review screen come later.
  */
-export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten, documentTitle = () => 'a source', onShowRequirement, onShowPage }: {
+export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten, documentTitle = () => 'a source', onShowRequirement, onShowPage, onShowReport }: {
   api: FrameworkApi; versionId: string; editable: boolean; hasSources: boolean; onWritten: () => void;
   documentTitle?: (id: string) => string; onShowRequirement?: (id: string) => void; onShowPage?: (documentId: string, page: number) => void;
+  /** Opens the run's report on the Report tab. */ onShowReport?: (runId: string) => void;
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState('');
@@ -169,7 +171,10 @@ export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten,
     if (wasBusy.current && !busy) onWritten();
     wasBusy.current = busy;
   }, [busy, onWritten]);
-  const refresh = () => qc.invalidateQueries({ queryKey: ['analysis', versionId] });
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['analysis', versionId] }), qc.invalidateQueries({ queryKey: ['analysis-preflight', versionId] })]);
+  // Can a run start now? Checked before the click, so the button says why not instead of failing after it.
+  const preflight = useQuery({ queryKey: ['analysis-preflight', versionId], queryFn: () => api.analysisPreflight(versionId), enabled: editable && !busy });
+  const blocked = preflight.data && !preflight.data.canStart ? preflight.data.firstProblem : null;
   const report = (current?.report ?? {}) as { gaps?: AnalysisGap[]; recovery?: { stopped?: string | null } };
   return (
     <section aria-label="Analysis" className="space-y-2 rounded-md border border-border p-3">
@@ -177,13 +182,29 @@ export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten,
         <h3 className="font-medium">Analysis</h3>
         <span className="text-xs text-muted-foreground">The AI reads these sources and adds the accreditor's requirements to this draft, word for word, each with its page and quote.</span>
         {editable && !busy && (
-          <Button type="button" className="ms-auto" disabled={!hasSources} onClick={() => { setError(''); void run(() => api.startAnalysis(versionId)).then(refresh); }}>Analyse sources</Button>
+          <Button type="button" className="ms-auto" disabled={!hasSources || !!blocked} title={blocked ?? undefined} aria-describedby={blocked ? 'analysis-blocked' : undefined}
+            onClick={() => { setError(''); void run(() => api.startAnalysis(versionId)).then(refresh); }}>Analyse sources</Button>
         )}
         {editable && busy && current && (
           <Button type="button" variant="outline" className="ms-auto" onClick={() => { void run(() => api.cancelAnalysis(current.id)).then(refresh); }}>Stop</Button>
         )}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {editable && !busy && blocked && <p id="analysis-blocked" className="text-sm text-amber-900">{blocked}</p>}
+      {editable && !busy && preflight.data && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground">Before you start: {preflight.data.checks.filter((c) => c.status === 'ok').length} of {preflight.data.checks.length} checks fine</summary>
+          <ul aria-label="Before you start" className="mt-1 space-y-1">
+            {preflight.data.checks.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-baseline gap-x-2" data-testid="preflight-check">
+                <span className={`rounded px-1.5 ${c.status === 'ok' ? 'bg-emerald-50 text-emerald-900' : c.status === 'problem' ? 'bg-red-50 text-red-900' : 'bg-muted text-muted-foreground'}`}>{c.status === 'ok' ? 'OK' : c.status === 'problem' ? 'Fix' : 'Note'}</span>
+                <span className="min-w-0 break-words">{c.message}</span>
+                {c.fix?.where === 'ai' && <Link to="/settings/ai" className="underline">{c.fix.label}</Link>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {busy && current && (
         <div role="status" aria-label="Analysis progress" aria-live="polite" className="rounded bg-muted px-2 py-1 text-sm break-words">{progressText(current)}</div>
       )}
@@ -203,6 +224,9 @@ export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten,
                 {(r.report as { mapping?: AnalysisMapping }).mapping && <span data-testid="mapping-summary" className="min-w-0 text-xs">{mappingText((r.report as { mapping?: AnalysisMapping }).mapping)}</span>}
                 <span className="text-xs text-muted-foreground">{spendText(r.usage)}</span>
                 {r.status === 'failed' && r.error && <span className="min-w-0 text-xs text-red-700">{r.error}</span>}
+                {onShowReport && r.status !== 'queued' && r.status !== 'running' && (
+                  <a href={`?tab=report&run=${r.id}`} className="text-xs underline" onClick={(e) => { e.preventDefault(); onShowReport(r.id); }}>View report</a>
+                )}
               </li>
             );
           })}

@@ -107,7 +107,7 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
   const iconButton = 'flex size-10 shrink-0 items-center justify-center rounded-md text-xl leading-none hover:bg-background';
   return (
     <div className="min-h-screen lg:flex">
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-muted px-4 py-1.5 lg:hidden">
+      <header className="print:hidden sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-muted px-4 py-1.5 lg:hidden">
         <button
           ref={menuButton} type="button" aria-label="Open menu" aria-expanded={drawer} aria-controls="app-drawer"
           onClick={() => setDrawer(true)} className={`-ms-2 ${iconButton}`}
@@ -117,7 +117,7 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
           {institutionName && <p className="min-w-0 truncate text-sm text-muted-foreground"><ContentText>{institutionName}</ContentText></p>}
         </div>
       </header>
-      <aside className="hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
+      <aside className="print:hidden hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
         <p className="text-lg font-semibold">{t('appName')}</p>
         <p className="mb-6 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <ContentText>{institutionName}</ContentText>}</p>
         {!drawer && links}
@@ -141,7 +141,7 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
           </div>
         </div>
       )}
-      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8"><Outlet /></main>
+      <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><Outlet /></main>
     </div>
   );
 }

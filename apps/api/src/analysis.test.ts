@@ -76,6 +76,43 @@ describe('analysis API', () => {
     expect(reqs.body.find((r: { code: string }) => r.code === '1.9')).toMatchObject({ origin: 'ai', quoteVerified: false, editedByPerson: false });
   });
 
+  it('serves the report of a run and of the version\'s latest finished run, and the readiness checks', async () => {
+    setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
+    const spec = (await call(null, 'GET', '/openapi.json')).body as { paths: Record<string, unknown> };
+    expect(Object.keys(spec.paths)).toEqual(expect.arrayContaining([
+      '/api/analysis/{id}/report', '/api/framework-versions/{id}/analysis/latest-report', '/api/framework-versions/{id}/analysis/preflight',
+    ]));
+    const v = await draft('report');
+    // Never analysed: no report. Signed out: refused.
+    expect((await call('viewer', 'GET', `/api/framework-versions/${v}/analysis/latest-report`)).body).toBeNull();
+    expect((await call(null, 'GET', `/api/framework-versions/${v}/analysis/latest-report`)).status).toBe(401);
+    // Readiness: writers only; it names what is fine and what is not.
+    expect((await call('viewer', 'GET', `/api/framework-versions/${v}/analysis/preflight`)).status).toBe(403);
+    const pre = await call('lead', 'GET', `/api/framework-versions/${v}/analysis/preflight`);
+    expect(pre.status).toBe(200);
+    expect(pre.body).toMatchObject({ canStart: true, firstProblem: null });
+    expect(pre.body.checks.map((c: { id: string }) => c.id)).toEqual(expect.arrayContaining(['draft', 'sources', 'ai_on', 'analysis_model', 'embeddings']));
+
+    const started = await call('lead', 'POST', `/api/framework-versions/${v}/analysis`);
+    expect((await call('lead', 'GET', `/api/framework-versions/${v}/analysis/preflight`)).body.firstProblem).toMatch(/already running/);
+    await drain();
+    const byRun = await call('viewer', 'GET', `/api/analysis/${started.body.id}/report`);
+    expect(byRun.status).toBe(200);
+    expect(byRun.body).toMatchObject({
+      reportVersion: 1, runId: started.body.id, versionId: v, summary: { status: 'succeeded', startedBy: { name: 'lead' } },
+      requirements: { total: 7, notes: 3, quotes: { found: 8, total: 10, percent: 80 } },
+    });
+    expect(byRun.body.checklist.map((c: { id: string }) => c.id)).toContain('quote_not_found');
+    const latest = await call('viewer', 'GET', `/api/framework-versions/${v}/analysis/latest-report`);
+    expect(latest.body.runId).toBe(started.body.id);
+    expect((await call(null, 'GET', `/api/analysis/${started.body.id}/report`)).status).toBe(401);
+    expect((await call('lead', 'GET', `/api/analysis/${crypto.randomUUID()}/report`)).status).toBe(404);
+    // The version list says where the latest analysis stands.
+    const fws = await call('viewer', 'GET', '/api/frameworks');
+    const mine = fws.body.flatMap((f: { versions: { id: string; analysis: unknown }[] }) => f.versions).find((x: { id: string }) => x.id === v);
+    expect(mine.analysis).toMatchObject({ runId: started.body.id, status: 'succeeded', error: null });
+  });
+
   it('cancels an active run once', async () => {
     setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
     const v = await draft('cancel');

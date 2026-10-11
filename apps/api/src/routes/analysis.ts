@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { cancelAnalysis, getAnalysisRun, listAnalysisRuns, startAnalysis } from '@ams/core';
-import { AnalysisRunSchema, toDto } from '@ams/shared';
+import { analysisPreflight, cancelAnalysis, getAnalysisReport, getAnalysisRun, getLatestAnalysisReport, listAnalysisRuns, startAnalysis } from '@ams/core';
+import { AnalysisReportSchema, AnalysisRunSchema, PreflightSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -29,6 +29,27 @@ export function analysisRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { params: idParam },
       responses: { 200: { description: 'One analysis run: status, stage, progress, usage and stats', ...json(AnalysisRunSchema) }, ...errors },
     }), async (c) => c.json(toDto(AnalysisRunSchema, await getAnalysisRun(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/analysis/preflight', access: requires('framework:write'), tags: tag,
+      description: 'Can an analysis start now? A checklist (draft, sources, AI on, model and key, reading, embeddings, spend limit) with where to fix each problem. Never shows a key.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The checks and the first blocking reason', ...json(PreflightSchema) }, ...errors },
+    }), async (c) => c.json(toDto(PreflightSchema, await analysisPreflight(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/analysis/latest-report', access: requires('framework:read'), tags: tag,
+      description: 'The report of the version\'s latest finished analysis run, or null when it has had none.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The report, or null', ...json(AnalysisReportSchema.nullable()) }, ...errors },
+    }), async (c) => c.json(toDto(AnalysisReportSchema.nullable(), await getLatestAnalysisReport(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/analysis/{id}/report', access: requires('framework:read'), tags: tag,
+      description: 'The intelligence report of one analysis run, computed from what is stored and the draft as it is now.',
+      request: { params: idParam },
+      responses: { 200: { description: 'What was read and used, the structure found, the requirements, the gaps, the suggested links and what to look at before publishing', ...json(AnalysisReportSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AnalysisReportSchema, await getAnalysisReport(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/analysis/{id}/cancel', access: requires('framework:write'), tags: tag,

@@ -17,7 +17,7 @@
 //   finalise  one job: counts, and the run succeeds
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { analysisRun, extractionItem, frameworkVersion, job, requirement, sourceDocument, sourcePage } from '@ams/db';
-import { ACTIVE_ANALYSIS_STATUSES, ANALYSIS_STAGES, type AnalysisGap, type AnalysisProgress, type AnalysisStage, type AnalysisStats, type AnalysisUsage } from '@ams/shared';
+import { ACTIVE_ANALYSIS_STATUSES, ANALYSIS_STAGES, type AnalysisGap, type AnalysisProgress, type AnalysisRuntimeInfo, type AnalysisStage, type AnalysisStats, type AnalysisUsage } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../../ctx.js';
 import { AiDisabledError, AiNotConfiguredError, aiExtract, BudgetExceeded, type AiRuntime } from '../../ai/index.js';
@@ -395,8 +395,11 @@ function usageOf(runtime: AiRuntime, before: AnalysisUsage): AnalysisUsage {
 const ACTIVE = [...ACTIVE_ANALYSIS_STATUSES];
 
 /** Records the step and queues the next one, in this job's transaction; nothing happens if the run was cancelled meanwhile. */
-async function save(ctx: Ctx, run: Run, stage: AnalysisStage, s: Step, usage: AnalysisUsage, model: string) {
-  const report = { ...(run.report as Report), ...s.report };
+async function save(ctx: Ctx, run: Run, stage: AnalysisStage, s: Step, usage: AnalysisUsage, runtime: AiRuntime) {
+  const model = runtime.config.model;
+  // The models in use are recorded with the run (names only) so its report can say what was used.
+  const info: AnalysisRuntimeInfo = { analysisModel: model, visionModel: runtime.vision?.model ?? null, embeddingModel: runtime.embedding?.model ?? null };
+  const report = { ...(run.report as Report), ...s.report, runtime: info };
   const done = s.next === 'done';
   const at = done ? { stage, cursor: 0 } : (s.next as { stage: AnalysisStage; cursor: number });
   const progress = { ...(run.progress as AnalysisProgress), ...s.progress, stage: at.stage, cursor: at.cursor };
@@ -444,20 +447,20 @@ export async function analyseJob(ctx: Ctx, payload: Record<string, unknown>) {
   const report = run.report as Report;
   try {
     const s = await step(ctx, () => STEPS[p.stage](ctx, run, p.cursor, runtime, report));
-    await save(ctx, run, p.stage, s, usageOf(runtime, before), runtime.config.model);
+    await save(ctx, run, p.stage, s, usageOf(runtime, before), runtime);
     return { ...base, next: s.next, ai: runtime.calls };
   } catch (e) {
     const usage = usageOf(runtime, before);
     if (e instanceof BudgetExceeded && p.stage === 'recover') {
       // The spend limit ends the recovery, not the run: the last check closes the round and everything is written.
       const s: Step = { next: { stage: 'gaps', cursor: (report.recovery?.round ?? 0) + 1 }, report: { recovery: { ...report.recovery!, stopped: 'budget' } } };
-      await save(ctx, run, p.stage, s, usage, runtime.config.model);
+      await save(ctx, run, p.stage, s, usage, runtime);
       return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
     }
     if (e instanceof BudgetExceeded && isMappingStage(p.stage)) {
       // The spend limit ends the mapping, not the run: the requirements are written and the suggestions so far stay.
       const s = mappingBudgetStop(report);
-      await save(ctx, run, p.stage, s, usage, runtime.config.model);
+      await save(ctx, run, p.stage, s, usage, runtime);
       return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
     }
     if (e instanceof BudgetExceeded) {

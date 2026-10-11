@@ -178,6 +178,11 @@ describe('the gap finder', () => {
     const gaps = run(both, pages, docs);
     expect(gaps.map((g) => [g.key, g.kind, g.pages])).toEqual([['conflict:3.1', 'conflict', []]]);
     expect(gaps[0]!.detail).toBe('different wording in two documents (pages 1 and 1)');
+    // Both wordings are kept so the report can show them side by side.
+    expect(gaps[0]!.variants).toEqual([
+      { documentId: 'std', page: 1, text: 'The board approves the budget' },
+      { documentId: 'std2', page: 1, text: 'Students elect two members of the senate.' },
+    ]);
   });
 });
 

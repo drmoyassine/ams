@@ -14,12 +14,14 @@ import { type GlossaryApi } from '../lib/glossary-api';
 import { can, useApi, useMe } from '../lib/me';
 import { ExternalRequirements } from './version/external-requirements';
 import { MappingsTab } from './version/mappings-tab';
+import { ReportTab } from './version/report-tab';
 import { RequirementsTab } from './version/requirements-tab';
 import { SettingsTab, type SettingsSection } from './version/settings-tab';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'mappings', label: 'Mappings' },
+  { id: 'report', label: 'Report' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 export type VersionTab = (typeof TABS)[number]['id'];
@@ -57,14 +59,22 @@ function NewVersionDialog({ from, error, onCreate, onClose }: { from: Version; e
  * One version of a standard. The header names the standard and its accreditor, picks the version, and carries the one
  * action the version's state calls for (submit, publish, start a new version); the rest sits in its ⋯ menu.
  */
-export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection }: {
+export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, onLocation }: {
   versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab; initialSection?: SettingsSection;
+  /** The analysis run the Report tab opens on (the address's ?run=). */ initialRunId?: string;
+  /** Called when the tab or the selected run changes, so the address can follow and the page can be opened again later. */
+  onLocation?: (where: { tab: VersionTab; run?: string }) => void;
 }) {
   const api = useApi(apiProp);
   const me = useMe(api);
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<VersionTab>(initialTab);
+  const [tab, setTabState] = useState<VersionTab>(initialTab);
+  const [runId, setRunId] = useState<string | undefined>(initialRunId);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialSection);
+  const [focusPage, setFocusPage] = useState<{ documentId: string; page: number; n: number } | null>(null);
+  const setTab = (t: VersionTab, run: string | undefined = runId) => { setTabState(t); onLocation?.({ tab: t, ...(t === 'report' && run ? { run } : {}) }); };
+  const selectRun = (id: string) => { setRunId(id); onLocation?.({ tab: 'report', run: id }); };
   const [error, setError] = useState('');
   const [issues, setIssues] = useState<Issue[]>([]);
   const [newVersion, setNewVersion] = useState(false);
@@ -72,6 +82,15 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const [showWarnings, setShowWarnings] = useState(false);
   const [focusRequirement, setFocusRequirement] = useState<string | null>(null);
   const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
+  const reportNav = {
+    onShowRequirement: showRequirement,
+    onShowPage: (documentId: string, page: number) => { setSettingsSection('sources'); setFocusPage((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 })); setTab('settings'); },
+    onShowMappings: () => setTab('mappings'),
+    onShowSettings: (section: 'details' | 'sources' | 'ai') => {
+      if (section === 'ai') { void navigate({ to: '/settings/ai' }); return; }
+      setSettingsSection(section); setTab('settings');
+    },
+  };
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
   const internal = !!version?.internal;
   const framework = useQuery({ queryKey: ['framework', version?.frameworkId], queryFn: () => api.framework(version!.frameworkId), enabled: !!version && !internal });
@@ -161,7 +180,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         </div>
       )}
       {!internal && (
-        <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
+        <div role="tablist" className="flex flex-wrap gap-1 border-b border-border print:hidden">
           {TABS.map((t) => (
             <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
               className={`px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
@@ -171,7 +190,8 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
       <div role="tabpanel">
         {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
-        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(initialSection ? { initial: initialSection } : {})} onShowRequirement={showRequirement} />}
+        {!internal && tab === 'report' && <ReportTab api={api} versionId={version.id} runId={runId} onSelectRun={selectRun} nav={reportNav} title={`${f?.name ?? 'Standard'} ${versionLabel(version.edition)}`} />}
+        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(settingsSection ? { initial: settingsSection } : {})} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}
       </div>
       {newVersion && (
         <NewVersionDialog from={version} error={error} onClose={() => { setNewVersion(false); setError(''); }}

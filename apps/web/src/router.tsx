@@ -53,16 +53,23 @@ const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path:
 const versionRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute />,
   // ?tab=settings&section=details opens a version on its settings (the card's "Edit details").
-  validateSearch: (s: Record<string, unknown>): { tab?: 'settings'; section?: 'details' | 'sources' } => ({
-    ...(s.tab === 'settings' ? { tab: 'settings' as const } : {}), ...(s.section === 'details' || s.section === 'sources' ? { section: s.section } : {}),
+  // ?tab=report&run=<id> opens a version on the report of one analysis run, and can be opened again later.
+  validateSearch: (s: Record<string, unknown>): { tab?: 'settings' | 'report' | 'mappings'; section?: 'details' | 'sources'; run?: string } => ({
+    ...(s.tab === 'settings' || s.tab === 'report' || s.tab === 'mappings' ? { tab: s.tab } : {}), ...(s.section === 'details' || s.section === 'sources' ? { section: s.section } : {}),
+    ...(typeof s.run === 'string' && /^[0-9a-f-]{36}$/i.test(s.run) ? { run: s.run } : {}),
   }),
 });
 const oldStandardsRoute = createRoute({ getParentRoute: () => appRoute, path: '/standards', beforeLoad: () => { throw redirect({ to: '/settings/external-standards' }); } });
 const oldVersionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', beforeLoad: ({ params }) => { throw redirect({ to: '/settings/versions/$versionId', params }); } });
 function VersionRoute() {
   const { versionId } = versionRoute.useParams();
-  const { tab, section } = versionRoute.useSearch();
-  return <VersionPage key={versionId} versionId={versionId} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} />;
+  const { tab, section, run } = versionRoute.useSearch();
+  const navigate = versionRoute.useNavigate();
+  // The address follows the tab and the selected run (replacing the entry), so a report can be bookmarked and reopened.
+  const onLocation = (where: { tab: 'requirements' | 'mappings' | 'report' | 'settings'; run?: string }) => {
+    void navigate({ search: where.tab === 'requirements' ? {} : { tab: where.tab, ...(where.run ? { run: where.run } : {}) }, replace: true });
+  };
+  return <VersionPage key={versionId} versionId={versionId} onLocation={onLocation} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} {...(run ? { initialRunId: run } : {})} />;
 }
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });

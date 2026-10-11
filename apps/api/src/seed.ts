@@ -69,7 +69,7 @@ export async function seedFrameworks(pool: pg.Pool, folder: string = fixturesFol
     const caller = { userId: who.user_id as string, institutionId: who.institution_id as string, requestId: crypto.randomUUID(), actorType: 'user' as const };
     await withIdentity(pool, caller, async (tx) => {
       const ctx: Ctx = { tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined };
-      const { version } = await importVersion(ctx, file, { autoApprove: true });
+      const { version } = await importVersion(ctx, file);
       const check = await validateVersion(ctx, version.id);
       if (!check.ok) throw new Error(`${name}: ${JSON.stringify(check)}`);
       await submitForReview(ctx, version.id);

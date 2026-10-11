@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { accreditor, engagement, framework, frameworkVersion, reportTemplate, requirement, requirementMapping, requirementNote } from '@ams/db';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { accreditor, analysisRun, engagement, framework, frameworkVersion, reportTemplate, requirement, requirementMapping, requirementNote } from '@ams/db';
 import {
   DecisionVocabSchema, FindingVocabSchema, LevelLabelsSchema, LifecycleTemplateSchema, RatingMethodSchema, ResponseVocabSchema,
   validateFrameworkConfig, type FrameworkConfig,
@@ -73,7 +73,14 @@ export async function listFrameworks(ctx: Ctx, opts: { id?: string } = {}) {
   const counts = new Map<string, { total: number; assessable: number }>();
   const mapped = new Map<string, number>();
   const engagements = new Map<string, number>();
+  const latestRun = new Map<string, { runId: string; status: (typeof analysisRun.$inferSelect)['status']; error: string | null }>();
   if (ids.length) {
+    // The newest run of each version, for the one-line analysis state on the card.
+    for (const a of await ctx.tx.selectDistinctOn([analysisRun.frameworkVersionId], {
+      v: analysisRun.frameworkVersionId, id: analysisRun.id, status: analysisRun.status, error: analysisRun.error,
+    }).from(analysisRun).where(inArray(analysisRun.frameworkVersionId, ids)).orderBy(analysisRun.frameworkVersionId, desc(analysisRun.createdAt))) {
+      latestRun.set(a.v, { runId: a.id, status: a.status, error: a.error });
+    }
     for (const c of await ctx.tx.select({
       v: requirement.frameworkVersionId, total: sql<number>`count(*)::int`, assessable: sql<number>`count(*) filter (where ${requirement.isAssessable})::int`,
     }).from(requirement).where(inArray(requirement.frameworkVersionId, ids)).groupBy(requirement.frameworkVersionId)) counts.set(c.v, { total: c.total, assessable: c.assessable });
@@ -90,6 +97,7 @@ export async function listFrameworks(ctx: Ctx, opts: { id?: string } = {}) {
     versions: versions.filter((v) => v.frameworkId === r.id).map((v) => ({
       id: v.id, edition: v.edition, status: v.status, publishedAt: v.publishedAt?.toISOString() ?? null, effectiveFrom: v.effectiveFrom, supersedesId: v.supersedesId,
       requirementCount: counts.get(v.id)?.total ?? 0, assessableCount: counts.get(v.id)?.assessable ?? 0, mappedCount: mapped.get(v.id) ?? 0, engagementCount: engagements.get(v.id) ?? 0,
+      analysis: latestRun.get(v.id) ?? null,
     })),
   }));
 }

@@ -12,3 +12,5 @@ export * from './mapping-stages.js';
 export * from './mapping-eval.js';
 export * from './iqf-context.js';
 export * from './mapping-fixture.js';
+export * from './report.js';
+export * from './preflight.js';

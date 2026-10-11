@@ -38,7 +38,7 @@ describe('wording in a title', () => {
   });
 
   it('moves to the description in a new version copied from a published one, which itself stays as it was', async () => {
-    const { version } = await w.as('admin', (c) => importVersion(c, swapped('2031'), { autoApprove: true }));
+    const { version } = await w.as('admin', (c) => importVersion(c, swapped('2031')));
     // Put the wording back in the title of the draft (as an older import or hand edits could have), then publish it.
     await w.db.su.query(`update requirement set title = $1, official_text = null where framework_version_id = $2 and code = '1-1-1'`, [WORDING, version.id]);
     for (const r of await w.as('admin', (c) => listRequirements(c, version.id))) await w.as('admin', (c) => reviewRequirement(c, r.id, 'approved'));

@@ -1,5 +1,6 @@
 // Response shapes of the framework API: one definition for the OpenAPI spec, the typed client and the SPA.
 import { z } from 'zod';
+import { AnalysisBriefSchema } from './analysis.js';
 import { PERMISSIONS, ROLES } from './permissions.js';
 
 const iso = z.string();
@@ -20,6 +21,8 @@ export const FrameworkVersionSummarySchema = z.object({
   requirementCount: z.number(), assessableCount: z.number(),
   /** Assessable requirements with an approved mapping to the institution's own standards. */
   mappedCount: z.number(), engagementCount: z.number(),
+  /** The latest analysis run of this version, when it has had one. */
+  analysis: AnalysisBriefSchema.nullable(),
 });
 export const FrameworkListItemSchema = z.object({
   id: z.string(), name: z.string(), scope: z.enum(['institution', 'program', 'both']), commission: z.string().nullable(), description: z.string().nullable(),

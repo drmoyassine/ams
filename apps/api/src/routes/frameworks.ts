@@ -150,11 +150,11 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/framework-versions/import', access: requires('framework:write'), tags: tag,
-      request: { body: { required: true, ...json(z.object({ file: z.unknown(), edition: z.string().optional(), autoApprove: z.boolean().optional() })) } },
+      request: { body: { required: true, ...json(z.object({ file: z.unknown(), edition: z.string().optional() })) } },
       responses: { 201: { description: 'Imported as a new draft version', ...json(ImportResultSchema) }, ...errors },
     }), async (c) => {
-      const { file, edition, autoApprove } = c.req.valid('json');
-      return c.json(toDto(ImportResultSchema, await importVersion(c.get('ctx'), file, { ...(edition ? { edition } : {}), ...(autoApprove ? { autoApprove } : {}) })), 201);
+      const { file, edition } = c.req.valid('json');
+      return c.json(toDto(ImportResultSchema, await importVersion(c.get('ctx'), file, { ...(edition ? { edition } : {}) })), 201);
     })
 
     .openapi(secured(registry, deps, {

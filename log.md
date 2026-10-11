@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-11 — Analysis report, run readiness and the import checkbox removed (TASK-054, step F1)
+
+Decisions: DEC-022, DEC-005, DEC-006. ROADMAP-009.
+- **The report is computed, not stored:** `getAnalysisReport` joins the run's record with the live draft, so it follows edits; only usage, duration and the run's own stats are frozen. A gap about a requirement a person deleted drops out. The conflict gap now keeps both wordings (`variants`) and each job records the models in use under `report.runtime`; older runs show them as not recorded.
+- **Wording:** counts only. "n of m quotes found in the source (x%)", never a score or verdict; a test scans the DTO and its Markdown for compliant / met / score / readiness / predict. The Markdown builder is in `@ams/shared`.
+- **Readiness checks** never decrypt-and-show a key; a key that cannot be decrypted is a blocking problem. No parser heartbeat exists, so that check was skipped.
+- **Import:** `autoApprove` is gone from `importVersion`, the API and the page (DEC-022: pending line by line, publishing is the review). Seeds and fixtures no longer pass it.
+- Not done: "Create from files" and the source viewer (other agent); a real printed-PDF check.
+
 ## 2026-10-11 — Switched to the owned @drmoyassine/liteparse; upstream kept only as a fallback (TASK-053, DEC-011)
 
 Decisions: DEC-011 (amended again). ROADMAP-008.

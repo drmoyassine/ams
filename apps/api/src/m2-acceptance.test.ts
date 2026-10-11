@@ -25,7 +25,7 @@ async function call(who: string, method: string, path: string, body?: unknown) {
   return { status: res.status, body: text ? JSON.parse(text) as any : null }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 async function publish(name: string): Promise<string> {
-  const imported = await call('admin', 'POST', '/api/framework-versions/import', { file: fixture(name), autoApprove: true });
+  const imported = await call('admin', 'POST', '/api/framework-versions/import', { file: fixture(name) });
   const id = imported.body.version.id as string;
   expect((await call('admin', 'POST', `/api/framework-versions/${id}/submit`)).status).toBe(200);
   expect((await call('admin', 'POST', `/api/framework-versions/${id}/publish`)).status).toBe(200);

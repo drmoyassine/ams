@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { aiSetting } from '@ams/db';
 import {
   aiEnvKey, aiKeyOptional, DEFAULT_MAX_RECOVERY_ROUNDS, DEFAULT_OCR_MAX_PAGES, loadAiEnv, providerSupportsEmbeddings, AI_PROVIDER_LABELS,
-  type AiProvider, type AiRole, type AiSetting, type AiTestResult, type UpdateAiSetting,
+  type AiProvider, type AiRole, type AiSetting, type AiTestResult, type PreflightCheck, type UpdateAiSetting,
 } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
@@ -305,4 +305,77 @@ export async function aiReadiness(ctx: Ctx): Promise<{ ok: true } | { ok: false;
     return { ok: false, reason: 'the USD cap needs the model\'s price, which is not known; choose a tokens cap in Settings -> AI' };
   }
   return { ok: true };
+}
+
+/**
+ * The AI side of "can an analysis run start now?" as a checklist (never calls the model, never shows a key): switched on,
+ * an analysis account and model chosen and its key readable, the spend cap, reading of scanned pages where a source needs
+ * it, and whether embeddings are set up (otherwise matching is by words only).
+ */
+export async function aiPreflightChecks(ctx: Ctx, opts: { needsOcr: boolean }): Promise<PreflightCheck[]> {
+  const row = await getRow(ctx);
+  const out: PreflightCheck[] = [];
+  const fixAi = { label: 'Open Settings -> AI', where: 'ai' as const };
+  const e = envFallback();
+  const test = hasTestModel();
+
+  if (row && !row.enabled && !test) {
+    out.push({ id: 'ai_on', status: 'problem', message: new AiDisabledError().message, fix: fixAi });
+  } else {
+    out.push({ id: 'ai_on', status: 'ok', message: 'AI is switched on.', fix: null });
+  }
+
+  // The analysis connection: account, model and a key that can be read.
+  let modelLine: PreflightCheck;
+  try {
+    const account = row?.analysisAccountId ? await getAccountRow(ctx, row.analysisAccountId) : null;
+    const model = row?.model ?? (account ? null : e.model);
+    const c = connect(account, model);
+    if ('problem' in c && !test) modelLine = { id: 'analysis_model', status: 'problem', message: `${c.problem.charAt(0).toUpperCase()}${c.problem.slice(1)}.`, fix: fixAi };
+    else modelLine = { id: 'analysis_model', status: 'ok', message: `Analysis uses ${'config' in c ? c.config.model : (model ?? 'the test model')}.`, fix: null };
+  } catch (err) {
+    modelLine = err instanceof NotFoundError
+      ? { id: 'analysis_model', status: 'problem', message: 'The AI account chosen for analysis no longer exists; choose one in Settings -> AI.', fix: fixAi }
+      : { id: 'analysis_model', status: 'problem', message: 'The saved API key could not be read; enter it again in Settings -> AI.', fix: fixAi };
+  }
+  out.push(modelLine);
+
+  if (row?.capUnit === 'usd' && (row.inputUsdPerMTok == null || row.outputUsdPerMTok == null) && !test) {
+    out.push({ id: 'cap', status: 'problem', message: 'The spend limit is in dollars, but the model\'s price is not known; choose a limit in tokens in Settings -> AI.', fix: fixAi });
+  } else if (row?.capUnit === 'usd' && row.maxCostUsdPerRun != null) {
+    out.push({ id: 'cap', status: 'ok', message: `Spend limit for one run: $${Number(row.maxCostUsdPerRun).toFixed(2)}.`, fix: null });
+  } else if (row?.capUnit !== 'usd' && row?.maxTokensPerRun != null) {
+    out.push({ id: 'cap', status: 'ok', message: `Spend limit for one run: ${row.maxTokensPerRun.toLocaleString('en')} tokens.`, fix: null });
+  } else {
+    out.push({ id: 'cap', status: 'note', message: 'No spend limit is set for a run.', fix: fixAi });
+  }
+
+  if (opts.needsOcr) {
+    if (row && row.ocrEnabled === false) {
+      out.push({ id: 'reading', status: 'note', message: 'Some sources have scanned pages, and reading them is switched off: those pages stay unread.', fix: fixAi });
+    } else if (row?.visionAccountId || row?.visionModel) {
+      let line: PreflightCheck = { id: 'reading', status: 'ok', message: `Scanned pages are read by ${row.visionModel ?? row.model ?? 'the analysis model'}.`, fix: null };
+      try {
+        const vAccount = row.visionAccountId ? await getAccountRow(ctx, row.visionAccountId) : (row.analysisAccountId ? await getAccountRow(ctx, row.analysisAccountId) : null);
+        const v = connect(vAccount, row.visionModel ?? row.model);
+        if ('problem' in v && !test) line = { id: 'reading', status: 'note', message: `Some sources have scanned pages, but the reading model is not ready (${v.problem}).`, fix: fixAi };
+      } catch {
+        line = { id: 'reading', status: 'note', message: 'Some sources have scanned pages, but the reading model\'s account cannot be used.', fix: fixAi };
+      }
+      out.push(line);
+    } else {
+      out.push({ id: 'reading', status: 'ok', message: 'Scanned pages are read by the analysis model.', fix: null });
+    }
+  }
+
+  if (row?.embedEnabled && row.embedAccountId && row.embedModel) {
+    let usable = false;
+    try { usable = accountUsable(await getAccountRow(ctx, row.embedAccountId)); } catch { usable = false; }
+    out.push(usable
+      ? { id: 'embeddings', status: 'ok', message: `Requirements are matched to your quality framework by words and meaning (${row.embedModel}).`, fix: null }
+      : { id: 'embeddings', status: 'note', message: 'Embeddings are on, but the account has no usable key: matching will use words only.', fix: fixAi });
+  } else {
+    out.push({ id: 'embeddings', status: 'note', message: 'Matching to your quality framework will use words only (lexical only): embeddings are not set up.', fix: fixAi });
+  }
+  return out;
 }

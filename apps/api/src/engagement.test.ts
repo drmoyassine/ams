@@ -25,7 +25,7 @@ async function call(who: string | null, method: string, path: string, body?: unk
 }
 
 async function publish(name: string): Promise<string> {
-  const imported = await call('admin', 'POST', '/api/framework-versions/import', { file: fixture(name), autoApprove: true });
+  const imported = await call('admin', 'POST', '/api/framework-versions/import', { file: fixture(name) });
   expect(imported.status).toBe(201);
   const id = imported.body.version.id as string;
   expect((await call('admin', 'POST', `/api/framework-versions/${id}/submit`)).status).toBe(200);

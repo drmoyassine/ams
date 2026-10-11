@@ -26,6 +26,23 @@ export function currentVersion(versions: VersionSummary[]): VersionSummary | und
 }
 const isOpenDraft = (v: VersionSummary) => v.status === 'draft' || v.status === 'in_review';
 
+/**
+ * The latest analysis of a standard's newest version in one small line: running, finished (a link to its report) or
+ * failed (the reason on hover). Nothing when the version has never been analysed.
+ */
+export function AnalysisLine({ v }: { v: VersionSummary | undefined }) {
+  const a = v?.analysis;
+  if (!v || !a) return null;
+  if (a.status === 'queued' || a.status === 'running') return <span className="text-xs text-sky-900" data-testid="analysis-line">Analysis running…</span>;
+  if (a.status === 'failed') return <span className="text-xs text-red-800" title={a.error ?? undefined} data-testid="analysis-line">Analysis failed</span>;
+  return (
+    <span className="text-xs" data-testid="analysis-line">
+      {a.status === 'cancelled' ? 'Analysis cancelled' : 'Analysis finished'} ·{' '}
+      <Link to="/settings/versions/$versionId" params={{ versionId: v.id }} search={{ tab: 'report', run: a.runId }} className="underline">view report</Link>
+    </span>
+  );
+}
+
 /** The accreditor's logo, or its short name on a tile when it has none. */
 export function AccreditorMark({ shortName, logoUrl }: { shortName: string; logoUrl: string | null }) {
   return logoUrl
@@ -87,6 +104,7 @@ export function StandardCard({ f, api, canWrite, onImport }: { f: FrameworkListI
         <>
           {[SCOPE[f.scope], current && versionLabel(current.edition), current && (current.status === 'published' ? dateOf(current) : STATUS[current.status])].filter(Boolean).join(' · ')}
           {draft && <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-amber-900">Draft {draft.edition} in progress</span>}
+          {f.versions[f.versions.length - 1]?.analysis && <span className="ms-2 inline-block"><AnalysisLine v={f.versions[f.versions.length - 1]} /></span>}
         </>
       )}
       hover={(

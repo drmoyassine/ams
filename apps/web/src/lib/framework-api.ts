@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  AcceptCoversResult, AcceptIqfProposal, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
+  AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
@@ -22,7 +22,7 @@ export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Mappings = z.infer<typeof MappingsSchema>;
 export type Mapping = z.infer<typeof MappingSchema>;
 export type Issue = { path: string; message: string };
-export type { AnalysisRun, AcceptCoversResult, AcceptIqfProposal, IqfItemProposal, IqfProposals };
+export type { AnalysisReport, AnalysisRun, Preflight, AcceptCoversResult, AcceptIqfProposal, IqfItemProposal, IqfProposals };
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
 export class ApiError extends Error {
@@ -88,7 +88,7 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     acceptCovers: (versionId: string, ids: string[]) => v[':id'].mappings['accept-covers'].$post({ param: { id: versionId }, json: { ids } }).then((r) => unwrap<AcceptCoversResult>(r)),
     deleteMapping: (id: string) => api.api.mappings[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     setQualityLevels: (levelLabels: string[]) => api.api['quality-framework'].levels.$put({ json: { levelLabels } }).then((r) => unwrap<QualityFramework>(r)),
-    importFile: (json: { file: unknown; edition?: string; autoApprove?: boolean }) =>
+    importFile: (json: { file: unknown; edition?: string }) =>
       v.import.$post({ json }).then((r) => unwrap<ImportResult>(r)),
     version: (id: string) => v[':id'].$get({ param: { id } }).then((r) => unwrap<Version>(r)),
     validation: (id: string) => v[':id'].validation.$get({ param: { id } }).then((r) => unwrap<ValidationResult>(r)),
@@ -153,6 +153,11 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     analysisRuns: (versionId: string) => v[':id'].analysis.$get({ param: { id: versionId } }).then((r) => unwrap<AnalysisRun[]>(r)),
     startAnalysis: (versionId: string) => v[':id'].analysis.$post({ param: { id: versionId } }).then((r) => unwrap<AnalysisRun>(r)),
     analysisRun: (id: string) => api.api.analysis[':id'].$get({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
+    /** The intelligence report of one run, and of the version's latest finished run (null: none yet). */
+    analysisReport: (id: string) => api.api.analysis[':id'].report.$get({ param: { id } }).then((r) => unwrap<AnalysisReport>(r)),
+    latestAnalysisReport: (versionId: string) => v[':id'].analysis['latest-report'].$get({ param: { id: versionId } }).then((r) => unwrap<AnalysisReport | null>(r)),
+    /** Can an analysis start now? The checks, and the first blocking reason. */
+    analysisPreflight: (versionId: string) => v[':id'].analysis.preflight.$get({ param: { id: versionId } }).then((r) => unwrap<Preflight>(r)),
     cancelAnalysis: (id: string) => api.api.analysis[':id'].cancel.$post({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
     addPage: (documentId: string, json: { pageNo: number; text: string; method: 'pdf_text' | 'ocr' }) =>
       api.api['source-documents'][':id'].pages.$post({ param: { id: documentId }, json }).then((r) => unwrap<SourcePage>(r)),

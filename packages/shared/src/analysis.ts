@@ -139,8 +139,26 @@ export const AnalysisGapSchema = z.object({
   reason: z.string().nullable(),
   /** Link targets: the requirement card, set when the run ends. */
   requirementId: z.string().nullable(),
+  /** A conflict: each wording as the sources have it (the finder keeps them so the report can show them side by side). */
+  variants: z.array(z.object({ documentId: z.string(), page: z.number().int(), text: z.string() })).optional(),
 });
 export type AnalysisGap = z.infer<typeof AnalysisGapSchema>;
+
+/** The models a run used, recorded under `report.runtime` (names only; never a key). */
+export const AnalysisRuntimeInfoSchema = z.object({
+  analysisModel: z.string().nullable(),
+  visionModel: z.string().nullable(),
+  embeddingModel: z.string().nullable(),
+});
+export type AnalysisRuntimeInfo = z.infer<typeof AnalysisRuntimeInfoSchema>;
+
+/** The latest run of a version in one line, for the standard's card: running, finished (a report to open) or failed. */
+export const AnalysisBriefSchema = z.object({
+  runId: z.string(),
+  status: z.enum(ANALYSIS_STATUSES),
+  error: z.string().nullable(),
+});
+export type AnalysisBrief = z.infer<typeof AnalysisBriefSchema>;
 
 export const AnalysisRunSchema = z.object({
   id: z.string(),

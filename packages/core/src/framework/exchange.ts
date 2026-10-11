@@ -82,8 +82,6 @@ export async function exportVersion(ctx: Ctx, versionId: string): Promise<Framew
 export interface ImportOptions {
   /** Edition to create; defaults to the file's. A new draft is always created, never an existing version changed. */
   edition?: string;
-  /** Mark everything approved by the importer. Needs framework:review; for loading trusted fixtures. */
-  autoApprove?: boolean;
 }
 
 /**
@@ -103,7 +101,6 @@ export function splitTitleAndText(code: string, title: string, text: string | nu
 
 export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptions = {}) {
   await require_(ctx, 'framework:write');
-  if (options.autoApprove) await require_(ctx, 'framework:review');
 
   const parsed = FrameworkExportSchema.safeParse(raw);
   if (!parsed.success) {
@@ -130,11 +127,6 @@ export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptio
   for (const r of file.requirements) {
     for (const n of r.notes) {
       if (n.authority === 'required' && !n.source) problems.push({ path: `requirements.${r.code}`, message: 'a required note must cite its source' });
-      // Approving on import is only for content a person could verify: a required note's quote must be on its page.
-      if (options.autoApprove && n.authority === 'required' && n.source) {
-        const text = pageText.get(`${n.source.document}:${n.source.page}`);
-        if (text === undefined || !quoteInText(n.source.quote, text)) problems.push({ path: `requirements.${r.code}`, message: 'a required note\'s quote is not found on its cited page, so it cannot be auto-approved' });
-      }
     }
   }
 
@@ -169,9 +161,9 @@ export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptio
   const [clash] = await ctx.tx.select({ id: frameworkVersion.id }).from(frameworkVersion).where(and(eq(frameworkVersion.frameworkId, fw.id), eq(frameworkVersion.edition, edition)));
   if (clash) throw new ConflictError(`edition ${edition} already exists for ${fw.name}; import under another edition`);
 
-  const approval = options.autoApprove
-    ? { reviewStatus: 'approved' as const, reviewedBy: ctx.caller.userId, reviewedAt: new Date() }
-    : { reviewStatus: 'pending' as const, reviewedBy: null, reviewedAt: null };
+  // An imported standard follows the rules of an AI draft (DEC-022): everything pending, nothing approved line by line;
+  // publishing the version is the review.
+  const approval = { reviewStatus: 'pending' as const, reviewedBy: null, reviewedAt: null };
 
   const [version] = await guardIntegrity(() => ctx.tx.insert(frameworkVersion).values({
     institutionId: ctx.caller.institutionId, frameworkId: fw.id, edition,

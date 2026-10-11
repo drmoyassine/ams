@@ -70,8 +70,8 @@ async function openImport(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(dialog).getByRole('button', { name: /Import a file/ }));
 }
 
-async function importAs(who: Who, edition: string, autoApprove = false) {
-  return apiFor(who).importFile({ file: file(edition), edition, ...(autoApprove ? { autoApprove } : {}) });
+async function importAs(who: Who, edition: string) {
+  return apiFor(who).importFile({ file: file(edition), edition });
 }
 
 beforeAll(async () => {
@@ -232,7 +232,7 @@ describe('version page', () => {
   });
 
   it('edits a requirement without per-line review labels or approve/reject; a viewer sees no edit controls', async () => {
-    const { version } = await importAs('admin', 'edit-flow', true);
+    const { version } = await importAs('admin', 'edit-flow');
     const user = userEvent.setup();
     const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} onOpenVersion={() => undefined} />));
     const card = await screen.findByRole('region', { name: 'Measure 1-1' });
@@ -353,7 +353,7 @@ describe('version page', () => {
     render(wrap(<VersionPage versionId={version.id} api={apiFor('admin')} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Guide' })).toBeTruthy();
     expect(document.querySelector('header')!.textContent).toContain('Public University Council · Institutional');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Settings']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Report', 'Settings']);
     expect(screen.queryByTestId('config-problems')).toBeNull(); // the configuration is valid
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
@@ -407,7 +407,7 @@ describe('version page', () => {
   });
 
   it('starts a new version from the header of a published one', async () => {
-    const { version } = await importAs('admin', 'new-version-src', true);
+    const { version } = await importAs('admin', 'new-version-src');
     const a = apiFor('admin');
     await a.submit(version.id);
     await a.publish(version.id);
@@ -424,7 +424,7 @@ describe('version page', () => {
   });
 
   it('edits the standard\'s details and the accreditor\'s, and its logo, in Settings, even on a published version', async () => {
-    const { version } = await importAs('admin', 'details-src', true);
+    const { version } = await importAs('admin', 'details-src');
     const a = apiFor('admin');
     await a.submit(version.id);
     await a.publish(version.id);

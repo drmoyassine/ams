@@ -50,7 +50,7 @@ export async function buildWorld(label: string): Promise<World> {
   };
   for (const [key, name] of [['abet', 'abet-eac-2027-28'], ['wscuc', 'wscuc-2023'], ['puc', 'puc-2019']] as const) {
     ids[key] = await as('admin', async (ctx) => {
-      const { version } = await importVersion(ctx, loadFixture(name), { autoApprove: true });
+      const { version } = await importVersion(ctx, loadFixture(name));
       await submitForReview(ctx, version.id);
       await publishVersion(ctx, version.id);
       return version.id;

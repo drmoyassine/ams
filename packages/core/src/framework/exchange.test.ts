@@ -103,20 +103,19 @@ describe('import', () => {
     expect(notes[0]!.quoteVerified).toBe(false);
   });
 
-  it('auto-approve lets a trusted file be published after review submission', async () => {
+  it('an import follows the rules of an AI draft: everything pending, nothing approved line by line (DEC-022)', async () => {
     const a = await run('lead', (c) => exportVersion(c, ids.vid!));
-    const { version } = await run('admin', (c) => importVersion(c, a, { edition: 'auto-approved', autoApprove: true }));
+    const { version } = await run('admin', (c) => importVersion(c, a, { edition: 'pending-all' }));
     const rows = await run('lead', (c) => listRequirements(c, version.id));
-    expect(rows.every((r) => r.reviewStatus === 'approved' && r.reviewedBy === ids.admin)).toBe(true);
+    expect(rows.every((r) => r.reviewStatus === 'pending' && r.reviewedBy === null)).toBe(true);
+    // Publishing the version is the review: it needs no per-line approval.
     await run('lead', (c) => submitForReview(c, version.id));
     expect((await run('admin', (c) => publishVersion(c, version.id))).status).toBe('published');
   });
 
-  it('refuses auto-approval of a required note whose quote is not on its page', async () => {
+  it('a required note whose quote is not on its page imports, and the publish gate is what protects the version', async () => {
     const a = await run('lead', (c) => exportVersion(c, ids.vid!));
     a.requirements[0]!.notes[0]!.source!.quote = 'نص غير موجود في الصفحة';
-    await expect(run('admin', (c) => importVersion(c, a, { edition: 'bad-auto', autoApprove: true }))).rejects.toThrow(/problems/);
-    // Without auto-approve the same file imports, and the publish gate is what protects the version.
     await run('lead', (c) => importVersion(c, a, { edition: 'bad-manual' }));
   });
 
@@ -160,7 +159,7 @@ describe('import', () => {
 describe('a published version exports as published', () => {
   it('can be exported after publication and approvals are not part of the file', async () => {
     const a = await run('lead', (c) => exportVersion(c, ids.vid!));
-    const { version } = await run('admin', (c) => importVersion(c, a, { edition: 'for-publish', autoApprove: true }));
+    const { version } = await run('admin', (c) => importVersion(c, a, { edition: 'for-publish' }));
     await run('lead', (c) => submitForReview(c, version.id));
     await run('admin', (c) => publishVersion(c, version.id));
     const b = await run('viewer', (c) => exportVersion(c, version.id));

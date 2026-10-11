@@ -194,6 +194,7 @@ function pagesFor(ids) {
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
     ids.draftId && { name: 'version-sources', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
+    ids.draftId && { name: 'version-report', path: `/settings/versions/${ids.draftId}?tab=report` },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
 

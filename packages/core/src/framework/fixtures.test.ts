@@ -44,7 +44,7 @@ describe.each(NAMES)('fixture %s', (name) => {
   });
 
   it('imports as a draft, passes the configuration check, and publishes', async () => {
-    const { version, counts } = await admin((c) => importVersion(c, load(name), { autoApprove: true }));
+    const { version, counts } = await admin((c) => importVersion(c, load(name)));
     expect(version.status).toBe('draft');
     expect(counts.requirements).toBe(FrameworkExportSchema.parse(load(name)).requirements.length);
     expect(await admin((c) => validateVersion(c, version.id))).toMatchObject({ ok: true });

@@ -20,11 +20,10 @@ export const PencilIcon = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
 );
 
-function ImportForm({ api, canReview }: { api: FrameworkApi; canReview: boolean }) {
+function ImportForm({ api }: { api: FrameworkApi; /** Kept for the callers; the import no longer has an approve-everything option (DEC-022). */ canReview?: boolean }) {
   const qc = useQueryClient();
   const [text, setText] = useState('');
   const [edition, setEdition] = useState('');
-  const [autoApprove, setAutoApprove] = useState(false);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; counts: string } | null>(null);
@@ -35,7 +34,7 @@ function ImportForm({ api, canReview }: { api: FrameworkApi; canReview: boolean 
       let file: unknown;
       try { file = JSON.parse(text); } catch (e) { setMessage(`Not valid JSON: ${(e as Error).message}`); return; }
       try {
-        const r = await api.importFile({ file, ...(edition ? { edition } : {}), ...(autoApprove ? { autoApprove } : {}) });
+        const r = await api.importFile({ file, ...(edition ? { edition } : {}) });
         setDone({ id: r.version.id, counts: `${r.counts.requirements} requirements, ${r.counts.documents} documents, ${r.counts.templates} templates` });
         await qc.invalidateQueries({ queryKey: ['frameworks'] });
         await qc.invalidateQueries({ queryKey: ['versions'] });
@@ -56,7 +55,6 @@ function ImportForm({ api, canReview }: { api: FrameworkApi; canReview: boolean 
       <textarea aria-label="Standard JSON" dir="ltr" rows={6} value={text} onChange={(e) => setText(e.target.value)} className="mt-2 w-full rounded-md border border-border p-2 font-mono text-xs" />
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <label className="text-sm">Edition (optional) <Input value={edition} onChange={(e) => setEdition(e.target.value)} className="w-40" /></label>
-        {canReview && <label className="text-sm"><input type="checkbox" checked={autoApprove} onChange={(e) => setAutoApprove(e.target.checked)} /> Approve everything on import (trusted files)</label>}
         <Button type="button" disabled={!text.trim() || run.isPending} onClick={() => run.mutate()}>Import</Button>
       </div>
       {message && <p role="alert" className="mt-2 text-sm text-red-700">{message}</p>}

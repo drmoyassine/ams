@@ -64,7 +64,7 @@ beforeAll(async () => {
   await grant('contrib', 'contributor', 'program', ids.mech!);
   await grant('reviewer', 'reviewer', 'program', ids.mech!);
   const fw = frameworkApi(createApi(fetchAs('admin')));
-  const { version } = await fw.importFile({ file: fixture('abet-eac-2027-28'), autoApprove: true });
+  const { version } = await fw.importFile({ file: fixture('abet-eac-2027-28') });
   await fw.submit(version.id);
   await fw.publish(version.id);
   ids.abet = version.id;

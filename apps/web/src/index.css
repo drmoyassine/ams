@@ -27,3 +27,16 @@ body { background: var(--background); color: var(--foreground); font-family: sys
 .drawer-in { animation: drawer-in 180ms ease-out; }
 [dir='rtl'] .drawer-in { animation-name: drawer-in-rtl; }
 @media (prefers-reduced-motion: reduce) { .drawer-in { animation: none; } }
+
+/* "Print / save as PDF" on the analysis report: no navigation or buttons, full width, wrapped text, no horizontal overflow. */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff; color: #000; }
+  main { padding: 0 !important; }
+  table { min-width: 0 !important; width: 100% !important; table-layout: auto; }
+  .overflow-x-auto { overflow: visible !important; }
+  a { color: inherit; text-decoration: none; }
+  details > summary { list-style: none; }
+  details:not([open]) > :not(summary) { display: block; }
+  section, li, blockquote { overflow-wrap: anywhere; }
+}

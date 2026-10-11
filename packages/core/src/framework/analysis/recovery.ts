@@ -53,7 +53,7 @@ export function reconcileGaps(prev: AnalysisGap[], found: FoundGap[], round: num
       else if (g.status !== 'conflict') out.push(g); // a conflict that is gone (a person changed the draft) is dropped
       continue;
     }
-    const where = { documentId: f.documentId, page: f.page, detail: f.detail };
+    const where = { documentId: f.documentId, page: f.page, detail: f.detail, ...(f.variants ? { variants: f.variants } : {}) };
     if (g.status === 'confirmed_absent') out.push(g);
     else if (f.kind === 'conflict') out.push({ ...g, ...where, status: 'conflict' });
     else out.push({ ...g, ...where, status: 'open' });
@@ -61,7 +61,7 @@ export function reconcileGaps(prev: AnalysisGap[], found: FoundGap[], round: num
   for (const f of now.values()) {
     out.push({
       key: f.key, kind: f.kind, status: f.kind === 'conflict' ? 'conflict' : 'open', code: f.code, documentId: f.documentId, page: f.page,
-      round, attempts: 0, detail: f.detail, reason: null, requirementId: null,
+      round, attempts: 0, detail: f.detail, reason: null, requirementId: null, ...(f.variants ? { variants: f.variants } : {}),
     });
   }
   return out;

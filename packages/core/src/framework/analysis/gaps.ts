@@ -243,6 +243,8 @@ export interface FoundGap {
   anchorSeq: number;
   /** The item as proposed, for a re-cite question. */
   item?: { kind: 'requirement' | 'note'; code: string; text: string; quote: string };
+  /** A conflict: the two wordings, kept so the report can show them side by side. */
+  variants?: { documentId: string; page: number; text: string }[];
 }
 
 export interface GapFinderInput {
@@ -409,6 +411,7 @@ export function findGaps(input: GapFinderInput): FoundGap[] {
       key: `conflict:${code}`, kind: 'conflict', code, documentId: a.documentId, page: pa,
       detail: a.documentId === b.documentId ? `different wording on pages ${pa} and ${pb}` : `different wording in two documents (pages ${pa} and ${pb})`,
       pages: [], anchorSeq: a.seq,
+      variants: [{ documentId: a.documentId, page: pa, text: a.item.text }, { documentId: b.documentId, page: pb, text: b.item.text }],
     });
   }
   return out;

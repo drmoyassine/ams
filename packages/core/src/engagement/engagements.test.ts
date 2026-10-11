@@ -27,7 +27,7 @@ const create = (who: string, over: Partial<CreateEngagement> & Pick<CreateEngage
 
 async function publishFixture(name: string) {
   return as('admin', async (ctx) => {
-    const { version } = await importVersion(ctx, load(name), { autoApprove: true });
+    const { version } = await importVersion(ctx, load(name));
     await submitForReview(ctx, version.id);
     await publishVersion(ctx, version.id);
     return version.id;
@@ -53,7 +53,7 @@ beforeAll(async () => {
   await grant('contrib', 'contributor', 'program', ids.mech!);
   ids.abet = await publishFixture('abet-eac-2027-28');
   ids.wscuc = await publishFixture('wscuc-2023');
-  const draft = await as('admin', async (ctx) => (await importVersion(ctx, load('puc-2019'), { autoApprove: true })).version.id);
+  const draft = await as('admin', async (ctx) => (await importVersion(ctx, load('puc-2019'))).version.id);
   ids.draft = draft;
 }, 60000);
 afterAll(async () => { await pool.end(); await db.close(); });

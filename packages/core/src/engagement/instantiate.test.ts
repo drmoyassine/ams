@@ -25,7 +25,7 @@ const run = <T>(fn: (ctx: Ctx) => Promise<T>) => {
 
 async function publishFixture(name: string): Promise<string> {
   return run(async (ctx) => {
-    const { version } = await importVersion(ctx, load(name), { autoApprove: true });
+    const { version } = await importVersion(ctx, load(name));
     await submitForReview(ctx, version.id);
     await publishVersion(ctx, version.id);
     return version.id;
