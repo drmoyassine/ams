@@ -472,7 +472,7 @@ modified:
 
 Gate before M7. Done when the Appendix D corpus passes and AMS parseDocument() contract tests pass against the released version.
 
-Progress (2026-10-10): AMS uses the published `@llamaindex/liteparse` for PDF behind `parseDocument()` (TASK-043); its contract tests pass. Office formats are read without LibreOffice. Open: the Appendix D corpus and an image build check of the native PDF binding.
+Progress correction (2026-10-11): steps A–D of the compiler currently use the upstream `@llamaindex/liteparse` package, NOT the owned `@drmoyassine/liteparse` (0.5.0, pdfjs + mammoth + SheetJS + RapidOCR, no LibreOffice) that DEC-011 and PRD Appendix D name. Switching to the owned package and checking it against Appendix D (LP1–LP10) and the D.3 corpus is pending the owner's decision.
 
 ---
 
