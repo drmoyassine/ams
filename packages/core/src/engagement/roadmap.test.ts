@@ -4,6 +4,7 @@ import { ForbiddenError } from '../ctx.js';
 import { addMember, getEngagement } from './engagements.js';
 import { addLocalMilestone, advancePhase, deleteMilestone, reorderMilestones, updateEngagement, updateMilestone, withdrawEngagement } from './roadmap.js';
 import { addDays } from './dates.js';
+import { listTrash, restoreTrash } from '../trash/index.js';
 import { buildWorld, type World } from './test-support.js';
 
 let w: World;
@@ -108,6 +109,20 @@ describe('local milestones', () => {
 
     await w.as('coord', (ctx) => deleteMilestone(ctx, a.id));
     expect((await ms('coord', eng)).some((m) => m.id === a.id)).toBe(false);
+
+    // The deleted milestone is in the Trash (for the person who may manage the engagement, not for a contributor) and comes back as it was.
+    const bin = (await w.as('coord', (ctx) => listTrash(ctx, { kind: 'milestone' }))).groups.find((g) => g.label === 'Steering committee');
+    expect(bin).toMatchObject({ kinds: ['milestone'], daysLeft: 30 });
+    expect((await w.as('contrib', (ctx) => listTrash(ctx, { kind: 'milestone' }))).total).toBe(0);
+    await expect(w.as('contrib', (ctx) => restoreTrash(ctx, { groupId: bin!.groupId }))).rejects.toThrow(/nothing in the Trash/);
+    await w.as('coord', (ctx) => restoreTrash(ctx, { groupId: bin!.groupId }));
+    expect((await ms('coord', eng)).find((m) => m.id === a.id)).toMatchObject({ name: 'Steering committee', phase: 'review', origin: 'local' });
+    // An engagement that is no longer active takes nothing back.
+    await w.as('coord', (ctx) => deleteMilestone(ctx, a.id));
+    const again = (await w.as('coord', (ctx) => listTrash(ctx, { kind: 'milestone' }))).groups[0]!;
+    await w.db.su.query(`update engagement set status = 'closed' where id = $1`, [eng]);
+    await expect(w.as('coord', (ctx) => restoreTrash(ctx, { groupId: again.groupId }))).rejects.toThrow(/Cannot restore: the engagement is closed/);
+    await w.db.su.query(`update engagement set status = 'active' where id = $1`, [eng]);
   });
 
   it('cannot add a phase an engagement of this kind does not have', async () => {

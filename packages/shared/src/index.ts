@@ -10,3 +10,4 @@ export * from './dataset.js';
 export * from './ai.js';
 export * from './analysis.js';
 export * from './analysis-report.js';
+export * from './trash.js';

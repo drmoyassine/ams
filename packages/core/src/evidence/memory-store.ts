@@ -11,4 +11,7 @@ export class MemoryStore implements ObjectStore {
   async get(key: string) {
     return this.objects.get(key) ?? null;
   }
+  async delete(key: string) {
+    this.objects.delete(key);
+  }
 }

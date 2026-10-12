@@ -121,12 +121,14 @@ describe('requirement tree', () => {
     expect(moved.parentId).toBe(other.id);
   });
 
-  it('deletes only leaves (with their notes)', async () => {
+  it('deletes a requirement with its whole subtree and notes, in one step (they go to the Trash)', async () => {
     const x = await draft('tree-del');
-    await expect(run('lead', (c) => deleteRequirement(c, x.std.id))).rejects.toThrow(/child requirements/);
     await run('lead', (c) => addNote(c, { requirementId: x.cfr.id, type: 'guidance', text: 'g', authority: 'suggested' }));
     await run('lead', (c) => deleteRequirement(c, x.cfr.id));
     expect(await run('lead', (c) => listRequirements(c, x.v.id))).toHaveLength(1);
+    const res = await run('lead', (c) => deleteRequirement(c, x.std.id));
+    expect(res.counts).toMatchObject({ items: 1, subItems: 0 });
+    expect(await run('lead', (c) => listRequirements(c, x.v.id))).toHaveLength(0);
   });
 
   it('sends an approved requirement back to review when it is edited', async () => {

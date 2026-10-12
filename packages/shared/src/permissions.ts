@@ -76,19 +76,23 @@ export const UpdateProgramSchema = z.object({
 }).strict();
 export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
 
-/** `analyse`: one stage of a framework analysis run (the stage is in the payload; each stage queues the next). */
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse'] as const;
+/**
+ * `analyse`: one stage of a framework analysis run (the stage is in the payload; each stage queues the next).
+ * `purge_trash`: a scheduled tick (daily, pg-boss schedule) that removes Trash items older than the retention and their
+ * stored files, tenant by tenant under a system identity (DEC-026). It carries no job row.
+ */
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 /**
  * Which background service takes each job type (DEC-024). Every job type belongs to exactly one group, so adding a type
  * forces a decision here (a test checks the table and the compose file agree).
- *   worker  general work that needs neither document parsing nor a model: exports, notifications
+ *   worker  general work that needs neither document parsing nor a model: exports, notifications, the daily Trash purge
  *   parser  reads documents (CPU and memory heavy)
  *   agent   everything that calls an AI provider; the only service that needs outbound internet; parses no documents
  */
 export const QUEUE_GROUPS = {
-  worker: ['export', 'notify'],
+  worker: ['export', 'notify', 'purge_trash'],
   parser: ['extract_text'],
   agent: ['analyse', 'ai_extract', 'ocr'],
 } as const satisfies Record<string, readonly JobType[]>;

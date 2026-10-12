@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCell, type DataColumn, type EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { DataFormView } from './data-form';
+import { useConfirm } from './confirm-dialog';
 import { RequestFormDialog, RequestList } from './evidence-requests';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -29,6 +30,7 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
   const requests = useQuery({ queryKey: ['form-requests', item.id], queryFn: () => api.formRequests(item.id) });
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
+  const confirm = useConfirm();
   // The library card shows whether the form is open, so the list is refreshed too.
   const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(() => Promise.all([qc.invalidateQueries({ queryKey: ['data-form', item.id] }), qc.invalidateQueries({ queryKey: ['evidence'] })]), (e: Error) => setError(e.message)); };
   if (!form.data || !spec.data) return <p className="text-sm">Loading…</p>;
@@ -54,7 +56,7 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
                   <>
                     <CopyField label="Public form link" value={publicFormUrl(f.linkToken)} />
                     <div className="flex gap-2">
-                      <Button type="button" variant="ghost" onClick={() => { if (window.confirm('Make a new link? The current one stops working.')) act(() => api.newFormLink(item.id)); }}>New link</Button>
+                      <Button type="button" variant="ghost" onClick={() => void confirm({ title: 'Make a new link?', message: 'The current link stops working. Anyone who has it will need the new one.', confirmLabel: 'Make a new link' }).then((ok) => { if (ok) act(() => api.newFormLink(item.id)); })}>New link</Button>
                       <Button type="button" variant="ghost" onClick={() => act(() => api.removeFormLink(item.id))}>Turn off public link</Button>
                     </div>
                   </>

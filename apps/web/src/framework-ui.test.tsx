@@ -358,7 +358,7 @@ describe('version page', () => {
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
     await user.click(screen.getByRole('button', { name: 'More actions' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Download JSON', 'Return to draft']);
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Download JSON', 'Return to draft', 'Delete all standards in this version', 'Delete this version']);
     await user.click(screen.getByRole('menuitem', { name: 'Return to draft' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('Draft'));
 

@@ -16,6 +16,8 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman, getRequirement, isInternalVersion } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
+import { trashEvidenceLink } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 
 type ItemRow = typeof evidenceItem.$inferSelect;
 type VersionRow = typeof evidenceVersion.$inferSelect;
@@ -338,7 +340,10 @@ export async function removeLink(ctx: Ctx, id: string): Promise<void> {
     const { e } = await engagementOf(ctx, link.engagementRequirementId);
     await assertPermitted(ctx, 'engagement:work', { type: 'engagement', id: e.id });
   } else await assertPermitted(ctx, 'evidence:write', any);
-  await ctx.tx.delete(evidenceLink).where(eq(evidenceLink.id, id));
+  const [d] = await describeLinks(ctx, [link]);
+  const [raw] = await readRows(ctx, 'evidence_link', [id]);
+  // The link goes to the Trash (restorable for 30 days); the evidence itself is never deleted.
+  await trashEvidenceLink(ctx, raw!, { text: d ? `${d.evidenceTitle} → ${d.target.code}` : 'Evidence link', place: d?.target.engagementTitle ?? 'Internal quality framework' });
 }
 
 export async function linksForEngagementRequirement(ctx: Ctx, engagementRequirementId: string): Promise<EvidenceLink[]> {

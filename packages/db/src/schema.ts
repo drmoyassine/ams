@@ -214,7 +214,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -815,4 +815,37 @@ export const datasetResponse = pgTable('dataset_response', {
 }, (t) => [
   index('dataset_response_item_idx').on(t.evidenceItemId),
   oneOf('dataset_response_via_check', t.via, RESPONSE_VIA),
+]);
+
+// ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
+
+export const TRASH_KIND_VALUES = [
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone',
+] as const;
+/**
+ * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are
+ * really deleted from their own tables (so no query changes), and `payload` holds them (every row of the deleted subtree,
+ * with its dependents, as stored) to be put back with their original ids. Items deleted by one action share `group_id`.
+ * The worker's only write is deleting expired rows (and the storage objects named in `payload.files`).
+ */
+export const trashItem = pgTable('trash_item', {
+  ...base(), ...tenant(),
+  groupId: uuid('group_id').notNull(),
+  kind: text('kind', { enum: TRASH_KIND_VALUES }).notNull(),
+  /** What it was called, for the Trash list (code and title, or a file name). */
+  label: text('label').notNull(),
+  /** Where it sat, e.g. "Internal Quality Framework / 2.1". */
+  context: text('context'),
+  payload: jsonb('payload').notNull(),
+  counts: jsonb('counts').notNull().default(sql`'{}'::jsonb`),
+  deletedBy: uuid('deleted_by').references(() => appUser.id),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  restoredAt: timestamp('restored_at', { withTimezone: true }),
+}, (t) => [
+  index('trash_item_group_idx').on(t.groupId),
+  index('trash_item_institution_idx').on(t.institutionId, t.deletedAt),
+  index('trash_item_expires_idx').on(t.expiresAt),
+  oneOf('trash_item_kind_check', t.kind, TRASH_KIND_VALUES),
+  check('trash_item_counts_check', sql`jsonb_typeof(${t.counts}) = 'object'`),
 ]);

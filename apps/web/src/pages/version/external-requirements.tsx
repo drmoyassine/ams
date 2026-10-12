@@ -4,6 +4,7 @@ import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { AiMarker, QuoteNotFoundBadge } from '../../components/badges';
 import { BottomSheet } from '../../components/bottom-sheet';
+import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
@@ -12,6 +13,7 @@ import { distinctTitle } from '../../lib/format';
 import type { FrameworkApi, MergeResult, Requirement, SplitResult, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
+import { confirmAndDelete } from '../../lib/delete-requirements';
 import { LOOK_HINT, LOOK_KINDS, LOOK_LABEL, lookCounts, lookItems, nextLookItem, visibleRequirements, type LookKind } from './needs-look';
 import { AddNote, NotePanel } from './requirements-tab';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
@@ -101,6 +103,7 @@ interface NodeProps {
 function Node(p: NodeProps) {
   const { api, version, r, all, levels, editable, open, toggle, act, selected, look } = p;
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const isOpen = open.has(r.id);
   const allChildren = all.filter((x) => x.parentId === r.id);
   const children = allChildren.filter((x) => !p.visible || p.visible.has(x.id));
@@ -118,7 +121,7 @@ function Node(p: NodeProps) {
       { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
       { label: 'Split', onSelect: () => p.onSplit(r) },
       { label: 'Move to…', onSelect: () => p.onMove(r) },
-      { label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${nameOf(r)}?`)) void act(() => api.deleteRequirement(r.id)); } },
+      { label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${nameOf(r)}?`)) },
     ] : []),
   ];
   return (

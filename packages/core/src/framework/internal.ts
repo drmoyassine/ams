@@ -8,6 +8,7 @@ import { syncLevelTerms } from '../glossary/glossary.js';
 import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_ } from './common.js';
 import { newVersionFrom, publishVersion, submitForReview } from './versions.js';
 import { INTERNAL_TEMPLATE } from './internal-template.js';
+import { reportUndo } from '../trash/store.js';
 import { createRequirement, listRequirements, moveRequirement, relabelByDepth, updateRequirement } from './requirements.js';
 
 /**
@@ -90,6 +91,8 @@ export async function applyQualityTemplate(ctx: Ctx, versionId: string) {
       await createRequirement(ctx, { versionId, parentId: top.id, code: `${i + 1}.${j + 1}`, levelLabel: 'Level 2', title, displayOrder: j });
     }
   }
+  // Undo = remove all of it (the draft was empty), which lands in the Trash like any delete.
+  reportUndo(ctx, { label: 'Added the starting template', method: 'POST', path: `/api/framework-versions/${versionId}/requirements/delete-all` });
   return listRequirements(ctx, versionId);
 }
 
@@ -105,7 +108,7 @@ export async function indentRequirement(ctx: Ctx, id: string) {
   if (at <= 0) throw new ConflictError('there is nothing above it to indent under');
   const newParent = siblings[at - 1]!;
   const lastChild = rows.filter((x) => x.parentId === newParent.id).reduce((m, x) => Math.max(m, x.displayOrder), -1);
-  await moveRequirement(ctx, id, newParent.id, lastChild + 1);
+  await moveRequirement(ctx, id, newParent.id, lastChild + 1, { label: `Indented ${r.code}` });
   return getRequirement(ctx, id);
 }
 
@@ -122,7 +125,7 @@ export async function outdentRequirement(ctx: Ctx, id: string) {
   for (const x of rows.filter((y) => (y.parentId ?? null) === (parent.parentId ?? null) && y.displayOrder > parent.displayOrder)) {
     await ctx.tx.update(requirement).set({ displayOrder: x.displayOrder + 1 }).where(eq(requirement.id, x.id));
   }
-  await moveRequirement(ctx, id, parent.parentId ?? null, parent.displayOrder + 1);
+  await moveRequirement(ctx, id, parent.parentId ?? null, parent.displayOrder + 1, { label: `Outdented ${r.code}` });
   return getRequirement(ctx, id);
 }
 
@@ -223,5 +226,7 @@ export async function editQualityItem(ctx: Ctx, id: string, input: z.input<typeo
       if (renumbered !== c.code) await updateRequirement(ctx, c.id, { code: renumbered }).catch(friendlyDuplicate(renumbered));
     }
   }
+  // Undo = edit it back (code, title, description), which also renumbers its sub-standards back.
+  reportUndo(ctx, { label: `Edited ${current.code}`, method: 'PATCH', path: `/api/quality-items/${id}`, body: { code: current.code, title: current.title, description: current.officialText ?? '' } });
   return updated;
 }

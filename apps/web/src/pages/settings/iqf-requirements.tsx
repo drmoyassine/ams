@@ -6,6 +6,7 @@ import { ContentText } from '../../components/content-text';
 import { EvidenceLinkList } from '../../components/evidence-links';
 import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
+import { useConfirm } from '../../components/confirm-dialog';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -13,6 +14,7 @@ import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { FrameworkApi, Requirement, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
+import { confirmAndDelete } from '../../lib/delete-requirements';
 
 /** The next free code: 1, 2, 3 for standards; 3.1, 3.2 under standard 3. */
 function nextCode(rows: Requirement[], parent: Requirement | null): string {
@@ -90,6 +92,7 @@ interface ItemProps {
 function Item(p: ItemProps) {
   const { api, evidence, r, all, me, editable, open, toggle, act } = p;
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const isOpen = open.has(r.id);
   const children = all.filter((x) => x.parentId === r.id);
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
@@ -99,7 +102,7 @@ function Item(p: ItemProps) {
     ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }, { label: 'Request evidence', onSelect: () => p.onRequest(r) }] : []),
     ...(editable && !r.parentId ? [{ label: 'Add sub-standard', onSelect: () => p.onAddChild(r) }] : []),
     ...(editable ? [{ label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
-    ...(editable ? [{ label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${tag(r)} · ${r.title}?`)) void act(() => api.deleteRequirement(r.id)); } }] : []),
+    ...(editable ? [{ label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${tag(r)}?`)) }] : []),
   ];
   return (
     <AccordionCard label={tag(r)} tag={tag(r)} title={r.title} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}

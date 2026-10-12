@@ -175,6 +175,22 @@ async function seedDemo(db, base) {
     const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
     await call('POST', `/api/requirements/${items[0].id}/evidence-requests`, { title: 'Exit survey results for the spring cohort', assigneeEmail: 'institutional.research@partner.example.edu', message: 'Please upload the latest results.' });
   } catch (e) { warn('evidence request', e); }
+  // Things in the Trash (DEC-026): a source document, an Arabic standard with a sub-item and a note, and the last quality-framework standard with its sub-standards.
+  try {
+    if (ids.draftId) {
+      const doc = await call('POST', `/api/framework-versions/${ids.draftId}/source-documents`, { title: 'Superseded circular (responsive check) with a long title that has to wrap', authority: 'informational', role: 'guidance' });
+      await call('DELETE', `/api/source-documents/${doc.id}`);
+      const std = await call('POST', `/api/framework-versions/${ids.draftId}/requirements`, { code: 'ع١', levelLabel: 'Standard', title: 'المعيار الأول: الرسالة والأهداف والحوكمة المؤسسية' });
+      const kid = await call('POST', `/api/framework-versions/${ids.draftId}/requirements`, { code: 'ع١.١', levelLabel: 'Criterion', title: 'مراجعة الرسالة', parentId: std.id });
+      await call('POST', `/api/requirements/${kid.id}/notes`, { type: 'guidance', text: 'ملاحظة على المعيار', authority: 'suggested' });
+      await call('DELETE', `/api/requirements/${std.id}`);
+    }
+    const qf = await call('GET', '/api/quality-framework');
+    const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
+    const lastTop = [...items].reverse().find((r) => !r.parentId);
+    if (lastTop) await call('DELETE', `/api/requirements/${lastTop.id}`);
+    // A standard to delete with the question and the Undo toast on the draft's page (it is restored again afterwards).
+  } catch (e) { warn('trash', e); }
   return ids;
 }
 
@@ -237,6 +253,20 @@ function pagesFor(ids) {
       await page.getByRole('button', { name: /^Quote not found/ }).first().click();
     } },
     ids.draftId && { name: 'version-merge-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Merge into another requirement')(page); await page.getByRole('dialog').waitFor(); } },
+    // DEC-026: the Trash, the in-app confirm dialog (instead of the browser's) and the Undo toast.
+    { name: 'settings-trash', path: '/settings/trash' },
+    { name: 'settings-trash-contents', path: '/settings/trash', action: async (page) => { await page.getByRole('button', { name: /what is inside/ }).first().click(); await page.getByTestId('trash-contents').waitFor(); } },
+    { name: 'settings-trash-empty-dialog', path: '/settings/trash', action: async (page) => { await page.getByRole('button', { name: 'Empty trash' }).click(); await page.getByRole('dialog', { name: 'Empty the Trash?' }).waitFor(); } },
+    ids.draftId && { name: 'confirm-dialog-delete', path: `/settings/versions/${ids.draftId}`, action: async (page) => {
+      await menuItem('Delete')(page);
+      await page.getByRole('dialog', { name: /^Delete / }).waitFor();
+    } },
+    ids.draftId && { name: 'undo-toast', path: `/settings/versions/${ids.draftId}`, action: async (page) => {
+      await menuItem('Delete')(page);
+      const dialog = page.getByRole('dialog', { name: /^Delete / });
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+      await page.getByTestId('toast').first().waitFor();
+    }, after: async (page) => { await page.getByRole('button', { name: 'Undo' }).first().click(); await page.getByText(/^Undone: /).first().waitFor(); } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
@@ -331,6 +361,7 @@ async function main() {
           }
           results.push({ width, name: p.name, note, ...(await page.evaluate(measure)) });
           await page.screenshot({ path: join(dir, `${p.name}.png`), fullPage: true });
+          if (p.after) await p.after(page); // puts back what the page's action changed
         } catch (e) {
           results.push({ width, name: p.name, error: e.message.split('\n')[0] });
           await page.screenshot({ path: join(dir, `${p.name}.error.png`), fullPage: true }).catch(() => undefined); // to see where it stopped

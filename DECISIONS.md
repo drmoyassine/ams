@@ -1254,3 +1254,78 @@ related_decisions:
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
 ---
+
+---
+
+## DEC-026 — Deleted items stay in a 30-day Trash; undo is offered for reversible actions
+
+---
+id: DEC-026
+title: 'Deleted items stay in a 30-day Trash; undo is offered for reversible actions'
+status: accepted
+context: >-
+  Deleting was final. A requirement with sub-items could not be deleted until its children were deleted one by one (the
+  owner built an IQF from the template as a test and could not get rid of the standards), nothing could be taken back, and
+  deletes were confirmed with the browser's own window.confirm, which cannot be styled, tested or read like the rest of the
+  app. Soft-delete columns on every table would touch every query and every unique index.
+decision: >-
+  1. Snapshot, not soft delete. A delete writes a trash_item row (tenant RLS; kind, label, context, payload jsonb, counts,
+     deleted_by, deleted_at, expires_at, restored_at, group_id) holding the rows of the whole deleted subtree with their
+     dependents exactly as stored, and deletes the rows, in ONE transaction through the normal five-step chain. No
+     deleted_at column anywhere; no query changes. Rows keep their ids on restore. Items deleted by one action share a
+     group_id and are restored together. Files in storage are not deleted at delete time.
+  2. Retention. 30 days (TRASH_RETENTION_DAYS in packages/shared, shown in the UI). A daily pg-boss schedule on the new
+     job type purge_trash, in the general worker queue group, deletes expired rows and the stored files they name, tenant
+     by tenant, as a system actor with the worker role. The worker role may delete only expired trash_item rows of its
+     tenant; it learns which tenants have expired rows from one narrow SECURITY DEFINER function.
+  3. Deleting with children. Deleting a requirement deletes its subtree, notes and the links to other standards that name
+     a code that goes with it, with the counts in the confirm question. deleteMany (a list of ids, one transaction, one
+     group; an id inside another selected id's subtree counts once) serves one, a subtree and multi-select;
+     deleteAllRequirements(versionId) empties a draft; deleteVersion and deleteFramework delete a draft or in-review
+     version or a standard whose versions all are. Published and retired versions and the audit trail stay undeletable
+     (the triggers are not relaxed).
+  4. Restore (restoreTrash by group or item). Refused when the version is no longer a draft; a missing parent is a
+     409 with the choice (under the nearest living ancestor, or the top level); a taken code is renamed
+     ("<code> (restored)") unless the caller asks to refuse; links whose other side is gone are dropped and counted; an
+     AI-made row that returns clears its analysis dismissal (a trigger); a deleted version comes back as a draft.
+  5. Undo. A reversible mutation reports its inverse to the chain, which returns it in the X-Undo response header as
+     {label, method, path, body}. Implemented for delete (restore the group), create (delete), edit of a requirement,
+     note, link and IQF item (earlier values), move, indent and outdent (earlier parent and position), merge (restore the
+     group and move the children and notes back) and split (unsplit). The client shows a toast (role=status, 9 s, Undo
+     button, stacking) and Ctrl/Cmd+Z for the latest action of the current screen when focus is not in a text field
+     (20 per screen). A refused undo shows the server's reason.
+  6. In-app confirmation everywhere. useConfirm() opens a Dialog (focus moves in, is trapped and returns; Escape cancels;
+     danger tone; full screen on phones). window.confirm, alert and prompt are forbidden in apps/web by lint.
+  7. Not covered, on purpose: audit events, published or retired versions, official status history and snapshots,
+     evidence items and files and datasets (no delete path), engagements, credentials (AI accounts), access grants.
+     docs/trash.md has the full inventory.
+rationale: >-
+  Deleting a branch of a framework is routine editing; making it safe (30 days, one click to undo) removes the need to
+  empty a subtree by hand and the fear of a wrong click. A snapshot keeps the live tables and their constraints exactly as
+  they are, so the immutability triggers, unique indexes and queries are untouched, and an audit trail still shows the
+  delete and the restore under the person's name.
+consequences: >-
+  Adds migration 0046 (trash_item, its policies, the worker purge grant, three narrow SQL functions, a trigger that clears
+  a dismissal when an AI row is inserted by a person) and the job type purge_trash (compose WORKER_QUEUES for the worker
+  service includes it). A very large version is one jsonb payload. A link between standards is deleted with the last
+  requirement that bears its code, which changes the earlier behaviour (it was left dangling). Evidence links and requests
+  keyed by an IQF item's code stay where they are. ObjectStore gains delete(key), used only by the Trash. Editing a
+  requirement no longer resets its language, assessability and position to the defaults (the update schema had applied the
+  create schema's defaults).
+tags:
+  - ams
+last_updated: '2026-10-12'
+related_decisions:
+  - id: DEC-005
+    name: Official accreditation status is separate from internal readiness; no compliance scores
+    url: /DECISIONS.md#DEC-005
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+  - id: DEC-022
+    name: External standards drafted by analysis are gated by publishing, not by per-line approval
+    url: /DECISIONS.md#DEC-022
+  - id: DEC-024
+    name: Background work runs as three services from one codebase: worker, parser, agent
+    url: /DECISIONS.md#DEC-024
+---

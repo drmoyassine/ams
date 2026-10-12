@@ -3,14 +3,14 @@ import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
 import { resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
 import { hashLinkToken, isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
-import type { Permission, Scope } from '@ams/shared';
+import { UNDO_HEADER, type Permission, type Scope, type UndoDescriptor } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
 export type Authenticator = (req: Request) => Promise<{ userId: string; institutionId: string } | null>;
 
 export interface AppEnv {
   /** `linkTargetId`: on link routes, the one request (or data item) the link opens. */
-  Variables: { caller: Identity; ctx: Ctx; linkTargetId: string };
+  Variables: { caller: Identity; ctx: Ctx; linkTargetId: string; undo: UndoDescriptor };
 }
 export type AppContext = Context<AppEnv>;
 
@@ -46,6 +46,9 @@ export class RouteRegistry {
 }
 
 class Rollback extends Error {}
+
+/** The longest percent-encoded X-Undo value sent (bytes); proxies and Node refuse headers beyond a few KB. */
+export const MAX_UNDO_HEADER = 6000;
 
 export interface ChainDeps {
   pool: pg.Pool;
@@ -92,8 +95,15 @@ const transactionStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c
   let committed = true;
   try {
     await withIdentity(deps.pool, caller, async (tx) => {
-      c.set('ctx', { tx, caller, queue: deps.queue, afterCommit: (fn) => { hooks.push(fn); }, ...(deps.store ? { store: deps.store } : {}) });
+      c.set('ctx', { tx, caller, queue: deps.queue, afterCommit: (fn) => { hooks.push(fn); }, undo: (d) => { c.set('undo', d); }, ...(deps.store ? { store: deps.store } : {}) });
       await next();
+      // A reversible action says how to take it back (DEC-026): the last descriptor a service reported, percent-encoded JSON.
+      const undo = c.get('undo');
+      if (undo && !c.error && c.res.status < 400) {
+        // Headers are small; an edit whose earlier text is long enough to burst the limit simply offers no undo.
+        const encoded = encodeURIComponent(JSON.stringify(undo));
+        if (encoded.length <= MAX_UNDO_HEADER) c.header(UNDO_HEADER, encoded);
+      }
       if (c.error || c.res.status >= 400) throw new Rollback();
     });
   } catch (e) {

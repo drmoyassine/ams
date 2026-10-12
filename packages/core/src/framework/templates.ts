@@ -6,6 +6,8 @@ import type { Ctx } from '../ctx.js';
 import { NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, require_, unreviewed } from './common.js';
+import { trashTemplate, versionInfo } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 
 /** Create or replace a report template by key. The structure is validated against the PRD 10.2 schema. */
 export async function upsertReportTemplate(ctx: Ctx, versionId: string, input: z.input<typeof ReportTemplateConfigSchema>) {
@@ -43,7 +45,8 @@ export async function deleteReportTemplate(ctx: Ctx, versionId: string, key: str
   await require_(ctx, 'framework:write');
   await getDraftVersion(ctx, versionId);
   const t = await getTemplate(ctx, versionId, key);
-  await guardIntegrity(() => ctx.tx.delete(reportTemplate).where(eq(reportTemplate.id, t.id)));
+  const [raw] = await readRows(ctx, 'report_template', [t.id]);
+  return trashTemplate(ctx, raw!, await versionInfo(ctx, versionId));
 }
 
 export async function reviewReportTemplate(ctx: Ctx, versionId: string, key: string, decision: 'approved' | 'rejected') {

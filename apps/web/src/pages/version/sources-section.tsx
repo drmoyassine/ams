@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, Shaded } from '../../components/accordion';
+import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
@@ -93,6 +94,7 @@ function Pages({ api, doc, editable, onChange, focus }: { api: FrameworkApi; doc
   useEffect(() => { if (focus) setPick(focus.page); }, [focus]);
   const [error, setError] = useState('');
   const run = useAction(setError);
+  const confirm = useConfirm();
   const refresh = async () => { await qc.invalidateQueries({ queryKey: ['source-pages', doc.id] }); onChange(); };
   const list = pages.data ?? [];
   const current = list.find((p) => p.pageNo === pick) ?? list[0];
@@ -115,7 +117,7 @@ function Pages({ api, doc, editable, onChange, focus }: { api: FrameworkApi; doc
               <textarea name="text" aria-label={`Text of page ${current.pageNo}`} rows={8} dir="auto" defaultValue={current.text} className="w-full rounded-md border border-border p-2 text-sm" />
               <div className="flex gap-2">
                 <Button type="submit" variant="outline">Save page {current.pageNo}</Button>
-                <Button type="button" variant="ghost" onClick={() => { if (window.confirm(`Remove page ${current.pageNo}?`)) void run(() => api.deletePage(doc.id, current.pageNo)).then(refresh).then(() => setPick(null)); }}>Remove page</Button>
+                <Button type="button" variant="ghost" onClick={() => void confirm({ title: `Remove page ${current.pageNo}?`, message: `The text of page ${current.pageNo} of ${doc.title} will be removed. You can restore it from the Trash for 30 days.`, confirmLabel: 'Remove page', tone: 'danger' }).then((ok) => { if (ok) void run(() => api.deletePage(doc.id, current.pageNo)).then(refresh).then(() => setPick(null)); })}>Remove page</Button>
               </div>
             </form>
           ) : <p className="whitespace-pre-line rounded-md border border-border bg-background p-3 text-sm" dir="auto" data-testid="page-text">{current.text}</p>)}
@@ -168,6 +170,7 @@ export function SourcesSection({ api, version, me, onShowRequirement, onShowRepo
   const [dialog, setDialog] = useState<{ kind: 'add' } | { kind: 'edit'; doc: SourceDocument } | null>(null);
   const [error, setError] = useState('');
   const run = useAction(setError);
+  const confirm = useConfirm();
   const refresh = () => qc.invalidateQueries({ queryKey: ['documents', version.id] });
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const close = () => { setDialog(null); setError(''); };
@@ -207,7 +210,7 @@ export function SourcesSection({ api, version, me, onShowRequirement, onShowRepo
               menu={editable ? [
                 { label: 'Edit', onSelect: () => setDialog({ kind: 'edit', doc: d }) },
                 { label: d.hasFile ? 'Replace file' : 'Upload file', onSelect: () => pickFile(d) },
-                { label: 'Delete', onSelect: () => { if (window.confirm(`Delete ${d.title} and its pages?`)) void run(() => api.deleteDocument(d.id)).then(refresh); } },
+                { label: 'Delete', onSelect: () => void confirm({ title: `Delete ${d.title}?`, message: `${d.title} and its ${pages} page${pages === 1 ? '' : 's'} will be deleted. You can restore it, with its file, from the Trash for 30 days.`, confirmLabel: 'Delete', tone: 'danger' }).then((ok) => { if (ok) void run(() => api.deleteDocument(d.id)).then(refresh); }) },
               ] : []}
               meta={<span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
                 <span>{AUTHORITY_LABEL[d.authority as SourceAuthority] ?? d.authority}</span>

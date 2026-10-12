@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { requirement, requirementNote, sourceDocument, sourcePage } from '@ams/db';
+import { reportTemplate, requirement, requirementNote, sourceDocument, sourcePage } from '@ams/db';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { getDraftVersion, getSourceDocument, require_ } from './common.js';
+import { trashPage, trashSourceDocument, versionInfo } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 
 export const AddSourceDocumentSchema = z.object({
   versionId: z.uuid(),
@@ -70,17 +72,21 @@ export async function updateSourceDocument(ctx: Ctx, id: string, input: z.input<
   return row!;
 }
 
-/** Removes a draft version's source and its pages, unless a requirement or note cites it. */
+/**
+ * Removes a draft version's source and its pages, unless a requirement, note or template cites it. It goes to the Trash with
+ * its pages; the original file stays in storage until the item leaves the Trash.
+ */
 export async function deleteSourceDocument(ctx: Ctx, id: string) {
   await require_(ctx, 'framework:write');
   const doc = await getSourceDocument(ctx, id);
   await getDraftVersion(ctx, doc.frameworkVersionId);
   const [cited] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(requirementNote).where(eq(requirementNote.sourceDocumentId, id));
   const [citedReq] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(requirement).where(eq(requirement.sourceDocumentId, id));
-  const n = (cited?.n ?? 0) + (citedReq?.n ?? 0);
-  if (n) throw new ConflictError(`${n} requirement${n === 1 ? ' or note cites' : 's or notes cite'} this source; remove those citations first`);
-  await ctx.tx.delete(sourcePage).where(eq(sourcePage.sourceDocumentId, id));
-  await guardIntegrity(() => ctx.tx.delete(sourceDocument).where(eq(sourceDocument.id, id)));
+  const [citedTpl] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(reportTemplate).where(eq(reportTemplate.sourceDocumentId, id));
+  const n = (cited?.n ?? 0) + (citedReq?.n ?? 0) + (citedTpl?.n ?? 0);
+  if (n) throw new ConflictError(`${n} requirement${n === 1 ? ', note or template cites' : 's, notes or templates cite'} this source; remove those citations first`);
+  const [raw] = await readRows(ctx, 'source_document', [id]);
+  return trashSourceDocument(ctx, raw!, await versionInfo(ctx, doc.frameworkVersionId));
 }
 
 /** Every stored page of a source, in order. */
@@ -110,7 +116,10 @@ export async function deleteSourcePage(ctx: Ctx, documentId: string, pageNo: num
   const [cited] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(requirementNote)
     .where(and(eq(requirementNote.sourceDocumentId, documentId), eq(requirementNote.sourcePage, pageNo)));
   if (cited?.n) throw new ConflictError('a note quotes this page; remove that citation first');
-  await ctx.tx.delete(sourcePage).where(and(eq(sourcePage.sourceDocumentId, documentId), eq(sourcePage.pageNo, pageNo)));
+  const [page] = await ctx.tx.select({ id: sourcePage.id }).from(sourcePage).where(and(eq(sourcePage.sourceDocumentId, documentId), eq(sourcePage.pageNo, pageNo)));
+  if (!page) return;
+  const [raw] = await readRows(ctx, 'source_page', [page.id]);
+  await trashPage(ctx, raw!, (await readRows(ctx, 'source_document', [documentId]))[0]!, await versionInfo(ctx, doc.frameworkVersionId));
 }
 
 /** Largest original accepted (bytes). */

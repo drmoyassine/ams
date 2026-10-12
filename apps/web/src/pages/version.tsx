@@ -5,6 +5,7 @@ import { ActionsMenu } from '../components/accordion';
 import { VersionStatusBadge } from '../components/badges';
 import { ContentText } from '../components/content-text';
 import { AccreditorMark } from '../components/standard-card';
+import { useConfirm } from '../components/confirm-dialog';
 import { Dialog } from '../components/dialog';
 import { versionLabel } from '../lib/version-label';
 import { Button } from '../components/ui/button';
@@ -69,6 +70,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const me = useMe(api);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [tab, setTabState] = useState<VersionTab>(initialTab);
   const [runId, setRunId] = useState<string | undefined>(initialRunId);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialSection);
@@ -119,10 +121,36 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
     : version.status === 'in_review' && canPublish ? { label: 'Publish', run: () => act(() => api.publish(version.id)) }
       : version.status === 'published' && canWrite ? { label: 'Start a new version', run: async () => { setError(''); setNewVersion(true); } }
         : null;
+  /** "Delete all standards in this version": one question with the counts, one action, one Trash group. */
+  const deleteAll = async () => {
+    await act(async () => {
+      const rows = await api.requirements(version.id);
+      if (!rows.length) { setError('There is nothing to delete in this version.'); return; }
+      const p = await api.previewDelete(rows.filter((r) => !r.parentId).map((r) => r.id));
+      const ok = await confirm({
+        title: 'Delete all standards in this version?', tone: 'danger', confirmLabel: 'Delete all',
+        message: `Delete all ${(p.counts.items ?? 0) + (p.counts.subItems ?? 0)} standards${p.counts.notes ? ` and ${p.counts.notes} notes` : ''} in ${versionLabel(version.edition)}? You can restore them from the Trash for 30 days.`,
+      });
+      if (!ok) return;
+      await api.deleteAllRequirements(version.id);
+      await qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+    });
+  };
   const menu = [
     { label: 'Download JSON', onSelect: () => void act(async () => download(`${f?.accreditorShortName ?? 'standard'}-${version.edition}.json`, await api.exportFile(version.id))) },
     ...(version.status === 'in_review' && canWrite ? [{ label: 'Return to draft', onSelect: () => void act(() => api.returnToDraft(version.id)) }] : []),
-    ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => { if (window.confirm(`Retire ${versionLabel(version.edition)}? It stays readable but is no longer offered for new engagements.`)) void act(() => api.retire(version.id)); } }] : []),
+    ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => void confirm({
+      title: `Retire ${versionLabel(version.edition)}?`, message: 'It stays readable but is no longer offered for new engagements.', confirmLabel: 'Retire', tone: 'danger',
+    }).then((ok) => { if (ok) void act(() => api.retire(version.id)); }) }] : []),
+    ...((version.status === 'draft' || version.status === 'in_review') && canWrite ? [{ label: 'Delete all standards in this version', onSelect: () => void deleteAll() }] : []),
+    ...((version.status === 'draft' || version.status === 'in_review') && canWrite ? [{ label: 'Delete this version', onSelect: () => void confirm({
+      title: `Delete ${versionLabel(version.edition)}?`, tone: 'danger', confirmLabel: 'Delete',
+      message: `The version and everything in it (its standards, notes, sources and templates) will be deleted. You can restore it from the Trash for 30 days.`,
+    }).then(async (ok) => {
+      if (!ok) return;
+      const done = await act(() => api.deleteVersion(version.id));
+      if (done) void navigate({ to: internal ? '/settings/quality-framework' : '/settings/external-standards' });
+    }) }] : []),
   ];
   const problems = validation.data && !validation.data.ok ? validation.data.issues : [];
   const warnings = validation.data?.warnings ?? [];

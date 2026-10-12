@@ -1,7 +1,7 @@
 // The one place the AMS talks to object storage (one import point per heavy library): any S3-compatible service,
 // configured by environment (DEC-008). Garage in the Compose stack.
 import { createHash } from 'node:crypto';
-import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { ObjectStore } from '../ctx.js';
 import type { Env } from '@ams/shared';
 
@@ -29,6 +29,9 @@ export function s3Store(env: Pick<Env, 'S3_ENDPOINT' | 'S3_REGION' | 'S3_BUCKET'
         if (e instanceof NoSuchKey) return null;
         throw e;
       }
+    },
+    async delete(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
     },
   };
 }

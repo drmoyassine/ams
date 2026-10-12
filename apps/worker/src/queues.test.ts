@@ -8,16 +8,18 @@ import type { PgBoss } from 'pg-boss';
 import type pg from 'pg';
 import { handlers } from '@ams/core';
 import { JOB_TYPES, QUEUE_GROUPS, QUEUE_GROUP_NAMES, parseWorkerQueues } from '@ams/shared';
-import { startWorker } from './worker.js';
+import { PURGE_TRASH_CRON, startWorker } from './worker.js';
 
 function recorder() {
   const created: string[] = [];
   const worked: string[] = [];
+  const scheduled: { name: string; cron: string }[] = [];
   const boss = {
     createQueue: async (n: string) => { created.push(n); },
     work: async (n: string) => { worked.push(n); return 'id'; },
+    schedule: async (name: string, cron: string) => { scheduled.push({ name, cron }); },
   } as unknown as PgBoss;
-  return { boss, created, worked };
+  return { boss, created, worked, scheduled };
 }
 
 describe('startWorker subscriptions', () => {
@@ -32,7 +34,17 @@ describe('startWorker subscriptions', () => {
   it('takes every type that has a handler by default (local development, tests)', async () => {
     const r = recorder();
     await startWorker(r.boss, {} as pg.Pool);
-    expect([...r.worked].sort()).toEqual(JOB_TYPES.filter((t) => handlers[t]).sort());
+    // purge_trash is a scheduled tick with its own subscription rather than a handler (no job row), DEC-026.
+    expect([...r.worked].sort()).toEqual(JOB_TYPES.filter((t) => handlers[t] || t === 'purge_trash').sort());
+  });
+
+  it('declares the daily Trash purge schedule only in the service that takes purge_trash', async () => {
+    const general = recorder();
+    await startWorker(general.boss, {} as pg.Pool, { queues: QUEUE_GROUPS.worker });
+    expect(general.scheduled).toEqual([{ name: 'purge_trash', cron: PURGE_TRASH_CRON }]);
+    const parser = recorder();
+    await startWorker(parser.boss, {} as pg.Pool, { queues: QUEUE_GROUPS.parser });
+    expect(parser.scheduled).toEqual([]);
   });
 
   it.each(QUEUE_GROUP_NAMES)('the %s group parses into its own types', (name) => {

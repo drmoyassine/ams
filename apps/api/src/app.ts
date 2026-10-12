@@ -40,7 +40,7 @@ export function createApp(opts: AppOptions) {
   app.onError((err, c) => {
     if (err instanceof ForbiddenError) return c.json({ error: 'forbidden', message: err.message }, 403);
     if (err instanceof NotFoundError) return c.json({ error: 'not_found', message: err.message }, 404);
-    if (err instanceof ConflictError) return c.json({ error: 'conflict', message: err.message }, 409);
+    if (err instanceof ConflictError) return c.json({ error: 'conflict', message: err.message, ...(err.details ? { details: err.details } : {}) }, 409);
     if (err instanceof ValidationError) return c.json({ error: 'invalid_request', message: err.message, issues: err.issues }, 400);
     if (err instanceof ZodError) return c.json({ error: 'invalid_request', issues: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) }, 400);
     console.error(JSON.stringify({ level: 'error', msg: err.message }));

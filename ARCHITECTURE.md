@@ -37,7 +37,7 @@ graph LR
 
 - **app** — Hono on Node. The only entry point for data access. Serves the built SPA. ([DEC-009](DECISIONS.md#DEC-009))
 - **worker, parser, agent** — pg-boss jobs, run as three services from one codebase and one entry point (`apps/worker/dist/main.js`); `WORKER_QUEUES` (job types) and `WORKER_NAME` tell them apart, and `QUEUE_GROUPS` in `packages/shared` assigns every job type to exactly one of them. Same transaction helper and identity rules as the API for all three. ([DEC-024](DECISIONS.md#DEC-024), [DEC-010](DECISIONS.md#DEC-010))
-  - **worker** — general jobs: exports (DOCX/PDF/XLSX/ZIP), notifications, dataset refresh.
+  - **worker** — general jobs: exports (DOCX/PDF/XLSX/ZIP), notifications, dataset refresh, and the daily Trash purge (`purge_trash`, a pg-boss schedule that walks the tenants as a system actor; DEC-026).
   - **parser** — reads documents (`extract_text`, the owned `@drmoyassine/liteparse` via `parseDocument()`); CPU and memory heavy, so it is sized on its own. It calls a model only for the optional OCR of scanned pages (the vision model is injected into liteparse as `aiOcr`). PDF, Word, Excel, CSV and images are read by liteparse in plain Node (pdfjs-dist, mammoth, SheetJS; sharp and @napi-rs/canvas render scanned pages): a PDF is read one page at a time so every page has its own method (`pdf_text` or `ocr`) and a scan inside a digital file is escalated alone; a Word file is one page, a workbook a page per sheet. PowerPoint, OpenDocument, RTF and legacy DOC/XLS are not read by liteparse yet and go through a temporary fallback (`parse-document-fallback.ts`: the upstream package and LibreOffice), so the `parser` image (and only it) installs LibreOffice and the Noto/Liberation fonts and logs at start whether `soffice` is found. What the owned library does and does not meet of PRD Appendix D, and what is proposed for its repository, is in `docs/liteparse-appendix-d-status.md`. Limits: `PARSER_TIMEOUT_SECONDS` (default 300, cooperative abort), `PARSER_MAX_PAGES` (1000), `PARSER_PAGE_TIMEOUT_SECONDS` (120); optional local OCR is off (`PARSER_LOCAL_OCR`). The job result records the parser name, version and a config hash. A file that cannot be read (corrupt, timeout, LibreOffice missing for a fallback format) is a typed `DocumentReadError` recorded on the document as failed, not a crash. ([DEC-011](DECISIONS.md#DEC-011))
   - **agent** — everything that calls an AI provider: framework analysis steps (`analyse`), `ai_extract`, `ocr`, and future mapping and report jobs; the only service that needs outbound internet. It never parses a document: when an analysis source has no page text its `read` stage queues an `extract_text` job for the parser and re-queues itself with a delay (bounded) until the pages exist. ([DEC-012](DECISIONS.md#DEC-012))
   - Start order: `app` runs migrations and, when `GARAGE_ADMIN_URL` is set, prepares Garage (layout, key, bucket, grant) before it serves; the three services start once the app is healthy.
@@ -81,6 +81,7 @@ Invariants (PRD §6.9) are enforced by triggers and constraints, not by conventi
 - **Response sub-cycle** — submit → response → items → resolve → reply/revise → close. ([DEC-004](DECISIONS.md#DEC-004))
 - **Store once, link with a reason** — evidence and datasets are institutional assets; snapshots freeze values. ([DEC-014](DECISIONS.md#DEC-014))
 - **Proposal tables for AI** — AI writes proposals; humans accept; deterministic quote verification. ([DEC-006](DECISIONS.md#DEC-006))
+- **Trash and undo** — a delete snapshots the deleted subtree into `trash_item` (30 days, original ids) and deletes the rows in the same transaction; restore re-inserts them in dependency order under the same rules and triggers; a daily `purge_trash` schedule in the `worker` service removes expired rows and their files. Reversible actions answer with an `X-Undo` descriptor. See `docs/trash.md`. ([DEC-026](DECISIONS.md#DEC-026))
 - **One import point per heavy library** — `parseDocument()`, `aiExtract()/aiOcr()`, `datasetSource.fetch()`. ([DEC-011](DECISIONS.md#DEC-011), [DEC-012](DECISIONS.md#DEC-012))
 
 ## Cross-cutting concerns
@@ -95,7 +96,7 @@ Invariants (PRD §6.9) are enforced by triggers and constraints, not by conventi
 
 ## Architectural decisions
 
-DEC-002 frameworks as configuration · DEC-003 lifecycle and roadmaps · DEC-004 response sub-cycle · DEC-005 official vs internal · DEC-006 authority + quote verification · DEC-007 single PostgreSQL · DEC-008 host-agnostic · DEC-009 SPA + Hono · DEC-010 middleware chain · DEC-011 liteparse · DEC-012 AI SDK · DEC-013 AI data handling · DEC-014 dataset evidence · DEC-015 Better Auth. See [DECISIONS.md](DECISIONS.md).
+DEC-002 frameworks as configuration · DEC-003 lifecycle and roadmaps · DEC-004 response sub-cycle · DEC-005 official vs internal · DEC-006 authority + quote verification · DEC-007 single PostgreSQL · DEC-008 host-agnostic · DEC-009 SPA + Hono · DEC-010 middleware chain · DEC-011 liteparse · DEC-012 AI SDK · DEC-013 AI data handling · DEC-014 dataset evidence · DEC-015 Better Auth · DEC-026 Trash and undo. See [DECISIONS.md](DECISIONS.md).
 
 ## How to update this document
 

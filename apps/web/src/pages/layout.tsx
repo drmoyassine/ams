@@ -3,7 +3,9 @@ import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { isReadableAccent } from '@ams/shared';
 import { useTranslation } from 'react-i18next';
+import { ConfirmHost } from '../components/confirm-dialog';
 import { ContentText } from '../components/content-text';
+import { UndoToaster } from '../components/undo-toaster';
 import { Button } from '../components/ui/button';
 import { authClient } from '../lib/auth';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
@@ -142,6 +144,8 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
         </div>
       )}
       <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><Outlet /></main>
+      <ConfirmHost />
+      <UndoToaster />
     </div>
   );
 }

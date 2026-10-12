@@ -6,6 +6,7 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_, unreviewed } from './common.js';
+import { reportUndo } from '../trash/store.js';
 
 const Text = z.string().trim().min(1);
 
@@ -52,10 +53,22 @@ export async function createRequirement(ctx: Ctx, input: z.input<typeof CreateRe
     origin: 'manual',
   }).returning());
   await relabelByDepth(ctx, data.versionId);
+  // Undo = delete it (which lands in the Trash like any delete).
+  reportUndo(ctx, { label: `Added ${data.code}`, method: 'DELETE', path: `/api/requirements/${row!.id}` });
   return getRequirement(ctx, row!.id);
 }
 
-const UpdateRequirementSchema = CreateRequirementSchema.omit({ versionId: true, parentId: true }).partial().strict();
+/**
+ * What an edit may change. Written out (not derived from the create schema with `.partial()`): in Zod 4 a default inside an
+ * optional is still applied, which made every edit reset the language, assessability and position to their defaults.
+ * Text fields may be cleared (null), which is also how an edit is undone.
+ */
+export const UpdateRequirementSchema = z.object({
+  code: Text.optional(), levelLabel: Text.optional(), title: Text.optional(),
+  officialText: z.string().nullable().optional(), language: z.string().min(2).optional(), translationEn: z.string().nullable().optional(),
+  isAssessable: z.boolean().optional(), appliesWhen: AppliesWhenSchema.nullable().optional(), displayOrder: z.number().int().optional(),
+  weight: z.number().nonnegative().nullable().optional(),
+}).strict();
 
 /** Any change sends the requirement back to review: an approval always refers to exactly the text that was approved. */
 export async function updateRequirement(ctx: Ctx, id: string, patch: z.input<typeof UpdateRequirementSchema>) {
@@ -64,22 +77,25 @@ export async function updateRequirement(ctx: Ctx, id: string, patch: z.input<typ
   await getDraftVersion(ctx, current.frameworkVersionId);
   const data = UpdateRequirementSchema.parse(patch);
   const set: Partial<typeof requirement.$inferInsert> = { ...unreviewed };
-  if (data.code !== undefined) set.code = data.code;
-  if (data.levelLabel !== undefined) set.levelLabel = data.levelLabel;
-  if (data.title !== undefined) set.title = data.title;
-  if (data.officialText !== undefined) set.officialText = data.officialText;
-  if (data.language !== undefined) set.language = data.language;
-  if (data.translationEn !== undefined) set.translationEn = data.translationEn;
-  if (data.isAssessable !== undefined) set.isAssessable = data.isAssessable;
-  if (data.appliesWhen !== undefined) set.appliesWhen = data.appliesWhen;
-  if (data.displayOrder !== undefined) set.displayOrder = data.displayOrder;
-  if (data.weight !== undefined) set.weight = String(data.weight);
+  const before: Record<string, unknown> = {};
+  if (data.code !== undefined) { set.code = data.code; before.code = current.code; }
+  if (data.levelLabel !== undefined) { set.levelLabel = data.levelLabel; before.levelLabel = current.levelLabel; }
+  if (data.title !== undefined) { set.title = data.title; before.title = current.title; }
+  if (data.officialText !== undefined) { set.officialText = data.officialText; before.officialText = current.officialText; }
+  if (data.language !== undefined) { set.language = data.language; before.language = current.language; }
+  if (data.translationEn !== undefined) { set.translationEn = data.translationEn; before.translationEn = current.translationEn; }
+  if (data.isAssessable !== undefined) { set.isAssessable = data.isAssessable; before.isAssessable = current.isAssessable; }
+  if (data.appliesWhen !== undefined) { set.appliesWhen = data.appliesWhen; before.appliesWhen = current.appliesWhen; }
+  if (data.displayOrder !== undefined) { set.displayOrder = data.displayOrder; before.displayOrder = current.displayOrder; }
+  if (data.weight !== undefined) { set.weight = data.weight === null ? null : String(data.weight); before.weight = current.weight === null ? null : Number(current.weight); }
   const [row] = await guardIntegrity(() => ctx.tx.update(requirement).set(set).where(eq(requirement.id, id)).returning());
+  // Undo = write the earlier values back (the requirement returns to review either way, as any edit does).
+  reportUndo(ctx, { label: `Edited ${current.code}`, method: 'PATCH', path: `/api/requirements/${id}`, body: before });
   return row!;
 }
 
 /** Re-parent a requirement within its version; refuses to place it under itself or one of its descendants. */
-export async function moveRequirement(ctx: Ctx, id: string, newParentId: string | null, displayOrder?: number) {
+export async function moveRequirement(ctx: Ctx, id: string, newParentId: string | null, displayOrder?: number, opts: { label?: string } = {}) {
   await require_(ctx, 'framework:write');
   const current = await getRequirement(ctx, id);
   await getDraftVersion(ctx, current.frameworkVersionId);
@@ -97,19 +113,12 @@ export async function moveRequirement(ctx: Ctx, id: string, newParentId: string 
     .set({ parentId: newParentId, ...(displayOrder === undefined ? {} : { displayOrder }) })
     .where(eq(requirement.id, id));
   await relabelByDepth(ctx, current.frameworkVersionId);
+  // Undo = move it back to where it was (parent and position); its level follows its depth again.
+  reportUndo(ctx, { label: opts.label ?? `Moved ${current.code}`, method: 'POST', path: `/api/requirements/${id}/move`, body: { parentId: current.parentId ?? null, displayOrder: current.displayOrder } });
   return getRequirement(ctx, id);
 }
 
-/** Deletes a leaf requirement together with its notes; a requirement with children must be emptied first. */
-export async function deleteRequirement(ctx: Ctx, id: string) {
-  await require_(ctx, 'framework:write');
-  const current = await getRequirement(ctx, id);
-  await getDraftVersion(ctx, current.frameworkVersionId);
-  const [child] = await ctx.tx.select({ id: requirement.id }).from(requirement).where(eq(requirement.parentId, id)).limit(1);
-  if (child) throw new ConflictError('delete or move the child requirements first');
-  await ctx.tx.delete(requirementNote).where(eq(requirementNote.requirementId, id));
-  await guardIntegrity(() => ctx.tx.delete(requirement).where(eq(requirement.id, id)));
-}
+// Deleting (one, a subtree, many, all of a version) is in ../trash/delete.ts: it snapshots into the Trash first.
 
 export async function reviewRequirement(ctx: Ctx, id: string, decision: 'approved' | 'rejected') {
   await require_(ctx, 'framework:review');

@@ -24,6 +24,7 @@ Navigation hub for AMS — Accreditation Management System documentation.
 | [log.md](log.md) | Chronological log + session learnings |
 | [CLAUDE.md](CLAUDE.md) | Repo-level instructions for Claude Code |
 | [AGENTS.md](AGENTS.md) | Working conventions for AI agents |
+| [docs/trash.md](docs/trash.md) | Trash and Undo: what can be deleted and restored, the rules, the undo pattern |
 
 Structured items live canonically in `docs/vision/`, `docs/roadmap/`, `docs/tasks/`, and `docs/decisions/`. The linked root ledgers are generated, committed views; run `vef setup`, then `vef check`, after direct item changes.
 

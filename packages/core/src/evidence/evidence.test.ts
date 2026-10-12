@@ -15,6 +15,7 @@ import {
 } from './evidence.js';
 import { setDataFormOpen, submitDataResponse } from './forms.js';
 import { cancelEvidenceRequest, createFormRequests } from './requests.js';
+import { listTrash, restoreTrash } from '../trash/index.js';
 
 let w: World;
 const ids: Record<string, string> = {};
@@ -134,6 +135,16 @@ describe('attached once to the internal framework, offered to every mapped requi
     await expect(w.as('contrib', (c) => removeLink(c, ids.abetLink!))).rejects.toThrow(ForbiddenError);
     await w.as('coord', (c) => removeLink(c, ids.abetLink!));
     expect((await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!))).map((l) => l.evidenceTitle)).toEqual(['Old policy']);
+
+    // The removed link is in the Trash (the evidence itself was never deleted) and comes back with its reason and review state.
+    const bin = (await w.as('coord', (c) => listTrash(c, { kind: 'evidence_link' }))).groups[0]!;
+    expect(bin.kinds).toEqual(['evidence_link']);
+    await w.as('coord', (c) => restoreTrash(c, { groupId: bin.groupId }));
+    const back = await w.as('coord', (c) => linksForEngagementRequirement(c, ids.abetER!));
+    expect(back.map((l) => l.id)).toContain(ids.abetLink);
+    expect(back.find((l) => l.id === ids.abetLink)!.rationale.length).toBeGreaterThan(0);
+    // Leave things as the next tests expect them: the link removed again.
+    await w.as('coord', (c) => removeLink(c, ids.abetLink!));
   });
 });
 

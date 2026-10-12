@@ -120,7 +120,7 @@ export const ImportResultSchema = z.object({
   version: VersionSchema, counts: z.object({ requirements: z.number(), documents: z.number(), templates: z.number() }),
 });
 export const NewVersionResultSchema = z.object({ version: VersionSchema, requirementsCopied: z.number() });
-export const ErrorSchema = z.object({ error: z.string(), message: z.string().optional(), issues: z.array(z.object({ path: z.string(), message: z.string() })).optional() });
+export const ErrorSchema = z.object({ error: z.string(), message: z.string().optional(), details: z.record(z.string(), z.unknown()).optional(), issues: z.array(z.object({ path: z.string(), message: z.string() })).optional() });
 
 /** Serialises a service result to its wire shape and checks it against the contract. */
 export function toDto<S extends z.ZodType>(schema: S, value: unknown): z.output<S> {

@@ -488,3 +488,12 @@ External Standards has a primary Create from files flow: one transaction makes t
 ## 2026-10-12 — Plan snapshot: what is left after steps A–F
 
 Steps A–F of the framework compiler (ROADMAP-009) are built and tested with a fake model; nothing has run on a real accreditor document yet. Recorded in the plan: ROADMAP-009 now carries a snapshot table of the remaining work, and new tasks hold each item — TASK-056 real-document run and tuning (needs the owner's run), TASK-057 lifecycle/vocabularies/templates from policy documents, TASK-058 Appendix D changes in the liteparse repository and removal of the temporary fallback, TASK-059 production check of the three services and the parser image, TASK-060 small gaps found while building, TASK-061 backlog outside the compiler. ROADMAP-008 progress note rewritten to the current truth (owned liteparse in use; fallback for formats it lacks).
+
+## 2026-10-12 — Trash, Undo and the in-app confirm dialog (TASK-062, DEC-026)
+
+Deleting is a snapshot into `trash_item` (30 days, restorable with the original ids), not a flag: no `deleted_at` anywhere, no query changed. A delete removes the whole subtree in one step and one Trash group; the confirm question says how much goes. Restore refuses a frozen version, offers a choice when the parent is gone, renames a taken code ("(restored)") and drops links whose other side is gone. A daily pg-boss schedule (`purge_trash`, in the `worker` service) removes expired rows and the stored files they name as a system actor; the worker's database role can delete nothing but expired `trash_item` rows. Reversible actions return an `X-Undo` header (`{label, method, path, body}`); every call through the typed client becomes an Undo toast and Ctrl/Cmd+Z, with no per-screen code. `window.confirm` is gone from the web app and a lint rule keeps it out; the shared Dialog now traps and returns focus. Migration 0046. Inventory of what is and is not covered: `docs/trash.md`.
+
+Learnings to carry forward:
+- `updateRequirement` had been applying the create schema's defaults (Zod 4 applies a default inside `.optional()`), so any edit reset language, assessability and position. The update schema is written out now; check any `.partial()` of a schema with defaults.
+- A bare array parameter in a Drizzle `sql` template is expanded to a comma list; build a SQL array with `array[...]::uuid[]` (`uuids()` in `trash/rows.ts`).
+- A links-between-standards row is keyed by code, so it leaves with the last requirement that bears the code and returns only if both sides still exist.

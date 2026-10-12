@@ -7,7 +7,7 @@ quarter: Q4
 status: Completed
 priority: P0
 id: ROADMAP-012
-last_updated: '2026-10-06'
+last_updated: '2026-10-12'
 generated:
   by: agent/claude-code
   at: '2026-10-06T05:43:17.250Z'
@@ -44,6 +44,9 @@ related_tasks:
   - id: TASK-038
     name: Mappings tab on each external standard
     url: /TASKS.md#TASK-038
+  - id: TASK-062
+    name: Trash, Undo and the in-app confirmation dialog
+    url: /TASKS.md#TASK-062
 ---
 # ROADMAP-012 — Settings, internal framework and glossary
 

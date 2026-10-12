@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { enqueueJob, pgBossQueue, runJob, type Ctx, type JobHandler } from '@ams/core';
 import { withIdentity } from '@ams/db';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
-import { startWorker } from './worker.js';
+import { PURGE_TRASH_CRON, startWorker } from './worker.js';
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -45,6 +45,25 @@ beforeAll(async () => {
   ids.user = await one(`insert into app_user (institution_id, full_name, email) values ($1, 'Queuer', 'q@x.org') returning id`, [ids.inst]);
 }, 30000);
 afterAll(async () => { await boss.stop({ graceful: false }); await pool.end(); await db.close(); }, 30000);
+
+describe('Trash purge', () => {
+  it('is scheduled daily and removes expired Trash rows (only those) as a system actor when its tick runs', async () => {
+    const schedules = await boss.getSchedules();
+    expect(schedules.find((x) => x.name === 'purge_trash')?.cron).toBe(PURGE_TRASH_CRON);
+    const row = (expires: string, label: string, inst = ids.inst) => one(
+      `insert into trash_item (institution_id, group_id, kind, label, payload, expires_at) values ($1, gen_random_uuid(), 'note', $2, '{"v":1,"tables":{},"files":[],"refs":[],"root":{}}', ${expires}) returning id`, [inst, label]);
+    const old = await row(`now() - interval '1 hour'`, 'old');
+    const otherOld = await row(`now() - interval '1 hour'`, 'other tenant old', ids.other);
+    const fresh = await row(`now() + interval '3 days'`, 'fresh');
+    await boss.send('purge_trash', {});
+    await waitFor(async () => ((await db.su.query(`select id from trash_item where id = $1`, [old])).rowCount === 0 ? true : undefined));
+    // The other tenant's expired row goes too (the tick walks every tenant); the unexpired one stays.
+    await waitFor(async () => ((await db.su.query(`select id from trash_item where id = $1`, [otherOld])).rowCount === 0 ? true : undefined));
+    expect((await db.su.query(`select id from trash_item where id = $1`, [fresh])).rowCount).toBe(1);
+    const ev = (await db.su.query(`select actor_id, actor_type from audit_event where target_type = 'trash_item' and target_id = $1 and action = 'delete'`, [old])).rows;
+    expect(ev).toEqual([{ actor_id: null, actor_type: 'system' }]);
+  });
+});
 
 describe('worker', () => {
   it('runs a queued job end to end as the user who queued it', async () => {

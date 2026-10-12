@@ -15,3 +15,4 @@ export * from './reading.js';
 export * from './exchange.js';
 export * from './internal.js';
 export * from './accreditor-logo.js';
+export { deleteRequirement } from '../trash/delete.js';

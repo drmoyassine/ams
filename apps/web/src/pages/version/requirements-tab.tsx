@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AiMarker, AuthorityBadge, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
+import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { requirementLabel } from '../../lib/format';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDocument, type Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
+import { confirmAndDelete } from '../../lib/delete-requirements';
 import { EvidenceLinkList } from '../../components/evidence-links';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
@@ -115,6 +117,7 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
   const invalidate = async () => { await qc.invalidateQueries({ queryKey: ['requirement', req.id] }); await invalidateTree(); };
   const act = useAction(setError, invalidate);
   const del = useAction(setError, invalidateTree);
+  const confirm = useConfirm();
   const save = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -143,7 +146,7 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
             <Button type="button" variant="ghost" aria-label="Indent" title="Move under the item above it (one level deeper)" onClick={() => act.mutate(() => api.indentRequirement(req.id))}>Indent →</Button>
             <Button type="button" variant="ghost" aria-label="Outdent" title="Move out to follow its parent (one level up)" onClick={() => act.mutate(() => api.outdentRequirement(req.id))}>← Outdent</Button>
           </>}
-          {canWrite && <Button type="button" variant="ghost" onClick={() => del.mutate(() => api.deleteRequirement(req.id))}>Delete</Button>}
+          {canWrite && <Button type="button" variant="ghost" onClick={() => del.mutate(() => confirmAndDelete(api, confirm, [req.id], `Delete ${req.code}?`))}>Delete</Button>}
         </div>
       </form>
       <h4 className="font-medium">Notes</h4>

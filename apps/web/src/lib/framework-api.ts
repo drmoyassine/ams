@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
+  DeletePreview, DeleteResult, AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
@@ -32,7 +32,7 @@ export type { AnalysisReport, AnalysisRun, Preflight, AcceptCoversResult, Accept
 
 /** An API refusal with its rule message and, for validation, every issue the server found. */
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string, readonly issues: Issue[] = []) {
+  constructor(readonly status: number, message: string, readonly issues: Issue[] = [], readonly details?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -40,8 +40,8 @@ export class ApiError extends Error {
 export async function unwrap<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  const body = text ? JSON.parse(text) as { error?: string; message?: string; issues?: Issue[] } : null;
-  if (!res.ok) throw new ApiError(res.status, body?.message ?? body?.error ?? `HTTP ${res.status}`, body?.issues ?? []);
+  const body = text ? JSON.parse(text) as { error?: string; message?: string; issues?: Issue[]; details?: Record<string, unknown> } : null;
+  if (!res.ok) throw new ApiError(res.status, body?.message ?? body?.error ?? `HTTP ${res.status}`, body?.issues ?? [], body?.details);
   return body as T;
 }
 
@@ -124,6 +124,12 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     indentRequirement: (id: string) => api.api.requirements[':id'].indent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
     outdentRequirement: (id: string) => api.api.requirements[':id'].outdent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
     deleteRequirement: (id: string) => api.api.requirements[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    /** Delete with everything under it (one or many, in one action; they go to the Trash). The question to ask first, and the delete itself. */
+    previewDelete: (ids: string[]) => api.api.requirements['delete-preview'].$post({ json: { ids } }).then((r) => unwrap<DeletePreview>(r)),
+    deleteMany: (ids: string[]) => api.api.requirements.delete.$post({ json: { ids } }).then((r) => unwrap<DeleteResult>(r)),
+    deleteAllRequirements: (versionId: string) => v[':id'].requirements['delete-all'].$post({ param: { id: versionId } }).then((r) => unwrap<DeleteResult>(r)),
+    deleteVersion: (versionId: string) => v[':id'].$delete({ param: { id: versionId } }).then((r) => unwrap<DeleteResult>(r)),
+    deleteFramework: (frameworkId: string) => api.api.frameworks[':id'].$delete({ param: { id: frameworkId } }).then((r) => unwrap<DeleteResult>(r)),
     reviewRequirement: (id: string, decision: 'approved' | 'rejected') =>
       api.api.requirements[':id'].review.$post({ param: { id }, json: { decision } }).then((r) => unwrap<Requirement>(r)),
 

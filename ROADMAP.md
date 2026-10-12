@@ -656,6 +656,9 @@ related_tasks:
   - id: TASK-038
     name: Mappings tab on each external standard
     url: /TASKS.md#TASK-038
+  - id: TASK-062
+    name: Trash, Undo and the in-app confirmation dialog
+    url: /TASKS.md#TASK-062
 ---
 
 # Settings, internal framework and glossary

@@ -55,12 +55,12 @@ services:
   # never need them.
 
   worker:
-    # General work: export, notify. Needs neither document parsing nor a model.
+    # General work: export, notify and the daily Trash purge (purge_trash). Needs neither document parsing nor a model.
     build: { context: ., target: worker }
     env_file: .env
     environment:
       WORKER_NAME: worker
-      WORKER_QUEUES: export,notify
+      WORKER_QUEUES: export,notify,purge_trash
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

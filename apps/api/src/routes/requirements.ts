@@ -2,7 +2,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
   MergeRequirementSchema, SplitRequirementSchema, listReviewItems, mergeRequirement, splitRequirement,
-  indentRequirement, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement,
+  indentRequirement, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
 } from '@ams/core';
 import { MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -39,7 +39,7 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
 
     .openapi(secured(registry, deps, {
       method: 'patch', path: '/api/requirements/{id}', access: requires('framework:write'), tags: tag,
-      request: { params: idParam, body: { required: true, ...json(CreateRequirementSchema.omit({ versionId: true, parentId: true }).partial()) } },
+      request: { params: idParam, body: { required: true, ...json(UpdateRequirementSchema) } },
       responses: { 200: { description: 'Updated; returned to review', ...json(RequirementSchema) }, ...errors },
     }), async (c) => c.json(toDto(RequirementSchema, await updateRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
@@ -89,6 +89,13 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       request: { params: idParam, body: { required: true, ...json(SplitRequirementSchema) } },
       responses: { 201: { description: 'Split', ...json(SplitResultSchema) }, ...errors },
     }), async (c) => c.json(toDto(SplitResultSchema, await splitRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/requirements/{id}/unsplit', access: requires('framework:write'), tags: tag,
+      description: 'Takes a split back (the Undo of a split): the split-out requirement goes to the Trash and the original gets its earlier text.',
+      request: { params: idParam, body: { required: true, ...json(UnsplitSchema) } },
+      responses: { 200: { description: 'The original as it is now', ...json(RequirementSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementSchema, await unsplitRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/requirements/{id}/review', access: requires('framework:review'), tags: tag,

@@ -11,6 +11,9 @@ import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, getRequirement, require_, unreviewed } from './common.js';
 import { verifyQuote } from './quote-match.js';
 import { relabelByDepth } from './requirements.js';
+import { reportUndo } from '../trash/store.js';
+import { deleteMany, trashMergedRequirement } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 
 /** Parses with the rule messages as validation issues the screen can show. */
 function parseOrThrow<S extends z.ZodType>(schema: S, input: unknown, what: string): z.output<S> {
@@ -56,7 +59,8 @@ export async function mergeRequirement(ctx: Ctx, id: string, input: z.input<type
 
   // Children keep their order after the target's own.
   const [last] = await ctx.tx.select({ n: sql<number>`coalesce(max(${requirement.displayOrder}), -1)::int` }).from(requirement).where(eq(requirement.parentId, target.id));
-  const children = await ctx.tx.select({ id: requirement.id }).from(requirement).where(eq(requirement.parentId, id)).orderBy(asc(requirement.displayOrder), asc(requirement.code));
+  const children = await ctx.tx.select({ id: requirement.id, displayOrder: requirement.displayOrder }).from(requirement).where(eq(requirement.parentId, id)).orderBy(asc(requirement.displayOrder), asc(requirement.code));
+  const [targetBefore] = await readRows(ctx, 'requirement', [target.id]);
   let order = (last?.n ?? -1) + 1;
   for (const c of children) await ctx.tx.update(requirement).set({ parentId: target.id, displayOrder: order++ }).where(eq(requirement.id, c.id));
   const movedNotes = await ctx.tx.update(requirementNote).set({ requirementId: target.id }).where(eq(requirementNote.requirementId, id)).returning({ id: requirementNote.id });
@@ -70,7 +74,10 @@ export async function mergeRequirement(ctx: Ctx, id: string, input: z.input<type
     ? { title: source.title, officialText: source.officialText, language: source.language, sourceDocumentId: source.sourceDocumentId, sourcePage: source.sourcePage, sourceQuote: source.sourceQuote, quoteVerified: source.quoteVerified }
     : {};
   const [updated] = await guardIntegrity(() => ctx.tx.update(requirement).set({ ...wording, ...unreviewed }).where(eq(requirement.id, target.id)).returning());
-  await guardIntegrity(() => ctx.tx.delete(requirement).where(eq(requirement.id, id)));
+  // The merged-away requirement goes to the Trash with what is needed to move its children and notes back (Undo restores it).
+  await trashMergedRequirement(ctx, id, {
+    intoId: target.id, children: children.map((c) => ({ id: c.id, displayOrder: c.displayOrder })), noteIds: movedNotes.map((n) => n.id), targetBefore: targetBefore ?? null,
+  }, target.code);
   await relabelByDepth(ctx, source.frameworkVersionId);
   return { requirement: updated!, movedChildren: children.length, movedNotes: movedNotes.length, mappingsOnMergedCode: mapped?.n ?? 0 };
 }
@@ -134,5 +141,27 @@ export async function splitRequirement(ctx: Ctx, id: string, input: z.input<type
   }).returning());
   const [updated] = await guardIntegrity(() => ctx.tx.update(requirement).set({ officialText: rest, ...unreviewed }).where(eq(requirement.id, id)).returning());
   await relabelByDepth(ctx, original.frameworkVersionId);
+  reportUndo(ctx, { label: `Split ${original.code}`, method: 'POST', path: `/api/requirements/${id}/unsplit`, body: { createdId: created!.id, officialText: original.officialText ?? '' } });
   return { original: updated!, created: created! };
+}
+
+export const UnsplitSchema = z.object({ createdId: z.uuid(), officialText: z.string() }).strict();
+
+/**
+ * Takes a split back: the requirement that was split out goes to the Trash (with its notes, if any were added) and the
+ * original gets its earlier text again. Refused when the split-out requirement now has sub-items of its own.
+ */
+export async function unsplitRequirement(ctx: Ctx, id: string, input: z.input<typeof UnsplitSchema>): Promise<typeof requirement.$inferSelect> {
+  await require_(ctx, 'framework:write');
+  assertHuman(ctx);
+  const data = parseOrThrow(UnsplitSchema, input, 'cannot take the split back');
+  const original = await getRequirement(ctx, id);
+  const created = await getRequirement(ctx, data.createdId);
+  await getDraftVersion(ctx, original.frameworkVersionId);
+  if (created.frameworkVersionId !== original.frameworkVersionId) throw new ValidationError('it belongs to another version');
+  const [kid] = await ctx.tx.select({ id: requirement.id }).from(requirement).where(eq(requirement.parentId, created.id)).limit(1);
+  if (kid) throw new ConflictError(`Cannot take the split back: ${created.code} has sub-items of its own now. Move or delete them first.`);
+  const [row] = await guardIntegrity(() => ctx.tx.update(requirement).set({ officialText: data.officialText || null, ...unreviewed }).where(eq(requirement.id, id)).returning());
+  await deleteMany(ctx, { ids: [created.id] });
+  return row!;
 }

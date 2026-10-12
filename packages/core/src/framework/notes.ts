@@ -6,6 +6,9 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, getRequirement, getSourceDocument, require_, unreviewed } from './common.js';
 import { quoteInText } from './quote.js';
+import { reportUndo } from '../trash/store.js';
+import { trashNote, versionInfo } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 
 const Source = z.object({ documentId: z.uuid(), page: z.number().int().min(1), quote: z.string().trim().min(1) });
 
@@ -64,6 +67,7 @@ export async function addNote(ctx: Ctx, input: z.input<typeof AddNoteSchema>) {
     sourceQuote: src.quote,
     quoteVerified: src.verified,
   }).returning());
+  reportUndo(ctx, { label: `Added a note to ${req.code}`, method: 'DELETE', path: `/api/notes/${row!.id}` });
   return row!;
 }
 
@@ -82,15 +86,18 @@ export async function updateNote(ctx: Ctx, id: string, patch: z.input<typeof Upd
   await getDraftVersion(ctx, req.frameworkVersionId);
   const data = UpdateNoteSchema.parse(patch);
   const set: Partial<typeof requirementNote.$inferInsert> = { ...unreviewed };
-  if (data.text !== undefined) set.text = data.text;
-  if (data.type !== undefined) set.type = data.type;
-  if (data.norm !== undefined) set.norm = data.norm;
+  const before: Record<string, unknown> = {};
+  if (data.text !== undefined) { set.text = data.text; before.text = note.text; }
+  if (data.type !== undefined) { set.type = data.type; before.type = note.type; }
+  if (data.norm !== undefined) { set.norm = data.norm; before.norm = note.norm ?? null; }
   if (data.source !== undefined) {
     const src = await checkSource(ctx, req.frameworkVersionId, data.source ?? undefined);
     assertAuthorityNeeds(note.authority, src);
     Object.assign(set, { sourceDocumentId: src.documentId, sourcePage: src.page, sourceQuote: src.quote, quoteVerified: src.verified });
+    before.source = note.sourceDocumentId && note.sourcePage && note.sourceQuote ? { documentId: note.sourceDocumentId, page: note.sourcePage, quote: note.sourceQuote } : null;
   }
   const [row] = await guardIntegrity(() => ctx.tx.update(requirementNote).set(set).where(eq(requirementNote.id, id)).returning());
+  reportUndo(ctx, { label: `Edited a note on ${req.code}`, method: 'PATCH', path: `/api/notes/${id}`, body: before });
   return row!;
 }
 
@@ -111,6 +118,7 @@ export async function setNoteAuthority(ctx: Ctx, id: string, authority: (typeof 
     if (!src?.verified) throw new ConflictError('a required note needs a quote that is found on its cited source page');
   }
   const [row] = await guardIntegrity(() => ctx.tx.update(requirementNote).set({ authority, ...unreviewed }).where(eq(requirementNote.id, id)).returning());
+  if (note.authority !== 'ai_suggested') reportUndo(ctx, { label: `Changed a note on ${req.code}`, method: 'POST', path: `/api/notes/${id}/authority`, body: { authority: note.authority } });
   return row!;
 }
 
@@ -134,5 +142,6 @@ export async function deleteNote(ctx: Ctx, id: string) {
   const note = await getNote(ctx, id);
   const req = await getRequirement(ctx, note.requirementId);
   await getDraftVersion(ctx, req.frameworkVersionId);
-  await guardIntegrity(() => ctx.tx.delete(requirementNote).where(eq(requirementNote.id, id)));
+  const [raw] = await readRows(ctx, 'requirement_note', [id]);
+  return trashNote(ctx, raw!, (await readRows(ctx, 'requirement', [req.id]))[0]!, await versionInfo(ctx, req.frameworkVersionId));
 }

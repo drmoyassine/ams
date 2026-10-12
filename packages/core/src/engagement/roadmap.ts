@@ -10,6 +10,8 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
+import { trashMilestone } from '../trash/delete.js';
+import { readRows } from '../trash/rows.js';
 import { getActiveEngagementRow, lifecycleVersionId, loadLifecycle, toMilestone, type EngagementRow, type MilestoneRow } from './common.js';
 import { resolveDueRule, type IsoDate, type KeyDates } from './dates.js';
 
@@ -162,7 +164,8 @@ export async function deleteMilestone(ctx: Ctx, milestoneId: string): Promise<vo
   await getActiveEngagementRow(ctx, m.engagementId);
   if (m.locked) throw new ConflictError(`"${m.name}" is locked and cannot be deleted`);
   if (m.origin !== 'local') throw new ConflictError(`"${m.name}" comes from the framework; skip it instead of deleting it`);
-  await ctx.tx.delete(milestone).where(eq(milestone.id, milestoneId));
+  const [raw] = await readRows(ctx, 'milestone', [milestoneId]);
+  await trashMilestone(ctx, raw!, 'Roadmap');
 }
 
 /** Reorders the milestones of one phase. The list must be exactly that phase's milestones. */

@@ -14,6 +14,7 @@ import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { settingsRoutes } from './routes/settings.js';
 import { templateRoutes } from './routes/templates.js';
+import { trashRoutes } from './routes/trash.js';
 
 const json = <T extends z.ZodType>(schema: T) => ({ content: { 'application/json': { schema } } });
 
@@ -60,6 +61,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     // Framework library (M1). Each module chains its own routes so their types merge into ApiRoutes.
     .route('/', frameworkRoutes(registry, deps, options))
     .route('/', requirementRoutes(registry, deps, options))
+    .route('/', trashRoutes(registry, deps, options))
     .route('/', templateRoutes(registry, deps, options))
     .route('/', analysisRoutes(registry, deps, options))
 

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { EvidenceRequest } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
+import { useConfirm } from './confirm-dialog';
 import { ContentText } from './content-text';
 import { Modal } from './link-evidence-dialog';
 import { Button } from './ui/button';
@@ -148,6 +149,7 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
 }) {
   const [renewed, setRenewed] = useState<{ id: string; token: string; email: string; expiresAt: string | null } | null>(null);
   const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(onChange, (e: Error) => setError(e.message)); };
+  const confirm = useConfirm();
   if (requests.length === 0) return <p className="text-sm text-muted-foreground">No requests.</p>;
   return (
     <ul className="space-y-2">
@@ -177,7 +179,7 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
               })}>New link</Button>
             )}
             {canManage && r.status === 'open' && (
-              <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => { if (window.confirm(`Cancel the request "${r.title}"?`)) act(() => api.cancelRequest(r.id)); }}>Cancel request</Button>
+              <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => void confirm({ title: 'Cancel this request?', message: `The request "${r.title}" will be cancelled and the person asked will no longer be able to answer it.`, confirmLabel: 'Cancel request', cancelLabel: 'Keep it', tone: 'danger' }).then((ok) => { if (ok) act(() => api.cancelRequest(r.id)); })}>Cancel request</Button>
             )}
           </div>
         </li>
