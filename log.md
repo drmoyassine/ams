@@ -497,3 +497,13 @@ Learnings to carry forward:
 - `updateRequirement` had been applying the create schema's defaults (Zod 4 applies a default inside `.optional()`), so any edit reset language, assessability and position. The update schema is written out now; check any `.partial()` of a schema with defaults.
 - A bare array parameter in a Drizzle `sql` template is expanded to a comma list; build a SQL array with `array[...]::uuid[]` (`uuids()` in `trash/rows.ts`).
 - A links-between-standards row is keyed by code, so it leaves with the last requirement that bears the code and returns only if both sides still exist.
+
+## 2026-10-12 — Multi-select, bulk delete, drag and drop (TASK-063)
+
+Requirement trees (quality framework, external standards, version page) share one interaction layer: ticking rows (checkbox, ctrl/cmd, shift, Space, Shift+arrows, Select all), a bulk bar with Delete (the server's `previewDelete` question, one Trash group, one Undo) and Move to…, and drag and drop (dnd-kit mouse, touch, keyboard) to re-parent and re-order. One batch service `moveMany` does it atomically with one Undo that restores every position; the rules (cycles, depth by level model, gap-free order) are pure code in `@ams/shared` used by server and screens. Moving never renumbers codes.
+
+Learnings to carry forward:
+- dnd-kit renders its own `role="status"` live region; it is portaled into an aria-hidden container so the toast stays the only status element.
+- Keep per-row interaction state in a store read through `useSyncExternalStore` per row; otherwise ticking a row re-renders 600 cards. Queries inside every card (same key as the page's) also fan out re-renders: keep them in the open body only.
+- user-event is very slow on 600-row trees; time with `fireEvent` or in a real browser.
+- The IQF derives a sub-standard's parent from its code only when its code is edited; a dragged item keeps its code.

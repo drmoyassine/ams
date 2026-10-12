@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  DeletePreview, DeleteResult, AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
+  DeletePreview, DeleteResult, MoveManyInput, AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
@@ -27,6 +27,7 @@ export type NewVersionResult = z.infer<typeof NewVersionResultSchema>;
 export type QualityFramework = z.infer<typeof QualityFrameworkSchema>;
 export type Mappings = z.infer<typeof MappingsSchema>;
 export type Mapping = z.infer<typeof MappingSchema>;
+export type MoveResult = { moved: number; changed: number; unchanged: boolean };
 export type Issue = { path: string; message: string };
 export type { AnalysisReport, AnalysisRun, Preflight, AcceptCoversResult, AcceptIqfProposal, IqfItemProposal, IqfProposals };
 
@@ -123,6 +124,8 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       api.api.requirements[':id'].move.$post({ param: { id }, json }).then((r) => unwrap<Requirement>(r)),
     indentRequirement: (id: string) => api.api.requirements[':id'].indent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
     outdentRequirement: (id: string) => api.api.requirements[':id'].outdent.$post({ param: { id } }).then((r) => unwrap<Requirement>(r)),
+    /** Several requirements in one action (drag and drop, "Move to…"): atomic, one Undo. Positions count the parent's list with every moved item taken out. */
+    moveMany: (versionId: string, json: MoveManyInput) => v[':id'].requirements['move-many'].$post({ param: { id: versionId }, json }).then((r) => unwrap<MoveResult>(r)),
     deleteRequirement: (id: string) => api.api.requirements[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     /** Delete with everything under it (one or many, in one action; they go to the Trash). The question to ask first, and the delete itself. */
     previewDelete: (ids: string[]) => api.api.requirements['delete-preview'].$post({ json: { ids } }).then((r) => unwrap<DeletePreview>(r)),

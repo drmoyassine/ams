@@ -2,7 +2,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
   MergeRequirementSchema, SplitRequirementSchema, listReviewItems, mergeRequirement, splitRequirement,
-  indentRequirement, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
+  MoveManyInputSchema, indentRequirement, moveMany, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
 } from '@ams/core';
 import { MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -63,6 +63,13 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       const { parentId, displayOrder } = c.req.valid('json');
       return c.json(toDto(RequirementSchema, await moveRequirement(c.get('ctx'), c.req.valid('param').id, parentId, displayOrder)), 200);
     })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/framework-versions/{id}/requirements/move-many', access: requires('framework:write'), tags: tag,
+      description: 'Moves several requirements of a draft in one action (drag and drop): [{ id, parentId, index }], the positions counted with every moved item taken out; or placements (what Undo sends). Atomic. Codes never change.',
+      request: { params: idParam, body: { required: true, ...json(MoveManyInputSchema) } },
+      responses: { 200: { description: 'Moved; the X-Undo header says how to put them back', ...json(z.object({ moved: z.number(), changed: z.number(), unchanged: z.boolean() })) }, ...errors },
+    }), async (c) => c.json(await moveMany(c.get('ctx'), c.req.valid('param').id, c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'delete', path: '/api/requirements/{id}', access: requires('framework:write'), tags: tag,

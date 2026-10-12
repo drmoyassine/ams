@@ -10,6 +10,7 @@ import { Dialog } from '../components/dialog';
 import { versionLabel } from '../lib/version-label';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { confirmAndDeleteAll } from '../lib/delete-requirements';
 import { ApiError, type FrameworkApi, type Issue, type Version } from '../lib/framework-api';
 import { type GlossaryApi } from '../lib/glossary-api';
 import { can, useApi, useMe } from '../lib/me';
@@ -121,19 +122,12 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
     : version.status === 'in_review' && canPublish ? { label: 'Publish', run: () => act(() => api.publish(version.id)) }
       : version.status === 'published' && canWrite ? { label: 'Start a new version', run: async () => { setError(''); setNewVersion(true); } }
         : null;
-  /** "Delete all standards in this version": one question with the counts, one action, one Trash group. */
+  /** "Delete all standards in this version": one question with the counts, one action, one Trash group (drafts only). */
   const deleteAll = async () => {
     await act(async () => {
-      const rows = await api.requirements(version.id);
-      if (!rows.length) { setError('There is nothing to delete in this version.'); return; }
-      const p = await api.previewDelete(rows.filter((r) => !r.parentId).map((r) => r.id));
-      const ok = await confirm({
-        title: 'Delete all standards in this version?', tone: 'danger', confirmLabel: 'Delete all',
-        message: `Delete all ${(p.counts.items ?? 0) + (p.counts.subItems ?? 0)} standards${p.counts.notes ? ` and ${p.counts.notes} notes` : ''} in ${versionLabel(version.edition)}? You can restore them from the Trash for 30 days.`,
-      });
-      if (!ok) return;
-      await api.deleteAllRequirements(version.id);
-      await qc.invalidateQueries({ queryKey: ['requirements', version.id] });
+      const done = await confirmAndDeleteAll(api, confirm, version.id, versionLabel(version.edition));
+      if (done === 'empty') { setError('There is nothing to delete in this version.'); return; }
+      if (done) await qc.invalidateQueries({ queryKey: ['requirements', version.id] });
     });
   };
   const menu = [
@@ -142,7 +136,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
     ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => void confirm({
       title: `Retire ${versionLabel(version.edition)}?`, message: 'It stays readable but is no longer offered for new engagements.', confirmLabel: 'Retire', tone: 'danger',
     }).then((ok) => { if (ok) void act(() => api.retire(version.id)); }) }] : []),
-    ...((version.status === 'draft' || version.status === 'in_review') && canWrite ? [{ label: 'Delete all standards in this version', onSelect: () => void deleteAll() }] : []),
+    ...(version.status === 'draft' && canWrite ? [{ label: 'Delete all standards in this version', onSelect: () => void deleteAll() }] : []),
     ...((version.status === 'draft' || version.status === 'in_review') && canWrite ? [{ label: 'Delete this version', onSelect: () => void confirm({
       title: `Delete ${versionLabel(version.edition)}?`, tone: 'danger', confirmLabel: 'Delete',
       message: `The version and everything in it (its standards, notes, sources and templates) will be deleted. You can restore it from the Trash for 30 days.`,

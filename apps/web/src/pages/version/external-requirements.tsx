@@ -9,6 +9,7 @@ import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
 import { distinctTitle } from '../../lib/format';
 import type { FrameworkApi, MergeResult, Requirement, SplitResult, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
@@ -90,6 +91,8 @@ function RequirementDialog({ editing, parent, levels, rows, error, onSave, onClo
 
 interface NodeProps {
   api: FrameworkApi; version: Version; me: Me | undefined; r: Requirement; all: Requirement[]; levels: string[];
+  /** Children of every requirement (null: the top level), in order, built once. */
+  kids: Map<string | null, Requirement[]>; collapsed: ReadonlySet<string>;
   editable: boolean; open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
   onAddChild: (r: Requirement) => void; onEdit: (r: Requirement) => void; setError: (m: string) => void; invalidateTree: () => Promise<unknown>;
   /** The item whose source is shown, and how to show another's (`sheet`: also open the bottom sheet on a small screen). */
@@ -99,48 +102,18 @@ interface NodeProps {
   onMerge: (r: Requirement) => void; onSplit: (r: Requirement) => void; onMove: (r: Requirement) => void;
 }
 
-/** One requirement as a card; its children follow indented below it. */
-function Node(p: NodeProps) {
-  const { api, version, r, all, levels, editable, open, toggle, act, selected, look } = p;
+/**
+ * What a card shows when it is open: the description, the source and the notes. Its own component so that the queries
+ * (the requirement's notes, the version's documents) exist only for cards that are open, not for every row of a long list.
+ */
+function NodeBody({ p, showSource }: { p: NodeProps; showSource: () => void }) {
+  const { api, version, r, editable, selected, look } = p;
   const qc = useQueryClient();
-  const confirm = useConfirm();
-  const isOpen = open.has(r.id);
-  const allChildren = all.filter((x) => x.parentId === r.id);
-  const children = allChildren.filter((x) => !p.visible || p.visible.has(x.id));
-  const top = !r.parentId;
-  const detail = useQuery({ queryKey: ['requirement', r.id], queryFn: () => api.requirement(r.id), enabled: isOpen });
-  const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id), enabled: isOpen && editable });
+  const detail = useQuery({ queryKey: ['requirement', r.id], queryFn: () => api.requirement(r.id) });
+  const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id), enabled: editable });
   const invalidate = async () => { await qc.invalidateQueries({ queryKey: ['requirement', r.id] }); await p.invalidateTree(); };
-  const childLevel = levels[Math.min((r.depth ?? 0) + 1, levels.length - 1)];
-  const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
-  const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
-  const menu = [
-    ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
-    ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
-    ...(editable ? [
-      { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
-      { label: 'Split', onSelect: () => p.onSplit(r) },
-      { label: 'Move to…', onSelect: () => p.onMove(r) },
-      { label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${nameOf(r)}?`)) },
-    ] : []),
-  ];
   return (
     <>
-      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
-        open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tagOf(r)}`} menu={menu}
-        meta={<span className="flex flex-wrap items-center gap-2">
-          {allChildren.length > 0 && <span className="text-xs text-muted-foreground">{allChildren.length} {allChildren.length === 1 ? 'item' : 'items'}</span>}
-          <span className="text-xs text-muted-foreground">{r.levelLabel}</span>
-          {r.origin === 'ai' && <AiMarker />}
-          {r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
-          {reasons.map((k) => <span key={k} title={LOOK_HINT[k]} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{LOOK_LABEL[k]}</span>)}
-        </span>}
-        hover={(
-          <HoverCard>
-            <p className="font-semibold"><ContentText>{nameOf(r)}</ContentText></p>
-            <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No description.'}</ContentText></p>
-          </HoverCard>
-        )}>
         <div className="space-y-1" data-testid="requirement-detail">
           <Shaded>Description</Shaded>
           {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description.</p>}
@@ -166,7 +139,54 @@ function Node(p: NodeProps) {
           </ul>
           {editable && <AddNote api={api} requirementId={r.id} docs={docs.data ?? []} invalidate={invalidate} setError={p.setError} />}
         </div>
+    </>
+  );
+}
+
+/** One requirement as a card; its children follow indented below it. */
+function Node(p: NodeProps) {
+  const { api, r, levels, editable, open, toggle, act, look } = p;
+  const confirm = useConfirm();
+  const isOpen = open.has(r.id);
+  const allChildren = p.kids.get(r.id) ?? [];
+  const children = p.collapsed.has(r.id) ? [] : allChildren.filter((x) => !p.visible || p.visible.has(x.id));
+  const focus = useRowFocus(r.id);
+  const top = !r.parentId;
+  const childLevel = levels[Math.min((r.depth ?? 0) + 1, levels.length - 1)];
+  const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
+  const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
+  const menu = [
+    ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
+    ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
+    ...(editable ? [
+      { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
+      { label: 'Split', onSelect: () => p.onSplit(r) },
+      { label: 'Move to…', onSelect: () => p.onMove(r) },
+      { label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${nameOf(r)}?`)) },
+    ] : []),
+  ];
+  return (
+    <>
+      <TreeRow id={r.id}>
+      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
+        gutter={<RowGutter id={r.id} />} toggleProps={focus}
+        open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tagOf(r)}`} menu={menu}
+        meta={<span className="flex flex-wrap items-center gap-2">
+          {allChildren.length > 0 && <span className="text-xs text-muted-foreground">{allChildren.length} {allChildren.length === 1 ? 'item' : 'items'}</span>}
+          <span className="text-xs text-muted-foreground">{r.levelLabel}</span>
+          {r.origin === 'ai' && <AiMarker />}
+          {r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
+          {reasons.map((k) => <span key={k} title={LOOK_HINT[k]} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{LOOK_LABEL[k]}</span>)}
+        </span>}
+        hover={(
+          <HoverCard>
+            <p className="font-semibold"><ContentText>{nameOf(r)}</ContentText></p>
+            <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No description.'}</ContentText></p>
+          </HoverCard>
+        )}>
+        <NodeBody p={p} showSource={showSource} />
       </AccordionCard>
+      </TreeRow>
       {children.length > 0 && (
         <div role="list" aria-label={`Items of ${tagOf(r)}`} className="ms-8 space-y-2 border-s-2 border-border ps-3">
           {children.map((c) => <div role="listitem" key={c.id}><Node {...p} r={c} /></div>)}
@@ -196,6 +216,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'merge' | 'split' | 'move'; item: Requirement } | null>(null);
   const [selected, setSelected] = useState<Selection>(null);
   const [sheet, setSheet] = useState(false);
@@ -214,7 +235,13 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   const draft = version.status === 'draft';
   const editable = draft && can(me, 'framework:write');
   const all = useMemo(() => tree.data ?? [], [tree.data]);
-  const tops = all.filter((r) => !r.parentId);
+  const kids = useMemo(() => {
+    const m = new Map<string | null, Requirement[]>();
+    for (const r of all) { const k = r.parentId ?? null; const l = m.get(k); if (l) l.push(r); else m.set(k, [r]); }
+    return m;
+  }, [all]);
+  const tops = kids.get(null) ?? [];
+  const setCollapsed = useCallback((id: string, c: boolean) => setCollapsedSet((s) => { const n = new Set(s); if (c) n.add(id); else n.delete(id); return n; }), []);
   const levels = (version.levelLabels as string[] | undefined) ?? [];
   const select = (s: NonNullable<Selection>, withSheet = false) => { setSelected(s); if (withSheet && !wide) setSheet(true); };
   const toggle = (id: string) => {
@@ -349,7 +376,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
     if (r) { setOpen((s) => new Set([...s, item.id])); close(); }
   };
   const nodeProps = {
-    api, version, me, all, levels, editable, open, toggle, act, setError, invalidateTree, selected, onSelect: select, look, visible,
+    api, version, me, all, kids, collapsed, levels, editable, open, toggle, act, setError, invalidateTree, selected, onSelect: select, look, visible,
     onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }), onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
     onMerge: (item: Requirement) => { setError(''); setDialog({ kind: 'merge', item }); },
     onSplit: (item: Requirement) => { setError(''); setDialog({ kind: 'split', item }); },
@@ -357,6 +384,19 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   };
   const shown = tops.filter((r) => !visible || visible.has(r.id));
   const flagged = items.length;
+  /** The ids on screen, in order: what a range selection and the keyboard walk over. */
+  const shownIds = useMemo(() => {
+    const out: string[] = [];
+    const walk = (r: Requirement) => {
+      out.push(r.id);
+      if (collapsed.has(r.id)) return;
+      for (const c of kids.get(r.id) ?? []) if (!visible || visible.has(c.id)) walk(c);
+    };
+    for (const r of tops) if (!visible || visible.has(r.id)) walk(r);
+    return out;
+  }, [tops, kids, collapsed, visible]);
+  const reason = !can(me, 'framework:write') ? 'You need permission to edit the library to select or move requirements.'
+    : `This version is ${version.status === 'in_review' ? 'in review' : version.status} and fixed. Start a new version to select, move or delete requirements.`;
 
   const list = (
     <div className="space-y-2" aria-label="Requirements" role="list">
@@ -366,10 +406,13 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   );
 
   return (
+    <TreeProvider api={api} version={version} rows={all} shown={shownIds} editable={editable} reason={reason} label={tagOf} noun={{ one: 'requirement', many: 'requirements' }}
+      collapsed={collapsed} onCollapse={setCollapsed} onChanged={invalidateTree} onNotice={setNotice} onError={setError}>
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">{all.length} requirement{all.length === 1 ? '' : 's'}</span>
         {all.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
+        <TreeToolbar />
         {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Requirement</Button>}
       </div>
       {!draft && <p className="text-xs text-muted-foreground">This version is {version.status === 'in_review' ? 'in review' : 'published'} and fixed. Use Start a new version to change it.</p>}
@@ -394,6 +437,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
           <button type="button" aria-label="Dismiss" className="shrink-0 underline" onClick={() => setNotice('')}>Dismiss</button>
         </p>
       )}
+      <BulkBar rows={all} />
       {tree.data && all.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
       {wide ? (
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,22rem)] items-start gap-4">
@@ -416,5 +460,6 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
       {dialog?.kind === 'split' && <SplitDialog item={dialog.item} error={error} onClose={close} onSplit={(v) => saveSplit(dialog.item, v)} />}
       {dialog?.kind === 'move' && <MoveDialog item={dialog.item} rows={all} error={error} onClose={close} onMove={(parent) => saveMove(dialog.item, parent)} />}
     </div>
+    </TreeProvider>
   );
 }

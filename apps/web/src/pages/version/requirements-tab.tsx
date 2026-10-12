@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AiMarker, AuthorityBadge, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
 import { useConfirm } from '../../components/confirm-dialog';
@@ -10,6 +10,7 @@ import { ApiError, type FrameworkApi, type Note, type Requirement, type SourceDo
 import { can } from '../../lib/me';
 import { confirmAndDelete } from '../../lib/delete-requirements';
 import { EvidenceLinkList } from '../../components/evidence-links';
+import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { Me } from '@ams/shared';
@@ -160,6 +161,22 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
   );
 }
 
+/** One row of the list: the checkbox, move handle and branch toggle, then the button that opens it. */
+function ListRow({ r, selected, onSelect }: { r: Requirement; selected: boolean; onSelect: (id: string) => void }) {
+  const focus = useRowFocus(r.id);
+  return (
+    <TreeRow id={r.id}>
+      <div className="flex items-center">
+        <RowGutter id={r.id} />
+        <button type="button" {...focus} onClick={() => onSelect(r.id)} className={`min-w-0 flex-1 rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected ? 'bg-muted font-medium' : ''}`}>
+          <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{requirementLabel(r.code, r.title)}</ContentText>
+          {r.reviewStatus !== 'approved' && <span className="ms-2 text-xs text-muted-foreground">({r.reviewStatus})</span>}
+        </button>
+      </div>
+    </TreeRow>
+  );
+}
+
 export function RequirementsTab({ api, version, me, evidence }: Props) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
@@ -168,7 +185,22 @@ export function RequirementsTab({ api, version, me, evidence }: Props) {
   const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id) });
   const invalidateTree = () => qc.invalidateQueries({ queryKey: ['requirements', version.id] });
   const canWrite = version.status === 'draft' && can(me, 'framework:write');
-  const rows = tree.data ?? [];
+  const rows = useMemo(() => tree.data ?? [], [tree.data]);
+  const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
+  const [notice, setNotice] = useState('');
+  const setCollapsed = useCallback((id: string, c: boolean) => setCollapsedSet((cur) => { const n = new Set(cur); if (c) n.add(id); else n.delete(id); return n; }), []);
+  const shown = useMemo(() => {
+    const hidden = new Set<string>();
+    const out: Requirement[] = [];
+    for (const r of rows) {
+      if (r.parentId && (collapsed.has(r.parentId) || hidden.has(r.parentId))) { hidden.add(r.id); continue; }
+      out.push(r);
+    }
+    return out;
+  }, [rows, collapsed]);
+  const shownIds = useMemo(() => shown.map((r) => r.id), [shown]);
+  const reason = !can(me, 'framework:write') ? 'You need permission to edit the framework to select or move items.'
+    : `This version is ${version.status === 'in_review' ? 'in review' : version.status} and fixed. Start a new version to select, move or delete items.`;
   const current = rows.find((r) => r.id === selected) ?? null;
   const add = useAction(setError, invalidateTree);
   const labels = (version.levelLabels as string[] | undefined) ?? [];
@@ -187,16 +219,18 @@ export function RequirementsTab({ api, version, me, evidence }: Props) {
   };
 
   return (
+    <TreeProvider api={api} version={version} rows={rows} shown={shownIds} editable={canWrite} reason={reason} label={(r) => r.code} collapsed={collapsed} onCollapse={setCollapsed}
+      onNotice={setNotice} onError={setError}>
     <div className="grid gap-6 md:grid-cols-2">
       <div>
+        <div className="mb-2 flex flex-wrap items-center gap-2"><TreeToolbar /></div>
+        <BulkBar rows={rows} />
         {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
+        {notice && <p className="mb-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900" data-testid="tree-notice">{notice} <button type="button" className="underline" onClick={() => setNotice('')}>Dismiss</button></p>}
         <ul role="tree" aria-label="Requirements" className="space-y-1">
-          {rows.map((r) => (
+          {shown.map((r) => (
             <li key={r.id} role="treeitem" aria-selected={selected === r.id} style={{ paddingInlineStart: `${(r.depth ?? 0) * 1.25}rem` }}>
-              <button type="button" onClick={() => setSelected(r.id)} className={`w-full rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected === r.id ? 'bg-muted font-medium' : ''}`}>
-                <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{requirementLabel(r.code, r.title)}</ContentText>
-                {r.reviewStatus !== 'approved' && <span className="ms-2 text-xs text-muted-foreground">({r.reviewStatus})</span>}
-              </button>
+              <ListRow r={r} selected={selected === r.id} onSelect={setSelected} />
             </li>
           ))}
           {rows.length === 0 && <li className="text-sm text-muted-foreground">No requirements yet.</li>}
@@ -217,5 +251,6 @@ export function RequirementsTab({ api, version, me, evidence }: Props) {
       </div>
       <div>{current ? <Detail api={api} version={version} req={current} me={me} docs={docs.data ?? []} setError={setError} invalidateTree={invalidateTree} {...(evidence ? { evidence } : {})} /> : <p className="text-sm text-muted-foreground">Select a requirement.</p>}</div>
     </div>
+    </TreeProvider>
   );
 }

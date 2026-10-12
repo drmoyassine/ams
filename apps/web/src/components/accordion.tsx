@@ -46,8 +46,10 @@ export function ActionsMenu({ label, items }: { label: string; items: { label: s
  * opens below. Hovering the closed card (after a short delay) shows `hover` in a tooltip. Used by the internal and the
  * external requirement lists so they look and behave the same.
  */
-export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, domId, tone = 'plain', children }: {
-  label: string; /** Shown before the tag, e.g. a logo. */ lead?: ReactNode; tag?: string; title?: string | null; strong?: boolean; /** Small text under the title. */ subtitle?: ReactNode; meta?: ReactNode; /** Beside the menu, outside the toggle, e.g. an Open button. */ trailing?: ReactNode; open: boolean; onToggle: () => void;
+export function AccordionCard({ label, gutter, toggleProps, lead, tag, title, strong, subtitle, meta, trailing, open, onToggle, menuLabel, menu, hover, testId, domId, tone = 'plain', children }: {
+  label: string; /** Controls left of the header's button (a checkbox, a drag handle), outside it so they are not buttons inside a button. */ gutter?: ReactNode;
+  /** Extra attributes for the header's toggle button (the tree's keyboard stop). */ toggleProps?: Record<string, string | number | undefined>;
+  /** Shown before the tag, e.g. a logo. */ lead?: ReactNode; tag?: string; title?: string | null; strong?: boolean; /** Small text under the title. */ subtitle?: ReactNode; meta?: ReactNode; /** Beside the menu, outside the toggle, e.g. an Open button. */ trailing?: ReactNode; open: boolean; onToggle: () => void;
   menuLabel: string; menu: { label: string; onSelect: () => void }[]; hover?: ReactNode; testId?: string; /** The section's DOM id, for links that scroll to it. */ domId?: string; tone?: 'plain' | 'shaded'; children?: ReactNode;
 }) {
   const [hovering, setHovering] = useState(false);
@@ -63,7 +65,8 @@ export function AccordionCard({ label, lead, tag, title, strong, subtitle, meta,
       <div className="relative flex items-start gap-2 pe-2 @xl:items-center"
         onMouseEnter={() => { timer.current = setTimeout(() => setHovering(true), 400); }}
         onMouseLeave={() => { clearTimeout(timer.current); setHovering(false); }}>
-        <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 px-3 py-3 text-start @xl:flex-nowrap @xl:px-4">
+        {gutter && <div className="flex h-12 shrink-0 items-center @xl:h-auto">{gutter}</div>}
+        <button type="button" aria-expanded={open} onClick={onToggle} {...toggleProps} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 px-3 py-3 text-start @xl:flex-nowrap @xl:px-4">
           {lead}
           {tag && <Shaded>{tag}</Shaded>}
           {/* With a tag, narrow cards put the tag (and chevron) on the first line and give the title a full line of its own. */}

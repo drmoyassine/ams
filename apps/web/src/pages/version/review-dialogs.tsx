@@ -120,6 +120,34 @@ export function MoveDialog({ item, rows, error, onMove, onClose }: {
   );
 }
 
+/** Move the ticked requirements (each with what is under it) to one place: under a chosen requirement, or the top level. */
+export function BulkMoveDialog({ items, rows, error, onMove, onClose }: {
+  items: Requirement[]; rows: Requirement[]; error: string; onMove: (parentId: string | null) => Promise<unknown>; onClose: () => void;
+}) {
+  const [parent, setParent] = useState<string | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const blocked = useMemo(() => {
+    const out = new Set<string>(items.map((i) => i.id));
+    for (const i of items) for (const d of descendantIds(rows, i.id)) out.add(d);
+    return out;
+  }, [items, rows]);
+  const candidates = rows.filter((r) => !blocked.has(r.id));
+  const what = items.length === 1 ? tagOf(items[0]!) : `${items.length} items`;
+  return (
+    <Shell id="bulk-move-title" title={`Move ${what}`} onClose={onClose}>
+      <form className="space-y-3" aria-label="Move the selected requirements" onSubmit={(e: FormEvent) => { e.preventDefault(); if (parent === undefined) return; setBusy(true); void onMove(parent).finally(() => setBusy(false)); }}>
+        <p className="text-sm text-muted-foreground">Choose where {items.length === 1 ? <ContentText>{nameOf(items[0]!)}</ContentText> : `the ${items.length} selected items`} go{items.length === 1 ? 'es' : ''}, last among what is already there. Their sub-items go with them, and their codes do not change.</p>
+        <RequirementPicker rows={candidates} value={parent ?? null} onChange={setParent} topLevel label="Search the new parent" />
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={parent === undefined || busy}>Move</Button>
+        </div>
+      </form>
+    </Shell>
+  );
+}
+
 /**
  * Split a requirement: select the part of its text that becomes a requirement of its own (or paste/type it), and give that
  * one a code. The text is shown in a read-only text box, so the selection works with a mouse, the keyboard and touch alike.

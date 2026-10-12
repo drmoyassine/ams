@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ActionsMenu } from '../../components/accordion';
+import { useConfirm } from '../../components/confirm-dialog';
+import { confirmAndDeleteAll } from '../../lib/delete-requirements';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -26,6 +29,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
   const api = useApi(apiProp);
   const me = useMe(api);
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [error, setError] = useState('');
   const [pick, setPick] = useState<string | null>(null);
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
@@ -92,6 +96,15 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
               )}
               {canWrite && current!.id === latest.id && latest.status === 'published' && (
                 <Button type="button" variant="ghost" onClick={() => act(async () => { const v = await api.newQualityVersion(); setPick(v.id); })}>Start a new version</Button>
+              )}
+              {canWrite && current!.status === 'draft' && (reqs.data?.length ?? 0) > 0 && (
+                <ActionsMenu label="More actions" items={[{
+                  label: 'Delete all standards in this version',
+                  onSelect: () => act(async () => {
+                    const done = await confirmAndDeleteAll(api, confirm, current!.id, `version ${current!.edition}`);
+                    if (done === 'empty') setError('There is nothing to delete in this version.');
+                  }),
+                }]} />
               )}
             </span>
           </div>

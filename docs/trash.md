@@ -115,6 +115,7 @@ A reversible action returns `X-Undo: <percent-encoded JSON>`:
 | Edit a requirement / note / mapping | `PATCH` it with the earlier values of the fields that changed (the item returns to review, as any edit does) |
 | Edit an IQF item (code, title, description) | `PATCH /api/quality-items/{id}` with the earlier values (renumbers sub-standards back) |
 | Move, indent, outdent | `POST /api/requirements/{id}/move` with the earlier parent and position |
+| Drag and drop, Move to… (one or several items) | `POST /api/framework-versions/{id}/requirements/move-many` with `placements`: runs of items to put back after the sibling they followed |
 | Apply the starting template | `POST /api/framework-versions/{id}/requirements/delete-all` |
 | Merge | restore the Trash group with `revertMerge: true` |
 | Split | `POST /api/requirements/{id}/unsplit` |

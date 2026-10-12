@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, Buffer */
+/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, performance, requestAnimationFrame, cancelAnimationFrame, Buffer */
 // Responsiveness check (`pnpm test:responsive`): boots the real API + built SPA against a fresh test database, signs in
 // through the login page in Chromium, and visits the main screens at 375, 768 and 1280 px. For each page and width it
 // asserts the page does not scroll horizontally and saves a full-page screenshot to e2e/screenshots/<width>/<page>.png.
@@ -94,7 +94,7 @@ async function startApp() {
     server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' });
 
     const ids = await seedDemo(db, base);
-    return { base, ids, stop };
+    return { base, ids, stop, db };
   } catch (e) {
     await stop();
     throw e;
@@ -212,6 +212,86 @@ const menuItem = (item) => async (page) => {
   await page.getByRole('menuitem', { name: item }).click();
 };
 
+
+/** Ticks `n` rows (turning Select on first, as a phone has to) and waits for the bulk bar. */
+async function tickRows(page, n, selectFirst) {
+  if (selectFirst) await page.getByRole('button', { name: 'Select', exact: true }).click();
+  const boxes = page.getByTestId('row-checkbox');
+  for (let i = 0; i < n; i += 1) await boxes.nth(i).click();
+  await page.getByTestId('bulk-bar').waitFor();
+}
+/** Holds the mouse on the first row's move handle and drags it over the row `rows` below, leaving the button down. */
+async function pointerDragOver(page, rows) {
+  const handles = page.getByTestId('drag-handle');
+  await handles.first().scrollIntoViewIfNeeded();
+  const from = await handles.first().boundingBox();
+  const to = await handles.nth(rows).boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 8, from.y + from.height / 2 + 8, { steps: 3 });
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await page.getByTestId('drag-overlay').waitFor();
+}
+
+/**
+ * A tree of 600 rows in a real browser: how long ticking, selecting all and a drag take, and how smooth the frames are while
+ * dragging. Printed, not asserted (machines differ); only a stall of over 1.5 s fails the run.
+ */
+async function perfCheck(page, app) {
+  const q = async (sql, p = []) => (await app.db.su.query(sql, p)).rows;
+  const [{ id: inst }] = await q(`select id from institution limit 1`);
+  const [{ id: acc }] = await q(`select id from accreditor limit 1`);
+  const [{ id: fw }] = await q(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'Perf check (600 rows)', 'institution') returning id`, [inst, acc]);
+  const [{ id: ver }] = await q(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'perf') returning id`, [inst, fw]);
+  await q(`with tops as (
+      insert into requirement (institution_id, framework_version_id, code, level_label, title, display_order, origin)
+      select $1, $2, 'T' || i, 'Standard', 'Top ' || i, i, 'manual' from generate_series(0, 29) i returning id, code)
+    insert into requirement (institution_id, framework_version_id, parent_id, code, level_label, title, display_order, origin)
+    select $1, $2, t.id, t.code || '.' || j, 'Criterion', 'Sub ' || t.code || '.' || j, j, 'manual' from tops t, generate_series(0, 18) j`, [inst, ver]);
+  const out = {};
+  const t0 = Date.now();
+  await page.goto(`/settings/versions/${ver}`);
+  await page.getByRole('region', { name: 'T29.18' }).waitFor({ timeout: 30000 });
+  out['open the screen with 600 rows'] = Date.now() - t0;
+  await settle(page);
+  // Time from the click to the next painted frame, measured in the page.
+  const click = (locator) => locator.evaluate((el) => new Promise((resolve) => {
+    const t = performance.now();
+    el.click();
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now() - t)));
+  }));
+  out['Select (turn on)'] = await click(page.getByRole('button', { name: 'Select', exact: true }));
+  out['tick one row'] = await click(page.getByTestId('row-checkbox').nth(40));
+  out['tick another'] = await click(page.getByTestId('row-checkbox').nth(200));
+  out['select all 600'] = await click(page.getByRole('button', { name: /^Select all \(/ }));
+  out['clear 600'] = await click(page.getByTestId('bulk-bar').getByRole('button', { name: 'Clear' }));
+  // Drag a row down across 30 rows, recording the gaps between animation frames.
+  await page.evaluate(() => { window.__gaps = []; let last = performance.now(); const tick = (t) => { window.__gaps.push(t - last); last = t; window.__raf = requestAnimationFrame(tick); }; window.__raf = requestAnimationFrame(tick); });
+  const handle = page.getByTestId('drag-handle').nth(2);
+  await handle.scrollIntoViewIfNeeded();
+  const b = await handle.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  const d0 = Date.now();
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 8, b.y + b.height / 2 + 8, { steps: 3 });
+  await page.getByTestId('drag-overlay').waitFor();
+  out['pick up (to the overlay)'] = Date.now() - d0;
+  for (let i = 1; i <= 90; i += 1) await page.mouse.move(b.x + b.width / 2 + 8, b.y + b.height / 2 + i * 6);
+  const gaps = await page.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__gaps; });
+  const sorted = [...gaps].sort((x, y) => x - y);
+  out['frames while dragging (count)'] = gaps.length;
+  out['frame gap, median'] = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  out['frame gap, 95th percentile'] = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
+  out['frame gap, worst'] = sorted[sorted.length - 1] ?? 0;
+  const drop0 = Date.now();
+  await page.mouse.up();
+  await page.getByTestId('toast').first().waitFor({ timeout: 10000 }).catch(() => undefined);
+  out['drop to Undo toast'] = Date.now() - drop0;
+  console.log('\n600-row tree in Chromium (ms):');
+  for (const [k, v] of Object.entries(out)) console.log(`  ${k.padEnd(34)} ${typeof v === 'number' ? Math.round(v * 10) / 10 : v}`);
+  if (out['frame gap, worst'] > 1500 || out['select all 600'] > 1500) throw new Error('a 600-row tree stalled for more than 1.5 s');
+}
+
 function pagesFor(ids) {
   return [
     { name: 'engagements', path: '/engagements' },
@@ -267,6 +347,26 @@ function pagesFor(ids) {
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
       await page.getByTestId('toast').first().waitFor();
     }, after: async (page) => { await page.getByRole('button', { name: 'Undo' }).first().click(); await page.getByText(/^Undone: /).first().waitFor(); } },
+    // Multi-select, bulk delete and drag and drop of requirements (the quality framework and an external standard's draft).
+    { name: 'iqf-select-bar', path: '/settings/quality-framework', action: async (page) => { await tickRows(page, 2, true); } },
+    { name: 'iqf-bulk-delete-dialog', path: '/settings/quality-framework', action: async (page) => {
+      await tickRows(page, 2, true);
+      await page.getByTestId('bulk-bar').getByRole('button', { name: 'Delete' }).click();
+      await page.getByRole('dialog', { name: /^Delete / }).waitFor();
+    } },
+    { name: 'iqf-keyboard-drag', path: '/settings/quality-framework', action: async (page) => {
+      const handle = page.getByTestId('drag-handle').first();
+      await handle.focus();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
+      await page.getByTestId('drag-overlay').waitFor();
+    }, after: async (page) => { await page.keyboard.press('Escape'); } },
+    { name: 'iqf-pointer-drag', path: '/settings/quality-framework', action: async (page) => { await pointerDragOver(page, 3); },
+      after: async (page) => { await page.keyboard.press('Escape'); await page.mouse.up(); } },
+    ids.draftId && { name: 'version-select-bar', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await tickRows(page, 2, true); } },
+    ids.draftId && { name: 'version-pointer-drag', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await pointerDragOver(page, 1); },
+      after: async (page) => { await page.keyboard.press('Escape'); await page.mouse.up(); } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
@@ -366,6 +466,9 @@ async function main() {
           results.push({ width, name: p.name, error: e.message.split('\n')[0] });
           await page.screenshot({ path: join(dir, `${p.name}.error.png`), fullPage: true }).catch(() => undefined); // to see where it stopped
         }
+      }
+      if (width === Math.max(...widths) && !onlyPages) {
+        try { await perfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-600-rows', error: e.message.split('\n')[0] }); }
       }
       if (errors.length) console.warn(`page errors at ${width}px:\n  ${[...new Set(errors)].join('\n  ')}`);
       await context.close();

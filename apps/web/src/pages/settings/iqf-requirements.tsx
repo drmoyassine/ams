@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
 import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { ContentText } from '../../components/content-text';
+import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
 import { EvidenceLinkList } from '../../components/evidence-links';
 import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
@@ -95,6 +96,7 @@ function Item(p: ItemProps) {
   const confirm = useConfirm();
   const isOpen = open.has(r.id);
   const children = all.filter((x) => x.parentId === r.id);
+  const focus = useRowFocus(r.id);
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
   const requests = useQuery({ queryKey: ['internal-requests', r.id], queryFn: () => evidence.internalRequests(r.id), enabled: isOpen });
   const [linkError, setLinkError] = useState('');
@@ -106,8 +108,9 @@ function Item(p: ItemProps) {
   ];
   return (
     <AccordionCard label={tag(r)} tag={tag(r)} title={r.title} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}
+      gutter={<RowGutter id={r.id} />} toggleProps={focus}
       open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tag(r)}`} menu={menu}
-      meta={!r.parentId && children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} sub-standard{children.length === 1 ? '' : 's'}</span> : undefined}
+      meta={children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} {r.parentId ? 'item' : 'sub-standard'}{children.length === 1 ? '' : 's'}</span> : undefined}
       hover={<HoverDetails r={r} evidence={evidence} />}>
       <div className="space-y-1">
         <Shaded>Description</Shaded>
@@ -139,14 +142,30 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
   const evidence = useEvidenceApi(evidenceOverride);
   const qc = useQueryClient();
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | { kind: 'request'; item: Requirement } | null>(null);
-  const rows = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
+  const rowsQuery = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(() => qc.invalidateQueries({ queryKey: ['requirements', version.id] })); };
-  const editable = version.status === 'draft' && can(me, 'framework:write');
-  const all = rows.data ?? [];
+  const can_ = can(me, 'framework:write');
+  const editable = version.status === 'draft' && can_;
+  const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
   const standards = all.filter((r) => !r.parentId);
+  // Rows on screen: everything except what sits under a collapsed branch.
+  const shown = useMemo(() => {
+    const hidden = new Set<string>();
+    const out: string[] = [];
+    for (const r of all) {
+      if (r.parentId && (collapsed.has(r.parentId) || hidden.has(r.parentId))) { hidden.add(r.id); continue; }
+      out.push(r.id);
+    }
+    return out;
+  }, [all, collapsed]);
+  const setCollapsed = useCallback((id: string, c: boolean) => setCollapsedSet((s) => { const n = new Set(s); if (c) n.add(id); else n.delete(id); return n; }), []);
+  const reason = !can_ ? 'You need permission to edit the framework to select or move standards.'
+    : `This version is ${version.status === 'in_review' ? 'in review' : version.status} and fixed. Start a new version to select, move or delete standards.`;
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const close = () => { setDialog(null); setError(''); };
   const itemProps = {
@@ -166,27 +185,39 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
     setOpen((s) => new Set([...s, ...(parentId ? [parentId] : []), r.id]));
     close();
   };
+  const branch = (parent: string | null): React.ReactNode => all.filter((r) => (r.parentId ?? null) === parent).map((r) => {
+    const kids = all.some((c) => c.parentId === r.id) && !collapsed.has(r.id);
+    return (
+      <div role="listitem" key={r.id} className="space-y-2">
+        <TreeRow id={r.id}><Item {...itemProps} r={r} /></TreeRow>
+        {kids && (
+          <div role="list" aria-label={`Sub-standards of ${tag(r)}`} className="ms-8 space-y-2 border-s-2 border-border ps-3">{branch(r.id)}</div>
+        )}
+      </div>
+    );
+  });
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">{standards.length} standard{standards.length === 1 ? '' : 's'}</span>
-        {standards.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
-        {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Standard</Button>}
-      </div>
-      {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {rows.data && standards.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
-      <div className="space-y-2" aria-label="Standards" role="list">
-        {standards.map((s) => (
-          <div role="listitem" key={s.id} className="space-y-2">
-            <Item {...itemProps} r={s} />
-            {all.some((c) => c.parentId === s.id) && (
-              <div role="list" aria-label={`Sub-standards of ${tag(s)}`} className="ms-8 space-y-2 border-s-2 border-border ps-3">
-                {all.filter((c) => c.parentId === s.id).map((c) => <div role="listitem" key={c.id}><Item {...itemProps} r={c} /></div>)}
-              </div>
-            )}
-          </div>
-        ))}
+    <TreeProvider api={api} version={version} rows={all} shown={shown} editable={editable} reason={reason} label={tag} collapsed={collapsed} onCollapse={setCollapsed}
+      onNotice={(t) => { setNotice(t); }} onError={setError}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">{standards.length} standard{standards.length === 1 ? '' : 's'}</span>
+          {standards.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
+          <TreeToolbar />
+          {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Standard</Button>}
+        </div>
+        {!editable && standards.length > 0 && version.status !== 'draft' && <p className="text-xs text-muted-foreground">{reason}</p>}
+        <BulkBar rows={all} />
+        {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {notice && (
+          <p className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900" data-testid="tree-notice">
+            <span className="min-w-0 flex-1 break-words">{notice}</span>
+            <button type="button" aria-label="Dismiss" className="shrink-0 underline" onClick={() => setNotice('')}>Dismiss</button>
+          </p>
+        )}
+        {rowsQuery.data && standards.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
+        <div className="space-y-2" aria-label="Standards" role="list">{branch(null)}</div>
       </div>
       {dialog?.kind === 'add' && (
         <ItemDialog editing={null} parent={dialog.parent} code={nextCode(all, dialog.parent)} error={error} onClose={close}
@@ -215,6 +246,6 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
             await qc.invalidateQueries({ queryKey: ['evidence'] });
           }} />
       )}
-    </div>
+    </TreeProvider>
   );
 }
