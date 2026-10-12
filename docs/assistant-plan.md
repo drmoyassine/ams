@@ -12,9 +12,9 @@ It acts as the signed-in person, with their permissions and nothing more. It nev
 
 1. **Context.** The panel sends where the person is: the version, the tab, the selected items, the open filter. Shown as small chips ("Working on PUC 2019-V2 · Requirements · 3 selected") that the person can remove.
 2. **Understand.** The model reads what it needs through read-only tools (search requirements, read one with its notes, count by level, read a source page, list versions and mappings) and decides what to do.
-3. **Propose.** It builds a change set from the write tools below. Nothing is written yet. The change set is checked by a dry run through the same core services the screens use, so an invalid change (a cycle, a frozen version, a missing parent) is refused before the person sees it.
-4. **Preview.** The panel shows a table: item, field, before → after, one checkbox per row, counts on top ("148 changes in 148 items; 3 skipped: published version"), and a plain-words summary.
-5. **Apply.** One click applies the ticked rows in one transaction through the existing services. It is one group in the undo system, so the normal toast and Ctrl/Cmd+Z reverse all of it, and the deletes it makes go to the Trash.
+3. **Propose.** It builds a change set from the write tools below. Nothing is written yet. The change set is checked by a dry run through the same core services the screens use, so an invalid change (a cycle, a frozen version, a missing parent) is refused before the person is asked.
+4. **Confirm.** The assistant describes the change in the chat (what, where, how many, a few examples, anything skipped and why, for example "3 items skipped: published version") and asks. The person presses Do it, asks for a change, or cancels.
+5. **Apply.** On Do it, the change set is applied to the draft in one transaction through the existing services, as one group in the undo system: the normal toast, Ctrl/Cmd+Z and **Ctrl/Cmd+Shift+Z (Redo)** reverse or repeat all of it, and the deletes it makes go to the Trash.
 6. **Report.** The panel says what changed and what was skipped and why.
 
 For anything that touches a published version, it proposes starting a new version first (the person decides).
@@ -30,8 +30,8 @@ Write, each as a proposed operation, never executed directly:
 - accept or dismiss suggested links and IQF proposals.
 
 Two kinds of edit, handled differently:
-- **Rule edits** ("swap title and description for items whose title is only the code", "delete every empty heading", "move all Measure items under Standard 3"). Deterministic: the model chooses a recipe and its filters and parameters, and ordinary code does the exact transformation on every row. No per-row model call, no per-row cost, fully reproducible and the preview is exact. Most bulk edits are this kind (the PUC title fix is: it is a rule, and was done as a migration).
-- **Text edits** ("translate the descriptions to English", "tidy the OCR errors in these 40 items", "write short titles for these long statements"). The model writes the new text per item, in batches, within the cost cap. The preview shows each before/after and the source quote, and edited wording is marked as AI-written until the person accepts it. Verbatim fields (the official wording) are only changed by rule edits or by explicit per-row acceptance, never silently by the model.
+- **Rule edits** ("swap title and description for items whose title is only the code", "delete every empty heading", "move all Measure items under Standard 3"). Deterministic: the model chooses a recipe and its filters and parameters, and ordinary code does the exact transformation on every row. No per-row model call, no per-row cost, fully reproducible, so the examples in the confirmation are exact. Most bulk edits are this kind (the PUC title fix is: it is a rule, and was done as a migration).
+- **Text edits** ("translate the descriptions to English", "tidy the OCR errors in these 40 items", "write short titles for these long statements"). The model writes the new text per item, in batches, within the cost cap. The confirmation in chat shows examples with the source quote, and edited wording is marked as AI-written until the person accepts it. Verbatim fields (the official wording) are only changed by rule edits or by explicit per-row acceptance, never silently by the model.
 
 ## Where it runs
 
@@ -42,13 +42,13 @@ Two kinds of edit, handled differently:
 ## Data and privacy
 
 - It sees framework content only: standards, notes, source pages, mappings, analysis reports, glossary. Never evidence files, datasets, responses, or accreditor letters unless a later decision allows it (DEC-013, DEC-019, DEC-021 cover framework text).
-- Source text and standards text are untrusted data: instructions found inside a document are ignored (prompt injection). The model cannot apply anything; only the person's click does, after seeing the preview.
+- Source text and standards text are untrusted data: instructions found inside a document are ignored (prompt injection). The model cannot apply anything; only the person's button press does (the one-time confirmation token), after the assistant has said in the chat what it will do.
 - Conversations are stored per person (new tables `assistant_conversation` and `assistant_message`, tenant RLS), visible to that person and to administrators for audit; the change sets and what was applied are in the audit trail with "proposed by the assistant, applied by <person>".
 
 ## Limits and safety
 
 - A change set holds at most 500 item changes; more is split in steps.
-- Deletes are always to the Trash and always shown in the preview, never mixed silently into another edit.
+- Deletes are always to the Trash and always named in the confirmation ("and delete 6 empty headings"), never mixed silently into another edit.
 - Frozen (published) versions are read-only for it; it says so.
 - A per-person rate and cost cap; a visible cost line per turn.
 - Everything it does is also possible by hand; it adds speed, not powers.
@@ -83,15 +83,15 @@ Three kinds of memory, plus knowledge that is not memory. Memory only ever inher
 ## Build phases
 
 1. **Plumbing and memory (about 1–2 weeks).** Panel and bubble, conversation tables, `memory_item` with the personal and workspace layers, the Settings → Assistant memory page, the `assistant` job in the agent service, streaming of progress, the read-only tool registry, per-conversation caps, the Settings role. It can answer questions about the standards with links.
-2. **Rule-based bulk edits (about 1–2 weeks).** The change-set format, dry-run through the core services, the preview table with row checkboxes, apply as one undoable group, recipes for the common cases (swap or fill fields, rename/re-code, re-parent by rule, delete by filter, bulk set assessable/level/language). Tests per recipe; an eval set of 30–40 sample instructions and the change sets they should produce.
-3. **Text edits (about 1 week).** Batched per-item proposals within the cap, before/after with the source quote, accept per row, AI-written marking.
+2. **Rule-based bulk edits (about 1–2 weeks).** The change-set format, dry-run through the core services, the in-chat confirmation with one-time tokens, apply as one undoable group (with **Redo** added to the undo system, which today has Undo only), recipes for the common cases (swap or fill fields, rename/re-code, re-parent by rule, delete by filter, bulk set assessable/level/language). Tests per recipe; an eval set of 30–40 sample instructions and the change sets they should produce.
+3. **Text edits (about 1 week).** Batched per-item proposals within the cap; the confirmation in chat shows examples with the source quote; edited wording is marked as AI-written until the person accepts it.
 4. **Reach (later).** Create standards from instructions, act on the analysis report ("fix every unresolved gap I can see"), cross-standard questions, explain a mapping, scheduled helpers. Evidence and datasets only if a decision allows it.
 
 ## Decisions (owner, 2026-10-12 — recorded as DEC-027)
 
 1. **A companion, AI native.** It is part of the app, not a separate tool, and it inherits exactly the privileges of the person using it. Nothing it can see or do goes beyond what that person can see or do by hand.
 2. **Model:** the analysis model by default (Settings → AI → Models, role "Assistant" defaults to the analysis account and model).
-3. **Drafts only.** It edits only drafts: it can create a draft (a new version, or an IQF draft) and edit it. It never publishes, approves or touches a published version. Because every edit lands in a draft that can be undone and restored from the Trash, the safety is the draft; the **preview** is the before/after table shown before it writes into that draft. Recommended: always show the preview for bulk changes (more than 10 items) and for anything that deletes; small changes (10 items or fewer, no deletes) go straight into the draft with the Undo toast.
+3. **Drafts only, confirmed in chat, no preview table.** It edits only drafts (it may create one) and never publishes, approves or touches a published version. There is no separate before/after preview: every change is undoable (Undo and Redo) and deletes go to the Trash. Instead the assistant must **confirm in the chat before it changes anything**: it says in plain words what it is about to do, with the count and two or three examples ("I will make the statement the title of 149 indicators in PUC 2019-V2, for example 1-1-1: «توضح رسالة…». Go ahead?"), and the person answers with a button (Do it / Change it / Cancel) or in words. Nothing is written before that. The confirmation is enforced in code, not by the model's good manners: the apply step accepts only a one-time confirmation token that the chat UI issues when the person presses the button, tied to that exact change set; the model cannot press it, and a changed proposal needs a new confirmation.
 4. **Conversations are kept** (per person, deletable by that person), and the assistant has memory (below).
 5. Evidence stays out of scope.
 

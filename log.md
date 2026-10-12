@@ -515,3 +515,7 @@ The demo standards stored an indicator as title = code ("1-1-1") with the statem
 ## 2026-10-12 — Assistant decisions and memory design
 
 Owner decisions recorded as DEC-027: the assistant is a companion that inherits the user's privileges, uses the analysis model by default, edits only drafts (it may create one), keeps conversations, and has scoped memory (conversation, personal, workspace) read through the same authorization as the screens. Memory design in docs/assistant-plan.md. Still planning only.
+
+## 2026-10-12 — Assistant: confirm in chat, no preview table
+
+The owner dropped the before/after preview (every change is undoable) and asked that the assistant confirm in the chat before it changes anything. DEC-027 and docs/assistant-plan.md updated: the apply step takes only a one-time token issued by the chat's Do it button; Redo is added to the undo system (TASK-065), which the assistant depends on.

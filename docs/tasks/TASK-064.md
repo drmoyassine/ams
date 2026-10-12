@@ -2,7 +2,7 @@
 id: TASK-064
 title: In-app assistant for bulk edits (plan)
 description: >-
-  Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, previews them and applies them as
+  Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, confirms them in the chat and applies them as
   one undoable action; nothing built yet
 status: pending
 priority: P2
@@ -30,6 +30,6 @@ modified:
 ---
 # TASK-064 — In-app assistant for bulk edits (plan)
 
-Planning task. The plan is in docs/assistant-plan.md: a bubble opening a side panel, where a person describes a bulk change; the assistant reads the standards through read-only tools, proposes a change set (rule edits done by deterministic recipes, text edits written by the model within a cap), shows a before/after preview, and applies it only when the person clicks, as one undoable group through the existing services. Runs as a job in the agent service; framework content only; never publishes or approves.
+Planning task. The plan is in docs/assistant-plan.md: a bubble opening a side panel, where a person describes a bulk change; the assistant reads the standards through read-only tools, proposes a change set (rule edits done by deterministic recipes, text edits written by the model within a cap), describes it in the chat, and applies it only when the person presses Do it, as one undoable group through the existing services. Runs as a job in the agent service; framework content only; never publishes or approves.
 
-Decided 2026-10-12 (DEC-027): a companion that inherits the user's privileges; the analysis model by default; edits only drafts (it may create one), preview before bulk changes and deletes; conversations kept; scoped memory (conversation, personal, workspace) read through the same authorization as the screens; evidence out of scope. Phases: plumbing and read-only answers, rule-based bulk edits with preview/apply/undo, per-item text edits, later reach.
+Decided 2026-10-12 (DEC-027): a companion that inherits the user's privileges; the analysis model by default; edits only drafts (it may create one), no preview table but a confirmation in the chat before any change (a one-time token issued by the button), Undo and Redo; conversations kept; scoped memory (conversation, personal, workspace) read through the same authorization as the screens; evidence out of scope. Phases: plumbing, memory and read-only answers, rule-based bulk edits with in-chat confirmation and undo/redo, per-item text edits, later reach.
