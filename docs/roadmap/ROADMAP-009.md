@@ -53,7 +53,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Planned — TASK-057 |
 
 
-Snapshot 2026-10-12 — what is left (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
+Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
 
 | Work | Task | Who | Status |
 |---|---|---|---|

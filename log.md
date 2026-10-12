@@ -535,3 +535,7 @@ Owner decisions recorded as DEC-027: the assistant is a companion that inherits 
 ## 2026-10-12 — Assistant: confirm in chat, no preview table
 
 The owner dropped the before/after preview (every change is undoable) and asked that the assistant confirm in the chat before it changes anything. DEC-027 and docs/assistant-plan.md updated: the apply step takes only a one-time token issued by the chat's Do it button; Redo is added to the undo system (TASK-065), which the assistant depends on.
+
+## 2026-10-13 — Project docs brought up to date; ledger repair
+
+Added docs/status.md (what is built, what is left, in order, what waits on the owner) and linked it from index.md; refreshed the ROADMAP-009 snapshot, noted the library work done since ROADMAP-012 was completed, set TASK-064 to in-progress (phase 1 built) and added TASK-067 (assistant phase 2: bulk edits confirmed in the chat) and TASK-068 (assistant follow-ups). Repair: the commit that added TASK-064 (e45f128) overwrote TASKS.md with only the new entries (the file was opened for writing before it was read). TASKS.md was rebuilt from the last good version plus every task file, and is now consistent with docs/tasks/ (69 entries). The other generated ledgers were checked and are intact.

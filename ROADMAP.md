@@ -531,7 +531,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | G | Real-document acceptance: §19.2 on WSCUC/PUC/ABET originals with a real key; compare with seed data | Needs the owner's run — TASK-056 |
 | H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Planned — TASK-057 |
 
-Snapshot 2026-10-12 — what is left (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
+Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
 
 | Work | Task | Who | Status |
 |---|---|---|---|
@@ -666,3 +666,5 @@ related_tasks:
 Between M2 and M3. Settings (admin and leads): organization and branding, org chart, programs, the internal quality framework (built on the framework library), and the glossary that maps internal terms to each external standard's terms. Mappings from external requirements to internal nodes are edited on each external standard's own page, not in global settings. Evidence collected once on an internal node reaches mapped external requirements as suggested links (M3).
 
 <!-- End VEF generated items. -->
+
+Progress (2026-10-13): since this item was completed, the library screens gained a 30-day Trash with restore, Undo and Redo, in-app confirmations, multi-select with bulk delete, drag-and-drop re-parenting and reordering (TASK-062, TASK-063, TASK-065, DEC-026), Settings → AI with saved accounts and per-role models (TASK-051), and the in-app assistant's first phase with scoped memory (TASK-066, DEC-027). Open here: the assistant's bulk edits (TASK-067) and follow-ups (TASK-068). The full picture is in docs/status.md.
