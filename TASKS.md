@@ -2258,3 +2258,284 @@ Built:
 - Tests (no network): quote locating (Arabic with marks, fuzzy, across pages), create-from-files service and API, view endpoint, review items, merge and split services and API, UI for the dialog (files, oversize, failed file and retry, refusal), split view (wide and sheet), filters, merge/split/move dialogs; `e2e/responsive.mjs` covers the new dialog and split view states. The e2e run found a real bug (the picker emptied its file list before it was read), fixed.
 
 Not done: the audit trail records merge and split through the row-level triggers (the removed requirement whole, every moved row) rather than a labelled event, since the app role cannot write audit events and no migration was added; links to the institution's standards are by code and are not moved by a merge (the result says how many name the old code); drag-and-drop re-parenting; a PDF page image in the viewer (it shows stored text).
+
+---
+
+## TASK-056 — Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+
+---
+id: TASK-056
+title: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+description: >-
+  Run the analysis on the original accreditor files with real keys; check PRD 19.2 (at least 95% of quotes found on the
+  WSCUC handbook, scanned Arabic PUC read by OCR with spot-checks); compare with the hand-typed seed data and replace it
+  with versions made from the files; measure embeddings against words-only and decide the default
+status: pending
+priority: P0
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-054
+    name: Analysis report, run readiness checks, and removal of the import approve-everything option
+    url: /TASKS.md#TASK-054
+  - id: TASK-055
+    name: Create from files and the split-view review of an external standard's requirements
+    url: /TASKS.md#TASK-055
+related_decisions:
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+  - id: DEC-023
+    name: Embeddings rank IQF mapping candidates; vectors are stored in plain PostgreSQL arrays
+    url: /DECISIONS.md#DEC-023
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-056 — Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+
+Step G of ROADMAP-009. Blocked on the owner's run: the keys are in the deployed app, not in the build sandbox.
+
+Owner steps:
+1. Redeploy the latest code.
+2. Settings -> AI -> Models: Test analysis, reading and embeddings.
+3. External Standards -> Create from files, with the WSCUC 2023 handbook (then the scanned PUC 2019 guide and the ABET criteria; note the ABET seed is labelled 2027-28 but holds 2025-26 text).
+4. Send the Report tab (screenshot or Markdown download) for each run.
+
+Then, from the reports:
+- PRD 19.2: at least 95% of quotes found on the WSCUC handbook; hierarchy with verbatim text and page provenance; scanned Arabic PUC read through OCR and flagged for spot-check; NBAQ example items classified example/suggested; nothing published until a person publishes.
+- Tune prompts, window size and the quote matcher from what the real runs show (prompt versions are bumped, never edited in place).
+- Compare the found requirements with the seed data (the PUC text was transcribed by hand from a scan; the seed marks everything approved from an auto-approving import) and replace the seed with versions made from the real files.
+- Run `pnpm analysis:eval-mapping` with the embedding endpoint (EMBED_BASE_URL, EMBED_MODEL, EMBED_DIMENSION, EMBED_API_KEY): words-only recall@10 was 48.4% on the 64 hand-labelled pairs (Arabic PUC 0%); decide whether embeddings become the default (DEC-023).
+
+---
+
+## TASK-057 — Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+
+---
+id: TASK-057
+title: Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+description: >-
+  Extend the analysis to the document roles it does not use yet: policy/procedure documents (lifecycle, vocabularies,
+  eligibility, milestones) and report-template documents (sections), as proposals in the draft
+status: pending
+priority: P1
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-056
+    name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+    url: /TASKS.md#TASK-056
+related_decisions:
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+  - id: DEC-022
+    name: External standards drafted by analysis are gated by publishing, not by per-line approval
+    url: /DECISIONS.md#DEC-022
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-057 — Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+
+Step H of ROADMAP-009 (PRD 15.1 step 4, Appendix B kinds: report_section, milestone, decision, finding_severity, response_type, metadata).
+
+Today the analysis writes requirements and notes only (from standards and guidance documents). Add extraction by role:
+- policy_procedure: lifecycle phases and milestones (due text copied, never converted to dates: a reviewer sets the rules), decision and finding vocabularies, response types, eligibility.
+- report_template: report sections and their block types, so a template can be proposed from the accreditor's own outline.
+- Everything lands in the draft version's configuration and template tables as proposals the person can edit; publishing the version is the gate (DEC-022). Quotes verified as for requirements; required items need a verified quote (DEC-006).
+- New versioned prompts and Zod schemas; gaps and report sections for them; tests with the fake model.
+Start after the first real run, so prompts are shaped by real documents.
+
+---
+
+## TASK-058 — Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+
+---
+id: TASK-058
+title: Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+description: >-
+  The owned @drmoyassine/liteparse meets PRD Appendix D (LP1-LP10) in a released version; AMS pins it and drops the
+  upstream fallback reader and LibreOffice from the parser image
+status: pending
+priority: P1
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-008
+  name: L — liteparse readiness (parallel track)
+  url: /ROADMAP.md#ROADMAP-008
+depends_on:
+  - id: TASK-053
+    name: The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
+    url: /TASKS.md#TASK-053
+related_decisions:
+  - id: DEC-011
+    name: liteparse for document parsing, co-developed to AMS requirements
+    url: /DECISIONS.md#DEC-011
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-058 — Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+
+ROADMAP-008, owner side. docs/liteparse-appendix-d-status.md lists, per requirement and per D.3 corpus case, what @drmoyassine/liteparse 0.5.0 does today (only LP5, the injectable vision hook, is fully met) and 11 proposed changes in priority order:
+1. Per-page PDF results with page-wise escalation.
+2. Keep line breaks in native text.
+3. Text-layer quality score and forceMethod.
+4. Read PPTX, ODF, RTF and legacy Office; never decode unknown kinds as text.
+5. DOCX and XLSX pseudo-pages with labels.
+6. Arabic reading order, NFC, language routing.
+7. Caps become warnings.
+8. Reproducibility fields (parserVersion, configHash).
+9. Packaging (declare sharp and canvas peers; the xlsx CDN tarball).
+10. Process isolation.
+11. A local-OCR confidence floor.
+
+When these land and a version is released: pin it in AMS, delete the wrapper workarounds it makes redundant (per-page splitting, line-break repair, text-quality check), delete `parse-document-fallback.ts` and the upstream package, and remove LibreOffice and the fonts from the parser image. The D.3 corpus (WSCUC handbook, ABET APPM, NBAQ 2017, scanned PUC) is the acceptance test.
+
+---
+
+## TASK-059 — Production check of the three background services and the parser image
+
+---
+id: TASK-059
+title: Production check of the three background services and the parser image
+description: >-
+  After the redeploy: the parser image builds and logs LibreOffice, the worker, parser and agent start with the right
+  queues, Garage is prepared by the app, and one file of each kind is read
+status: pending
+priority: P0
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-049
+    name: Background work as three services (worker, parser, agent); app prepares Garage
+    url: /TASKS.md#TASK-049
+  - id: TASK-053
+    name: The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
+    url: /TASKS.md#TASK-053
+related_decisions:
+  - id: DEC-024
+    name: Background work runs as three services from one codebase: worker, parser, agent
+    url: /DECISIONS.md#DEC-024
+  - id: DEC-011
+    name: liteparse for document parsing, co-developed to AMS requirements
+    url: /DECISIONS.md#DEC-011
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-059 — Production check of the three background services and the parser image
+
+Owner and build-sandbox check; nothing here has been run on a real build because the sandbox cannot build Docker images.
+- `docker compose logs parser` shows "libreoffice found" (needed only for the temporary fallback formats). Run `soffice --version` as the node user in the parser container.
+- worker, parser and agent each log `worker started` with their queues (worker: export, notify; parser: extract_text; agent: analyse, ai_extract, ocr). The domain maps to `app:3000` only.
+- The app prepares Garage on first start (GARAGE_ADMIN_URL is in compose.yaml); `garage-init` is gone; the first start can take longer.
+- APP_SECRET is set and never changes (it encrypts saved AI keys; a change makes them unreadable).
+- iqf_item_proposal exists (migration 0044 was re-dated to run after 0043).
+- Read a text PDF, a scanned PDF, an Arabic Word file, a two-sheet Excel file and a PowerPoint file from Sources; the job result's `parser` field records the library version. Check memory and time on the first conversion, and that no `soffice` process is left over.
+- Turn on Easypanel log collection so the build sandbox can read logs when something fails.
+
+---
+
+## TASK-060 — Compiler follow-ups: small gaps found while building steps A-F
+
+---
+id: TASK-060
+title: Compiler follow-ups: small gaps found while building steps A-F
+description: >-
+  Backlog of known small gaps in the analysis, review and parser paths, none blocking the first real run
+status: pending
+priority: P2
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-055
+    name: Create from files and the split-view review of an external standard's requirements
+    url: /TASKS.md#TASK-055
+related_decisions:
+  - id: DEC-022
+    name: External standards drafted by analysis are gated by publishing, not by per-line approval
+    url: /DECISIONS.md#DEC-022
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-060 — Compiler follow-ups: small gaps found while building steps A-F
+
+Pick up as the real runs show which matter.
+- Undo for a deleted AI-made item that a person wants back (the dismissal record exists; no screen restores it).
+- Arabic-letter numbering (أ ب ج) is not read as a sequence by the gap finder.
+- Re-reading a file that now has fewer pages leaves the old extra pages (the worker cannot delete pages).
+- The same new IQF item can be proposed twice when similar requirements fall in different chunks of about 20; deleting (not rejecting) a pending suggested link makes a later run propose it again.
+- Merge keeps links by code, so links naming the merged code are not moved (the result says how many).
+- Merge and split are audited through the row-level triggers, not a labelled event.
+- Drag-and-drop re-parenting (only the Move dialog exists); the source viewer shows stored page text, not the PDF page image.
+- No check that the parser service is alive (nothing records a heartbeat), so the readiness checklist cannot test it.
+- OCR spend no longer counts against an analysis run's cap (it happens in the parser); a USD cap prices OCR at the analysis model's price.
+- The `ocr` and `ai_extract` job types have no handlers; remove them or implement them.
+- The Mappings tab suggestions are not covered by the phone-width layout check (no seed data there).
+- `vef setup` and `vef check` have never been run on the task, roadmap and decision ledgers (vef is not installed in the build sandbox).
+
+---
+
+## TASK-061 — Backlog outside the framework compiler
+
+---
+id: TASK-061
+title: Backlog outside the framework compiler
+description: >-
+  Items offered earlier and not started: reporting frequency, duplicate request list on data cards, institution logo,
+  Settings for all roles, BI connector, emailing links over SMTP, Engagements accreditation cycle and reporting
+status: pending
+priority: P3
+last_updated: '2026-10-12'
+generated:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-004
+  name: M3 — Evidence and datasets
+  url: /ROADMAP.md#ROADMAP-004
+modified:
+  by: agent/claude-code
+  at: '2026-10-12T09:00:00.000Z'
+---
+# TASK-061 — Backlog outside the framework compiler
+
+Not part of ROADMAP-009; recorded so the snapshot of 2026-10-12 is complete.
+- Reporting frequency for data items (deferred by the owner).
+- Remove the duplicate request list on data cards.
+- Institution logo (the accreditor logo exists).
+- Show Settings to all roles (today administrators and quality leads).
+- The BI connector (DEC-017, DEC-019).
+- Emailing evidence-request and form links over SMTP (the one-time links are copied by hand today).
+- Engagements: the accreditation cycle, collection and reporting (the PRD milestones after M7).
