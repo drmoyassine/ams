@@ -4,7 +4,7 @@ title: Redo in the undo system
 description: >-
   Undo exists (toast and Ctrl/Cmd+Z); add Redo (Ctrl/Cmd+Shift+Z and a Redo button in the toast) so any undone action
   can be repeated; needed by the assistant (DEC-027)
-status: pending
+status: completed
 priority: P2
 last_updated: '2026-10-12'
 generated:
@@ -37,3 +37,5 @@ The undo system (TASK-062/063) reverses an action through a descriptor the serve
 - Ctrl/Cmd+Shift+Z (and Ctrl+Y) redo; the toast after an undo offers Redo for a few seconds; a refused redo says why (for example the version is no longer a draft).
 - The assistant (TASK-064) depends on it: its changes are one undoable group, and the person can undo and redo them.
 - Tests: redo after each kind of undo (delete, move, multi-move, edit, create, merge, split), the redo stack clears on a new action, refusal cases.
+
+Done: see `docs/trash.md` ("Redo"). The API chain tags what a replayed request offers (`kind: 'redo'`/`'undo'`, request header `X-Replay`); the web client keeps a per-screen redo stack of 20; tests in `apps/api/src/redo.test.ts`, `apps/web/src/redo.test.tsx`, `packages/core/src/trash/redo.test.ts`.

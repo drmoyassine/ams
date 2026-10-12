@@ -14,6 +14,14 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-12 — Redo in the undo system (TASK-065)
+
+Decisions: DEC-026, DEC-027. ROADMAP-012.
+- **Redo is the same mechanism run again.** Every undo descriptor points at an ordinary endpoint that already reports how to reverse itself, so the answer to an Undo is the redo. The client marks the request (`X-Replay: undo|redo`); the chain tags the reported descriptor `kind: 'redo'|'undo'`. No service changed its reporting, except: a restore now reports the delete again (`trash/redo.ts`, built from the payload before `markRestored` empties it), and `unsplit` reports a re-split last (a restore of the split-out requirement would have left the original's text whole). Merge now records `useMergedWording` so it can be merged again.
+- **Client:** per-screen redo stack (20) beside the history, cleared by any successful non-GET that is not an undo/redo; toast "Undone: ... Redo"; Ctrl/Cmd+Shift+Z and Ctrl/Cmd+Y outside text fields; a refused redo shows the server's reason and stays on the stack.
+- Learnings: redo of a split makes a new requirement id (unsplit trashed the old one); a restore from the Trash page now offers its own Undo (delete again). Redo that would not fit the 6000-byte header is simply not offered.
+- Tests: `apps/api/src/redo.test.ts`, `apps/web/src/redo.test.tsx`, `packages/core/src/trash/redo.test.ts`. Pattern written up in `docs/trash.md`.
+
 ## 2026-10-11 — Analysis report, run readiness and the import checkbox removed (TASK-054, step F1)
 
 Decisions: DEC-022, DEC-005, DEC-006. ROADMAP-009.

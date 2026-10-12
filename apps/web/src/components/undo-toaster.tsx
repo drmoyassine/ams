@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { dismissToast, getToasts, hasUndo, onUndone, subscribe, TOAST_MS, undoEntry, undoLast, type Toast } from '../lib/undo';
+import { dismissToast, getToasts, hasRedo, hasUndo, onUndone, redoEntry, redoLast, subscribe, TOAST_MS, undoEntry, undoLast, type Toast } from '../lib/undo';
 
 /** Is the keyboard focus in something people type into? Then Ctrl/Cmd+Z belongs to that field, not to the screen. */
 export function isTextTarget(t: EventTarget | null): boolean {
@@ -29,7 +29,7 @@ function ToastView({ toast }: { toast: Toast }) {
       <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" dir="auto">{toast.label}</span>
       {toast.entry && (
         <button type="button" disabled={busy} className="shrink-0 rounded px-2 py-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-          onClick={() => { setBusy(true); void undoEntry(toast.entry!).finally(() => setBusy(false)); }}>Undo</button>
+          onClick={() => { setBusy(true); void (toast.kind === 'redo' ? redoEntry : undoEntry)(toast.entry!).finally(() => setBusy(false)); }}>{toast.kind === 'redo' ? 'Redo' : 'Undo'}</button>
       )}
       <button type="button" aria-label="Dismiss" className="shrink-0 rounded px-1.5 py-1 text-muted-foreground hover:bg-muted" onClick={() => dismissToast(toast.id)}>✕</button>
     </div>
@@ -38,7 +38,7 @@ function ToastView({ toast }: { toast: Toast }) {
 
 /**
  * The snackbar that follows every reversible action ("Deleted 2.1 and 6 sub-items . Undo"), and Ctrl/Cmd+Z for the latest
- * action of the current screen when focus is not in a text field. Toasts stack, last 9 seconds (longer while hovered or
+ * action of the current screen (and Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y to redo what was undone) when focus is not in a text field. Toasts stack, last 9 seconds (longer while hovered or
  * focused) and are plain buttons in the page order, so the keyboard reaches them. Mounted once, in the app layout.
  */
 export function UndoToaster() {
@@ -47,10 +47,15 @@ export function UndoToaster() {
   useEffect(() => onUndone(() => { void qc.invalidateQueries(); }), [qc]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
-      if (isTextTarget(e.target) || !hasUndo()) return;
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      // Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z and Ctrl/Cmd+Y redo. A text field keeps all of them for its own text.
+      const redo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+      const undo = key === 'z' && !e.shiftKey;
+      if (!redo && !undo) return;
+      if (isTextTarget(e.target) || !(redo ? hasRedo() : hasUndo())) return;
       e.preventDefault();
-      void undoLast();
+      void (redo ? redoLast() : undoLast());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

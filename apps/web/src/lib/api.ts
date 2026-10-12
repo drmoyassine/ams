@@ -9,7 +9,7 @@ import { noteResponse } from './undo';
 export const createApi = (fetcher: typeof fetch = fetch) => {
   const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const res = await fetcher(input, { ...init, credentials: 'include' });
-    noteResponse(res, fetcher);
+    noteResponse(res, fetcher, init?.method ?? (input instanceof Request ? input.method : 'GET'));
     return res;
   }) as typeof fetch;
   return hc<ApiRoutes>('/', { fetch: wrapped });

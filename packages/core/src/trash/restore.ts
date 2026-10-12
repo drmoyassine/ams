@@ -176,6 +176,7 @@ async function restoreRequirements(ctx: Ctx, item: ItemRow, payload: TrashPayloa
 /** What a merge records so it can be undone: the children and notes it moved and the target as it was. */
 export interface MergeMeta {
   intoId: string;
+  useMergedWording?: boolean;
   children: { id: string; displayOrder: number }[];
   noteIds: string[];
   targetBefore: Record<string, unknown> | null;

@@ -35,9 +35,17 @@ export const UndoDescriptorSchema = z.object({
   method: z.enum(['POST', 'PATCH', 'PUT', 'DELETE']),
   path: z.string(),
   body: z.unknown().optional(),
+  /**
+   * Set by the API chain, never by a service. `'redo'`: the request that returned it was an Undo (see REPLAY_HEADER), so
+   * this descriptor re-does the original action. Absent (or `'undo'`): an ordinary action, or the request was a Redo, so
+   * this descriptor takes it back again.
+   */
+  kind: z.enum(['undo', 'redo']).optional(),
 });
 export type UndoDescriptor = z.infer<typeof UndoDescriptorSchema>;
 export const UNDO_HEADER = 'X-Undo';
+/** Sent by the client with the request an undo descriptor makes (`undo`) or the request a redo descriptor makes (`redo`). */
+export const REPLAY_HEADER = 'X-Replay';
 
 /** What is in one Trash row, counted in plain words. */
 export const TrashCountsSchema = z.record(z.string(), z.number());

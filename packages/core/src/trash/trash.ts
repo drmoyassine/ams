@@ -11,7 +11,8 @@ import { ForbiddenError, NotFoundError } from '../ctx.js';
 import { isPermitted } from '../permissions.js';
 import { assertHuman } from '../framework/common.js';
 import type { TrashPayload } from './rows.js';
-import { daysLeft } from './store.js';
+import { daysLeft, reportUndo } from './store.js';
+import { redeleteDescriptor } from './redo.js';
 import { markRestored, mergeOutcomes, notFoundGroup, RESTORE_ORDER, restoreRow } from './restore.js';
 
 type ItemRow = typeof trashItem.$inferSelect;
@@ -101,6 +102,8 @@ export async function restoreTrash(ctx: Ctx, by: { groupId?: string; itemId?: st
   assertHuman(ctx);
   const items = (await loadItems(ctx, by)).sort((a, b) => order(a.kind) - order(b.kind) || a.createdAt.getTime() - b.createdAt.getTime());
   const parts = [];
+  // Read before the rows are marked restored (that empties the payload): the Redo of this restore deletes the same things again.
+  const again = redeleteDescriptor(items.map((it) => ({ kind: it.kind, label: it.label, payload: it.payload as TrashPayload })), opts);
   for (const it of items) {
     parts.push(await restoreRow(ctx, it, opts));
     await markRestored(ctx, it.id);
@@ -117,6 +120,7 @@ export async function restoreTrash(ctx: Ctx, by: { groupId?: string; itemId?: st
   if (droppedN) bits.push(`${plural(droppedN, 'link')} to other standards could not be brought back because the other side is gone or already exists.`);
   if (merged.placedUnder) bits.push(`Placed under ${merged.placedUnder}.`);
   bits.push(...merged.notes.map((n) => `${n.charAt(0).toUpperCase()}${n.slice(1)}.`));
+  if (again) reportUndo(ctx, again);
   return {
     groupId: items[0]!.groupId, label, restored: merged.restored, dropped: merged.dropped, renamed: merged.renamed, placedUnder: merged.placedUnder, message: bits.join(' '),
   };

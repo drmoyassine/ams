@@ -10,7 +10,7 @@ title: Redo in the undo system
 description: >-
   Undo exists (toast and Ctrl/Cmd+Z); add Redo (Ctrl/Cmd+Shift+Z and a Redo button in the toast) so any undone action
   can be repeated; needed by the assistant (DEC-027)
-status: pending
+status: completed
 priority: P2
 last_updated: '2026-10-12'
 generated:

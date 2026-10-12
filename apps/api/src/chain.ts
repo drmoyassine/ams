@@ -3,7 +3,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
 import { resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
 import { hashLinkToken, isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
-import { UNDO_HEADER, type Permission, type Scope, type UndoDescriptor } from '@ams/shared';
+import { REPLAY_HEADER, UNDO_HEADER, type Permission, type Scope, type UndoDescriptor } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
 export type Authenticator = (req: Request) => Promise<{ userId: string; institutionId: string } | null>;
@@ -101,7 +101,12 @@ const transactionStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c
       const undo = c.get('undo');
       if (undo && !c.error && c.res.status < 400) {
         // Headers are small; an edit whose earlier text is long enough to burst the limit simply offers no undo.
-        const encoded = encodeURIComponent(JSON.stringify(undo));
+        // A request sent as an Undo answers with the descriptor that redoes the action, and one sent as a Redo with the Undo
+        // again (the client sends X-Replay). Same cap, same last-report-wins rule; the permission and the trigger checks of
+        // the request are those of any other request.
+        const replay = c.req.header(REPLAY_HEADER);
+        const tagged: UndoDescriptor = replay === 'undo' ? { ...undo, kind: 'redo' } : replay === 'redo' ? { ...undo, kind: 'undo' } : undo;
+        const encoded = encodeURIComponent(JSON.stringify(tagged));
         if (encoded.length <= MAX_UNDO_HEADER) c.header(UNDO_HEADER, encoded);
       }
       if (c.error || c.res.status >= 400) throw new Rollback();

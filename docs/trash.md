@@ -111,6 +111,7 @@ A reversible action returns `X-Undo: <percent-encoded JSON>`:
 | Action | Undo descriptor |
 |---|---|
 | Delete (any kind), delete many, delete all | `POST /api/trash/groups/{groupId}/restore` |
+| Restore (from the Trash page, or as the Undo of a delete) | the delete again (see Redo below) |
 | Create a requirement / note / link | `DELETE` it (which lands in the Trash) |
 | Edit a requirement / note / mapping | `PATCH` it with the earlier values of the fields that changed (the item returns to review, as any edit does) |
 | Edit an IQF item (code, title, description) | `PATCH /api/quality-items/{id}` with the earlier values (renumbers sub-standards back) |
@@ -122,16 +123,58 @@ A reversible action returns `X-Undo: <percent-encoded JSON>`:
 | Change a note's authority | `POST /api/notes/{id}/authority` with the earlier one (not for the AI's own label) |
 
 Services report it with `ctx.undo?.(descriptor)` (the API's `Ctx` listens; jobs and most tests do not). A service that calls
-others reports **last**, so the outermost action wins. The chain sets the header only for a successful response. A request
-that undoes something does not offer an undo of its own in the client (no redo). An edit whose earlier text is too long for a header
-(more than 6000 bytes percent-encoded, `MAX_UNDO_HEADER`) offers no undo.
+others reports **last**, so the outermost action wins. The chain sets the header only for a successful response. An edit
+whose earlier text is too long for a header (more than 6000 bytes percent-encoded, `MAX_UNDO_HEADER`, counted after the tag
+below is added) offers no undo, or no redo.
+
+## Redo (TASK-065)
+
+Redo is the same mechanism run once more, not a second one. Every undo descriptor points at an ordinary endpoint, and that
+endpoint already reports how to reverse *itself*; so the answer to an Undo is, by construction, the descriptor that re-does
+the action.
+
+- **Tagging.** The client sends `X-Replay: undo` with the request an undo descriptor makes and `X-Replay: redo` with the one a
+  redo descriptor makes (`REPLAY_HEADER`, `@ams/shared`). The chain, which alone knows the request, adds `kind: 'redo'` to the
+  descriptor the request reported (`kind: 'undo'` when the request was a redo). A request without the header is an ordinary
+  action and its descriptor carries no `kind`. Services never set `kind`. Same single `X-Undo` header, the same 6000-byte cap,
+  the same "last report wins" rule, the same five-step chain: an undo or redo is checked for permission, runs in its own
+  transaction with the identity set, and meets the frozen-version triggers exactly like the original action.
+- **What each undo answers with** (the redo descriptor):
+
+| Undone action | Redo descriptor (what the Undo's answer carries) |
+|---|---|
+| Delete one / many / all, a note, mapping, version, standard, ... | the Undo was a restore; it answers with the delete again: `POST /api/requirements/delete {ids}`, `.../requirements/delete-all`, `DELETE /api/notes/{id}`, `/api/mappings/{id}`, `/api/framework-versions/{id}`, ... (`packages/core/src/trash/redo.ts`, built from the Trash payload before the rows are marked restored). Deleting again makes a **new Trash group**; ids are the original ids, so a delete after a restore works even when a code was renamed on restore |
+| Create a requirement / note / link | the Undo deleted it; it answers with the restore of that Trash group (same id) |
+| Edit a requirement / note / mapping / IQF item, note authority | the Undo was a `PATCH` with the earlier values; it answers with a `PATCH` of the edited values |
+| Move, indent, outdent | the Undo was a `move`; it answers with a `move` to where it had been put |
+| Drag and drop, Move to... | the Undo was `move-many` with placements; it answers with `move-many` placements back at the target |
+| Apply the starting template | the Undo was delete-all; it answers with the restore of that group (template rows with their ids) |
+| Merge | the Undo was a restore with `revertMerge`; it answers with `POST /api/requirements/{id}/merge {intoId, useMergedWording}` (the merge records `useMergedWording` in its Trash payload) |
+| Split | the Undo was `unsplit`; it answers with `POST /api/requirements/{id}/split {part, code, title}`. Redo creates a **new** requirement (a new id), because unsplit sends the split-out one to the Trash and the original must get its shortened text again; the answer to that redo is an `unsplit` of the new id |
+| Unsplit | same as the row above, read the other way |
+| A restore made from the Trash page | it offers the delete again as an ordinary Undo (label "Restored ..."); no `kind` |
+
+- **Refusals** come from the redo's own endpoint and are shown as they are: a version that was published meanwhile ("Cannot
+  restore: the version is no longer a draft ..." / the delete's refusal), a parent that was deleted meanwhile (409
+  `parent_missing`), an id that is gone (404, e.g. the Trash was emptied), a viewer (403). Nothing changes when a redo is refused.
+- **Cannot be redone**: nothing that has an undo today. What is not covered is a redo that would not fit the header (the same
+  6000-byte cap: a very long text edited in, then undone, offers no Redo), a group made of several items of different kinds
+  (no action produces one), and an Undo whose answer is empty (a move that changed nothing). In those cases no Redo is offered;
+  there is never a Redo button that cannot work. A merge restored from the Trash page *without* `revertMerge` redoes as a plain delete.
 
 Client (`apps/web/src/lib/undo.ts`, `components/undo-toaster.tsx`): `createApi`'s fetch wrapper hands every response to the
 undo bus, so every call through the typed client gets a toast with no per-screen code. The toast is `role="status"`,
 shows 9 seconds (longer while hovered or focused), stacks (4), has an "Undo" button that is reachable by keyboard and a
 dismiss button. A failed undo shows the server's reason ("Could not undo ...: Cannot restore: the version is no longer a
 draft ...") as an alert. **Ctrl/Cmd+Z** undoes the latest action of the current screen (its address) when focus is not in
-a text field; each screen keeps 20. After an undo all queries are refreshed.
+a text field; each screen keeps 20. After an undo (or a redo) all queries are refreshed.
+
+Redo on the client: each screen also keeps a **redo stack** of 20, filled by the descriptor an Undo's answer carries. After an
+undo the toast reads "Undone: <label>" with a **Redo** button (same 9 seconds, `role="status"`, the button is reachable by
+keyboard). **Ctrl/Cmd+Shift+Z** and **Ctrl/Cmd+Y** redo the latest undone action of the screen when focus is not in a text
+field. Redo offers the Undo again ("Redone: <label>", with Undo), so the two walk back and forth. **Any new action clears the
+redo stack of the screen**: every successful non-GET request that is not an undo or redo, whether or not it offers an undo.
+A refused redo shows the server's reason as an alert ("Could not redo ...: <reason>") and the entry stays on the stack.
 
 ## For the next feature (drag-and-drop, multi-select)
 

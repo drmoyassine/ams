@@ -88,7 +88,8 @@ describe('delete answers with how to take it back', () => {
     expect((await call('lead', 'GET', '/api/trash/count')).body.count).toBeGreaterThan(0);
     const restored = await applyUndo('lead', del.undo!);
     expect(restored.status).toBe(200);
-    expect(restored.undo).toBeNull(); // a restore offers no further undo
+    // An Undo sent as such (no X-Replay here, as from the Trash page) offers to delete it again; redo.test.ts covers the tagged flow.
+    expect(restored.undo).toMatchObject({ method: 'POST', path: '/api/requirements/delete', body: { ids: [x.std] } });
     expect(restored.body).toMatchObject({ restored: { requirements: 2 } });
     expect((await call('lead', 'GET', `/api/framework-versions/${x.v}/requirements`)).body.map((r: { code: string }) => r.code)).toEqual(['S1', 'S1.1', 'S2']);
     expect((await call('lead', 'GET', '/api/trash')).body.groups.some((g: { groupId: string }) => g.groupId === group.groupId)).toBe(false);

@@ -76,7 +76,7 @@ export async function mergeRequirement(ctx: Ctx, id: string, input: z.input<type
   const [updated] = await guardIntegrity(() => ctx.tx.update(requirement).set({ ...wording, ...unreviewed }).where(eq(requirement.id, target.id)).returning());
   // The merged-away requirement goes to the Trash with what is needed to move its children and notes back (Undo restores it).
   await trashMergedRequirement(ctx, id, {
-    intoId: target.id, children: children.map((c) => ({ id: c.id, displayOrder: c.displayOrder })), noteIds: movedNotes.map((n) => n.id), targetBefore: targetBefore ?? null,
+    intoId: target.id, useMergedWording: data.useMergedWording, children: children.map((c) => ({ id: c.id, displayOrder: c.displayOrder })), noteIds: movedNotes.map((n) => n.id), targetBefore: targetBefore ?? null,
   }, target.code);
   await relabelByDepth(ctx, source.frameworkVersionId);
   return { requirement: updated!, movedChildren: children.length, movedNotes: movedNotes.length, mappingsOnMergedCode: mapped?.n ?? 0 };
@@ -162,6 +162,10 @@ export async function unsplitRequirement(ctx: Ctx, id: string, input: z.input<ty
   const [kid] = await ctx.tx.select({ id: requirement.id }).from(requirement).where(eq(requirement.parentId, created.id)).limit(1);
   if (kid) throw new ConflictError(`Cannot take the split back: ${created.code} has sub-items of its own now. Move or delete them first.`);
   const [row] = await guardIntegrity(() => ctx.tx.update(requirement).set({ officialText: data.officialText || null, ...unreviewed }).where(eq(requirement.id, id)).returning());
+  const createdText = created.officialText ?? '';
   await deleteMany(ctx, { ids: [created.id] });
+  // Redo = split it again (a new requirement with the same code, title and part). Reported last: the outermost action wins
+  // over the restore descriptor that deleting the split-out requirement reported.
+  reportUndo(ctx, { label: `Split ${original.code}`, method: 'POST', path: `/api/requirements/${id}/split`, body: { part: createdText, code: created.code, title: created.title } });
   return row!;
 }
