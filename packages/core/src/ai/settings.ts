@@ -4,7 +4,7 @@
 import { eq } from 'drizzle-orm';
 import { aiSetting } from '@ams/db';
 import {
-  aiEnvKey, aiKeyOptional, DEFAULT_MAX_RECOVERY_ROUNDS, DEFAULT_OCR_MAX_PAGES, loadAiEnv, providerSupportsEmbeddings, AI_PROVIDER_LABELS,
+  aiEnvKey, aiKeyOptional, DEFAULT_ASSISTANT_TURN_TOKENS, DEFAULT_MAX_RECOVERY_ROUNDS, DEFAULT_OCR_MAX_PAGES, loadAiEnv, providerSupportsEmbeddings, AI_PROVIDER_LABELS,
   type AiProvider, type AiRole, type AiSetting, type AiTestResult, type PreflightCheck, type UpdateAiSetting,
 } from '@ams/shared';
 import { z } from 'zod';
@@ -13,7 +13,7 @@ import { NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { assertPermitted } from '../permissions.js';
 import {
-  aiExtract, aiOcr, AiBudget, AiDisabledError, AiNotConfiguredError, assertAiScope, createAiRuntime, embed, runInAiScope, type AiConfig, type AiRuntime, type EmbedConfig,
+  aiExtract, aiOcr, AiBudget, AiDisabledError, AiNotConfiguredError, AssistantDisabledError, assertAiScope, createAiRuntime, embed, runInAiScope, type AiConfig, type AiRuntime, type EmbedConfig,
 } from './index.js';
 import { hasTestModel } from './model.js';
 import { accountApiKey, accountConfig, accountUsable, getAccountRow, lookupModelPrice, type AccountRow } from './accounts.js';
@@ -47,6 +47,10 @@ function toDto(row: SettingRow | undefined): AiSetting {
       ocrEnabled: row?.ocrEnabled ?? true, maxPages: row?.ocrMaxPages ?? DEFAULT_OCR_MAX_PAGES, language: row?.ocrLanguage ?? null,
     },
     embeddings: { enabled: row?.embedEnabled ?? false, accountId: row?.embedAccountId ?? null, model: row?.embedModel ?? null, dimension: row?.embedDimension ?? null },
+    assistant: {
+      accountId: row?.assistantAccountId ?? null, model: row?.assistantModel ?? null,
+      enabled: row?.assistantEnabled ?? true, maxTokensPerTurn: row?.assistantMaxTokens ?? DEFAULT_ASSISTANT_TURN_TOKENS,
+    },
     cap: { unit: (row?.capUnit as 'tokens' | 'usd' | undefined) ?? 'tokens', tokens: row?.maxTokensPerRun ?? null, usd: num(row?.maxCostUsdPerRun), usdAvailable: hasPrice },
     maxRecoveryRounds: row?.maxRecoveryRounds ?? DEFAULT_MAX_RECOVERY_ROUNDS,
     environment: { provider: e.provider, model: e.model, keyPresent: e.keyPresent },
@@ -105,6 +109,14 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
   await chosenAccount(ctx, visionAccountId);
   if (visionAccountId && !visionModel) throw new ValidationError('choose a model for reading, or choose "same as analysis"');
 
+  // ---- the assistant (null account and model: the same as analysis)
+  const asst = patch.assistant;
+  const assistantAccountId = asst?.accountId !== undefined ? asst.accountId : (existing?.assistantAccountId ?? null);
+  const assistantAccountChanged = assistantAccountId !== (existing?.assistantAccountId ?? null);
+  const assistantModel = asst?.model !== undefined ? asst.model : (assistantAccountChanged ? null : (existing?.assistantModel ?? null));
+  await chosenAccount(ctx, assistantAccountId);
+  if (assistantAccountId && !assistantModel) throw new ValidationError('choose a model for the assistant, or choose "same as analysis"');
+
   // ---- embeddings
   const emb = patch.embeddings;
   const embedAccountId = emb?.accountId !== undefined ? emb.accountId : (existing?.embedAccountId ?? null);
@@ -153,11 +165,13 @@ export async function updateAiSettings(ctx: Ctx, patch: UpdateAiSetting): Promis
 
   const ocrLanguage = patch.reading?.language !== undefined ? (patch.reading.language && patch.reading.language.toLowerCase() !== 'auto' ? patch.reading.language : null) : undefined;
   const set: Partial<typeof aiSetting.$inferInsert> = {
-    analysisAccountId, model, visionAccountId, visionModel, embedAccountId, embedModel, embedEnabled, embedDimension, enabled, capUnit: unit,
+    analysisAccountId, model, visionAccountId, visionModel, assistantAccountId, assistantModel, embedAccountId, embedModel, embedEnabled, embedDimension, enabled, capUnit: unit,
     inputUsdPerMTok: inputPrice === null ? null : String(inputPrice), outputUsdPerMTok: outputPrice === null ? null : String(outputPrice),
   };
   if (patch.cap?.tokens !== undefined) set.maxTokensPerRun = patch.cap.tokens;
   if (patch.cap?.usd !== undefined) set.maxCostUsdPerRun = patch.cap.usd === null ? null : String(patch.cap.usd);
+  if (asst?.enabled !== undefined) set.assistantEnabled = asst.enabled;
+  if (asst?.maxTokensPerTurn !== undefined) set.assistantMaxTokens = asst.maxTokensPerTurn;
   if (patch.maxRecoveryRounds !== undefined) set.maxRecoveryRounds = patch.maxRecoveryRounds;
   if (patch.reading?.ocrEnabled !== undefined) set.ocrEnabled = patch.reading.ocrEnabled;
   if (patch.reading?.maxPages !== undefined) set.ocrMaxPages = patch.reading.maxPages;
@@ -228,6 +242,15 @@ export async function loadAiRuntime(ctx: Ctx, opts: { requireEnabled?: boolean }
   }
   const ocr = { enabled: row?.ocrEnabled ?? true, maxPages: row?.ocrMaxPages ?? DEFAULT_OCR_MAX_PAGES, language: row?.ocrLanguage ?? null };
 
+  // The assistant: its own account and model when assigned, else the analysis ones.
+  let assistant: AiConfig | undefined;
+  let assistantError: string | undefined;
+  if (row?.assistantAccountId || row?.assistantModel) {
+    const account = row.assistantAccountId ? await getAccountRow(ctx, row.assistantAccountId) : analysisAccount;
+    const a = connect(account, row.assistantModel ?? model);
+    if ('config' in a) assistant = a.config; else assistantError = a.problem;
+  }
+
   let embedding: EmbedConfig | undefined;
   if (row?.embedEnabled && row.embedAccountId && row.embedModel && row.embedDimension) {
     const account = await getAccountRow(ctx, row.embedAccountId);
@@ -235,7 +258,49 @@ export async function loadAiRuntime(ctx: Ctx, opts: { requireEnabled?: boolean }
       embedding = { provider: account.provider, baseUrl: account.baseUrl, model: row.embedModel, apiKey: accountApiKey(account), dimension: row.embedDimension };
     }
   }
-  return createAiRuntime(config, budget, embedding, { ...(vision ? { vision } : {}), ...(visionError ? { visionError } : {}), ocr });
+  return createAiRuntime(config, budget, embedding, {
+    ...(vision ? { vision } : {}), ...(visionError ? { visionError } : {}), ocr, ...(assistant ? { assistant } : {}), ...(assistantError ? { assistantError } : {}),
+  });
+}
+
+/**
+ * The connection for one assistant turn (DEC-027): the assistant's account and model (default: the analysis ones), with its OWN
+ * budget, the per-turn cap of Settings -> AI -> Models -> Assistant, instead of the per-run analysis cap. Worker/job path only.
+ * Throws AiDisabledError / AssistantDisabledError / AiNotConfiguredError, which the turn turns into a plain message.
+ */
+export async function loadAssistantRuntime(ctx: Ctx): Promise<AiRuntime> {
+  assertAiScope();
+  const row = await getRow(ctx);
+  if (row && !row.assistantEnabled) throw new AssistantDisabledError();
+  const base = await loadAiRuntime(ctx);
+  if (base.assistantError && !hasTestModel()) throw new AiNotConfiguredError(base.assistantError);
+  const config = base.assistant ?? base.config;
+  const sameAsAnalysis = !base.assistant || (base.assistant.provider === base.config.provider && base.assistant.model === base.config.model);
+  // Prices are known only for the analysis model (from the provider's own list); another model's cost is not counted.
+  const budget = new AiBudget({
+    maxTokens: row?.assistantMaxTokens ?? DEFAULT_ASSISTANT_TURN_TOKENS,
+    ...(sameAsAnalysis ? { inputUsdPerMTok: base.budget.limits.inputUsdPerMTok ?? null, outputUsdPerMTok: base.budget.limits.outputUsdPerMTok ?? null } : {}),
+  });
+  return createAiRuntime(config, budget);
+}
+
+/** Can the assistant be used now, and if not, why? Reads settings only (any signed-in person may ask); never calls the model. */
+export async function assistantReadiness(ctx: Ctx): Promise<{ ok: true } | { ok: false; reason: 'ai_off' | 'assistant_off' | 'not_configured'; message: string }> {
+  const row = await getRow(ctx);
+  if (row && !row.enabled && !hasTestModel()) return { ok: false, reason: 'ai_off', message: new AiDisabledError().message };
+  if (row && !row.assistantEnabled) return { ok: false, reason: 'assistant_off', message: new AssistantDisabledError().message };
+  const ready = await aiReadiness(ctx);
+  if (!ready.ok) return { ok: false, reason: row && !row.enabled ? 'ai_off' : 'not_configured', message: ready.reason };
+  if (row?.assistantAccountId || row?.assistantModel) {
+    try {
+      const account = row.assistantAccountId ? await getAccountRow(ctx, row.assistantAccountId) : (row.analysisAccountId ? await getAccountRow(ctx, row.analysisAccountId) : null);
+      const c = connect(account, row.assistantModel ?? row.model ?? (account ? null : envFallback().model));
+      if ('problem' in c && !hasTestModel()) return { ok: false, reason: 'not_configured', message: c.problem };
+    } catch {
+      return { ok: false, reason: 'not_configured', message: 'The AI account chosen for the assistant cannot be used; choose another in Settings -> AI' };
+    }
+  }
+  return { ok: true };
 }
 
 /**
@@ -265,15 +330,19 @@ export async function testAiConnection(ctx: Ctx, role: AiRole = 'analysis'): Pro
     } else {
       await runInAiScope('connection-test', async () => {
         const runtime = await loadAiRuntime(ctx, { requireEnabled: false });
-        const config = role === 'reading' ? (runtime.vision ?? runtime.config) : runtime.config;
+        const config = role === 'reading' ? (runtime.vision ?? runtime.config) : role === 'assistant' ? (runtime.assistant ?? runtime.config) : runtime.config;
         secrets.push(config.apiKey);
         if (role === 'reading' && runtime.visionError) throw new AiNotConfiguredError(runtime.visionError);
+        if (role === 'assistant' && runtime.assistantError) throw new AiNotConfiguredError(runtime.assistantError);
         result.model = config.model;
         if (role === 'reading') {
           await aiOcr({ image: TEST_PNG, lang: 'en', runtime });
           result.ok = true;
         } else {
-          const { data } = await aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'Reply with ok set to true.', schema: z.object({ ok: z.boolean() }), runtime });
+          const { data } = await aiExtract({
+            task: 'connection_test', promptVersion: 'v1', input: 'Reply with ok set to true.', schema: z.object({ ok: z.boolean() }),
+            runtime: role === 'assistant' ? { ...runtime, config } : runtime,
+          });
           result.ok = data.ok === true;
           if (!result.ok) result.error = 'The model answered, but not as asked';
         }

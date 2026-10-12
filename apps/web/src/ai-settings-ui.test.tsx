@@ -317,6 +317,42 @@ describe('Models tab', () => {
     await waitFor(async () => expect((await db.su.query(`select vision_account_id, vision_model from ai_setting`)).rows[0]).toEqual({ vision_account_id: null, vision_model: null }));
   });
 
+  it('assistant: its own switch, "same as analysis" by default, its own account and model, a cap per answer, and a test', { timeout: 40000 }, async () => {
+    const { gemini, openai } = await seed();
+    await apiFor('admin').updateAiSettings({ enabled: true, analysis: { accountId: openai.id, model: 'gpt-x' } });
+    stubProviders({ ...OPENAI_LIST, ...GOOGLE_LIST });
+    setAiModelForTests(createFakeAiModel([{ ok: true }]).model);
+    const user = userEvent.setup();
+    render(wrap(<AiSettingsPage api={apiFor('admin')} />));
+    await user.click(await screen.findByRole('tab', { name: 'Models' }));
+    const section = within(await screen.findByRole('region', { name: 'Assistant model' }));
+    expect((section.getByRole('switch', { name: /Assistant is on/ }) as HTMLInputElement).checked).toBe(true);
+    const account = section.getByLabelText('Assistant account') as HTMLSelectElement;
+    expect(account.value).toBe('');
+    expect(section.getByText(/Uses the analysis model/)).toBeTruthy();
+    expect((section.getByLabelText('Max tokens per answer') as HTMLInputElement).value).toBe('60000');
+    // Its own account and model.
+    await user.selectOptions(account, 'Home Gemini (Google)');
+    await pick(user, 'Assistant model', 'gem', 'gem-1');
+    const cap = section.getByLabelText('Max tokens per answer');
+    await user.clear(cap);
+    await user.type(cap, '30000');
+    await user.click(saveButton());
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    expect((await db.su.query(`select assistant_enabled, assistant_account_id, assistant_model, assistant_max_tokens from ai_setting`)).rows[0])
+      .toEqual({ assistant_enabled: true, assistant_account_id: gemini.id, assistant_model: 'gem-1', assistant_max_tokens: 30000 });
+    // Test uses the saved assignment.
+    await user.click(screen.getByRole('button', { name: 'Test assistant' }));
+    expect((await screen.findByTestId('test-Assistant')).textContent).toMatch(/Assistant: working \(gem-1\)/);
+    // Switch it off, and go back to the analysis model.
+    // (A save re-keys the form, so look the section up again.)
+    await user.click(within(screen.getByRole('region', { name: 'Assistant model' })).getByRole('switch', { name: /Assistant is on/ }));
+    await user.selectOptions(screen.getByLabelText('Assistant account'), 'Same as analysis');
+    await user.click(saveButton());
+    await waitFor(async () => expect((await db.su.query(`select assistant_enabled, assistant_account_id, assistant_model from ai_setting`)).rows[0])
+      .toEqual({ assistant_enabled: false, assistant_account_id: null, assistant_model: null }));
+  });
+
   it('embeddings: only accounts whose provider has embeddings; the same OpenAI account as analysis; the vector size is found, not typed', { timeout: 40000 }, async () => {
     const { openai } = await seed();
     stubProviders(OPENAI_LIST);

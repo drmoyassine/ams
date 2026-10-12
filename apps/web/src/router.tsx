@@ -17,6 +17,7 @@ import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
 import { SettingsLayout } from './pages/settings/layout';
 import { AiSettingsPage } from './pages/settings/ai';
+import { AssistantMemoryPage } from './pages/settings/assistant-memory';
 import { TrashPage } from './pages/settings/trash';
 import { VersionPage } from './pages/version';
 
@@ -51,12 +52,16 @@ const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute,
 // External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
 const trashRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/trash', component: () => <TrashPage /> });
 const aiSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/ai', component: () => <AiSettingsPage /> });
+// What the assistant remembers (DEC-027): anyone who can use the assistant sees their own and the shared notes they may read.
+const assistantMemoryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/assistant-memory', component: () => <AssistantMemoryPage /> });
 const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/external-standards', component: () => <FrameworksPage /> });
 const versionRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute />,
   // ?tab=settings&section=details opens a version on its settings (the card's "Edit details").
   // ?tab=report&run=<id> opens a version on the report of one analysis run, and can be opened again later.
-  validateSearch: (s: Record<string, unknown>): { tab?: 'settings' | 'report' | 'mappings'; section?: 'details' | 'sources'; run?: string } => ({
+  // ?req=<id> opens a version on one requirement's card, ?doc=<id>&page=<n> on a page of one source (the assistant's links).
+  validateSearch: (s: Record<string, unknown>): { tab?: 'settings' | 'report' | 'mappings'; section?: 'details' | 'sources'; run?: string; req?: string; doc?: string; page?: number } => ({
+    ...(typeof s.req === 'string' && /^[0-9a-f-]{36}$/i.test(s.req) ? { req: s.req } : {}), ...(typeof s.doc === 'string' && /^[0-9a-f-]{36}$/i.test(s.doc) && Number.isInteger(Number(s.page)) && Number(s.page) >= 1 ? { doc: s.doc, page: Number(s.page) } : {}),
     ...(s.tab === 'settings' || s.tab === 'report' || s.tab === 'mappings' ? { tab: s.tab } : {}), ...(s.section === 'details' || s.section === 'sources' ? { section: s.section } : {}),
     ...(typeof s.run === 'string' && /^[0-9a-f-]{36}$/i.test(s.run) ? { run: s.run } : {}),
   }),
@@ -65,13 +70,13 @@ const oldStandardsRoute = createRoute({ getParentRoute: () => appRoute, path: '/
 const oldVersionRoute = createRoute({ getParentRoute: () => appRoute, path: '/versions/$versionId', beforeLoad: ({ params }) => { throw redirect({ to: '/settings/versions/$versionId', params }); } });
 function VersionRoute() {
   const { versionId } = versionRoute.useParams();
-  const { tab, section, run } = versionRoute.useSearch();
+  const { tab, section, run, req, doc, page } = versionRoute.useSearch();
   const navigate = versionRoute.useNavigate();
   // The address follows the tab and the selected run (replacing the entry), so a report can be bookmarked and reopened.
   const onLocation = (where: { tab: 'requirements' | 'mappings' | 'report' | 'settings'; run?: string }) => {
     void navigate({ search: where.tab === 'requirements' ? {} : { tab: where.tab, ...(where.run ? { run: where.run } : {}) }, replace: true });
   };
-  return <VersionPage key={versionId} versionId={versionId} onLocation={onLocation} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} {...(run ? { initialRunId: run } : {})} />;
+  return <VersionPage key={versionId} versionId={versionId} onLocation={onLocation} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} {...(run ? { initialRunId: run } : {})} {...(req ? { initialFocusRequirement: req } : {})} {...(doc && page ? { initialFocusPage: { documentId: doc, page } } : {})} />;
 }
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
@@ -84,7 +89,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, aiSettingsRoute, trashRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

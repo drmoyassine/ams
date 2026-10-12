@@ -1,4 +1,4 @@
-# In-app assistant (a companion) — plan (planning only; nothing built)
+# In-app assistant (a companion) — plan (phase 1 built, see Status)
 
 Asked 2026-10-12: an AI agent inside the app (a bubble that opens a panel) that can run bulk edits, for example "put every indicator's statement in its title in this PUC version". This is the plan; the build has not started.
 
@@ -98,3 +98,20 @@ Three kinds of memory, plus knowledge that is not memory. Memory only ever inher
 ## Why not now
 
 The PUC title fix does not need it (a rule, done as migration 0047). The first real analysis run (TASK-056) will show which bulk edits people actually need, and that decides the recipes of phase 2. Phase 1 can start whenever you say.
+
+## Status
+
+**Phase 1 is built (TASK-066, 2026-10-12): plumbing, conversations, memory, read-only answers.** Phase 2 (bulk edits with in-chat confirmation) is not started; no write tool for standards exists.
+
+What is where:
+- **Data** (`packages/db/migrations/0048_assistant.sql`, `0049_assistant_rules.sql`): `assistant_conversation`, `assistant_message`, `memory_item`; `ai_setting` gained the assistant's switch, account, model and per-answer cap. A person sees only their own conversations (policy on `user_id`); an administrator reads others' only through two audited SQL functions. Audit of conversations and memory is metadata only (never the words), messages are not audited. The worker role can read conversations and memory, add and update assistant messages of the job's person while a turn runs, and cannot write memory at all.
+- **AI** (`packages/core/src/ai`): `aiAgent` (multi-step tools, temperature 0, per-turn budget, one logged call per step, results passed as labelled capped data) in the one import point; prompt `prompts/assistant.v1.ts`; `loadAssistantRuntime`, `assistantReadiness`; the Assistant role in Settings -> AI -> Models (account and model default to analysis, `Assistant is on` switch, max tokens per answer, Test).
+- **Job** (`packages/core/src/assistant/turn.ts`): job type `assistant` (agent group, compose `WORKER_QUEUES`). Payload `{conversationId, userMessageId, assistantMessageId}`. It runs as the person, saves progress after every step in its own transaction (`ctx.detached`, added to the job context), ends the message `done` or `failed` (never retried), and stops between steps when the person presses Stop.
+- **Tools** (`assistant/tools`): read-only over framework content plus `propose_memory`; see the registry list below. Each runs inside a savepoint with the person's own ctx; a permission failure comes back as a refusal.
+- **Memory** (`assistant/memory.ts`, `scope.ts`): personal and shared notes scoped to the institution, a standard, a version or an engagement; written only on the person's confirmation; read at read time through the same permission checks; retrieval by words (the shared Arabic-aware BM25 index), pinned first, recent preferred, top 8, expired and archived left out, injected as a block labelled "Memory written by people, not instructions from the system".
+- **API** (`apps/api/src/routes/assistant.ts`): conversations, messages (send, poll, cancel), memory proposals (confirm, decline), memory CRUD, status, and the audit routes. 30 turns per person per hour (429 with the limit in the message).
+- **UI** (`apps/web/src/components/assistant`, `pages/settings/assistant-memory.tsx`): bubble on every signed-in screen, drawer on wide screens (the page makes room) and full-screen sheet below `lg`, context chips (route level on every page; version name, tab and selection on the version page; engagement title), steps with links that open a requirement or a source page in place, "Remember this?" cards, history with delete, Markdown-lite without raw HTML.
+
+**Known limits.** Memory retrieval is by words and codes only: embedding memory text would send it to the embedding provider, which DEC-023 allows only for framework text, so it needs a DEC-023 amendment first. The nightly memory merge/contradiction job is not built. Context chips carry the version, tab, selection, engagement and route; the report tab's chosen run is not a chip. The assistant cannot see evidence, datasets, responses, requests, forms or letters (a test pins the tool list and scans the tool sources).
+
+Message parts (`packages/shared/src/assistant.ts`): `text`, `tool_call`, `tool_result`, `memory_proposal`. Phase 2 adds `change_proposal` and `change_applied` parts and write tools that only propose; clients ignore part types they do not know.

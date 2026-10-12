@@ -36,6 +36,10 @@ describe('AI import point', () => {
     expect(scan(['apps', 'packages'], /case\s+'(anthropic|openai_compatible)'/, (rel) => rel === 'packages/core/src/ai/model.ts')).toEqual([]);
   });
   it('lets the API and the SPA reach a model only through the settings connection test', () => {
-    expect(scan(['apps/api/src', 'apps/web/src'], /\b(aiExtract|aiOcr|embed|runInAiScope|loadAiRuntime|upsertEmbeddings|createModel)\b\s*[(<]/, () => false)).toEqual([]);
+    expect(scan(['apps/api/src', 'apps/web/src'], /\b(aiExtract|aiOcr|embed|runInAiScope|loadAiRuntime|upsertEmbeddings|createModel|aiAgent|loadAssistantRuntime|assistantJob)\b\s*[(<]/, () => false)).toEqual([]);
+  });
+  it('calls aiAgent from the assistant job only: not from the tools, the routes or any other service', () => {
+    const callers = scan(['apps', 'packages'], /\baiAgent\s*\(/, (rel) => rel === 'packages/core/src/ai/index.ts' || rel === 'packages/core/src/assistant/turn.ts');
+    expect(callers).toEqual([]);
   });
 });

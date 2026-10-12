@@ -8,6 +8,7 @@ export * from './branding.js';
 export * from './evidence.js';
 export * from './dataset.js';
 export * from './ai.js';
+export * from './assistant.js';
 export * from './analysis.js';
 export * from './analysis-report.js';
 export * from './trash.js';

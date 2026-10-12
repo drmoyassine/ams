@@ -21,6 +21,11 @@ export interface Ctx {
    * header; a service that calls others reports last, so the outermost action wins. Absent in jobs and tests.
    */
   undo?: (descriptor: UndoDescriptor) => void;
+  /**
+   * Jobs only. Runs `fn` in a SEPARATE transaction with the same identity (the person the job runs as), committed at once, so a
+   * long job can show progress while it is still running (the assistant saves each tool step this way). Absent in requests.
+   */
+  detached?: <T>(fn: (ctx: Ctx) => Promise<T>) => Promise<T>;
 }
 
 /** Stores and serves files by key. Any S3-compatible service implements it (DEC-008). */
@@ -44,6 +49,10 @@ export class ConflictError extends Error {
   constructor(message: string, readonly details?: Record<string, unknown>) {
     super(message);
   }
+}
+/** Too many requests in a time window (for example the assistant's turns per hour). The message says the limit. */
+export class RateLimitError extends Error {
+  readonly status = 429;
 }
 export class ValidationError extends Error {
   readonly status = 400;

@@ -5,6 +5,7 @@ import { TermModeSelect } from '../components/term-mode';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { usePublishScreen } from '../lib/assistant-screen';
 import { useEngagementApi, type EngagementApi } from '../lib/engagement-api';
 import { ApiError } from '../lib/framework-api';
 import { useAction } from '../lib/use-action';
@@ -52,6 +53,8 @@ export function EngagementPage({ id, api: override }: { id: string; api?: Engage
   const refresh = () => qc.invalidateQueries({ queryKey: ['engagement', id] });
   const advance = useMutation({ mutationFn: () => act(() => api.advance(id)), onSuccess: refresh });
   const canManage = can(me.data, 'engagement:manage');
+  // The assistant's engagement chip.
+  usePublishScreen('engagement-page', data ? { engagementId: id, engagementLabel: data.engagement.title } : null);
 
   if (isError) return <p role="alert">{loadError instanceof ApiError ? loadError.message : 'Could not load the engagement.'}</p>;
   if (!data) return <p>Loading…</p>;

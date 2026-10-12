@@ -1,3 +1,4 @@
+import { assistantV1 } from './assistant.v1.js';
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
 import { mapV1 } from './map.v1.js';
@@ -24,6 +25,8 @@ export const PROMPTS = {
   // Step E: judge shortlisted IQF items for each external requirement; draft new IQF items where nothing fits.
   map: { v1: mapV1 },
   newiqf: { v1: newiqfV1 },
+  // The in-app assistant (DEC-027): a multi-step conversation turn with read-only tools (aiAgent).
+  assistant: { v1: assistantV1 },
 } as const satisfies Record<string, Record<string, string>>;
 
 export type PromptTask = keyof typeof PROMPTS;

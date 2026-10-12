@@ -1,4 +1,4 @@
-import { DEFAULT_OCR_MAX_PAGES, type AiCapUnit, type AiSetting, type UpdateAiSetting } from '@ams/shared';
+import { DEFAULT_ASSISTANT_TURN_TOKENS, DEFAULT_OCR_MAX_PAGES, type AiCapUnit, type AiSetting, type UpdateAiSetting } from '@ams/shared';
 
 /** The editable form state of the Models and Limits tabs. Ids are '' when nothing is chosen. */
 export interface Draft {
@@ -6,6 +6,8 @@ export interface Draft {
   analysis: { accountId: string; model: string };
   reading: { same: boolean; accountId: string; model: string; ocrEnabled: boolean; maxPages: string; language: string };
   embeddings: { enabled: boolean; accountId: string; model: string };
+  /** The in-app assistant: its switch, its account and model (`same`: those of analysis) and the cap on one answer, as typed. */
+  assistant: { enabled: boolean; same: boolean; accountId: string; model: string; maxTokens: string };
   capUnit: AiCapUnit;
   /** The token cap in millions, as typed. */
   capMillions: string;
@@ -26,6 +28,10 @@ export function draftFrom(s: AiSetting): Draft {
     analysis: { accountId: s.analysis.accountId ?? '', model: s.analysis.model ?? '' },
     reading: { same, accountId: r.accountId ?? s.analysis.accountId ?? '', model: r.model ?? '', ocrEnabled: r.ocrEnabled, maxPages: String(r.maxPages), language: r.language ?? '' },
     embeddings: { enabled: s.embeddings.enabled, accountId: s.embeddings.accountId ?? '', model: s.embeddings.model ?? '' },
+    assistant: {
+      enabled: s.assistant.enabled, same: !s.assistant.accountId && !s.assistant.model, accountId: s.assistant.accountId ?? s.analysis.accountId ?? '',
+      model: s.assistant.model ?? '', maxTokens: String(s.assistant.maxTokensPerTurn),
+    },
     capUnit: s.cap.unit, capMillions: millionsOf(s.cap.tokens), capUsd: show(s.cap.usd), rounds: String(s.maxRecoveryRounds),
   };
 }
@@ -43,6 +49,10 @@ export function patchFrom(d: Draft): UpdateAiSetting {
       ocrEnabled: r.ocrEnabled, ...(Number.isInteger(pages) && pages > 0 ? { maxPages: pages } : { maxPages: DEFAULT_OCR_MAX_PAGES }), language: r.language || null,
     },
     embeddings: { enabled: d.embeddings.enabled, accountId: d.embeddings.accountId || null, model: d.embeddings.model.trim() || null },
+    assistant: {
+      enabled: d.assistant.enabled, accountId: d.assistant.same ? null : d.assistant.accountId || null, model: d.assistant.same ? null : d.assistant.model.trim() || null,
+      maxTokensPerTurn: Number.isInteger(Number(d.assistant.maxTokens)) && Number(d.assistant.maxTokens) >= 1000 ? Number(d.assistant.maxTokens) : DEFAULT_ASSISTANT_TURN_TOKENS,
+    },
     cap: {
       unit: d.capUnit,
       tokens: d.capMillions.trim() === '' ? null : Math.max(1, Math.round(Number(d.capMillions) * MILLION)),

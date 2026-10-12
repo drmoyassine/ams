@@ -4,6 +4,7 @@ import { AiDisabledError, AiNotConfiguredError, aiOcr } from '../ai/index.js';
 import { loadAiRuntime } from '../ai/settings.js';
 import { extractText } from '../framework/reading.js';
 import { analyseJob } from '../framework/analysis/stages.js';
+import { assistantJob } from '../assistant/turn.js';
 
 export type JobHandler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
 
@@ -33,5 +34,7 @@ export const handlers: Partial<Record<JobType, JobHandler>> = {
   },
   // One step of a framework analysis run; each step queues the next (framework/analysis/stages.ts).
   analyse: analyseJob,
+  // One turn of the in-app assistant, run as the person who sent the message (assistant/turn.ts).
+  assistant: assistantJob,
   notify: async (_ctx, payload) => ({ delivered: false, echoed: payload.message ?? null }),
 };

@@ -30,6 +30,15 @@ export async function runJob(
   let hooks: (() => Promise<void>)[] = [];
   const ctxFor = (tx: Ctx['tx']): Ctx => ({
     tx, caller: identity, queue: deps.queue ?? noQueue, afterCommit: (fn) => { hooks.push(fn); }, ...(deps.store ? { store: deps.store } : {}),
+    // A step that must be visible at once (the assistant's progress) commits in its own transaction as the same identity.
+    detached: async (fn) => {
+      const after: (() => Promise<void>)[] = [];
+      const out = await withIdentity(pool, identity, (inner) => fn({
+        tx: inner, caller: identity, queue: deps.queue ?? noQueue, afterCommit: (h) => { after.push(h); }, ...(deps.store ? { store: deps.store } : {}),
+      }));
+      for (const h of after) await h();
+      return out;
+    },
   });
 
   try {

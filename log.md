@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-12 — In-app assistant, phase 1 (TASK-066)
+
+Decisions: DEC-027, DEC-006, DEC-010, DEC-012, DEC-024. ROADMAP-012.
+- **Built:** bubble and panel, conversations per person, `assistant` job (agent service) running as the person, read-only framework tools plus `propose_memory`, scoped memory with confirmation, Settings -> Assistant role and memory page. No write tools.
+- **Progress while a turn runs:** the job's own transaction would hide it until commit, so `Ctx.detached` runs a short separate transaction as the same identity; each tool step is saved that way and the panel polls once a second.
+- **Privacy:** audit rows for conversations and memory hold metadata only, so deleting a conversation really deletes what was said; private memory is invisible to everyone but its author, including administrators and the worker; the worker cannot write memory.
+- **Memory retrieval is by words only.** Embedding memory text needs a DEC-023 amendment first (embeddings are limited to framework text).
+- Not done: phase 2 (bulk edits), the nightly memory clean-up, a chip for the report tab's run.
+
 ## 2026-10-11 — Analysis report, run readiness and the import checkbox removed (TASK-054, step F1)
 
 Decisions: DEC-022, DEC-005, DEC-006. ROADMAP-009.

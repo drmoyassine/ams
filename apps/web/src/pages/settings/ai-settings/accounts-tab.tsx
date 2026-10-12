@@ -8,7 +8,7 @@ import type { SettingsApi } from '../../../lib/settings-api';
 import { useAction } from '../../../lib/use-action';
 import { field, hint, providerLabelShort, selectClass, TestLine } from './common';
 
-const ROLE_LABEL: Record<AiRole, string> = { analysis: 'Analysis', reading: 'Reading', embeddings: 'Embeddings' };
+const ROLE_LABEL: Record<AiRole, string> = { analysis: 'Analysis', reading: 'Reading', embeddings: 'Embeddings', assistant: 'Assistant' };
 
 function keyText(a: AiAccount): string {
   if (a.keySource === 'saved') return `Key ends in …${a.keyLast4 ?? '****'}`;

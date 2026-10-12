@@ -43,3 +43,31 @@ The undo system (TASK-062/063) reverses an action through a descriptor the serve
 - Ctrl/Cmd+Shift+Z (and Ctrl+Y) redo; the toast after an undo offers Redo for a few seconds; a refused redo says why (for example the version is no longer a draft).
 - The assistant (TASK-064) depends on it: its changes are one undoable group, and the person can undo and redo them.
 - Tests: redo after each kind of undo (delete, move, multi-move, edit, create, merge, split), the redo stack clears on a new action, refusal cases.
+
+## TASK-066 — In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
+
+---
+id: TASK-066
+title: In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
+description: >-
+  The assistant bubble and panel, conversations kept per person, the `assistant` job in the agent service, read-only tools over
+  framework content, scoped memory with confirmation, and the Settings role and memory page; no write tools yet
+status: completed
+priority: P2
+last_updated: '2026-10-12'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-064
+    name: In-app assistant for bulk edits (plan)
+    url: /TASKS.md#TASK-064
+related_decisions:
+  - id: DEC-027
+    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    url: /DECISIONS.md#DEC-027
+---
+# TASK-066 — In-app assistant, phase 1
+
+Built from docs/assistant-plan.md, phase 1 (see its Status section). Write tools and in-chat confirmation are phase 2.

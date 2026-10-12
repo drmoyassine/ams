@@ -10,6 +10,7 @@ import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
+import { usePublishScreen } from '../../lib/assistant-screen';
 import { distinctTitle } from '../../lib/format';
 import type { FrameworkApi, MergeResult, Requirement, SplitResult, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
@@ -219,6 +220,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'merge' | 'split' | 'move'; item: Requirement } | null>(null);
   const [selected, setSelected] = useState<Selection>(null);
+  usePublishScreen('selected-card', selected ? { selectedIds: [selected.requirementId] } : null);
   const [sheet, setSheet] = useState(false);
   const [filter, setFilter] = useState<LookKind | null>(null);
   const [lastLook, setLastLook] = useState<string | null>(null);

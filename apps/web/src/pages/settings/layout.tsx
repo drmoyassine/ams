@@ -13,6 +13,7 @@ const ITEMS = [
 ] as const;
 const TRASH_ITEM = { to: '/settings/trash', label: 'Trash', hint: 'Deleted items, kept for 30 days: restore or remove them' } as const;
 const AI_ITEM = { to: '/settings/ai', label: 'AI', hint: 'Model, key and spend limits for document analysis' } as const;
+const MEMORY_ITEM = { to: '/settings/assistant-memory', label: 'Assistant memory', hint: 'What the assistant remembers: yours and the team\'s' } as const;
 const COMING = [] as readonly { label: string; hint: string }[];
 
 /**
@@ -32,7 +33,7 @@ export function SettingsLayout({ api = defaultSettingsApi, trashApi = defaultTra
   const me = useMe(api);
   const canTrash = can(me.data, 'framework:write');
   const trash = useQuery({ queryKey: ['trash', 'count'], queryFn: () => trashApi.count(), enabled: canTrash, staleTime: 15_000 });
-  const items = [...ITEMS, ...(canTrash ? [TRASH_ITEM] : []), ...(can(me.data, 'ai:manage') ? [AI_ITEM] : [])];
+  const items = [...ITEMS, ...(canTrash ? [TRASH_ITEM] : []), ...(can(me.data, 'org:read') ? [MEMORY_ITEM] : []), ...(can(me.data, 'ai:manage') ? [AI_ITEM] : [])];
   const trashCount = trash.data?.count ?? 0;
   // In the sideways-scrolling row, bring the current item into view.
   useEffect(() => {

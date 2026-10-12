@@ -28,6 +28,9 @@ body { background: var(--background); color: var(--foreground); font-family: sys
 [dir='rtl'] .drawer-in { animation-name: drawer-in-rtl; }
 @media (prefers-reduced-motion: reduce) { .drawer-in { animation: none; } }
 
+/* The assistant's drawer (wide screens) sits beside the page: the page makes room instead of sitting under it. */
+@media (min-width: 64rem) { html.assistant-open body { padding-inline-end: 26rem; } }
+
 /* "Print / save as PDF" on the analysis report: no navigation or buttons, full width, wrapped text, no horizontal overflow. */
 @media print {
   @page { margin: 14mm; }

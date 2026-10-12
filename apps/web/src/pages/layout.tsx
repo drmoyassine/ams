@@ -3,11 +3,13 @@ import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { isReadableAccent } from '@ams/shared';
 import { useTranslation } from 'react-i18next';
+import { AssistantLauncher } from '../components/assistant/launcher';
 import { ConfirmHost } from '../components/confirm-dialog';
 import { ContentText } from '../components/content-text';
 import { UndoToaster } from '../components/undo-toaster';
 import { Button } from '../components/ui/button';
 import { authClient } from '../lib/auth';
+import type { AssistantApi } from '../lib/assistant-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
@@ -31,7 +33,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * The shell. At `lg` and up the navigation is a sidebar; below it a slim top bar opens the same navigation in a
  * slide-in drawer. Settings is for people who can manage something there; the pages themselves also check each action.
  */
-export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evidence?: EvidenceApi }) {
+export function AppLayout({ api: override, evidence, assistant }: { api?: SettingsApi; evidence?: EvidenceApi; assistant?: AssistantApi }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const api = useSettingsApi(override);
@@ -146,6 +148,7 @@ export function AppLayout({ api: override, evidence }: { api?: SettingsApi; evid
       <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><Outlet /></main>
       <ConfirmHost />
       <UndoToaster />
+      {can(me.data, 'org:read') && <AssistantLauncher canManageAi={can(me.data, 'ai:manage')} {...(assistant ? { api: assistant } : {})} />}
     </div>
   );
 }

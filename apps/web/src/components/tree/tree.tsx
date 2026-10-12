@@ -24,6 +24,7 @@ import { ApiError, type FrameworkApi, type Requirement, type Version } from '../
 import { confirmAndDelete } from '../../lib/delete-requirements';
 import { checkboxLabel, clickSelect, extendSelect, prune, selectAll, summarize, selectionWords, type ClickMods } from '../../lib/tree-selection';
 import { applyUpdates, codeHint, describePlace, dropSlots, droppedWords, normalizePlace, pointerY, zoneAt, type Slot } from '../../lib/tree-dnd';
+import { publishScreen } from '../../lib/assistant-screen';
 import { TreeStore, useRowState, useStoreVersion } from '../../lib/tree-store';
 import { useConfirm } from '../confirm-dialog';
 import { ContentText } from '../content-text';
@@ -129,6 +130,19 @@ export function TreeProvider(props: TreeProviderProps) {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const store = useMemo(() => new TreeStore(), []);
+  // The assistant's "N selected" chip follows what is ticked here (published outside React state: ticking stays cheap).
+  useEffect(() => {
+    let last = '';
+    const publish = () => {
+      const ids = [...store.selected];
+      const key = ids.join(',');
+      if (key === last) return;
+      last = key;
+      publishScreen('tree-selection', ids.length ? { selectedIds: ids } : null);
+    };
+    const off = store.subscribe(publish);
+    return () => { off(); publishScreen('tree-selection', null); };
+  }, [store]);
   const info = useMemo(() => buildInfo(rows), [rows]);
   const live = useRef({ ...props, info, confirm, qc });
   live.current = { ...props, info, confirm, qc };
