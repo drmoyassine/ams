@@ -203,7 +203,7 @@ describe('requirement workspace', () => {
     const list = await apiFor('coord').requirements(ids.eng!);
     reqId = list.items.find((i) => i.code === 'Criterion 5(a)')!.id;
     render(wrap(<RequirementWorkspacePage id={reqId} api={apiFor('coord')} />));
-    expect((await screen.findByTestId('official-text')).textContent).toMatch(/^a minimum of 30 semester credit hours/);
+    expect((await screen.findAllByText(/a minimum of 30 semester credit hours/)).length).toBeGreaterThan(0);
     expect((await screen.findByTestId('authority')).textContent).toBe('Required');
     expect(screen.getByLabelText('Context').textContent).toMatch(/quote verified/);
     await optionsLoaded('Owner', 2);

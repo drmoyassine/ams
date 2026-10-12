@@ -89,14 +89,20 @@ export interface ImportOptions {
  * together. Quote verification is recomputed from the imported page text; flags in the file are never trusted.
  */
 /**
- * A requirement whose wording was put in its title, with no description, is stored the way the rest are: the wording as
- * the description and the code as the title (a sentence, or more than 60 characters, is wording, not a title). Migration
- * 0034 applied the same rule to existing drafts.
+ * What an external standard's requirement shows as its title. The accreditor's statement (an indicator, a criterion) is
+ * the item's own title; a title that is only its code ("1-1-1") says nothing on a card, so the statement replaces it.
+ * Longer text stays in the description, which holds what does not fit a title. The longest statement used as a title
+ * is {@link MAX_WORDING_TITLE} characters. A long statement sitting in the title with no description moves to the
+ * description (the code becomes the title). Migration 0047 applies the same rule to existing drafts.
  */
-export function splitTitleAndText(code: string, title: string, text: string | null | undefined): { title: string; officialText: string | null } {
+export const MAX_WORDING_TITLE = 300;
+const compact = (v: string) => v.replace(/\s+/g, '').toLowerCase();
+export function placeWording(code: string, title: string, text: string | null | undefined): { title: string; officialText: string | null } {
   const t = title.trim();
-  if ((text ?? '').trim() || !(t.length > 60 || /[.!?\u061F]\s*$/.test(t))) return { title, officialText: text ?? null };
-  return { title: code, officialText: t };
+  const body = (text ?? '').trim();
+  if (body && compact(t) === compact(code) && body.length <= MAX_WORDING_TITLE) return { title: body, officialText: null };
+  if (!body && t.length > MAX_WORDING_TITLE) return { title: code, officialText: t };
+  return { title, officialText: text ?? null };
 }
 
 export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptions = {}) {
@@ -193,7 +199,7 @@ export async function importVersion(ctx: Ctx, raw: unknown, options: ImportOptio
 
   const idOf = new Map<string, string>();
   for (const r of order) {
-    const { title, officialText } = splitTitleAndText(r.code, r.title, r.official_text);
+    const { title, officialText } = placeWording(r.code, r.title, r.official_text);
     const [row] = await guardIntegrity(() => ctx.tx.insert(requirement).values({
       institutionId: ctx.caller.institutionId, frameworkVersionId: v.id, parentId: r.parent_code ? idOf.get(r.parent_code)! : null,
       code: r.code, levelLabel: r.level_label, title, officialText, language: r.language, translationEn: r.translation_en,

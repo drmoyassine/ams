@@ -104,7 +104,7 @@ describe('real source text (WSCUC 2023 Handbook)', () => {
     const cfr = byCode.get('CFR 2.9')!;
     expect(byCode.get(cfr.parent_code!)).toMatchObject({ title: 'Student Learning and Performance', level_label: 'Heading', is_assessable: false, parent_code: 'Standard 2' });
     expect(byCode.get('Standard 3')!.title).toBe('Assuring Resources and Organizational Structures');
-    expect(cfr.official_text).toMatch(/^The institution demonstrates that graduates consistently achieve stated learning outcomes/);
+    expect(cfr.official_text ?? cfr.title).toMatch(/^The institution demonstrates that graduates consistently achieve stated learning outcomes/);
   });
 
   it('classifies only explicit obligations as required', () => {
@@ -135,7 +135,7 @@ describe('real source text (PUC Institutional Accreditation Guide 2019)', () => 
     const file = FrameworkExportSchema.parse(load('puc-2019'));
     const r = file.requirements.find((x) => x.code === '6-1-1')!;
     expect(r.source!.page).toBe(9);
-    expect(r.official_text!.endsWith('بيع كتب).')).toBe(true);
+    expect((r.official_text ?? r.title).endsWith('بيع كتب).')).toBe(true);
   });
 });
 
@@ -144,7 +144,7 @@ describe('real source text (ABET EAC Criteria and APPM 2025-26)', () => {
     const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
     expect(file.requirements.filter((r) => /^Criterion \d$/.test(r.code))).toHaveLength(8);
     expect(file.requirements.filter((r) => r.code.startsWith('I.C.'))).toHaveLength(40);
-    expect(file.requirements.every((r) => r.code.startsWith('APPM') || r.official_text)).toBe(true);
+    expect(file.requirements.every((r) => r.code.startsWith('APPM') || r.official_text || r.title !== r.code)).toBe(true);
     const sourced = file.requirements.filter((r) => r.source).length;
     const { rows } = await db.su.query(
       `select count(*)::int as n, count(*) filter (where not quote_verified)::int as bad from requirement where framework_version_id = $1 and source_quote is not null`,
@@ -158,12 +158,12 @@ describe('real source text (ABET EAC Criteria and APPM 2025-26)', () => {
     const file = FrameworkExportSchema.parse(load('abet-eac-2027-28'));
     const by = new Map(file.requirements.map((r) => [r.code, r]));
     expect(file.requirements.filter((r) => r.parent_code === 'Criterion 3')).toHaveLength(7);
-    expect(by.get('Criterion 3(3)')!.official_text).toBe('an ability to communicate effectively with a range of audiences.');
+    expect(by.get('Criterion 3(3)')!.official_text ?? by.get('Criterion 3(3)')!.title).toBe('an ability to communicate effectively with a range of audiences.');
     expect(file.requirements.filter((r) => r.parent_code === 'Criterion 5').map((r) => r.code)).toEqual(['Criterion 5(a)', 'Criterion 5(b)', 'Criterion 5(c)', 'Criterion 5(d)']);
     expect(by.get('Criterion 5(a)')!.notes[0]).toMatchObject({ type: 'quantitative_norm', authority: 'required', norm: { min: 30, unit: 'semester_credit_hours' } });
     expect(by.get('Criterion 5(b)')!.notes[0]!.norm).toMatchObject({ min: 45 });
     expect(by.get('Mechanical 1')!.applies_when).toEqual({ scope: ['program'], program_tags: ['mechanical'] });
-    expect(by.get('I.C.5.a')!.official_text).toBe('A program must have had at least one graduate within the two academic years prior to the on-site review.');
+    expect(by.get('I.C.5.a')!.official_text ?? by.get('I.C.5.a')!.title).toBe('A program must have had at least one graduate within the two academic years prior to the on-site review.');
     expect(by.get('I.C.1.a.(1)')!.is_assessable).toBe(false);
   });
 

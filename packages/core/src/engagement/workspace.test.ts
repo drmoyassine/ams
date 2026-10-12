@@ -38,7 +38,7 @@ describe('workspace context', () => {
   it('gives the framework\'s text, path, notes with authority and a source link to the cited page', async () => {
     const ws = await w.as('coord', async (ctx) => getWorkspace(ctx, (await item('Criterion 5(a)')).id));
     expect(ws.requirement).toMatchObject({ code: 'Criterion 5(a)', levelLabel: 'Item', language: 'en', path: [{ code: 'Criterion 5', title: 'Curriculum' }] });
-    expect(ws.requirement.officialText).toMatch(/^a minimum of 30 semester credit hours/);
+    expect(ws.requirement.title).toMatch(/^a minimum of 30 semester credit hours/);
     expect(ws.requirement.source).toMatchObject({ page: 9, quoteVerified: true });
     expect(ws.notes).toHaveLength(1);
     expect(ws.notes[0]).toMatchObject({ type: 'quantitative_norm', authority: 'required', norm: { min: 30 }, source: { quoteVerified: true } });

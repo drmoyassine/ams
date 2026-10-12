@@ -4,7 +4,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { analysisDismissal, extractionItem, frameworkVersion, requirement, requirementNote, sourcePage } from '@ams/db';
 import type { AnalysisStats } from '@ams/shared';
 import type { Ctx } from '../../ctx.js';
-import { splitTitleAndText } from '../exchange.js';
+import { placeWording } from '../exchange.js';
 import { LOW_CONFIDENCE, mergeExtracted, normalizeCode, noteFingerprint, type DocInfo, type RawItem } from './merge.js';
 import { ExtractItemSchema } from './schemas.js';
 
@@ -107,7 +107,7 @@ export async function writeAnalysis(ctx: Ctx, run: { id: string; frameworkVersio
     const parent = m.parentCode ? byCode.get(m.parentCode) ?? null : null;
     const depth = parent ? (depthOf.get(normalizeCode(parent.code)) ?? 0) + 1 : 0;
     const levelLabel = m.levelLabel && (labels.length === 0 || labels.includes(m.levelLabel)) ? m.levelLabel : levelAt(labels, depth);
-    const { title, officialText } = splitTitleAndText(m.code, m.title ?? m.code, m.text || null);
+    const { title, officialText } = placeWording(m.code, m.title ?? m.code, m.text || null);
     const values = {
       parentId: parent?.id ?? null, title, officialText, levelLabel, displayOrder: orderOf(m.parentCode), language: m.language,
       isAssessable: m.isAssessable, sourceDocumentId: m.documentId, sourcePage: m.page, sourceQuote: m.quote, quoteVerified: m.quoteVerified,

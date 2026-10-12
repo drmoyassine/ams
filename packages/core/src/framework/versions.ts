@@ -8,7 +8,7 @@ import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
-import { splitTitleAndText } from './exchange.js';
+import { placeWording } from './exchange.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
 
@@ -340,7 +340,7 @@ export async function newVersionFrom(ctx: Ctx, sourceVersionId: string, input: {
   const byParent = (parent: string | null) => reqs.filter((r) => (r.parentId ?? null) === parent);
   const copyLevel = async (parent: string | null, newParent: string | null) => {
     for (const r of byParent(parent)) {
-      const [copy] = await ctx.tx.insert(requirement).values({ ...copyable(r), ...(internalSource ? {} : splitTitleAndText(r.code, r.title, r.officialText)), frameworkVersionId: target.id, parentId: newParent }).returning();
+      const [copy] = await ctx.tx.insert(requirement).values({ ...copyable(r), ...(internalSource ? {} : placeWording(r.code, r.title, r.officialText)), frameworkVersionId: target.id, parentId: newParent }).returning();
       idMap.set(r.id, copy!.id);
       await copyLevel(r.id, copy!.id);
     }

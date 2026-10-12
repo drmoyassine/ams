@@ -96,7 +96,7 @@ describe('framework analysis', () => {
     ]);
     // Exact wording in the description; the short heading (or the code) as the title.
     expect(code('1')).toMatchObject({ title: 'Mission and Purposes', officialText: FIXTURE_HANDBOOK.pages[1]!.split('\n')[1], language: 'en' });
-    expect(code('1.1.1').title).toBe('1.1.1');
+    expect(code('1.1.1')).toMatchObject({ title: 'The mission statement is published on the institution\'s website and reviewed every five years.', officialText: null }); // no heading: the statement is the title
     // Overlap: proposed in both windows, written once, with the complete text of the second.
     expect(code('1.2').officialText).toBe('The institution publicly states its commitment to academic freedom for faculty, staff, and students, and acts accordingly.');
     // Provenance: AI-made, with document, page and quote; verified where the quote is on the page.

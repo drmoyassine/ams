@@ -169,7 +169,7 @@ describe('suggestions in the Mappings tab', () => {
     expect(items[0]!.textContent).toContain('AI-drafted');
     expect(items[0]!.textContent).toContain('Published mission statement');
     expect(items[0]!.textContent).toContain('Under 1 Mission and governance');
-    expect(items[0]!.textContent).toContain('1.1.1 (covers)');
+    expect(items[0]!.textContent).toMatch(/1\.1\.1.*\(covers\)/);
     expect(items[1]!.textContent).toContain('At the top level');
     expect(within(panel).getByRole('note').textContent).toMatch(/no draft version.*Start a new version of the IQF/);
     expect((within(panel).getByRole('button', { name: 'Accept suggested item 1.3' }) as HTMLButtonElement).disabled).toBe(true);
