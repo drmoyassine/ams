@@ -104,11 +104,18 @@ export const aiSetting = pgTable('ai_setting', {
   /** @deprecated legacy. */
   embedApiKeyLast4: text('embed_api_key_last4'),
   embedDimension: integer('embed_dimension'),
+  // The in-app assistant (DEC-027): its own switch, and an account and model when it should not use the analysis ones
+  // (both null: the same as analysis), and the cap on the tokens of one reply (null: the built-in default).
+  assistantEnabled: boolean('assistant_enabled').notNull().default(true),
+  assistantAccountId: uuid('assistant_account_id').references(() => aiAccount.id),
+  assistantModel: text('assistant_model'),
+  assistantMaxTokens: integer('assistant_max_tokens'),
 }, (t) => [
   uniqueIndex('ai_setting_institution_idx').on(t.institutionId),
   oneOf('ai_setting_provider_check', t.provider, ['anthropic', 'openai', 'google', 'openai_compatible']),
   check('ai_setting_base_url_check', sql`${t.baseUrl} is null or ${t.provider} = 'openai_compatible'`),
   check('ai_setting_limits_check', sql`(${t.maxTokensPerRun} is null or ${t.maxTokensPerRun} > 0) and (${t.maxCostUsdPerRun} is null or ${t.maxCostUsdPerRun} > 0)`),
+  check('ai_setting_assistant_tokens_check', sql`${t.assistantMaxTokens} is null or ${t.assistantMaxTokens} > 0`),
   check('ai_setting_recovery_rounds_check', sql`${t.maxRecoveryRounds} between 0 and 5`),
   oneOf('ai_setting_cap_unit_check', t.capUnit, ['tokens', 'usd']),
   check('ai_setting_ocr_max_pages_check', sql`${t.ocrMaxPages} between 1 and 5000`),
@@ -214,7 +221,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -848,4 +855,76 @@ export const trashItem = pgTable('trash_item', {
   index('trash_item_expires_idx').on(t.expiresAt),
   oneOf('trash_item_kind_check', t.kind, TRASH_KIND_VALUES),
   check('trash_item_counts_check', sql`jsonb_typeof(${t.counts}) = 'object'`),
+]);
+
+// ---- The in-app assistant (DEC-027, docs/assistant-plan.md) -----------------------------------------------------------
+/**
+ * One conversation of one person with the assistant. Only its owner sees it (row-level security keys on user_id); an
+ * administrator with ai:manage reads others' only through the audited functions of migration 0049. `context` is the last
+ * context chips used. The audit trail records that a conversation exists and changes, never its words (the title and the
+ * messages are not copied into audit_event, so deleting a conversation really removes what was said).
+ */
+export const assistantConversation = pgTable('assistant_conversation', {
+  ...base(), ...tenant(),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  title: text('title').notNull().default('New chat'),
+  context: jsonb('context'),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+}, (t) => [index('assistant_conversation_user_idx').on(t.userId, t.updatedAt)]);
+
+export const ASSISTANT_ROLES = ['user', 'assistant', 'system_note'] as const;
+export const ASSISTANT_STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled'] as const;
+/**
+ * A message of a conversation. `parts` is the typed content (text, tool_call, tool_result, memory_proposal; packages/shared
+ * assistant.ts). An assistant turn is created `queued` with no parts; the worker fills `parts` after each tool step and ends it
+ * `done` or `failed`. The worker may add and change assistant messages of the job's own person only (migration 0049).
+ */
+export const assistantMessage = pgTable('assistant_message', {
+  ...base(), ...tenant(),
+  conversationId: uuid('conversation_id').notNull().references(() => assistantConversation.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: ASSISTANT_ROLES }).notNull(),
+  parts: jsonb('parts').notNull().default(sql`'[]'::jsonb`),
+  status: text('status', { enum: ASSISTANT_STATUSES }),
+  error: text('error'),
+  /** Tokens, cost, calls and model of an assistant turn. */
+  usage: jsonb('usage'),
+  /** The context chips sent with a person's message. */
+  context: jsonb('context'),
+}, (t) => [
+  index('assistant_message_conversation_idx').on(t.conversationId, t.createdAt),
+  oneOf('assistant_message_role_check', t.role, ASSISTANT_ROLES),
+  check('assistant_message_status_check', sql`${t.status} is null or ${t.status} in ('queued', 'running', 'done', 'failed', 'cancelled')`),
+  check('assistant_message_status_role_check', sql`(${t.role} = 'assistant') = (${t.status} is not null)`),
+]);
+
+export const MEMORY_SCOPE_TYPES = ['institution', 'framework', 'version', 'engagement'] as const;
+export const MEMORY_VISIBILITIES = ['private', 'workspace'] as const;
+export const MEMORY_KINDS = ['preference', 'convention', 'fact', 'decision'] as const;
+/**
+ * Remembered facts, preferences and conventions (DEC-027). `private` rows are visible only to their author (policy);
+ * `workspace` rows to everyone in the institution at the database level, and to the people who can READ their scope through
+ * the core service. Written only on a person's confirmation (never by the worker, which can only read). `scope_id` names a
+ * framework, a framework version or an engagement (no foreign key: polymorphic, archived when the scope is deleted).
+ */
+export const memoryItem = pgTable('memory_item', {
+  ...base(), ...tenant(),
+  scopeType: text('scope_type', { enum: MEMORY_SCOPE_TYPES }).notNull(),
+  scopeId: uuid('scope_id'),
+  visibility: text('visibility', { enum: MEMORY_VISIBILITIES }).notNull(),
+  kind: text('kind', { enum: MEMORY_KINDS }).notNull(),
+  text: text('text').notNull(),
+  sourceConversationId: uuid('source_conversation_id').references(() => assistantConversation.id, { onDelete: 'set null' }),
+  sourceMessageId: uuid('source_message_id').references(() => assistantMessage.id, { onDelete: 'set null' }),
+  pinned: boolean('pinned').notNull().default(false),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  supersedesId: uuid('supersedes_id').references((): AnyPgColumn => memoryItem.id, { onDelete: 'set null' }),
+}, (t) => [
+  index('memory_item_scope_idx').on(t.institutionId, t.scopeType, t.scopeId),
+  index('memory_item_author_idx').on(t.createdBy),
+  oneOf('memory_item_scope_type_check', t.scopeType, MEMORY_SCOPE_TYPES),
+  oneOf('memory_item_visibility_check', t.visibility, MEMORY_VISIBILITIES),
+  oneOf('memory_item_kind_check', t.kind, MEMORY_KINDS),
+  check('memory_item_scope_id_check', sql`(${t.scopeType} = 'institution') = (${t.scopeId} is null)`),
+  check('memory_item_text_length_check', sql`char_length(${t.text}) <= 1000`),
 ]);

@@ -17,7 +17,7 @@ export const AI_EMBEDDING_PROVIDERS = ['openai', 'google', 'openrouter', 'openai
 export const providerSupportsEmbeddings = (provider: AiProvider) => (AI_EMBEDDING_PROVIDERS as readonly string[]).includes(provider);
 
 /** What a role (Settings -> AI -> Models) uses an account for. */
-export const AI_ROLES = ['analysis', 'reading', 'embeddings'] as const;
+export const AI_ROLES = ['analysis', 'reading', 'embeddings', 'assistant'] as const;
 export type AiRole = (typeof AI_ROLES)[number];
 
 /** The cap on one analysis run: tokens always; USD only when the model's price is known from the provider's own list. */
@@ -134,6 +134,14 @@ export const AiSettingSchema = z.object({
     /** Found by a probe call when the assignment is saved or tested; never typed. */
     dimension: z.number().int().nullable(),
   }),
+  /**
+   * The in-app assistant (DEC-027). `accountId` and `model` null: the same as analysis. `enabled` is the administrator's switch
+   * for the assistant alone (AI as a whole is `enabled` above). `maxTokensPerTurn` caps what one reply may spend.
+   */
+  assistant: AiRoleSettingSchema.extend({
+    enabled: z.boolean(),
+    maxTokensPerTurn: z.number().int(),
+  }),
   /** The cap on one analysis run. */
   cap: z.object({
     unit: z.enum(AI_CAP_UNITS),
@@ -165,6 +173,10 @@ export const UpdateAiSettingSchema = z.object({
     language: z.string().trim().min(2).max(40).nullable().optional(),
   }).strict().optional(),
   embeddings: z.object({ enabled: z.boolean().optional(), accountId: z.uuid().nullable().optional(), model: modelField.optional() }).strict().optional(),
+  assistant: z.object({
+    enabled: z.boolean().optional(), accountId: z.uuid().nullable().optional(), model: modelField.optional(),
+    maxTokensPerTurn: z.number().int().min(1000).max(2_000_000_000).nullable().optional(),
+  }).strict().optional(),
   cap: z.object({
     unit: z.enum(AI_CAP_UNITS).optional(),
     tokens: z.number().int().positive().max(2_000_000_000).nullable().optional(),

@@ -15,6 +15,11 @@ export class AiDisabledError extends Error {
   constructor() { super('AI is switched off for this institution (Settings -> AI)'); this.name = 'AiDisabledError'; }
 }
 
+/** An administrator switched the assistant off (Settings -> AI -> Models -> Assistant). */
+export class AssistantDisabledError extends Error {
+  constructor() { super('The assistant is switched off for this institution (Settings -> AI)'); this.name = 'AssistantDisabledError'; }
+}
+
 /** No model or key is configured, in Settings -> AI or in the environment. */
 export class AiNotConfiguredError extends Error {
   constructor(message = 'AI is not configured: set the model and API key in Settings -> AI') { super(message); this.name = 'AiNotConfiguredError'; }

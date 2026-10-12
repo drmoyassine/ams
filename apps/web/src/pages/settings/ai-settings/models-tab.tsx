@@ -83,6 +83,26 @@ export function ModelsTab({ api, accounts, settings, draft, setDraft, canEdit, d
         </Select>
       </Section>
 
+      <Section title="Assistant" intro="The chat helper in the corner of every screen. It answers questions about the standards a person can open, and only drafts or reads; it never publishes. By default it uses the analysis model." testLabel="Assistant model"
+        test={<><div aria-live="polite">{result('assistant', 'Assistant')}</div>{testButton('assistant', 'Test assistant')}</>}>
+        <div className="sm:col-span-2">
+          <Switch label="Assistant is on" checked={draft.assistant.enabled} onChange={(v) => set('assistant', { enabled: v })} disabled={!canEdit}
+            description="Off: the chat button explains that the assistant is switched off. AI as a whole must also be on." />
+        </div>
+        <Select label="Assistant account" value={draft.assistant.same ? '' : draft.assistant.accountId} disabled={!canEdit}
+          onChange={(v) => set('assistant', v === '' ? { same: true } : { same: false, accountId: v, model: v === draft.assistant.accountId ? draft.assistant.model : '' })}>
+          <option value="">Same as analysis</option>
+          {accounts.map(accountOption)}
+        </Select>
+        {draft.assistant.same
+          ? <p className={`${hint} self-end`}>Uses the analysis model.</p>
+          : <ModelPicker api={api} label="Assistant model" accountId={draft.assistant.accountId || null} kind="chat" value={draft.assistant.model} onChange={(v) => set('assistant', { model: v })} disabled={!canEdit} />}
+        <label className={field}>Max tokens per answer
+          <Input aria-label="Max tokens per answer" type="number" inputMode="numeric" min={1000} step={1000} value={draft.assistant.maxTokens} onChange={(e) => set('assistant', { maxTokens: e.target.value })} disabled={!canEdit} />
+          <span className={hint}>One question and its lookups stop here. Each person can also ask a limited number of questions per hour.</span>
+        </label>
+      </Section>
+
       <Section title="Embeddings" intro="Helps find similar requirements, including across languages. Optional. Only standards' wording is sent, never evidence or data." testLabel="Embeddings model"
         test={<><div aria-live="polite">{result('embeddings', 'Embeddings')}</div>{testButton('embeddings', 'Test embeddings')}</>}>
         <div className="sm:col-span-2">

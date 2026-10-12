@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AiMarker, AuthorityBadge, QuoteNotFoundBadge, ReviewBadge } from '../../components/badges';
 import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
+import { usePublishScreen } from '../../lib/assistant-screen';
 import { requirementLabel } from '../../lib/format';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -180,6 +181,7 @@ function ListRow({ r, selected, onSelect }: { r: Requirement; selected: boolean;
 export function RequirementsTab({ api, version, me, evidence }: Props) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
+  usePublishScreen('selected-card', selected ? { selectedIds: [selected] } : null);
   const [error, setError] = useState('');
   const tree = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id) });

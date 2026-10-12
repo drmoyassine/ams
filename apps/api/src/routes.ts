@@ -3,6 +3,7 @@ import { createProgram, listPrograms, listUsers, myAccess } from '@ams/core';
 import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { analysisRoutes } from './routes/analysis.js';
+import { assistantRoutes } from './routes/assistant.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { evidenceRoutes } from './routes/evidence.js';
 import { requestRoutes } from './routes/requests.js';
@@ -75,7 +76,10 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', evidenceRoutes(registry, deps, options))
     .route('/', requestRoutes(registry, deps, options))
     .route('/', datasetRoutes(registry, deps, options))
-    .route('/', formRoutes(registry, deps, options));
+    .route('/', formRoutes(registry, deps, options))
+
+    // The in-app assistant (DEC-027).
+    .route('/', assistantRoutes(registry, deps, options));
 }
 
 export type ApiRoutes = ReturnType<typeof buildRoutes>;

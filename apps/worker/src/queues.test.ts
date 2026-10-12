@@ -69,6 +69,13 @@ describe('compose files', () => {
     }
   });
 
+  it('the agent service takes the assistant job (it calls a model and needs the outbound internet), nobody else does', () => {
+    expect(parseWorkerQueues(compose.services.agent!.environment?.WORKER_QUEUES)).toContain('assistant');
+    expect(QUEUE_GROUPS.agent).toContain('assistant');
+    for (const other of ['worker', 'parser'] as const) expect(QUEUE_GROUPS[other] as readonly string[]).not.toContain('assistant');
+    expect(handlers.assistant).toBeTypeOf('function');
+  });
+
   it('together the services take every job type exactly once', () => {
     const all = QUEUE_GROUP_NAMES.flatMap((n) => parseWorkerQueues(compose.services[n]!.environment?.WORKER_QUEUES));
     expect([...all].sort()).toEqual([...JOB_TYPES].sort());

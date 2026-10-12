@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '../components/accordion';
@@ -13,6 +13,7 @@ import { Input } from '../components/ui/input';
 import { confirmAndDeleteAll } from '../lib/delete-requirements';
 import { ApiError, type FrameworkApi, type Issue, type Version } from '../lib/framework-api';
 import { type GlossaryApi } from '../lib/glossary-api';
+import { registerAssistantNav, usePublishScreen } from '../lib/assistant-screen';
 import { can, useApi, useMe } from '../lib/me';
 import { ExternalRequirements } from './version/external-requirements';
 import { MappingsTab } from './version/mappings-tab';
@@ -61,9 +62,11 @@ function NewVersionDialog({ from, error, onCreate, onClose }: { from: Version; e
  * One version of a standard. The header names the standard and its accreditor, picks the version, and carries the one
  * action the version's state calls for (submit, publish, start a new version); the rest sits in its ⋯ menu.
  */
-export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, onLocation }: {
+export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, initialFocusRequirement, initialFocusPage, onLocation }: {
   versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab; initialSection?: SettingsSection;
   /** The analysis run the Report tab opens on (the address's ?run=). */ initialRunId?: string;
+  /** A requirement's card to open (the address's ?req=, from a link in the assistant). */ initialFocusRequirement?: string;
+  /** A source page to open in Sources (the address's ?doc=&page=). */ initialFocusPage?: { documentId: string; page: number };
   /** Called when the tab or the selected run changes, so the address can follow and the page can be opened again later. */
   onLocation?: (where: { tab: VersionTab; run?: string }) => void;
 }) {
@@ -72,10 +75,10 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const qc = useQueryClient();
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const [tab, setTabState] = useState<VersionTab>(initialTab);
+  const [tab, setTabState] = useState<VersionTab>(initialFocusPage ? 'settings' : initialTab);
   const [runId, setRunId] = useState<string | undefined>(initialRunId);
-  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialSection);
-  const [focusPage, setFocusPage] = useState<{ documentId: string; page: number; n: number } | null>(null);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialFocusPage ? 'sources' : initialSection);
+  const [focusPage, setFocusPage] = useState<{ documentId: string; page: number; n: number } | null>(initialFocusPage ? { ...initialFocusPage, n: 1 } : null);
   const setTab = (t: VersionTab, run: string | undefined = runId) => { setTabState(t); onLocation?.({ tab: t, ...(t === 'report' && run ? { run } : {}) }); };
   const selectRun = (id: string) => { setRunId(id); onLocation?.({ tab: 'report', run: id }); };
   const [error, setError] = useState('');
@@ -83,7 +86,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const [newVersion, setNewVersion] = useState(false);
   const [showProblems, setShowProblems] = useState(false);
   const [showWarnings, setShowWarnings] = useState(false);
-  const [focusRequirement, setFocusRequirement] = useState<string | null>(null);
+  const [focusRequirement, setFocusRequirement] = useState<string | null>(initialFocusRequirement ?? null);
   const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
   const reportNav = {
     onShowRequirement: showRequirement,
@@ -102,6 +105,11 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const editing = version?.status === 'draft' || version?.status === 'in_review';
   const validation = useQuery({ queryKey: ['validation', versionId], queryFn: () => api.validation(versionId), enabled: !!version && editing });
   const open = onOpenVersion ?? ((id: string) => { void navigate({ to: '/settings/versions/$versionId', params: { versionId: id } }); });
+
+  // The assistant (DEC-027): tell it where the person is, and let its links open a requirement or a source page right here.
+  const screenName = version ? `${framework.data?.accreditorShortName ?? framework.data?.name ?? 'Version'} ${version.edition}`.trim() : undefined;
+  usePublishScreen('version-page', { versionId, ...(screenName ? { versionLabel: screenName } : {}), tab: internal ? 'requirements' : tab, tabLabel: TABS.find((t) => t.id === (internal ? 'requirements' : tab))?.label ?? 'Requirements' });
+  useEffect(() => registerAssistantNav(versionId, { showRequirement, showPage: openSource }));
 
   if (isError) return <p role="alert">Could not load this version.</p>;
   if (!version) return <p>Loading…</p>;

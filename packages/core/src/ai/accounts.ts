@@ -19,7 +19,7 @@ import { listProviderModels, ModelListError, type ModelSource } from './models.j
 export type AccountRow = typeof aiAccount.$inferSelect;
 type SettingRow = typeof aiSetting.$inferSelect;
 
-const ROLE_LABEL: Record<AiRole, string> = { analysis: 'Analysis', reading: 'Reading', embeddings: 'Embeddings' };
+const ROLE_LABEL: Record<AiRole, string> = { analysis: 'Analysis', reading: 'Reading', embeddings: 'Embeddings', assistant: 'Assistant' };
 /** "Google (Gemini)" -> "Google": the default label of an account. */
 const defaultName = (provider: AiProvider) => AI_PROVIDER_LABELS[provider].replace(/\s*\(.*\)$/, '');
 
@@ -45,6 +45,7 @@ const usedFor = (s: SettingRow | undefined, id: string): AiRole[] => [
   ...(s?.analysisAccountId === id ? ['analysis' as const] : []),
   ...(s?.visionAccountId === id ? ['reading' as const] : []),
   ...(s?.embedAccountId === id ? ['embeddings' as const] : []),
+  ...(s?.assistantAccountId === id ? ['assistant' as const] : []),
 ];
 
 function toDto(row: AccountRow, setting: SettingRow | undefined): AiAccount {
@@ -198,7 +199,7 @@ export async function testAiAccount(ctx: Ctx, id: string, input: { model?: strin
   await assertPermitted(ctx, 'ai:manage', { type: 'institution' });
   const row = await getAccountRow(ctx, id);
   const setting = await settingRow(ctx);
-  const model = input.model ?? (setting?.analysisAccountId === id ? setting.model : null) ?? (setting?.visionAccountId === id ? setting.visionModel : null) ?? null;
+  const model = input.model ?? (setting?.analysisAccountId === id ? setting.model : null) ?? (setting?.visionAccountId === id ? setting.visionModel : null) ?? (setting?.assistantAccountId === id ? setting.assistantModel : null) ?? null;
   const started = Date.now();
   const base: AiTestResult = { ok: false, role: null, model, ms: 0, error: null, dimension: null };
   if (!accountUsable(row)) return { ...base, error: 'this account has no API key; edit it to add one' };

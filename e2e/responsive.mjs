@@ -191,6 +191,29 @@ async function seedDemo(db, base) {
     if (lastTop) await call('DELETE', `/api/requirements/${lastTop.id}`);
     // A standard to delete with the question and the Undo toast on the draft's page (it is restored again afterwards).
   } catch (e) { warn('trash', e); }
+  // The in-app assistant (DEC-027): AI switched on so the panel's composer is live, one saved conversation with steps, links and a
+  // pending "Remember this?" card, and a few memory notes (long and Arabic) for the memory page.
+  try {
+    const accounts = await call('GET', '/api/settings/ai/accounts');
+    await call('PUT', '/api/settings/ai', { enabled: true, analysis: { accountId: accounts[0].id, model: 'responsive-check-model' } });
+    const [req] = await q(`select id, code, title from requirement where framework_version_id = $1 and parent_id is not null order by display_order, code limit 1`, [versionId]);
+    const [{ id: conv }] = await q(`insert into assistant_conversation (institution_id, user_id, title, context) values ($1, $2, 'Which requirement is about the mission, and what does its source say on page 12 of the handbook?', '{}') returning id`, [inst, admin]);
+    await q(`insert into assistant_message (institution_id, conversation_id, role, parts, created_at) values ($1, $2, 'user', $3::jsonb, now() - interval '2 minutes')`,
+      [inst, conv, JSON.stringify([{ id: 'u1', type: 'text', text: 'Which requirement is about the mission? من فضلك أخبرني أيضا عن المصدر.' }])]);
+    const parts = [
+      { id: 'call-1', type: 'tool_call', name: 'search_requirements', summary: '“mission”' },
+      { id: 'res-1', type: 'tool_result', callId: 'call-1', name: 'search_requirements', summary: 'Found 3 requirements about “mission”',
+        links: req ? [{ kind: 'requirement', id: req.id, versionId, code: req.code, label: `${req.code} ${req.title}`.slice(0, 80) }] : [] },
+      { id: 't1', type: 'text', text: `The closest one is **${req?.code ?? '1.1'}**. It asks the institution to state its mission publicly, and:\n\n- the source page is page 12 of a very long handbook title that has to wrap on a narrow phone screen without scrolling sideways\n- المصدر: الصفحة ١٢ من الدليل\n\n\`${'a-very-long-unbroken-code-sample-'.repeat(4)}\`` },
+      { id: 'm1', type: 'memory_proposal', text: 'When I say “title” I mean the statement of an indicator, kept in the original Arabic wording and never shortened.', scope: { type: 'version', id: versionId, label: 'ABET 2025-26' }, visibility: 'workspace', kind: 'convention', status: 'pending' },
+    ];
+    await q(`insert into assistant_message (institution_id, conversation_id, role, status, parts, usage, created_at) values ($1, $2, 'assistant', 'done', $3::jsonb, '{"inputTokens":4200,"outputTokens":380,"costUsd":null,"calls":2,"model":"responsive-check-model"}', now() - interval '1 minute')`,
+      [inst, conv, JSON.stringify(parts)]);
+    await q(`insert into memory_item (institution_id, scope_type, visibility, kind, text, created_by, pinned) values
+      ($1, 'institution', 'private', 'preference', 'Answer in Arabic when I write in Arabic, and keep replies short, with the requirement code first and a very long note that has to wrap nicely on a phone.', $2, true)`, [inst, admin]);
+    await q(`insert into memory_item (institution_id, scope_type, scope_id, visibility, kind, text, created_by) values
+      ($1, 'version', $3, 'workspace', 'convention', 'في هذا الإصدار يُكتب نص المؤشر في خانة العنوان ويُحفظ كما ورد في المصدر دون اختصار.', $2)`, [inst, admin, versionId]);
+  } catch (e) { warn('assistant', e); }
   return ids;
 }
 
@@ -367,6 +390,29 @@ function pagesFor(ids) {
     ids.draftId && { name: 'version-select-bar', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await tickRows(page, 2, true); } },
     ids.draftId && { name: 'version-pointer-drag', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await pointerDragOver(page, 1); },
       after: async (page) => { await page.keyboard.press('Escape'); await page.mouse.up(); } },
+    // The in-app assistant (DEC-027): the bubble, the open panel (with a saved conversation, a "Remember this?" card and context chips), a new chat, history and the memory page.
+    { name: 'assistant-bubble-closed', path: '/engagements', action: async (page) => { await page.getByTestId('assistant-bubble').waitFor(); } },
+    { name: 'assistant-panel-new-chat', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.getByTestId('assistant-bubble').click();
+      await page.getByRole('dialog', { name: 'Assistant' }).waitFor();
+      await page.getByTestId('assistant-empty').waitFor();
+    } },
+    { name: 'assistant-panel-open', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.getByTestId('assistant-bubble').click();
+      await page.getByRole('button', { name: 'Chat history' }).click();
+      await page.getByRole('list', { name: 'Your chats' }).getByRole('button').first().click();
+      await page.getByTestId('memory-card').waitFor();
+      await page.getByTestId('assistant-steps').locator('summary').click();
+    } },
+    { name: 'assistant-panel-history', path: '/engagements', action: async (page) => {
+      await page.getByTestId('assistant-bubble').click();
+      await page.getByRole('button', { name: 'Chat history' }).click();
+      await page.getByRole('list', { name: 'Your chats' }).getByRole('button').first().waitFor();
+    } },
+    { name: 'settings-assistant-memory', path: '/settings/assistant-memory', action: async (page) => { await page.getByTestId('memory-row').first().waitFor(); } },
+    { name: 'settings-assistant-memory-shared', path: '/settings/assistant-memory', action: async (page) => { await clickTab('Shared')(page); await page.getByTestId('memory-row').first().waitFor(); } },
+    { name: 'settings-assistant-memory-add', path: '/settings/assistant-memory', action: async (page) => { await page.getByRole('button', { name: 'Add memory' }).click(); await page.getByRole('dialog', { name: 'Add memory' }).waitFor(); } },
+    { name: 'settings-ai-assistant', path: '/settings/ai', action: async (page) => { await clickTab('Models')(page); await page.getByRole('region', { name: 'Assistant model' }).scrollIntoViewIfNeeded(); } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
 }
