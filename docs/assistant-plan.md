@@ -1,4 +1,4 @@
-# In-app assistant — plan (planning only; nothing built)
+# In-app assistant (a companion) — plan (planning only; nothing built)
 
 Asked 2026-10-12: an AI agent inside the app (a bubble that opens a panel) that can run bulk edits, for example "put every indicator's statement in its title in this PUC version". This is the plan; the build has not started.
 
@@ -53,20 +53,47 @@ Two kinds of edit, handled differently:
 - A per-person rate and cost cap; a visible cost line per turn.
 - Everything it does is also possible by hand; it adds speed, not powers.
 
+## Memory
+
+Three kinds of memory, plus knowledge that is not memory. Memory only ever inherits the person's privileges: it is checked at read time, not copied into anything the person cannot see.
+
+| Layer | What | Who sees it |
+|---|---|---|
+| **Conversation** | The messages and tool results of one conversation; long ones are summarised into the conversation itself. | The person who held it (and administrators, for audit). |
+| **Personal memory** | Preferences and facts the person told it: "I prefer English titles", "I mostly work on PUC", "keep Arabic as written". | Only that person. |
+| **Workspace memory** (shared) | Conventions and decisions of the team, tied to a scope: the institution, one standard, one version or one engagement. "In PUC the indicator's statement is its title." "The ABET seed is 2025-26 text." "Our term for 'Measure' is 'Indicator group'." | Everyone who can read that scope. A memory about PUC is invisible to someone who cannot open PUC. |
+| **Knowledge (not memory)** | The standards, notes, sources, glossary, decisions and analysis reports. | Read through the same tools and the same permission checks as the screens. |
+
+**How it is stored.** One table `memory_item` (tenant RLS): scope type and id, visibility (private or workspace), kind (preference, convention, fact, decision), text, who wrote it and when, where it came from (a conversation and message, or typed by hand), pinned, expiry, archived, and what it replaced. Reads go through a core service that applies the same authorization as the rest of the app (the person's permissions on the scope), so removing someone's access to a standard removes the memory with it. Deleting a standard archives its memories rather than orphaning them.
+
+**How it is written.**
+- Never silently. The assistant proposes "Remember this?" as a small card; the person confirms, edits or declines. Workspace memory needs framework:write (or the matching scope permission); personal memory needs nothing.
+- Only the person's own words, or what they confirm, become memory. Text found inside a standard, a source or a document is never saved as memory automatically (it could carry instructions).
+- A page, **Settings → Assistant memory**, lists what is remembered (mine / shared), with edit, delete, pin and expiry, and an export.
+- A nightly job in the `agent` service merges duplicates and flags contradictions (a workspace memory that conflicts with another is shown for a person to settle; it never picks).
+
+**How it is used.** For each turn the assistant gets the current context (chips), the top few memories for that scope (about 8, ranked by words and codes first, by meaning later; pinned first), clearly labelled as "memory written by people", plus its tools. Precedence: a workspace convention beats a personal preference on content (what a title holds); a personal preference wins on style (language, wording of replies). If the two disagree it says so and asks.
+
+**Meaning-based retrieval** would need memory text sent to the embedding provider; DEC-023 allows framework text only. Start with words and codes (Postgres full text and trigram); amend the decision before adding embeddings.
+
+**Not in memory:** secrets, evidence content, personal data about named people, and anything from outside the person's privileges.
+
+**Companion behaviour, not autonomy.** It may notice and suggest ("the run finished; 3 gaps are unresolved, shall I look?") as a notification in the panel, never act on its own. Every write still needs the person's click.
+
 ## Build phases
 
-1. **Plumbing (about 1 week).** Panel and bubble, conversation tables, the `assistant` job in the agent service, streaming of progress, the read-only tool registry, per-conversation caps, the Settings role. It can answer questions about the standards with links.
+1. **Plumbing and memory (about 1–2 weeks).** Panel and bubble, conversation tables, `memory_item` with the personal and workspace layers, the Settings → Assistant memory page, the `assistant` job in the agent service, streaming of progress, the read-only tool registry, per-conversation caps, the Settings role. It can answer questions about the standards with links.
 2. **Rule-based bulk edits (about 1–2 weeks).** The change-set format, dry-run through the core services, the preview table with row checkboxes, apply as one undoable group, recipes for the common cases (swap or fill fields, rename/re-code, re-parent by rule, delete by filter, bulk set assessable/level/language). Tests per recipe; an eval set of 30–40 sample instructions and the change sets they should produce.
 3. **Text edits (about 1 week).** Batched per-item proposals within the cap, before/after with the source quote, accept per row, AI-written marking.
 4. **Reach (later).** Create standards from instructions, act on the analysis report ("fix every unresolved gap I can see"), cross-standard questions, explain a mapping, scheduled helpers. Evidence and datasets only if a decision allows it.
 
-## Decisions needed before building
+## Decisions (owner, 2026-10-12 — recorded as DEC-027)
 
-1. Who can use it: framework editors only (recommended), or anyone with read access for questions?
-2. Which model: the analysis model by default (recommended) or a separate cheaper one for chat.
-3. Is the preview-then-apply step always required (recommended), or may a person turn on "apply without preview" for small changes?
-4. Should the conversation be kept after the person closes the panel (recommended: kept, with delete)?
-5. Should the assistant ever see evidence content? Not in this plan; needs its own decision.
+1. **A companion, AI native.** It is part of the app, not a separate tool, and it inherits exactly the privileges of the person using it. Nothing it can see or do goes beyond what that person can see or do by hand.
+2. **Model:** the analysis model by default (Settings → AI → Models, role "Assistant" defaults to the analysis account and model).
+3. **Drafts only.** It edits only drafts: it can create a draft (a new version, or an IQF draft) and edit it. It never publishes, approves or touches a published version. Because every edit lands in a draft that can be undone and restored from the Trash, the safety is the draft; the **preview** is the before/after table shown before it writes into that draft. Recommended: always show the preview for bulk changes (more than 10 items) and for anything that deletes; small changes (10 items or fewer, no deletes) go straight into the draft with the Undo toast.
+4. **Conversations are kept** (per person, deletable by that person), and the assistant has memory (below).
+5. Evidence stays out of scope.
 
 ## Why not now
 

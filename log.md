@@ -511,3 +511,7 @@ Learnings to carry forward:
 ## 2026-10-12 — Indicator statement as the title; assistant plan
 
 The demo standards stored an indicator as title = code ("1-1-1") with the statement in the description, so a card showed only a code. The statement now is the title when it fits (300 characters or fewer): `placeWording` (importer, new versions, analysis writer), migration 0047 for drafts and in-review versions (published versions are frozen; a new version made from one gets the correction when copied), and the demo fixtures. Longer text stays in the description. Planned, not built: an in-app assistant for bulk edits (docs/assistant-plan.md, TASK-064).
+
+## 2026-10-12 — Assistant decisions and memory design
+
+Owner decisions recorded as DEC-027: the assistant is a companion that inherits the user's privileges, uses the analysis model by default, edits only drafts (it may create one), keeps conversations, and has scoped memory (conversation, personal, workspace) read through the same authorization as the screens. Memory design in docs/assistant-plan.md. Still planning only.

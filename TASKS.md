@@ -2681,6 +2681,9 @@ roadmap_item:
   name: Settings, internal framework and glossary
   url: /ROADMAP.md#ROADMAP-012
 related_decisions:
+  - id: DEC-027
+    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    url: /DECISIONS.md#DEC-027
   - id: DEC-006
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
@@ -2695,4 +2698,4 @@ modified:
 
 Planning task. The plan is in docs/assistant-plan.md: a bubble opening a side panel, where a person describes a bulk change; the assistant reads the standards through read-only tools, proposes a change set (rule edits done by deterministic recipes, text edits written by the model within a cap), shows a before/after preview, and applies it only when the person clicks, as one undoable group through the existing services. Runs as a job in the agent service; framework content only; never publishes or approves.
 
-Decisions needed before building: who can use it; which model; whether the preview is always required; whether conversations are kept; evidence is out of scope. Phases: plumbing and read-only answers, rule-based bulk edits with preview/apply/undo, per-item text edits, later reach.
+Decided 2026-10-12 (DEC-027): a companion that inherits the user's privileges; the analysis model by default; edits only drafts (it may create one), preview before bulk changes and deletes; conversations kept; scoped memory (conversation, personal, workspace) read through the same authorization as the screens; evidence out of scope. Phases: plumbing and read-only answers, rule-based bulk edits with preview/apply/undo, per-item text edits, later reach.
