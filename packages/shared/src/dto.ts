@@ -45,6 +45,8 @@ export const VersionSchema = z.object({
   status: z.enum(['draft', 'in_review', 'published', 'retired']),
   levelLabels: z.unknown(), lifecycleTemplate: z.unknown(), decisionVocab: z.unknown(), findingVocab: z.unknown(), responseVocab: z.unknown(), ratingMethod: z.unknown(),
   changeSummary: z.string().nullable(), publishedBy: z.string().nullable(), publishedAt: iso.nullable(), supersedesId: z.string().nullable(),
+  /** What the analysis wrote into each part of the configuration, with its page and quote (step H); and which parts a person has edited since. */
+  configFound: z.unknown().optional(), configEdited: z.unknown().optional(),
   /** Set on the detail of a version of the institution's own quality framework. */
   internal: z.boolean().optional(),
 });
@@ -68,6 +70,8 @@ export const TemplateSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), key: z.string(), name: z.string(),
   kind: z.enum(['application', 'readiness', 'self_study', 'follow_up', 'annual', 'response', 'other']), language: z.string(),
   structure: z.unknown(), wordLimit: z.number().nullable(), requiresAttestation: z.boolean(), ...provenance,
+  /** A person changed this AI-made template: a new analysis run leaves it as it is. */
+  editedByPerson: z.boolean().optional(),
 });
 export const SourceDocumentSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), title: z.string(), role: z.string(), authority: z.string(), language: z.string(),

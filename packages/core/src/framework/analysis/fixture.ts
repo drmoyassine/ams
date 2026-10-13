@@ -86,6 +86,11 @@ export function fixtureResponder(opts: { revised?: boolean } = {}) {
   return (options: unknown): object => {
     const s = JSON.stringify(options);
     if (s.includes('what the document is, one of')) return s.includes(FIXTURE_GUIDE.title) ? a.surveyGuide : a.surveyHandbook;
+    // Step H: the guide holds no lifecycle, vocabulary or template.
+    if (s.includes('You are helping an institution read the process documents')) {
+      const none = { present: false, pages: [] };
+      return { lifecycle: none, vocab: none, template: { ...none, name: null, kind: null }, note: null };
+    }
     if (s.includes('Work out how the accreditor organises its requirements')) return a.structure;
     if (s.includes('You are extracting an accreditation body')) {
       if (s.includes(FIXTURE_GUIDE.title)) return a.guide;

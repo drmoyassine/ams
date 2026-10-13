@@ -80,12 +80,12 @@ describe('IQF mapping after an analysis run', () => {
     setAiModelForTests(fake.model);
     const run = await as('alo', (c) => startAnalysis(c, v.versionId));
     expect(run.promptVersions).toMatchObject({ map: 'v1', newiqf: 'v1' });
-    // The 15 jobs of steps C and D, then embed, one map batch and one propose_new chunk.
-    expect(await drain()).toBe(18);
-    expect(fake.calls).toHaveLength(11);
+    // The 15 jobs of steps C and D, the two of step H (the guide is surveyed and holds no configuration), then embed, one map batch and one propose_new chunk.
+    expect(await drain()).toBe(20);
+    expect(fake.calls).toHaveLength(12);
 
     const done = await as('alo', (c) => getAnalysisRun(c, run.id));
-    expect(done).toMatchObject({ status: 'succeeded', error: null, usage: { calls: 11 } });
+    expect(done).toMatchObject({ status: 'succeeded', error: null, usage: { calls: 12 } });
     expect(done.report.mapping).toMatchObject({
       skipped: null, retrieval: 'lexical only', requirements: 7, judged: 7, skippedDecided: 0, mapped: 4, noSuggestion: 3, newItems: 3,
       links: { covers: 1, partly_covers: 2, related: 2, kept: 0 },
@@ -272,8 +272,8 @@ describe('IQF mapping after an analysis run', () => {
   }, 120000);
 
   it('the spend limit ends the mapping, not the run: the requirements stay and the run finishes, saying so', async () => {
-    // $1 per call; the 9 calls of steps C and D leave room for the map call only with a limit above 9; at 8.5 the map call is refused.
-    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, cap_unit, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 'usd', 8.5, 100000, 0)`, [w.ids.inst]);
+    // $1 per call; the 10 calls of steps C, D and H leave room for the map call only with a limit above 10; at 9.5 the map call is refused.
+    await w.db.su.query(`insert into ai_setting (institution_id, model, enabled, cap_unit, max_cost_usd_per_run, input_usd_per_mtok, output_usd_per_mtok) values ($1, 'm', true, 'usd', 9.5, 100000, 0)`, [w.ids.inst]);
     try {
       const d = await draftWithSources('B1');
       const fake = createFakeAiModel([mappingResponder(fixtureResponder(), firstScript())]);
@@ -284,11 +284,11 @@ describe('IQF mapping after an analysis run', () => {
       expect(done).toMatchObject({ status: 'succeeded', error: null });
       expect(done.report.mapping).toMatchObject({ stopped: 'budget', mapped: 0, newItems: 0 });
       expect((done.report.stats as { requirements: number }).requirements).toBe(7);
-      expect(fake.calls).toHaveLength(9);
+      expect(fake.calls).toHaveLength(10);
       expect((await as('alo', (c) => getMappings(c, d.versionId))).mappings).toHaveLength(0);
 
-      // Limit 9.5: the map call goes through, the new-items call is refused; the links stay.
-      await w.db.su.query(`update ai_setting set max_cost_usd_per_run = 9.5 where institution_id = $1`, [w.ids.inst]);
+      // Limit 10.5: the map call goes through, the new-items call is refused; the links stay.
+      await w.db.su.query(`update ai_setting set max_cost_usd_per_run = 10.5 where institution_id = $1`, [w.ids.inst]);
       const e = await draftWithSources('B2');
       setAiModelForTests(createFakeAiModel([mappingResponder(fixtureResponder(), firstScript())]).model);
       const r2 = await as('alo', (c) => startAnalysis(c, e.versionId));

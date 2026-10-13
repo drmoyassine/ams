@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { GAP_KIND_WORDS, RELATION_WORDS, reportToMarkdown, type AnalysisReport, type AnalysisStats, type ReportCheck, type ReportGap, type ReportItem, type ReportRef } from '@ams/shared';
+import { CONFIG_SECTION_LABEL, CONFIG_STATE_WORDS, GAP_KIND_WORDS, RELATION_WORDS, reportToMarkdown, type AnalysisReport, type AnalysisStats, type ReportCheck, type ReportGap, type ReportItem, type ReportRef } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import type { AnalysisRun, FrameworkApi } from '../../lib/framework-api';
@@ -11,6 +11,7 @@ const STATUS_CLS = {
   queued: 'bg-muted text-muted-foreground', running: 'bg-sky-50 text-sky-900', succeeded: 'bg-emerald-50 text-emerald-900',
   failed: 'bg-red-50 text-red-900', cancelled: 'bg-muted text-muted-foreground',
 } as const;
+type ReportConfigItem = AnalysisReport['configuration']['items'][number];
 const active = (r: AnalysisRun | undefined) => r?.status === 'queued' || r?.status === 'running';
 const plural = (c: number, one: string, many = `${one}s`) => `${c} ${c === 1 ? one : many}`;
 const when = (s: string | null) => (s ? new Date(s).toLocaleString('en') : 'not recorded');
@@ -20,7 +21,7 @@ export interface ReportNav {
   onShowRequirement: (requirementId: string) => void;
   onShowPage: (documentId: string, page: number) => void;
   onShowMappings: () => void;
-  onShowSettings: (section: 'details' | 'sources' | 'ai') => void;
+  onShowSettings: (section: 'details' | 'sources' | 'ai' | 'lifecycle' | 'templates') => void;
 }
 
 /** A requirement / source-page pair of links. Falls back to plain text when the target is missing. */
@@ -96,6 +97,25 @@ function GapList({ gaps, nav, label, reasons }: { gaps: ReportGap[]; nav: Report
   );
 }
 
+const GROUP_WORD: Record<ReportConfigItem['group'], string> = {
+  phase: 'Stage', milestone: 'Milestone', decision: 'Decision', finding: 'Finding', response: 'Response type', rating: 'Rating method', template: 'Report template', section: 'Section',
+};
+/** One configuration item: what it is, where in the documents, why it is flagged, and the document's own timing words. */
+function ConfigRow({ i, nav }: { i: ReportConfigItem; nav: ReportNav }) {
+  return (
+    <li className="min-w-0 break-words" data-testid={i.status === 'flagged' ? 'config-flagged' : 'config-item'}>
+      <span className="text-muted-foreground">{GROUP_WORD[i.group]}{i.under ? ` in ${i.under}` : ''}: </span>
+      <span className="font-medium"><ContentText>{i.label}</ContentText></span>
+      {i.detail && <span className="text-muted-foreground"> ({i.detail})</span>}
+      {' · '}
+      <a href={`#source-${i.documentId}`} className="underline" onClick={(e) => { e.preventDefault(); nav.onShowPage(i.documentId, i.page); }}><ContentText>{i.documentTitle ?? 'source'}</ContentText>, page {i.page}</a>
+      {i.dueText && <span className="block text-xs">Due as written: <ContentText>{i.dueText}</ContentText></span>}
+      {i.reasons.length > 0 && <span className={`block text-xs ${i.status === 'flagged' ? 'text-amber-800' : 'text-muted-foreground'}`}>{i.reasons.join('; ')}</span>}
+      {i.status === 'flagged' && i.quote && <span className="block text-xs text-muted-foreground">Quote: <ContentText>{i.quote}</ContentText></span>}
+    </li>
+  );
+}
+
 function CheckLink({ c, nav }: { c: ReportCheck; nav: ReportNav }) {
   const l = c.link;
   if (!l) return <span>{c.label}</span>;
@@ -114,6 +134,7 @@ function Sections({ report, nav }: { report: AnalysisReport; nav: ReportNav }) {
   const g = report.gaps;
   const m = report.mapping;
   const st = report.structure;
+  const cf = report.configuration;
   return (
     <div className="space-y-3">
       <Card id="summary" title="Summary">
@@ -236,6 +257,54 @@ function Sections({ report, nav }: { report: AnalysisReport; nav: ReportNav }) {
                     </li>
                   ))}
                 </ul></>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card id="configuration" title="Configuration found" hint="From the policy, report-template and guidance documents. Everything here is a proposal in the draft; publishing the version is the review. Date rules are never taken from the documents.">
+        {!cf.ran ? <Empty>Not read{cf.skipped ? `: ${cf.skipped.charAt(0).toLowerCase()}${cf.skipped.slice(1)}` : '.'}</Empty> : (
+          <div className="space-y-2 text-sm">
+            {cf.stopped && <p>{cf.stopped}</p>}
+            {cf.documents.length > 0 && (
+              <ul aria-label="Documents read for configuration" className="space-y-0.5">
+                {cf.documents.map((d) => (
+                  <li key={d.documentId} className="break-words" data-testid="config-document">
+                    <span className="font-medium"><ContentText>{d.title}</ContentText></span>: {d.found.length ? <ContentText>{d.found.join(', ')}</ContentText> : 'nothing to take'}
+                    {d.note && <span className="text-muted-foreground"> · <ContentText>{d.note}</ContentText></span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {cf.sections.length > 0 && (
+              <ul aria-label="Configuration parts" className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+                {cf.sections.map((x) => (
+                  <li key={x.section} data-testid="config-section">
+                    <span className="font-medium">{CONFIG_SECTION_LABEL[x.section]}</span>: {CONFIG_STATE_WORDS[x.state]} · {x.written} written · {x.flagged} flagged{x.editedSince ? ' · you edited it since' : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {cf.milestonesNeedingDueRule > 0 && (
+              <p data-testid="config-due-rules">{plural(cf.milestonesNeedingDueRule, 'milestone')} still {cf.milestonesNeedingDueRule === 1 ? 'needs' : 'need'} a due rule set by a reviewer. The documents' words are kept with each one; no date was taken from them.</p>
+            )}
+            {cf.notFound.length > 0 && <ul aria-label="Not found in the documents" className="list-disc ps-5">{cf.notFound.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+            {cf.deletedByPerson.length > 0 && <p>You deleted <ContentText>{cf.deletedByPerson.join(', ')}</ContentText>; it was not added back.</p>}
+            {cf.items.filter((i) => i.status !== 'flagged').length > 0 && (
+              <details open={cf.items.length <= 12}>
+                <summary className="cursor-pointer underline">Found and written ({cf.items.filter((i) => i.status !== 'flagged').length})</summary>
+                <ul aria-label="Configuration found" className="mt-1 space-y-1.5">
+                  {cf.items.filter((i) => i.status !== 'flagged').map((i, n) => <ConfigRow key={`${i.group}-${i.ref ?? i.label}-${n}`} i={i} nav={nav} />)}
+                </ul>
+              </details>
+            )}
+            {cf.flagged.length > 0 && (
+              <>
+                <h4 className="pt-1 font-medium">Kept out of the configuration</h4>
+                <ul aria-label="Configuration flagged" className="space-y-1.5">
+                  {cf.flagged.map((i, n) => <ConfigRow key={`${i.group}-${i.label}-${n}`} i={i} nav={nav} />)}
+                </ul>
+              </>
             )}
           </div>
         )}

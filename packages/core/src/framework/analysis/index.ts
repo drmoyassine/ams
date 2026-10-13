@@ -14,3 +14,7 @@ export * from './iqf-context.js';
 export * from './mapping-fixture.js';
 export * from './report.js';
 export * from './preflight.js';
+export * from './config-schemas.js';
+export * from './config-merge.js';
+export * from './config-stages.js';
+export * from './config-fixture.js';

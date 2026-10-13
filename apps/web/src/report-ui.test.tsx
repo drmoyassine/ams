@@ -96,9 +96,13 @@ describe('the Report tab', () => {
 
     // The sections, as cards with real headings.
     await within(region).findByTestId('report-summary');
-    for (const h of ['Summary', 'Structure found', 'Requirements', 'Gaps and conflicts', 'Links to your quality framework', 'Before you publish']) {
+    for (const h of ['Summary', 'Structure found', 'Requirements', 'Gaps and conflicts', 'Links to your quality framework', 'Configuration found', 'Before you publish']) {
       expect(within(region).getByRole('heading', { level: 3, name: h })).toBeTruthy();
     }
+    // The fixture's guide holds no lifecycle, vocabulary or template: read, and the report says what it did not contain.
+    const configCard = within(region).getByTestId('report-configuration');
+    expect(within(configCard).getByTestId('config-document').textContent).toContain(`${FIXTURE_GUIDE.title}: nothing to take`);
+    expect(within(configCard).getByRole('list', { name: 'Not found in the documents' }).textContent).toContain('No decision vocabulary was found in the documents.');
     const sources = within(region).getByTestId('report-sources');
     expect(within(sources).getAllByRole('row').map((r) => r.textContent)).toEqual([
       'DocumentRoleLanguagePagesFile textAI visionNot readable',
@@ -212,7 +216,28 @@ const canned = (): AnalysisReport => ({
     newItems: [{ proposalId: 'p1', status: 'pending', code: '3', title: 'Graduate follow-up', parentCode: null, reason: null, covers: [{ externalCode: '1.2', requirementId: 'req-1.2', relation: 'covers' }] }],
     decisions: { linksWaiting: 1, linksAccepted: 0, linksDismissed: 0, newItemsWaiting: 1, newItemsAccepted: 0, newItemsDismissed: 0 }, stopped: null,
   },
+  configuration: {
+    ran: true, skipped: null, stopped: 'Reading the policy and template documents stopped at the spend limit; what was found so far was checked and written.',
+    documents: [
+      { documentId: 'doc-3', title: 'Process Guide', role: 'policy_procedure', found: ['lifecycle (pages 1 to 5)', 'vocabularies (pages 4 to 6)'], note: null },
+      { documentId: 'doc-4', title: 'نموذج التقرير', role: 'report_template', found: ['report template "نموذج التقرير" (pages 1 to 3)'], note: null },
+    ],
+    sections: [
+      { section: 'lifecycle_template', state: 'written', written: 3, flagged: 1, editedSince: false }, { section: 'decision_vocab', state: 'kept_your_edits', written: 0, flagged: 0, editedSince: true },
+      { section: 'report_templates', state: 'written', written: 2, flagged: 0, editedSince: false },
+    ],
+    items: [
+      { group: 'milestone', ref: 'self_study_report', label: 'Self-Study Report', detail: 'submission', documentId: 'doc-3', documentTitle: 'Process Guide', page: 2, quote: 'submits its Self-Study Report no later than July 1', status: 'written', reasons: ['the reviewer must set the due rule'], dueText: 'no later than July 1 of the calendar year of the visit', under: 'The self-study' },
+      { group: 'template', ref: 'form', label: 'نموذج التقرير', detail: 'self_study, 1 section', documentId: 'doc-4', documentTitle: 'نموذج التقرير', page: 1, quote: 'مقدمة', status: 'written', reasons: [] },
+      { group: 'decision', ref: null, label: 'Interim Report', detail: null, documentId: 'doc-3', documentTitle: 'Process Guide', page: 4, quote: 'Full Accreditation, Interim Report, or Not Accredited', status: 'flagged', reasons: ['no decision outcome could be chosen for it; add it by hand'] },
+    ].map((i) => ({ ...i })) as AnalysisReport['configuration']['items'],
+    flagged: [
+      { group: 'decision', ref: null, label: 'Interim Report', detail: null, documentId: 'doc-3', documentTitle: 'Process Guide', page: 4, quote: 'Full Accreditation, Interim Report, or Not Accredited', status: 'flagged', reasons: ['no decision outcome could be chosen for it; add it by hand'] },
+    ] as AnalysisReport['configuration']['flagged'],
+    notFound: ['No finding vocabulary was found in the documents.'], deletedByPerson: [], milestonesNeedingDueRule: 1,
+  },
   checklist: [
+    { id: 'config_due_rules', label: '1 milestone found in the policy documents needs a due rule set by a reviewer (the documents\' wording is kept; no date was taken from them)', count: 1, level: 'look', link: { tab: 'settings', section: 'lifecycle', requirementId: null, documentId: null, page: null } },
     { id: 'conflicts', label: '1 conflict: the same code is worded differently in the sources', count: 1, level: 'look', link: { tab: 'requirements', section: null, requirementId: 'req-1.1', documentId: null, page: null } },
     { id: 'links_waiting', label: '1 suggested link to your quality framework waiting for a decision', count: 1, level: 'look', link: { tab: 'mappings', section: null, requirementId: null, documentId: null, page: null } },
   ],
@@ -252,6 +277,48 @@ describe('report cards', () => {
     expect(screen.getByText('a "required" note needs a quote found on its source page')).toBeTruthy();
     await user.click(within(conflicts).getByRole('link', { name: 'دليل, page 1' }));
     expect(nav.onShowPage).toHaveBeenCalledWith('doc-2', 1);
+  });
+
+  it('lists the configuration found with its pages and the timing words as written, what was kept out and why, and links the checks to Settings', async () => {
+    const user = userEvent.setup();
+    const nav = navs();
+    render(wrap(<ReportTab api={stub} versionId="v-1" runId="run-1" onSelectRun={() => undefined} nav={nav} title="Test" />));
+    const card = await screen.findByTestId('report-configuration');
+    expect(card.textContent).toContain('stopped at the spend limit');
+    expect(within(card).getAllByTestId('config-document').map((d) => d.textContent)).toEqual([
+      'Process Guide: lifecycle (pages 1 to 5), vocabularies (pages 4 to 6)', 'نموذج التقرير: report template "نموذج التقرير" (pages 1 to 3)',
+    ]);
+    expect(within(card).getAllByTestId('config-section').map((s) => s.textContent)).toEqual([
+      'Lifecycle: written to the draft · 3 written · 1 flagged', 'Decision vocabulary: left as you edited it · 0 written · 0 flagged · you edited it since', 'Report templates: written to the draft · 2 written · 0 flagged',
+    ]);
+    expect(within(card).getByTestId('config-due-rules').textContent).toMatch(/1 milestone still needs a due rule set by a reviewer.*no date was taken from them/);
+    const found = within(within(card).getByRole('list', { name: 'Configuration found' }));
+    const milestone = found.getAllByTestId('config-item')[0]!;
+    expect(milestone.textContent).toContain('Milestone in The self-study: Self-Study Report (submission)');
+    expect(milestone.textContent).toContain('Due as written: no later than July 1 of the calendar year of the visit');
+    expect(milestone.textContent).toContain('the reviewer must set the due rule');
+    // Arabic keeps its own direction.
+    expect(found.getAllByTestId('config-item')[1]!.querySelector('[dir="auto"]')).toBeTruthy();
+    const flagged = within(card).getByRole('list', { name: 'Configuration flagged' });
+    expect(flagged.textContent).toContain('Interim Report');
+    expect(flagged.textContent).toContain('no decision outcome could be chosen for it');
+    expect(flagged.textContent).toContain('Quote: Full Accreditation, Interim Report, or Not Accredited');
+    expect(within(card).getByRole('list', { name: 'Not found in the documents' }).textContent).toBe('No finding vocabulary was found in the documents.');
+    // No verdict and no score.
+    expect(card.textContent).not.toMatch(/compliant|\bmet\b|\bscore\b|readiness/i);
+
+    await user.click(within(milestone).getByRole('link', { name: 'Process Guide, page 2' }));
+    expect(nav.onShowPage).toHaveBeenCalledWith('doc-3', 2);
+    await user.click(within(screen.getByRole('list', { name: 'Before you publish' })).getByRole('link', { name: /needs a due rule set by a reviewer/ }));
+    expect(nav.onShowSettings).toHaveBeenCalledWith('lifecycle');
+  });
+
+  it('says why the configuration was not read, when there was nothing to read', async () => {
+    const skipped = { ...canned(), configuration: { ...canned().configuration, ran: false, skipped: 'This version has no policy and procedure, report template or guidance document, so there was nothing to read.', documents: [], sections: [], items: [], flagged: [], notFound: [], milestonesNeedingDueRule: 0, stopped: null } };
+    const api = { analysisRuns: async () => [run], analysisReport: async () => skipped } as unknown as FrameworkApi;
+    render(wrap(<ReportTab api={api} versionId="v-1" runId="run-1" onSelectRun={() => undefined} nav={navs()} title="Test" />));
+    const card = await screen.findByTestId('report-configuration');
+    expect(card.textContent).toContain('Not read: this version has no policy and procedure, report template or guidance document');
   });
 });
 

@@ -309,6 +309,13 @@ export const frameworkVersion = pgTable('framework_version', {
   findingVocab: jsonb('finding_vocab').notNull().default(sql`'[]'::jsonb`),
   responseVocab: jsonb('response_vocab').notNull().default(sql`'[]'::jsonb`),
   ratingMethod: jsonb('rating_method'),
+  /**
+   * Step H: what the analysis wrote into each configuration part (lifecycle_template, decision_vocab, ...), with the page
+   * and quote of every item. A part holding something that is not recorded here was made by a person or an import.
+   */
+  configFound: jsonb('config_found').notNull().default(sql`'{}'::jsonb`),
+  /** Step H: configuration parts a person has changed (set by the database on any update that is not the worker's). */
+  configEdited: jsonb('config_edited').notNull().default(sql`'{}'::jsonb`),
   changeSummary: text('change_summary'),
   publishedBy: uuid('published_by').references((): AnyPgColumn => appUser.id),
   publishedAt: timestamp('published_at', { withTimezone: true }),
@@ -446,6 +453,7 @@ export const reportTemplate = pgTable('report_template', {
   wordLimit: integer('word_limit'),
   requiresAttestation: boolean('requires_attestation').notNull().default(false),
   ...provenance(),
+  ...editedByPerson(),
 }, (t) => [
   uniqueIndex('report_template_version_key_idx').on(t.frameworkVersionId, t.key),
   oneOf('report_template_kind_check', t.kind, TEMPLATE_KINDS),

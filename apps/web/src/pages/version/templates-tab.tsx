@@ -7,9 +7,20 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError, type FrameworkApi, type Template, type Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
+import { FoundBy, foundOf, type FoundRef } from './found-by';
 import type { Me } from '@ams/shared';
 
 const BLANK = { name: 'New template', kind: 'self_study', language: 'en', requires_attestation: false, structure: { sections: [{ key: 'A', title: 'Introduction', block_type: 'narrative' }] } };
+
+/** Where the analysis found a template and each of its sections (framework_version.config_found), with page and quote. */
+function foundFor(version: Version, t: Template): Record<string, FoundRef> {
+  const rec = foundOf(version.configFound, 'report_templates')?.items?.[t.key];
+  const items: Record<string, FoundRef> = {
+    [t.name]: { ...(rec?.document ? { document: rec.document } : {}), page: t.sourcePage ?? rec?.page ?? 1, quote: t.sourceQuote ?? rec?.quote ?? '', verified: t.quoteVerified },
+  };
+  for (const [key, ref] of Object.entries(rec?.sections ?? {})) items[`section ${key}`] = ref;
+  return items;
+}
 
 export function TemplatesTab({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
   const qc = useQueryClient();
@@ -52,6 +63,11 @@ export function TemplatesTab({ api, version, me }: { api: FrameworkApi; version:
               <h3 className="text-lg font-semibold"><ContentText>{current.name}</ContentText></h3>
               <ReviewBadge status={current.reviewStatus} />
             </div>
+            {current.origin === 'ai' && (() => {
+              const items = foundFor(version, current);
+              const sections = Object.keys(items).length - 1;
+              return <FoundBy label="Template" edited={!!current.editedByPerson} found={{ items }} summary={`page ${current.sourcePage ?? '?'}${sections > 0 ? `, and ${sections} ${sections === 1 ? 'section' : 'sections'} with their pages` : ''}`} />;
+            })()}
             <JsonEditor
               key={`${current.key}-${current.name}`} label="Template" readOnly={!canWrite} rows={22}
               value={{ name: current.name, kind: current.kind, language: current.language, requires_attestation: current.requiresAttestation, word_limit: current.wordLimit, structure: current.structure }}

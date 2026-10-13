@@ -92,7 +92,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
     onShowRequirement: showRequirement,
     onShowPage: (documentId: string, page: number) => { setSettingsSection('sources'); setFocusPage((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 })); setTab('settings'); },
     onShowMappings: () => setTab('mappings'),
-    onShowSettings: (section: 'details' | 'sources' | 'ai') => {
+    onShowSettings: (section: 'details' | 'sources' | 'ai' | 'lifecycle' | 'templates') => {
       if (section === 'ai') { void navigate({ to: '/settings/ai' }); return; }
       setSettingsSection(section); setTab('settings');
     },

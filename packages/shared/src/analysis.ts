@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Framework analysis (PRD 15, step C): a background run that reads a draft version's sources and writes requirements and
  * notes into that draft in the accreditor's exact wording. Each stage is its own small job; the run records where it is.
  */
-export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'embed', 'map', 'propose_new', 'finalise'] as const;
+export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'config_survey', 'config_extract', 'config_write', 'embed', 'map', 'propose_new', 'finalise'] as const;
 export type AnalysisStage = (typeof ANALYSIS_STAGES)[number];
 
 export const ANALYSIS_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled'] as const;
@@ -33,6 +33,12 @@ export const AnalysisProgressSchema = z.object({
   mapTotal: z.number().int().optional(),
   groupsDone: z.number().int().optional(),
   groupsTotal: z.number().int().optional(),
+  /** Configuration (step H): documents looked at / to look at, windows read / to read, and items proposed so far. */
+  configDocsDone: z.number().int().optional(),
+  configDocsTotal: z.number().int().optional(),
+  configWindowsDone: z.number().int().optional(),
+  configWindowsTotal: z.number().int().optional(),
+  configItems: z.number().int().optional(),
 });
 export type AnalysisProgress = z.infer<typeof AnalysisProgressSchema>;
 
@@ -75,6 +81,11 @@ export const AnalysisStatsSchema = z.object({
   /** Requirements and notes a person deleted earlier, which the run did not add back. */
   dismissedSkipped: z.number().int().optional(),
   recoveryRounds: z.number().int().optional(),
+  // Configuration (step H). Optional: runs before it have none.
+  /** Configuration items proposed, written to the draft, and kept out as flagged proposals. */
+  configItems: z.number().int().optional(),
+  configWritten: z.number().int().optional(),
+  configFlagged: z.number().int().optional(),
 });
 export type AnalysisStats = z.infer<typeof AnalysisStatsSchema>;
 
@@ -112,6 +123,85 @@ export const AnalysisMappingSchema = z.object({
   stopped: z.enum(['budget']).nullable(),
 });
 export type AnalysisMapping = z.infer<typeof AnalysisMappingSchema>;
+
+// ---- Configuration found (step H) -------------------------------------------------------------------------------------
+
+/** What the configuration stages look for in a document: the lifecycle, the vocabularies, a report template. */
+export const CONFIG_TARGETS = ['lifecycle', 'vocab', 'template'] as const;
+export type ConfigTarget = (typeof CONFIG_TARGETS)[number];
+
+/** The parts of a version's configuration the analysis can fill. */
+export const CONFIG_SECTIONS = ['lifecycle_template', 'decision_vocab', 'finding_vocab', 'response_vocab', 'rating_method', 'report_templates'] as const;
+export type ConfigSection = (typeof CONFIG_SECTIONS)[number];
+export const CONFIG_SECTION_LABEL: Record<ConfigSection, string> = {
+  lifecycle_template: 'Lifecycle', decision_vocab: 'Decision vocabulary', finding_vocab: 'Finding vocabulary',
+  response_vocab: 'Response types', rating_method: 'Rating method', report_templates: 'Report templates',
+};
+
+/** The configuration survey's answer for one document: which targets are in it, and on which pages. */
+export const ConfigSurveyEntrySchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  role: z.string(),
+  language: z.string(),
+  lifecycle: z.object({ pages: z.array(z.number().int()) }).nullable(),
+  vocab: z.object({ pages: z.array(z.number().int()) }).nullable(),
+  template: z.object({ pages: z.array(z.number().int()), name: z.string().nullable(), kind: z.string().nullable() }).nullable(),
+  note: z.string().nullable(),
+});
+export type ConfigSurveyEntry = z.infer<typeof ConfigSurveyEntrySchema>;
+
+export const CONFIG_ITEM_GROUPS = ['phase', 'milestone', 'decision', 'finding', 'response', 'rating', 'template', 'section'] as const;
+export type ConfigItemGroup = (typeof CONFIG_ITEM_GROUPS)[number];
+/**
+ * One configuration item as the run found it. written: in the draft's configuration; flagged: kept out (the reasons say
+ * why: the quote was not found, the configuration schema refused it, ...) and listed for a person; kept: the section holds
+ * a person's work, so the run left it alone.
+ */
+export const ConfigItemResultSchema = z.object({
+  group: z.enum(CONFIG_ITEM_GROUPS),
+  /** The key or code it has (or would have) in the configuration. */
+  ref: z.string().nullable(),
+  label: z.string(),
+  /** Short facts in the accreditor's words or the allowed values (type, outcome, block type ...). */
+  detail: z.string().nullable(),
+  documentId: z.string(),
+  page: z.number().int(),
+  quote: z.string(),
+  status: z.enum(['written', 'flagged', 'kept']),
+  /** Plain-words reasons: why it is flagged, or what a reviewer still has to do ("the reviewer must set the due rule"). */
+  reasons: z.array(z.string()),
+  /** The text copied from the document for a due date or repeat, when there is one. */
+  dueText: z.string().nullable().optional(),
+  /** Where it sits (a milestone's phase, a section's template). */
+  under: z.string().nullable().optional(),
+});
+export type ConfigItemResult = z.infer<typeof ConfigItemResultSchema>;
+
+export const CONFIG_SECTION_STATES = ['written', 'kept_your_edits', 'nothing_found', 'flagged_only'] as const;
+/** The outcome of the last stage, `report.config.result`, written by config_write. */
+export const ConfigResultSchema = z.object({
+  items: z.array(ConfigItemResultSchema),
+  sections: z.array(z.object({ section: z.enum(CONFIG_SECTIONS), state: z.enum(CONFIG_SECTION_STATES), written: z.number().int(), flagged: z.number().int() })),
+  /** What the documents did not contain, in words ("No decision vocabulary found"). */
+  notFound: z.array(z.string()),
+  /** Templates the run did not write again because a person deleted them. */
+  deletedByPerson: z.array(z.string()),
+  milestonesNeedingDueRule: z.number().int(),
+});
+export type ConfigResult = z.infer<typeof ConfigResultSchema>;
+
+/** What the configuration stages report, under `report.config`. Counts and quotes only. */
+export const AnalysisConfigSchema = z.object({
+  /** Why the stages did not run (no policy, template or guidance document); null when they did. */
+  skipped: z.string().nullable(),
+  survey: z.array(ConfigSurveyEntrySchema),
+  /** The windows still to read: one document, one target, a few pages. */
+  windows: z.array(z.object({ documentId: z.string(), target: z.enum(CONFIG_TARGETS), pages: z.array(z.number().int()) })),
+  stopped: z.enum(['budget']).nullable(),
+  result: ConfigResultSchema.nullable(),
+});
+export type AnalysisConfig = z.infer<typeof AnalysisConfigSchema>;
 
 /** What the check-and-recover passes look for (step D). */
 export const ANALYSIS_GAP_KINDS = ['numbering_gap', 'missing_parent', 'unverified_quote', 'low_confidence', 'uncovered_page', 'conflict'] as const;

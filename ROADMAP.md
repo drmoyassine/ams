@@ -529,7 +529,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | F | Report screen, review UX, "Create from files", publish gate per DEC-022 (retire per-line approval) | Publish gate and per-line approval retired — TASK-047; report, run readiness checks and removal of the import approve-everything option done — TASK-054 (F1); "Create from files" and the split-view review — TASK-055 (F2) |
 | F2 | Create from files and the split-view review (source viewer, Needs a look, merge, split) | Done — TASK-055 |
 | G | Real-document acceptance: §19.2 on WSCUC/PUC/ABET originals with a real key; compare with seed data | Needs the owner's run — TASK-056 |
-| H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Planned — TASK-057 |
+| H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Done — TASK-057 (tested with a fake model on invented documents; prompts to be tuned on the TASK-056 run) |
 
 Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
 
@@ -537,7 +537,7 @@ Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F
 |---|---|---|---|
 | Redeploy; check the parser image, the three services and Garage on a real build | TASK-059 | Owner (+ me reading logs) | Pending |
 | Real-document run: WSCUC, PUC, ABET; PRD §19.2; seed replacement; embeddings decision | TASK-056 | Owner runs, I tune | Pending (needs the run) |
-| Lifecycle, vocabularies, milestones and report templates from policy/template documents | TASK-057 | Me | Pending (after the first run) |
+| Lifecycle, vocabularies, milestones and report templates from policy/template documents | TASK-057 | Me | Done (tune the prompts after the real run) |
 | Appendix D changes in the liteparse repository; then drop the fallback and LibreOffice | TASK-058 | Owner (their repo) | Pending |
 | Small gaps from steps A–F (undo a deletion, Arabic-letter numbering, parser heartbeat, …) | TASK-060 | Me | Pending |
 | Items outside the compiler (reporting frequency, institution logo, BI connector, SMTP links, Engagements) | TASK-061 | — | Backlog |

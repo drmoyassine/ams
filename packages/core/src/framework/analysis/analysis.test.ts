@@ -67,18 +67,19 @@ describe('framework analysis', () => {
     setAiModelForTests(fake.model);
     const run = await as('alo', (c) => startAnalysis(c, v.versionId));
     runId = run.id;
-    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1' } });
+    expect(run).toMatchObject({ status: 'queued', stage: 'read', promptVersions: { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1', config_survey: 'v1', lifecycle: 'v1', vocab: 'v1', template: 'v1' } });
     // One job per step: read x2, survey x2, structure, extract x3 (two windows of the handbook, one of the guide), then
     // step D: gaps, recover x3 (1.9's and a note's quotes, 3.9.1's missing parent: all answered "not there"), gaps; write, finalise.
-    // Then the IQF mapping's first step, which ends the run here: this institution has no quality framework to map onto.
-    expect(await drain()).toBe(16);
-    expect(fake.calls).toHaveLength(9);
+    // Then step H for the guidance document (one survey call: it holds no lifecycle, vocabulary or template; one write step), and the
+    // IQF mapping's first step, which ends the run here: this institution has no quality framework to map onto.
+    expect(await drain()).toBe(18);
+    expect(fake.calls).toHaveLength(10);
 
     const done = await as('alo', (c) => getAnalysisRun(c, runId));
     expect(done).toMatchObject({ status: 'succeeded', error: null, model: 'test' });
     expect(done.finishedAt).not.toBeNull();
     expect(done.progress).toMatchObject({ windowsTotal: 3, windowsDone: 3, items: 12 });
-    expect(done.usage).toEqual({ inputTokens: 90, outputTokens: 45, costUsd: null, calls: 9 });
+    expect(done.usage).toEqual({ inputTokens: 100, outputTokens: 50, costUsd: null, calls: 10 });
 
     // The level names apply to the draft.
     expect((await as('alo', (c) => getVersion(c, v.versionId))).levelLabels).toEqual(['Standard', 'Criterion', 'Indicator']);
@@ -117,6 +118,7 @@ describe('framework analysis', () => {
       pagesRead: 10, requirementsByLevel: { Standard: 1, Criterion: 3, Indicator: 3 }, requirements: 7, notes: 3,
       quoteVerified: 8, quoteVerifiedShare: 0.8, unverified: 2, orphans: 1, lowConfidence: 1, added: 10, updated: 0, keptHumanEdits: 0,
       dismissedSkipped: 0, gapsRecovered: 0, gapsUnresolved: 0, gapsConfirmedAbsent: 3, conflicts: 0, uncoveredPages: 0, recoveryRounds: 1,
+      configItems: 0, configWritten: 0, configFlagged: 0,
     });
     // The model confirmed each gap absent, with its reason; the gaps link to the requirement cards they are about.
     const gaps = done.report.gaps as { key: string; kind: string; status: string; reason: string; requirementId: string | null }[];
@@ -137,7 +139,7 @@ describe('framework analysis', () => {
     // Each step recorded its model calls in its job's result (PRD 15.3).
     const jobs = await q(`select status, result from job where type = 'analyse' and payload->>'runId' = $1`, [runId]);
     expect(jobs.every((j) => j.status === 'succeeded')).toBe(true);
-    expect(jobs.flatMap((j) => j.result.ai ?? []).map((c: { task: string }) => c.task).sort()).toEqual(['extract', 'extract', 'extract', 'recover', 'recover', 'recover', 'structure', 'survey', 'survey']);
+    expect(jobs.flatMap((j) => j.result.ai ?? []).map((c: { task: string }) => c.task).sort()).toEqual(['config_survey', 'extract', 'extract', 'extract', 'recover', 'recover', 'recover', 'structure', 'survey', 'survey']);
   }, 120000);
 
   it('re-runs without duplicating, leaves what a person edited or made, and updates only untouched AI rows', async () => {

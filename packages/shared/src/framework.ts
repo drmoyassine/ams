@@ -54,6 +54,10 @@ export const MilestoneTemplateSchema = z.object({
   applies_to: z.array(z.enum(ENGAGEMENT_KINDS)).min(1).optional(),
   required: z.boolean().default(true),
   source_ref: SourceRefSchema.optional(),
+  /** What the accreditor's document says about when this is due, copied as written (never converted into a date). */
+  due_text: z.string().min(1).optional(),
+  /** Set by the analysis: the document states a timing and a reviewer must turn it into a due rule (or choose "manual") before publishing. */
+  due_pending: z.boolean().optional(),
 }).strict();
 
 export const PhaseTemplateSchema = z.object({
@@ -203,6 +207,7 @@ export function checkFrameworkConfig(c: FrameworkConfig): ConfigIssue[] {
     if (m.due && 'after' in m.due && !milestoneKeys.has(m.due.after)) add(`${path}.due`, `unknown milestone ${m.due.after}`);
     const dk = m.deliverable?.report_template_key;
     if (dk && !templates.has(dk)) add(`${path}.deliverable`, `unknown report template ${dk}`);
+    if (m.due_pending) add(`${path}.due`, `"${m.name}": the reviewer must set the due rule${m.due_text ? ` (the document says: "${m.due_text}")` : ''}; date rules are not taken from the document`);
   }
 
   // Every engagement kind the lifecycle serves must produce exactly one self-study report. A milestone belongs to a

@@ -103,7 +103,7 @@ describe('the analysis report', () => {
       [FIXTURE_HANDBOOK.title, 'person', 'en', 9, 9, 0, 0], [FIXTURE_GUIDE.title, 'analysis', 'ar', 1, 1, 0, 0],
     ]);
     expect(s.used).toMatchObject({
-      analysisModel: 'test', visionModel: null, embeddings: { used: false, model: null }, calls: 11, recoveryRounds: 1,
+      analysisModel: 'test', visionModel: null, embeddings: { used: false, model: null }, calls: 12, recoveryRounds: 1,
       promptVersions: { survey: 'v1', map: 'v1' },
     });
     expect(s.used.inputTokens + s.used.outputTokens).toBeGreaterThan(0);
@@ -234,7 +234,7 @@ describe('run readiness (preflight)', () => {
     const p = await as('alo', (c) => analysisPreflight(c, fx.versionId));
     expect(p).toMatchObject({ canStart: true, firstProblem: null });
     expect(p.checks.map((c) => [c.id, c.status])).toEqual([
-      ['draft', 'ok'], ['sources', 'ok'], ['ai_on', 'ok'], ['analysis_model', 'ok'], ['cap', 'note'], ['embeddings', 'note'],
+      ['draft', 'ok'], ['sources', 'ok'], ['config_docs', 'note'], ['ai_on', 'ok'], ['analysis_model', 'ok'], ['cap', 'note'], ['embeddings', 'note'],
     ]);
     expect(check(p, 'embeddings').message).toMatch(/words only/);
     expect(check(p, 'embeddings').fix).toEqual({ label: 'Open Settings -> AI', where: 'ai' });

@@ -65,8 +65,8 @@ describe('analysis API', () => {
     await drain();
     const run = await call('viewer', 'GET', `/api/analysis/${started.body.id}`);
     expect(run.status).toBe(200);
-    // Six calls for the extraction, three recovery questions (the fixture answers each "not there").
-    expect(run.body).toMatchObject({ status: 'succeeded', progress: { windowsDone: 3, windowsTotal: 3, round: 1, maxRounds: 2 }, usage: { calls: 9 } });
+    // Six calls for the extraction, three recovery questions (the fixture answers each "not there"), and the guide's configuration survey.
+    expect(run.body).toMatchObject({ status: 'succeeded', progress: { windowsDone: 3, windowsTotal: 3, round: 1, maxRounds: 2 }, usage: { calls: 10 } });
     expect(run.body.report.stats).toMatchObject({ requirements: 7, notes: 3, orphans: 1, gapsConfirmedAbsent: 3, gapsUnresolved: 0, recoveryRounds: 1 });
     expect(run.body.report.gaps).toHaveLength(3);
     expect(run.body.report.gaps[0]).toMatchObject({ key: 'req:3.9', kind: 'missing_parent', status: 'confirmed_absent', round: 1, attempts: 1 });

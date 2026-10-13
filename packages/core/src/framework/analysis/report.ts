@@ -3,10 +3,10 @@
 // never calls a model. Wording rules (DEC-005): counts of what was found and checked; no score, no verdict, no embedding
 // similarity numbers. Every item carries ids and pages so the screen can link to the card, the source page or Mappings.
 import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
-import { analysisDismissal, analysisRun, appUser, iqfItemProposal, requirement, requirementMapping, requirementNote, sourceDocument, sourcePage } from '@ams/db';
+import { analysisDismissal, analysisRun, appUser, iqfItemProposal, reportTemplate, requirement, requirementMapping, requirementNote, sourceDocument, sourcePage } from '@ams/db';
 import {
   ACTIVE_ANALYSIS_STATUSES, ANALYSIS_REPORT_VERSION,
-  type AnalysisGap, type AnalysisMapping, type AnalysisReport, type AnalysisRuntimeInfo, type AnalysisStats, type AnalysisUsage, type ReportCheck, type ReportGap, type ReportItem, type ReportRef,
+  type AnalysisConfig, type AnalysisGap, type AnalysisMapping, type AnalysisReport, type AnalysisRuntimeInfo, type ConfigItemResult, type AnalysisStats, type AnalysisUsage, type ReportCheck, type ReportGap, type ReportItem, type ReportRef,
 } from '@ams/shared';
 import type { Ctx } from '../../ctx.js';
 import { getVersion, require_ } from '../common.js';
@@ -37,7 +37,23 @@ interface StoredReport {
   gaps?: AnalysisGap[];
   recovery?: { stopped?: string | null; rounds?: unknown[] };
   mapping?: AnalysisMapping;
+  config?: AnalysisConfig;
   runtime?: AnalysisRuntimeInfo;
+}
+
+const CONFIG_STOP_WORD = 'Reading the policy and template documents stopped at the spend limit; what was found so far was checked and written.';
+const targetWords = (e: AnalysisConfig['survey'][number]): string[] => [
+  ...(e.lifecycle ? [`lifecycle (${pageSpan(e.lifecycle.pages)})`] : []),
+  ...(e.vocab ? [`vocabularies (${pageSpan(e.vocab.pages)})`] : []),
+  ...(e.template ? [`report template${e.template.name ? ` "${e.template.name}"` : ''} (${pageSpan(e.template.pages)})`] : []),
+];
+/** "page 3", "pages 3 to 7", "pages 3, 5, 9". */
+function pageSpan(pages: number[]): string {
+  if (!pages.length) return 'no pages';
+  const first = pages[0]!;
+  const last = pages[pages.length - 1]!;
+  if (pages.length === 1) return `page ${first}`;
+  return last - first + 1 === pages.length ? `pages ${first} to ${last}` : `pages ${pages.slice(0, 6).join(', ')}${pages.length > 6 ? ' …' : ''}`;
 }
 
 const cmp = (a: ReportRef, b: ReportRef) => naturalCompare(a.code ?? '', b.code ?? '') || (a.page ?? 0) - (b.page ?? 0);
@@ -195,6 +211,28 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
     }
   }
 
+  // ---- configuration found (step H): the run's own record, with the live state of the parts a person may have edited since
+  const conf = stored.config;
+  const confRan = !!conf && !conf.skipped;
+  const confEdited = ((version.configEdited ?? {}) as Record<string, boolean>);
+  const confResult = conf?.result ?? null;
+  const confTemplates = confRan ? await ctx.tx.select({ key: reportTemplate.key, edited: reportTemplate.editedByPerson }).from(reportTemplate).where(eq(reportTemplate.frameworkVersionId, version.id)) : [];
+  const withTitle = (i: ConfigItemResult) => ({ ...i, documentTitle: docTitle.get(i.documentId) ?? null });
+  const confItems = (confResult?.items ?? []).map(withTitle);
+  const dueLive = countDuePending(version.lifecycleTemplate);
+  const configuration: AnalysisReport['configuration'] = {
+    ran: confRan,
+    skipped: conf ? conf.skipped : 'This analysis was made before the policy and template documents were read.',
+    stopped: conf?.stopped === 'budget' ? CONFIG_STOP_WORD : null,
+    sections: (confResult?.sections ?? []).map((x) => ({ ...x, editedSince: x.section === 'report_templates' ? confTemplates.some((t) => t.edited) : !!confEdited[x.section] })),
+    items: confItems,
+    flagged: confItems.filter((i) => i.status === 'flagged'),
+    notFound: confResult?.notFound ?? [],
+    deletedByPerson: confResult?.deletedByPerson ?? [],
+    milestonesNeedingDueRule: dueLive,
+    documents: (conf?.survey ?? []).map((e) => ({ documentId: e.documentId, title: e.title, role: e.role, found: targetWords(e), note: e.note })),
+  };
+
   // ---- validation (reused from validateVersion)
   const validation = await validateVersion(ctx, version.id);
   const problems = validation.ok ? [] : validation.issues.map((i) => i.message);
@@ -218,6 +256,15 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
   add('links_waiting', decisions.linksWaiting, `${plural(decisions.linksWaiting, 'suggested link')} to your quality framework waiting for a decision`, 'look', toMappings);
   add('new_items_waiting', decisions.newItemsWaiting, `${plural(decisions.newItemsWaiting, 'suggested new quality framework item')} waiting for a decision`, 'look', toMappings);
   add('no_suggestion', noSuggestion.length, `${plural(noSuggestion.length, 'requirement')} with no suggested link`, 'info', toMappings);
+  const toSettings = (section: 'lifecycle' | 'templates'): ReportCheck['link'] => ({ tab: 'settings', section, requirementId: null, documentId: null, page: null });
+  const flaggedConfig = configuration.flagged;
+  const onlyTemplates = flaggedConfig.length > 0 && flaggedConfig.every((i) => i.group === 'template' || i.group === 'section');
+  add('config_flagged', flaggedConfig.length, `${plural(flaggedConfig.length, 'configuration item')} found in the policy or template documents ${flaggedConfig.length === 1 ? 'was' : 'were'} kept out of the draft (quote not found, or refused by validation)`, 'look',
+    flaggedConfig[0] ? (onlyTemplates ? toSettings('templates') : toSettings('lifecycle')) : null);
+  add('config_due_rules', dueLive, `${plural(dueLive, 'milestone')} found in the policy documents ${dueLive === 1 ? 'needs' : 'need'} a due rule set by a reviewer (the documents' wording is kept; no date was taken from them)`, 'look', toSettings('lifecycle'));
+  const keptConfig = configuration.sections.filter((x) => x.state === 'kept_your_edits');
+  add('config_kept', keptConfig.length, `${plural(keptConfig.length, 'part')} of the configuration ${keptConfig.length === 1 ? 'holds' : 'hold'} your own work, so what the documents say was left out of it (see the Report)`, 'info', toSettings('lifecycle'));
+  add('config_not_found', configuration.notFound.length, `${plural(configuration.notFound.length, 'kind')} of configuration the documents did not contain`, 'info', toSettings('lifecycle'));
   add('validation_problems', problems.length, `${plural(problems.length, 'problem')} to fix before this version can be published`, 'look', { tab: 'settings', section: 'details', requirementId: null, documentId: null, page: null });
   add('validation_warnings', warnings.length, `${plural(warnings.length, 'thing')} to check before publishing (not blocking)`, 'info', reqLink(undefined));
   if (run.status === 'failed' || run.status === 'cancelled') {
@@ -274,9 +321,16 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
       requirementsConsidered: m?.requirements ?? 0, suggested, byRelation, noSuggestion, newItems, decisions,
       stopped: m?.stopped === 'budget' ? 'Linking stopped at the spend limit; the suggestions so far are kept.' : null,
     },
+    configuration,
     checklist,
     validation: { problems, warnings },
   };
+}
+
+/** Milestones in the stored lifecycle that still carry the analysis's "a reviewer must set the due rule" mark. */
+function countDuePending(lifecycle: unknown): number {
+  const phases = (lifecycle as { phases?: { milestones?: { due_pending?: boolean }[] }[] } | null)?.phases;
+  return Array.isArray(phases) ? phases.reduce((n, p) => n + (p.milestones ?? []).filter((m) => m.due_pending === true).length, 0) : 0;
 }
 
 /** The report of the version's latest finished run (succeeded, stopped or cancelled), or null when it has had none. */

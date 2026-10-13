@@ -6,6 +6,7 @@ import { ACTIVE_ANALYSIS_STATUSES, type Preflight, type PreflightCheck } from '@
 import type { Ctx } from '../../ctx.js';
 import { aiPreflightChecks } from '../../ai/settings.js';
 import { getVersion, isInternalVersion, require_ } from '../common.js';
+import { CONFIG_ROLES } from './config-schemas.js';
 
 export async function analysisPreflight(ctx: Ctx, versionId: string): Promise<Preflight> {
   await require_(ctx, 'framework:write');
@@ -24,6 +25,18 @@ export async function analysisPreflight(ctx: Ctx, versionId: string): Promise<Pr
   if (!src?.n) checks.push({ id: 'sources', status: 'problem', message: 'Add the accreditor\'s documents under Sources first.', fix: { label: 'Add sources', where: 'sources' } });
   else if (!src.usable) checks.push({ id: 'sources', status: 'problem', message: 'Upload a source file or type in its pages first; there is nothing to read yet.', fix: { label: 'Open Sources', where: 'sources' } });
   else checks.push({ id: 'sources', status: 'ok', message: `${src.n} ${src.n === 1 ? 'source' : 'sources'} to read.`, fix: null });
+
+  // Informational: policy, report-template and guidance documents are also read, for the lifecycle, vocabularies and templates.
+  const [cfg] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(sourceDocument)
+    .where(and(eq(sourceDocument.frameworkVersionId, versionId), inArray(sourceDocument.role, [...CONFIG_ROLES] as (typeof sourceDocument.role.enumValues)[number][]),
+      sql`(${sourceDocument.fileName} is not null or exists (select 1 from source_page p where p.source_document_id = source_document.id))`));
+  const nCfg = cfg?.n ?? 0;
+  checks.push({
+    id: 'config_docs', status: nCfg > 0 ? 'ok' : 'note', fix: null,
+    message: nCfg > 0
+      ? `Documents that can supply configuration: ${nCfg} (policy and procedure, report template or guidance); the lifecycle, vocabularies and report templates are read from them.`
+      : 'Documents that can supply configuration: 0. Add a policy and procedure or report-template document if you also want the lifecycle, vocabularies and report templates read.',
+  });
 
   const [active] = await ctx.tx.select({ id: analysisRun.id }).from(analysisRun)
     .where(and(eq(analysisRun.frameworkVersionId, versionId), inArray(analysisRun.status, [...ACTIVE_ANALYSIS_STATUSES])));

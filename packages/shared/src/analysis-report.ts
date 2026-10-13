@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ANALYSIS_GAP_KINDS, ANALYSIS_STAGES, ANALYSIS_STATUSES } from './analysis.js';
+import { ANALYSIS_GAP_KINDS, ANALYSIS_STAGES, ANALYSIS_STATUSES, CONFIG_SECTIONS, CONFIG_SECTION_LABEL, CONFIG_SECTION_STATES, ConfigItemResultSchema } from './analysis.js';
 
 /**
  * The intelligence report of one analysis run (PRD 15, step F1). Computed on demand from what is stored (so it reflects
@@ -63,7 +63,7 @@ export type ReportSource = z.infer<typeof ReportSourceSchema>;
 export const ReportLinkSchema = z.object({
   tab: z.enum(['requirements', 'mappings', 'settings']),
   /** Settings section, for tab 'settings'; 'ai' means Settings -> AI (outside the version page). */
-  section: z.enum(['details', 'sources', 'ai']).nullable(),
+  section: z.enum(['details', 'sources', 'ai', 'lifecycle', 'templates']).nullable(),
   requirementId: z.string().nullable(),
   documentId: z.string().nullable(),
   page: z.number().int().nullable(),
@@ -189,6 +189,26 @@ export const AnalysisReportSchema = z.object({
     stopped: z.string().nullable(),
   }),
 
+  /** e2. Configuration found in the policy, template and guidance documents (step H): lifecycle, vocabularies, templates. */
+  configuration: z.object({
+    ran: z.boolean(),
+    /** Why the configuration stages did not run; null when they did. */
+    skipped: z.string().nullable(),
+    stopped: z.string().nullable(),
+    /** Per part of the configuration: what the run did with it, and whether a person has edited it since. */
+    sections: z.array(z.object({
+      section: z.enum(CONFIG_SECTIONS), state: z.enum(CONFIG_SECTION_STATES), written: z.number().int(), flagged: z.number().int(), editedSince: z.boolean(),
+    })),
+    /** Everything found, in reading order; `flagged` is the subset kept out of the configuration. */
+    items: z.array(ConfigItemResultSchema.extend({ documentTitle: z.string().nullable() })),
+    flagged: z.array(ConfigItemResultSchema.extend({ documentTitle: z.string().nullable() })),
+    notFound: z.array(z.string()),
+    deletedByPerson: z.array(z.string()),
+    milestonesNeedingDueRule: z.number().int(),
+    /** Documents read for it, with what each held. */
+    documents: z.array(z.object({ documentId: z.string(), title: z.string(), role: z.string(), found: z.array(z.string()), note: z.string().nullable() })),
+  }),
+
   /** f. What to look at before publishing. */
   checklist: z.array(ReportCheckSchema),
   /** The version's own validation problems and warnings (validateVersion). */
@@ -226,6 +246,7 @@ export const GAP_KIND_WORDS: Record<(typeof ANALYSIS_GAP_KINDS)[number], string>
   numbering_gap: 'possibly missing', missing_parent: 'parent not found', unverified_quote: 'quote not found', low_confidence: 'low confidence',
   uncovered_page: 'page not covered', conflict: 'conflicting wording',
 };
+export const CONFIG_STATE_WORDS = { written: 'written to the draft', kept_your_edits: 'left as you edited it', nothing_found: 'nothing found', flagged_only: 'only flagged proposals' } as const;
 export const RELATION_WORDS = { covers: 'covers', partly_covers: 'partly covers', related: 'related' } as const;
 
 /** The report as Markdown (for "Download as Markdown"). Plain text only; the accreditor's wording is quoted as it is. */
@@ -297,6 +318,22 @@ export function reportToMarkdown(r: AnalysisReport, title = 'Analysis report'): 
       `- Decided so far: links ${m.decisions.linksAccepted} accepted, ${m.decisions.linksDismissed} dismissed, ${m.decisions.linksWaiting} waiting; new items ${m.decisions.newItemsAccepted} accepted, ${m.decisions.newItemsDismissed} dismissed, ${m.decisions.newItemsWaiting} waiting`);
     for (const x of m.suggested) o.push(`- ${x.ref.code ?? ''}: ${x.links.map((l) => `${RELATION_WORDS[l.relation]} ${l.internalCode}`).join('; ')}`);
     for (const n of m.newItems) o.push(`- Suggested new item ${n.code} ${n.title} (${n.status})`);
+  }
+  const cf = r.configuration;
+  o.push('', '## Configuration found', '');
+  if (!cf.ran) o.push(`- Not read${cf.skipped ? `: ${cf.skipped}` : '.'}`);
+  else {
+    for (const d of cf.documents) o.push(`- ${d.title}: ${d.found.length ? d.found.join(', ') : 'nothing to take'}${d.note ? ` (${d.note})` : ''}`);
+    if (cf.stopped) o.push(`- ${cf.stopped}`);
+    for (const x of cf.sections) o.push(`- ${CONFIG_SECTION_LABEL[x.section]}: ${CONFIG_STATE_WORDS[x.state]}; ${x.written} written, ${x.flagged} flagged${x.editedSince ? '; edited by you since' : ''}`);
+    if (cf.milestonesNeedingDueRule) o.push(`- ${plural(cf.milestonesNeedingDueRule, 'milestone')} still need a due rule set by a reviewer`);
+    for (const n of cf.notFound) o.push(`- ${n}`);
+    for (const d of cf.deletedByPerson) o.push(`- You deleted ${d}; it was not added back`);
+    for (const i of cf.items.filter((x) => x.status !== 'flagged')) o.push(`- ${i.group} ${i.label}${i.detail ? ` (${i.detail})` : ''}${where({ documentTitle: i.documentTitle, page: i.page })}${i.dueText ? `; due as written: "${i.dueText}"` : ''}${i.reasons.length ? `; ${i.reasons.join('; ')}` : ''}`);
+    if (cf.flagged.length) {
+      o.push('', '### Kept out of the configuration', '');
+      for (const i of cf.flagged) o.push(`- ${i.group} ${i.label}${where({ documentTitle: i.documentTitle, page: i.page })}: ${i.reasons.join('; ')}`);
+    }
   }
   o.push('', '## Before you publish', '');
   if (!r.checklist.length && !r.validation.problems.length && !r.validation.warnings.length) o.push('- Nothing is flagged. Publishing is still your decision.');
