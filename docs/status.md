@@ -22,11 +22,12 @@ In the order I would do them.
 
 1. **Check what exists on real documents (needs the owner).** Redeploy, then the real run on the WSCUC, PUC and ABET files and tuning from the report: TASK-059 (production check of the services and the parser image) and TASK-056 (the PRD §19.2 acceptance test, seed-data replacement, embeddings decision).
 2. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice.
-3. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
-4. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
-5. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.
-6. **P1 features.** M8 assessment cycle, self-rating, notifications, external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011).
-7. **Smaller follow-ups.** Assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog outside the compiler (TASK-061): reporting frequency, institution logo, Settings for all roles, BI connector, emailing links over SMTP.
+3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** Organization with two tabs and the institution logo (TASK-069); a shared Docs tab and Documents area for every place the AI parses uploads into drafts (TASK-075); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); an org chart builder (TASK-072), from an image (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
+4. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
+5. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
+6. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.
+7. **P1 features.** M8 assessment cycle, self-rating, notifications, external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011).
+8. **Smaller follow-ups.** Assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog outside the compiler (TASK-061): reporting frequency, institution logo, Settings for all roles, BI connector, emailing links over SMTP.
 
 ## Waiting on the owner
 
