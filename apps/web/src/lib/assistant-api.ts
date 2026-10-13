@@ -1,11 +1,14 @@
 import type {
-  AssistantContext, AssistantConversation, AssistantMessage, AssistantStatus, ConfirmMemoryProposal, CreateMemory, MemoryItem, MemoryScopeType, UpdateMemory,
+  AssistantContext, AssistantConversation, AssistantMessage, AssistantStatus, ChangeProposalPart, ConfirmMemoryProposal, CreateMemory, MemoryItem, MemoryScopeType, UpdateMemory, WrittenText,
 } from '@ams/shared';
-import { api as defaultApi } from './api';
+import { api as defaultApi, fetcherOf } from './api';
+import { redoDescriptor, undoDescriptor } from './undo';
 import { unwrap, type Api } from './framework-api';
 
 export type ConversationWithMessages = AssistantConversation & { messages: AssistantMessage[] };
 export interface SentTurn { conversation: AssistantConversation; userMessage: AssistantMessage | null; assistantMessage: AssistantMessage | null }
+export interface ConfirmedChange { status: 'ready' | 'stale'; message: string | null; token: string | null; expiresAt: string | null; changeSetHash: string; part: ChangeProposalPart }
+export interface AppliedChange { status: 'applied' | 'failed' | 'stale'; message: string; part: ChangeProposalPart }
 export interface MemoryQuery { scopeType?: MemoryScopeType; scopeId?: string; tab?: 'mine' | 'shared'; includeArchived?: boolean }
 
 /** The in-app assistant's calls (DEC-027), through the typed client. */
@@ -25,6 +28,20 @@ export function assistantApi(api: Api = defaultApi) {
     confirmProposal: (messageId: string, partId: string, json: ConfirmMemoryProposal = {}) =>
       a['memory-proposals'][':messageId'][':partId'].confirm.$post({ param: { messageId, partId }, json }).then((r) => unwrap<MemoryItem>(r)),
     declineProposal: (messageId: string, partId: string) => a['memory-proposals'][':messageId'][':partId'].decline.$post({ param: { messageId, partId } }).then((r) => unwrap<void>(r)),
+    // ---- Bulk edits confirmed in the chat (Phase 2). Do it = confirm (a one-time token) then apply with it. ----
+    confirmChange: (messageId: string, partId: string) =>
+      a['change-proposals'][':messageId'][':partId'].confirm.$post({ param: { messageId, partId } }).then((r) => unwrap<ConfirmedChange>(r)),
+    applyChange: (messageId: string, partId: string, token: string) =>
+      a['change-proposals'][':messageId'][':partId'].apply.$post({ param: { messageId, partId }, json: { token } }).then((r) => unwrap<AppliedChange>(r)),
+    declineChange: (messageId: string, partId: string) =>
+      a['change-proposals'][':messageId'][':partId'].decline.$post({ param: { messageId, partId } }).then((r) => unwrap<ChangeProposalPart>(r)),
+    /** Undo / Redo of an applied change set: through the undo bus, so the toast, Ctrl+Z and Ctrl+Shift+Z follow. */
+    undoChange: (changeSetId: string, label: string) => undoDescriptor(fetcherOf(api), { label, method: 'POST', path: `/api/assistant/changes/${changeSetId}/undo` }),
+    redoChange: (changeSetId: string, label: string) => redoDescriptor(fetcherOf(api), { label, method: 'POST', path: `/api/assistant/changes/${changeSetId}/redo` }),
+    // ---- Texts the assistant wrote (the "Written by the assistant" marker) ----
+    writtenTexts: (versionId: string) => api.api['framework-versions'][':id']['assistant-texts'].$get({ param: { id: versionId } }).then((r) => unwrap<WrittenText[]>(r)),
+    keepWritten: (id: string) => a['written-texts'][':id'].keep.$post({ param: { id } }).then((r) => unwrap<void>(r)),
+    revertWritten: (id: string) => a['written-texts'][':id'].revert.$post({ param: { id } }).then((r) => unwrap<void>(r)),
     memory: (q: MemoryQuery = {}) =>
       a.memory.$get({ query: { ...(q.scopeType ? { scopeType: q.scopeType } : {}), ...(q.scopeId ? { scopeId: q.scopeId } : {}), ...(q.tab ? { tab: q.tab } : {}), ...(q.includeArchived ? { includeArchived: 'true' as const } : {}) } })
         .then((r) => unwrap<MemoryItem[]>(r)),

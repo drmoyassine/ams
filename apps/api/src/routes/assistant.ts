@@ -1,12 +1,14 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  auditListConversations, auditReadMessages, cancelMessage, confirmMemoryProposal, createConversation, createMemory, declineMemoryProposal, deleteConversation, deleteMemory,
-  getAssistantStatus, getConversation, listConversations, listMemory, messagesSince, renameConversation, sendMessage, updateMemory,
+  applyChangeProposal, auditListConversations, auditReadMessages, cancelMessage, confirmChangeProposal, confirmMemoryProposal, createConversation, createMemory,
+  declineChangeProposal, declineMemoryProposal, deleteConversation, deleteMemory, getAssistantStatus, getConversation, keepWrittenText, listConversations, listMemory,
+  listWrittenTexts, messagesSince, redoChangeSet, renameConversation, revertWrittenText, sendMessage, undoChangeSet, updateMemory,
 } from '@ams/core';
 import {
-  AssistantAuditListSchema, AssistantConversationSchema, AssistantMessageSchema, AssistantStatusSchema, ConfirmMemoryProposalSchema, ConversationWithMessagesSchema,
+  ApplyChangeBodySchema, ApplyChangeResultSchema, AssistantAuditListSchema, AssistantConversationSchema, AssistantMessageSchema, AssistantStatusSchema, ChangeProposalPartSchema,
+  ChangeSetStateSchema, ConfirmChangeSchema, ConfirmMemoryProposalSchema, ConversationWithMessagesSchema,
   CreateConversationSchema, CreatedConversationSchema, CreateMemorySchema, MemoryItemSchema, MemoryListQuerySchema, MessagesSinceQuerySchema, MessagesSinceSchema, SendMessageSchema,
-  SentTurnSchema, UpdateConversationSchema, UpdateMemorySchema, toDto,
+  SentTurnSchema, UpdateConversationSchema, UpdateMemorySchema, WrittenTextSchema, toDto,
 } from '@ams/shared';
 import { requires, scopeFrom, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -21,6 +23,8 @@ export function assistantRoutes(registry: RouteRegistry, deps: ChainDeps, option
   const base = requires('org:read');
   const rateLimited = { 429: { description: 'Too many assistant questions this hour', ...json(z.object({ error: z.string(), message: z.string().optional() })) } };
   const messageParams = z.object({ messageId: z.uuid(), partId: z.string().min(1).max(64) });
+  // Changing standards needs framework:write across the institution, exactly as the screens do; the services check it again.
+  const write = requires('framework:write', scopeFrom.institution);
   return new OpenAPIHono<AppEnv>(options)
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/assistant/status', access: base, tags: tag,
@@ -90,6 +94,61 @@ export function assistantRoutes(registry: RouteRegistry, deps: ChainDeps, option
       request: { params: messageParams },
       responses: { 204: { description: 'Declined; nothing is stored' }, ...errors },
     }), async (c) => { const p = c.req.valid('param'); await declineMemoryProposal(c.get('ctx'), p.messageId, p.partId); return c.body(null, 204); })
+
+    // ---- Bulk edits the person confirms in the chat (DEC-027 Phase 2). The model only PROPOSES; these are the person's button presses. ----
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/change-proposals/{messageId}/{partId}/confirm', access: write, tags: tag,
+      request: { params: messageParams },
+      description: 'The "Do it" press, step 1. Re-checks the proposal on the data as it is now (a dry run through the services, rolled back) and, only if it holds, issues a one-time token tied to this person, this proposal and the hash of its exact change set (valid ten minutes). Only the proposal\'s owner, only while it is pending.',
+      responses: { 200: { description: 'A token (status ready), or the reason the proposal no longer holds (status stale)', ...json(ConfirmChangeSchema) }, ...errors },
+    }), async (c) => { const p = c.req.valid('param'); return c.json(toDto(ConfirmChangeSchema, await confirmChangeProposal(c.get('ctx'), p.messageId, p.partId)), 200); })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/change-proposals/{messageId}/{partId}/apply', access: write, tags: tag,
+      request: { params: messageParams, body: { required: true, ...json(ApplyChangeBodySchema) } },
+      description: 'The "Do it" press, step 2. Consumes the token (once), plans again on the current data and, if the result is exactly what was confirmed, applies ALL operations in one transaction as the person through the core services. Answers with ONE undo descriptor (POST /api/assistant/changes/{id}/undo). Nothing is changed when it answers failed or stale.',
+      responses: { 200: { description: 'applied, failed or stale, with the updated proposal', ...json(ApplyChangeResultSchema) }, ...errors },
+    }), async (c) => { const p = c.req.valid('param'); return c.json(toDto(ApplyChangeResultSchema, await applyChangeProposal(c.get('ctx'), p.messageId, p.partId, c.req.valid('json').token)), 200); })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/change-proposals/{messageId}/{partId}/decline', access: write, tags: tag,
+      request: { params: messageParams },
+      responses: { 200: { description: 'Cancelled; nothing was changed and no token can apply it any more', ...json(ChangeProposalPartSchema) }, ...errors },
+    }), async (c) => { const p = c.req.valid('param'); return c.json(toDto(ChangeProposalPartSchema, await declineChangeProposal(c.get('ctx'), p.messageId, p.partId)), 200); })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/changes/{id}/undo', access: write, tags: tag,
+      request: { params: idParam },
+      description: 'Takes a whole applied change set back in one transaction (restores deletes from the Trash, puts earlier values and places back, removes what it created). Answers with the redo descriptor.',
+      responses: { 200: { description: 'Undone', ...json(ChangeSetStateSchema) }, ...errors },
+    }), async (c) => c.json(toDto(ChangeSetStateSchema, await undoChangeSet(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/changes/{id}/redo', access: write, tags: tag,
+      request: { params: idParam },
+      description: 'Applies an undone change set again, through the services and their checks; refused with the reason when the world changed (for example the version was published meanwhile).',
+      responses: { 200: { description: 'Done again', ...json(ChangeSetStateSchema) }, ...errors },
+    }), async (c) => c.json(toDto(ChangeSetStateSchema, await redoChangeSet(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/assistant-texts', access: requires('framework:read'), tags: tag,
+      request: { params: idParam },
+      description: 'Texts the assistant wrote in this version that nobody has kept or reverted yet and that still hold exactly what it wrote.',
+      responses: { 200: { description: 'The markers', ...json(z.array(WrittenTextSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(WrittenTextSchema), await listWrittenTexts(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/written-texts/{id}/keep', access: write, tags: tag,
+      request: { params: idParam },
+      responses: { 204: { description: 'Kept; the marker is gone' }, ...errors },
+    }), async (c) => { await keepWrittenText(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/assistant/written-texts/{id}/revert', access: write, tags: tag,
+      request: { params: idParam },
+      description: 'Puts back the value the assistant\'s text replaced, as a normal edit (so it can be undone).',
+      responses: { 204: { description: 'Reverted' }, ...errors },
+    }), async (c) => { await revertWrittenText(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/assistant/memory', access: base, tags: tag,

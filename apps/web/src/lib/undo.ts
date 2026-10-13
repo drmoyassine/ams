@@ -161,6 +161,18 @@ export async function redoEntry(entry: UndoEntry): Promise<boolean> {
   return true;
 }
 
+/**
+ * Undoes or redoes an action that is not on this screen's history: a button inside the chat (the assistant's change card) whose
+ * descriptor is known. Same request (marked X-Replay), same toasts, and the answer lands on the Redo / Undo stacks like any other,
+ * so Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z keep working around it.
+ */
+export function undoDescriptor(fetcher: typeof fetch, d: UndoDescriptor): Promise<boolean> {
+  return undoEntry({ id: nextId++, label: d.label, scope: currentScope(), run: runner(fetcher, d, 'undo') });
+}
+export function redoDescriptor(fetcher: typeof fetch, d: UndoDescriptor): Promise<boolean> {
+  return redoEntry({ id: nextId++, label: d.label, scope: currentScope(), run: runner(fetcher, d, 'redo') });
+}
+
 /** Ctrl/Cmd+Shift+Z, Ctrl/Cmd+Y: redoes the latest undone action of this screen. False when there is nothing to redo here. */
 export async function redoLast(scope: string = currentScope()): Promise<boolean> {
   const last = [...redoStack].reverse().find((h) => h.scope === scope);

@@ -1,0 +1,1259 @@
+{
+ "description": "Sample instructions for the assistant's bulk edits (DEC-027 Phase 2). `fixture` is a small tree; each instruction has the operations it should become and the exact effect they must have on the fixture (old code -> new field values, deleted roots, moved items, created codes, skipped codes, or a problem). Names in this file are samples. Run: pnpm assistant:eval.",
+ "fixture": {
+  "version": "Sample Standard 2025",
+  "levels": [
+   "Standard",
+   "Measure",
+   "Indicator"
+  ],
+  "rows": [
+   {
+    "code": "1",
+    "parent": null,
+    "level": "Standard",
+    "title": "Standard (1): Mission and Goals",
+    "text": "The institution has a clear mission and goals."
+   },
+   {
+    "code": "1-1",
+    "parent": "1",
+    "level": "Measure",
+    "title": "1-1",
+    "text": "Mission statement"
+   },
+   {
+    "code": "1-1-1",
+    "parent": "1-1",
+    "level": "Indicator",
+    "title": "1-1-1",
+    "text": "The mission states the purpose of the institution."
+   },
+   {
+    "code": "1-1-2",
+    "parent": "1-1",
+    "level": "Indicator",
+    "title": "1-1-2",
+    "text": "Goals are clear and measurable."
+   },
+   {
+    "code": "1-1-3",
+    "parent": "1-1",
+    "level": "Indicator",
+    "title": "Goals are linked to performance indicators",
+    "text": null
+   },
+   {
+    "code": "1-2",
+    "parent": "1",
+    "level": "Measure",
+    "title": "Governance",
+    "text": null
+   },
+   {
+    "code": "1-2-1",
+    "parent": "1-2",
+    "level": "Indicator",
+    "title": "1-2-1",
+    "text": "توضح رسالة المؤسسة الغرض من إنشائها.",
+    "language": "ar"
+   },
+   {
+    "code": "1-2-2",
+    "parent": "1-2",
+    "level": "Indicator",
+    "title": "1-2-2",
+    "text": "The institution publishes its policies, procedures and decisions in a form that staff, students and external reviewers can find. The institution publishes its policies, procedures and decisions in a form that staff, students and external reviewers can find. The institution publishes its policies, procedures and decisions in a form that staff, students and external reviewers can find."
+   },
+   {
+    "code": "1-2-3",
+    "parent": "1-2",
+    "level": "Indicator",
+    "title": "1-2-3",
+    "text": null
+   },
+   {
+    "code": "2",
+    "parent": null,
+    "level": "Standard",
+    "title": "المعيار (2): التعليم والتعلم",
+    "text": "يعتمد التعليم على خطة دراسية واضحة.",
+    "language": "ar"
+   },
+   {
+    "code": "2-1",
+    "parent": "2",
+    "level": "Measure",
+    "title": "التخطيط",
+    "text": null,
+    "language": "ar"
+   },
+   {
+    "code": "2-1-1",
+    "parent": "2-1",
+    "level": "Indicator",
+    "title": "2-1-1",
+    "text": "يوجد خطة دراسية معتمدة لكل برنامج.",
+    "language": "ar"
+   },
+   {
+    "code": "2-1-2",
+    "parent": "2-1",
+    "level": "Indicator",
+    "title": "تتم مراجعة الخطة سنويا",
+    "text": null,
+    "language": "ar"
+   },
+   {
+    "code": "2-2",
+    "parent": "2",
+    "level": "Measure",
+    "title": "Empty measure A",
+    "text": null
+   },
+   {
+    "code": "2-3",
+    "parent": "2",
+    "level": "Measure",
+    "title": "Empty measure B",
+    "text": null
+   },
+   {
+    "code": "3",
+    "parent": null,
+    "level": "Standard",
+    "title": "Standard (3): Resources",
+    "text": "Resources support learning."
+   },
+   {
+    "code": "3-1",
+    "parent": "3",
+    "level": "Measure",
+    "title": "Library",
+    "text": "The library supports learning."
+   },
+   {
+    "code": "3-1-1",
+    "parent": "3-1",
+    "level": "Indicator",
+    "title": "Library hours",
+    "text": "Open at least 40 hours a week."
+   },
+   {
+    "code": "3.1.1",
+    "parent": "3-1",
+    "level": "Indicator",
+    "title": "Library hours (copy)",
+    "text": "Open at least 40 hours a week."
+   },
+   {
+    "code": "3-2",
+    "parent": "3",
+    "level": "Measure",
+    "title": "Facilities",
+    "text": null
+   },
+   {
+    "code": "3-2-1",
+    "parent": "3-2",
+    "level": "Indicator",
+    "title": "3-2-1",
+    "text": "Rooms are safe and accessible.",
+    "assessable": false
+   },
+   {
+    "code": "3-2-2",
+    "parent": "3-2",
+    "level": "Indicator",
+    "title": "Equipment inventory",
+    "text": "Equipment is listed.",
+    "origin": "ai",
+    "quoteNotFound": true
+   },
+   {
+    "code": "3-2-3",
+    "parent": "3-2",
+    "level": "Indicator",
+    "title": "Safety drills",
+    "text": "Drills are held twice a year.",
+    "editedByPerson": true
+   }
+  ]
+ },
+ "instructions": [
+  {
+   "id": "swap-1",
+   "lang": "en",
+   "text": "Put each indicator's statement in its title, wherever the title is only the code.",
+   "operations": [
+    {
+     "op": "swap_title_and_description",
+     "filter": {
+      "level": "Indicator"
+     },
+     "direction": "statement_to_title"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-1": {
+      "title": "The mission states the purpose of the institution.",
+      "officialText": null
+     },
+     "1-1-2": {
+      "title": "Goals are clear and measurable.",
+      "officialText": null
+     },
+     "1-2-1": {
+      "title": "توضح رسالة المؤسسة الغرض من إنشائها.",
+      "officialText": null
+     },
+     "2-1-1": {
+      "title": "يوجد خطة دراسية معتمدة لكل برنامج.",
+      "officialText": null
+     },
+     "3-2-1": {
+      "title": "Rooms are safe and accessible.",
+      "officialText": null
+     }
+    },
+    "skipped": [
+     "1-2-2",
+     "1-2-3"
+    ]
+   }
+  },
+  {
+   "id": "swap-2",
+   "lang": "ar",
+   "text": "ضع نص كل مؤشر في عنوانه حيث يكون العنوان هو الرمز فقط.",
+   "operations": [
+    {
+     "op": "swap_title_and_description",
+     "filter": {
+      "level": "Indicator"
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-1": {
+      "title": "The mission states the purpose of the institution.",
+      "officialText": null
+     },
+     "1-1-2": {
+      "title": "Goals are clear and measurable.",
+      "officialText": null
+     },
+     "1-2-1": {
+      "title": "توضح رسالة المؤسسة الغرض من إنشائها.",
+      "officialText": null
+     },
+     "2-1-1": {
+      "title": "يوجد خطة دراسية معتمدة لكل برنامج.",
+      "officialText": null
+     },
+     "3-2-1": {
+      "title": "Rooms are safe and accessible.",
+      "officialText": null
+     }
+    },
+    "skipped": [
+     "1-2-2",
+     "1-2-3"
+    ]
+   }
+  },
+  {
+   "id": "swap-3",
+   "lang": "en",
+   "text": "Do the same title fix for the measures.",
+   "operations": [
+    {
+     "op": "swap_title_and_description",
+     "filter": {
+      "level": "Measure"
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1": {
+      "title": "Mission statement",
+      "officialText": null
+     }
+    }
+   }
+  },
+  {
+   "id": "swap-4",
+   "lang": "en",
+   "text": "Undo the title fix: indicators whose title is a statement and that have no description should have the statement as description and the code as title.",
+   "operations": [
+    {
+     "op": "swap_title_and_description",
+     "filter": {
+      "level": "Indicator"
+     },
+     "direction": "title_to_statement"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-3": {
+      "title": "1-1-3",
+      "officialText": "Goals are linked to performance indicators"
+     },
+     "2-1-2": {
+      "title": "2-1-2",
+      "officialText": "تتم مراجعة الخطة سنويا"
+     }
+    },
+    "skipped": [
+     "3-1-1",
+     "3.1.1",
+     "3-2-2",
+     "3-2-3"
+    ]
+   }
+  },
+  {
+   "id": "swap-5",
+   "lang": "ar",
+   "text": "أصلح عناوين المؤشرات تحت المعيار 2 فقط.",
+   "operations": [
+    {
+     "op": "swap_title_and_description",
+     "filter": {
+      "level": "Indicator",
+      "underCode": "2"
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "2-1-1": {
+      "title": "يوجد خطة دراسية معتمدة لكل برنامج.",
+      "officialText": null
+     }
+    }
+   }
+  },
+  {
+   "id": "lang-1",
+   "lang": "ar",
+   "text": "اجعل لغة كل ما تحت المعيار 2 هي العربية.",
+   "operations": [
+    {
+     "op": "set_field_by_filter",
+     "filter": {
+      "underCode": "2"
+     },
+     "field": "language",
+     "value": "ar"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "2-2": {
+      "language": "ar"
+     },
+     "2-3": {
+      "language": "ar"
+     }
+    }
+   }
+  },
+  {
+   "id": "assess-1",
+   "lang": "en",
+   "text": "Make all measures not assessable.",
+   "operations": [
+    {
+     "op": "bulk_set_assessable",
+     "filter": {
+      "level": "Measure"
+     },
+     "value": false
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1": {
+      "isAssessable": false
+     },
+     "1-2": {
+      "isAssessable": false
+     },
+     "2-1": {
+      "isAssessable": false
+     },
+     "2-2": {
+      "isAssessable": false
+     },
+     "2-3": {
+      "isAssessable": false
+     },
+     "3-1": {
+      "isAssessable": false
+     },
+     "3-2": {
+      "isAssessable": false
+     }
+    }
+   }
+  },
+  {
+   "id": "assess-2",
+   "lang": "ar",
+   "text": "اجعل كل المؤشرات قابلة للتقييم.",
+   "operations": [
+    {
+     "op": "bulk_set_assessable",
+     "filter": {
+      "level": "Indicator"
+     },
+     "value": true
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-2-1": {
+      "isAssessable": true
+     }
+    }
+   }
+  },
+  {
+   "id": "assess-3",
+   "lang": "en",
+   "text": "Mark every item whose source quote was not found as not assessable.",
+   "operations": [
+    {
+     "op": "bulk_set_assessable",
+     "filter": {
+      "quoteNotFound": true
+     },
+     "value": false
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-2-2": {
+      "isAssessable": false
+     }
+    }
+   }
+  },
+  {
+   "id": "level-1",
+   "lang": "en",
+   "text": "Call the measures 'Sub-standard'.",
+   "operations": [
+    {
+     "op": "bulk_set_level_label",
+     "filter": {
+      "level": "Measure"
+     },
+     "label": "Sub-standard"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1": {
+      "levelLabel": "Sub-standard"
+     },
+     "1-2": {
+      "levelLabel": "Sub-standard"
+     },
+     "2-1": {
+      "levelLabel": "Sub-standard"
+     },
+     "2-2": {
+      "levelLabel": "Sub-standard"
+     },
+     "2-3": {
+      "levelLabel": "Sub-standard"
+     },
+     "3-1": {
+      "levelLabel": "Sub-standard"
+     },
+     "3-2": {
+      "levelLabel": "Sub-standard"
+     }
+    }
+   }
+  },
+  {
+   "id": "copy-1",
+   "lang": "en",
+   "text": "Copy each measure's code into its English translation field where that is empty.",
+   "operations": [
+    {
+     "op": "copy_field",
+     "filter": {
+      "level": "Measure"
+     },
+     "from": "code",
+     "to": "translationEn",
+     "onlyIfEmpty": true
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1": {
+      "translationEn": "1-1"
+     },
+     "1-2": {
+      "translationEn": "1-2"
+     },
+     "2-1": {
+      "translationEn": "2-1"
+     },
+     "2-2": {
+      "translationEn": "2-2"
+     },
+     "2-3": {
+      "translationEn": "2-3"
+     },
+     "3-1": {
+      "translationEn": "3-1"
+     },
+     "3-2": {
+      "translationEn": "3-2"
+     }
+    }
+   }
+  },
+  {
+   "id": "copy-2",
+   "lang": "ar",
+   "text": "انسخ الوصف إلى العنوان للمؤشرات في المعيار 3 التي لها وصف.",
+   "operations": [
+    {
+     "op": "copy_field",
+     "filter": {
+      "level": "Indicator",
+      "underCode": "3"
+     },
+     "from": "officialText",
+     "to": "title"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-1-1": {
+      "title": "Open at least 40 hours a week."
+     },
+     "3.1.1": {
+      "title": "Open at least 40 hours a week."
+     },
+     "3-2-1": {
+      "title": "Rooms are safe and accessible."
+     },
+     "3-2-2": {
+      "title": "Equipment is listed."
+     },
+     "3-2-3": {
+      "title": "Drills are held twice a year."
+     }
+    }
+   }
+  },
+  {
+   "id": "copy-3",
+   "lang": "en",
+   "text": "Copy the title into the description for the empty-description indicators of 1-1.",
+   "operations": [
+    {
+     "op": "copy_field",
+     "filter": {
+      "parentCode": "1-1",
+      "descriptionEmpty": true
+     },
+     "from": "title",
+     "to": "officialText"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-3": {
+      "officialText": "Goals are linked to performance indicators"
+     }
+    }
+   }
+  },
+  {
+   "id": "text-1",
+   "lang": "ar",
+   "text": "ابدأ عنوان كل معيار بالعبارة Sample: .",
+   "operations": [
+    {
+     "op": "prefix_or_replace_text",
+     "filter": {
+      "level": "Standard"
+     },
+     "field": "title",
+     "mode": "prefix",
+     "text": "Sample: "
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1": {
+      "title": "Sample: Standard (1): Mission and Goals"
+     },
+     "2": {
+      "title": "Sample: المعيار (2): التعليم والتعلم"
+     },
+     "3": {
+      "title": "Sample: Standard (3): Resources"
+     }
+    }
+   }
+  },
+  {
+   "id": "text-2",
+   "lang": "en",
+   "text": "Replace the word Library with Learning resources in titles.",
+   "operations": [
+    {
+     "op": "prefix_or_replace_text",
+     "filter": {},
+     "field": "title",
+     "mode": "replace",
+     "find": "Library",
+     "replaceWith": "Learning resources"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-1": {
+      "title": "Learning resources"
+     },
+     "3-1-1": {
+      "title": "Learning resources hours"
+     },
+     "3.1.1": {
+      "title": "Learning resources hours (copy)"
+     }
+    }
+   }
+  },
+  {
+   "id": "text-4",
+   "lang": "ar",
+   "text": "استبدل كلمة التخطيط بعبارة التخطيط الدراسي في العناوين.",
+   "operations": [
+    {
+     "op": "prefix_or_replace_text",
+     "filter": {},
+     "field": "title",
+     "mode": "replace",
+     "find": "التخطيط",
+     "replaceWith": "التخطيط الدراسي"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "2-1": {
+      "title": "التخطيط الدراسي"
+     }
+    }
+   }
+  },
+  {
+   "id": "text-5",
+   "lang": "en",
+   "text": "Strip the 'Standard (n): ' lead-in from the standards' titles.",
+   "operations": [
+    {
+     "op": "prefix_or_replace_text",
+     "filter": {
+      "level": "Standard"
+     },
+     "field": "title",
+     "mode": "replace",
+     "find": "^Standard \\(\\d\\): ",
+     "replaceWith": "",
+     "regex": true
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1": {
+      "title": "Mission and Goals"
+     },
+     "3": {
+      "title": "Resources"
+     }
+    }
+   }
+  },
+  {
+   "id": "recode-1",
+   "lang": "en",
+   "text": "Use dots instead of dashes in the indicator codes.",
+   "operations": [
+    {
+     "op": "recode",
+     "filter": {
+      "level": "Indicator"
+     },
+     "pattern": {
+      "find": "-",
+      "replaceWith": "."
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-1": {
+      "code": "1.1.1"
+     },
+     "1-1-2": {
+      "code": "1.1.2"
+     },
+     "1-1-3": {
+      "code": "1.1.3"
+     },
+     "1-2-1": {
+      "code": "1.2.1"
+     },
+     "1-2-2": {
+      "code": "1.2.2"
+     },
+     "1-2-3": {
+      "code": "1.2.3"
+     },
+     "2-1-1": {
+      "code": "2.1.1"
+     },
+     "2-1-2": {
+      "code": "2.1.2"
+     },
+     "3-2-1": {
+      "code": "3.2.1"
+     },
+     "3-2-2": {
+      "code": "3.2.2"
+     },
+     "3-2-3": {
+      "code": "3.2.3"
+     }
+    },
+    "skipped": [
+     "3-1-1"
+    ]
+   }
+  },
+  {
+   "id": "recode-2",
+   "lang": "ar",
+   "text": "غيّر رمز القياس 1-1 إلى 1-A والقياس 1-2 إلى 1-B.",
+   "operations": [
+    {
+     "op": "recode",
+     "filter": {
+      "codeEquals": [
+       "1-1",
+       "1-2"
+      ]
+     },
+     "mapping": [
+      {
+       "from": "1-1",
+       "to": "1-A"
+      },
+      {
+       "from": "1-2",
+       "to": "1-B"
+      }
+     ]
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1": {
+      "code": "1-A"
+     },
+     "1-2": {
+      "code": "1-B"
+     }
+    }
+   }
+  },
+  {
+   "id": "recode-3",
+   "lang": "ar",
+   "text": "ابدأ رموز المعايير بالحرف S.",
+   "operations": [
+    {
+     "op": "recode",
+     "filter": {
+      "level": "Standard"
+     },
+     "pattern": {
+      "find": "^(\\d)",
+      "replaceWith": "S$1",
+      "regex": true
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1": {
+      "code": "S1"
+     },
+     "2": {
+      "code": "S2"
+     },
+     "3": {
+      "code": "S3"
+     }
+    }
+   }
+  },
+  {
+   "id": "recode-4",
+   "lang": "en",
+   "text": "Renumber measure 2-2 as 2-3.",
+   "operations": [
+    {
+     "op": "recode",
+     "filter": {
+      "codeEquals": [
+       "2-2"
+      ]
+     },
+     "mapping": [
+      {
+       "from": "2-2",
+       "to": "2-3"
+      }
+     ]
+    }
+   ],
+   "expect": {
+    "skipped": [
+     "2-2"
+    ]
+   }
+  },
+  {
+   "id": "move-1",
+   "lang": "en",
+   "text": "Move the empty measures under standard 1.",
+   "operations": [
+    {
+     "op": "reparent_by_rule",
+     "filter": {
+      "level": "Measure",
+      "emptyHeading": true
+     },
+     "newParent": {
+      "code": "1"
+     }
+    }
+   ],
+   "expect": {
+    "moved": {
+     "2-2": "1",
+     "2-3": "1"
+    }
+   }
+  },
+  {
+   "id": "move-2",
+   "lang": "ar",
+   "text": "انقل المؤشرات تحت 1-2 إلى 1-1.",
+   "operations": [
+    {
+     "op": "reparent_by_rule",
+     "filter": {
+      "parentCode": "1-2"
+     },
+     "newParent": {
+      "code": "1-1"
+     }
+    }
+   ],
+   "expect": {
+    "moved": {
+     "1-2-1": "1-1",
+     "1-2-2": "1-1",
+     "1-2-3": "1-1"
+    }
+   }
+  },
+  {
+   "id": "move-3",
+   "lang": "en",
+   "text": "Put standard 1 under its own indicator 1-1-1.",
+   "operations": [
+    {
+     "op": "reparent_by_rule",
+     "filter": {
+      "codeEquals": [
+       "1"
+      ]
+     },
+     "newParent": {
+      "code": "1-1-1"
+     }
+    }
+   ],
+   "expect": {
+    "problem": "itself"
+   }
+  },
+  {
+   "id": "move-4",
+   "lang": "en",
+   "text": "Move measure 3-2 to the top level.",
+   "operations": [
+    {
+     "op": "move",
+     "moves": [
+      {
+       "id": "@3-2",
+       "parentId": null
+      }
+     ]
+    }
+   ],
+   "expect": {
+    "moved": {
+     "3-2": null
+    }
+   }
+  },
+  {
+   "id": "delete-1",
+   "lang": "ar",
+   "text": "احذف القياسات الفارغة.",
+   "operations": [
+    {
+     "op": "delete_by_filter",
+     "filter": {
+      "level": "Measure",
+      "emptyHeading": true
+     },
+     "reason": "empty headings"
+    }
+   ],
+   "expect": {
+    "deleted": [
+     "2-2",
+     "2-3"
+    ]
+   }
+  },
+  {
+   "id": "delete-2",
+   "lang": "en",
+   "text": "Delete the duplicates by code.",
+   "operations": [
+    {
+     "op": "delete_by_filter",
+     "filter": {
+      "duplicateCode": true
+     },
+     "reason": "duplicate code"
+    }
+   ],
+   "expect": {
+    "deleted": [
+     "3.1.1"
+    ]
+   }
+  },
+  {
+   "id": "delete-3",
+   "lang": "ar",
+   "text": "احذف المعيار 3 بكل ما فيه.",
+   "operations": [
+    {
+     "op": "delete_by_filter",
+     "filter": {
+      "codeEquals": [
+       "3"
+      ]
+     }
+    }
+   ],
+   "expect": {
+    "deleted": [
+     "3"
+    ]
+   }
+  },
+  {
+   "id": "delete-4",
+   "lang": "en",
+   "text": "Delete the items the analysis wrote whose quote was not found.",
+   "operations": [
+    {
+     "op": "delete_by_filter",
+     "filter": {
+      "origin": "ai",
+      "quoteNotFound": true
+     }
+    }
+   ],
+   "expect": {
+    "deleted": [
+     "3-2-2"
+    ]
+   }
+  },
+  {
+   "id": "set-1",
+   "lang": "en",
+   "text": "Change the title of 1-1-3 to 'Goals link to indicators' and make 3-2-1 assessable.",
+   "operations": [
+    {
+     "op": "set_fields",
+     "items": [
+      {
+       "id": "@1-1-3",
+       "set": {
+        "title": "Goals link to indicators"
+       }
+      },
+      {
+       "id": "@3-2-1",
+       "set": {
+        "isAssessable": true
+       }
+      }
+     ]
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-1-3": {
+      "title": "Goals link to indicators"
+     },
+     "3-2-1": {
+      "isAssessable": true
+     }
+    }
+   }
+  },
+  {
+   "id": "set-2",
+   "lang": "en",
+   "text": "Set the same description on every measure of standard 3.",
+   "operations": [
+    {
+     "op": "set_fields",
+     "targets": {
+      "level": "Measure",
+      "parentCode": "3"
+     },
+     "set": {
+      "officialText": "To be written."
+     }
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-1": {
+      "officialText": "To be written."
+     },
+     "3-2": {
+      "officialText": "To be written."
+     }
+    }
+   }
+  },
+  {
+   "id": "create-1",
+   "lang": "en",
+   "text": "Add a new indicator 3-2-4 'Fire exits are marked' under 3-2.",
+   "operations": [
+    {
+     "op": "create_requirement",
+     "parentCode": "3-2",
+     "code": "3-2-4",
+     "title": "Fire exits are marked"
+    }
+   ],
+   "expect": {
+    "created": [
+     "3-2-4"
+    ]
+   }
+  },
+  {
+   "id": "create-2",
+   "lang": "en",
+   "text": "Add an indicator coded 3-1-1.",
+   "operations": [
+    {
+     "op": "create_requirement",
+     "parentCode": "3-1",
+     "code": "3-1-1",
+     "title": "Another"
+    }
+   ],
+   "expect": {
+    "problem": "already used"
+   }
+  },
+  {
+   "id": "merge-1",
+   "lang": "en",
+   "text": "Merge 3.1.1 into 3-1-1.",
+   "operations": [
+    {
+     "op": "merge",
+     "id": "@3.1.1",
+     "intoId": "@3-1-1"
+    }
+   ],
+   "expect": {
+    "deleted": [
+     "3.1.1"
+    ]
+   }
+  },
+  {
+   "id": "split-1",
+   "lang": "en",
+   "text": "Split 'Safety drills' text: move 'twice a year' out into its own item 3-2-5.",
+   "operations": [
+    {
+     "op": "split",
+     "id": "@3-2-3",
+     "part": "twice a year",
+     "code": "3-2-5",
+     "title": "Frequency"
+    }
+   ],
+   "expect": {
+    "created": [
+     "3-2-5"
+    ]
+   }
+  },
+  {
+   "id": "rewrite-1",
+   "lang": "ar",
+   "text": "اكتب عناوين قصيرة بالعربية لهذين المؤشرين.",
+   "operations": [
+    {
+     "op": "rewrite_text",
+     "field": "title",
+     "instruction": "short Arabic titles",
+     "items": [
+      {
+       "id": "@2-1-1",
+       "text": "خطة دراسية معتمدة"
+      },
+      {
+       "id": "@2-1-2",
+       "text": "مراجعة الخطة سنويا"
+      }
+     ]
+    }
+   ],
+   "expect": {
+    "changes": {
+     "2-1-1": {
+      "title": "خطة دراسية معتمدة"
+     },
+     "2-1-2": {
+      "title": "مراجعة الخطة سنويا"
+     }
+    }
+   }
+  },
+  {
+   "id": "flag-1",
+   "lang": "en",
+   "text": "Set the language to Arabic on every item a person edited.",
+   "operations": [
+    {
+     "op": "set_field_by_filter",
+     "filter": {
+      "editedByPerson": true
+     },
+     "field": "language",
+     "value": "ar"
+    }
+   ],
+   "expect": {
+    "changes": {
+     "3-2-3": {
+      "language": "ar"
+     }
+    }
+   }
+  },
+  {
+   "id": "flag-2",
+   "lang": "en",
+   "text": "Mark items with codes starting with 1-2 as not assessable.",
+   "operations": [
+    {
+     "op": "bulk_set_assessable",
+     "filter": {
+      "codeStartsWith": "1-2"
+     },
+     "value": false
+    }
+   ],
+   "expect": {
+    "changes": {
+     "1-2": {
+      "isAssessable": false
+     },
+     "1-2-1": {
+      "isAssessable": false
+     },
+     "1-2-2": {
+      "isAssessable": false
+     },
+     "1-2-3": {
+      "isAssessable": false
+     }
+    }
+   }
+  },
+  {
+   "id": "limit-1",
+   "lang": "en",
+   "text": "Delete everything.",
+   "operations": [
+    {
+     "op": "delete_by_filter",
+     "filter": {}
+    }
+   ],
+   "expect": {
+    "problem": "delete needs a filter"
+   }
+  },
+  {
+   "id": "limit-2",
+   "lang": "en",
+   "text": "Remove trailing letters a from every title with the pattern (a+)+$.",
+   "operations": [
+    {
+     "op": "prefix_or_replace_text",
+     "filter": {},
+     "field": "title",
+     "mode": "replace",
+     "find": "(a+)+$",
+     "replaceWith": "",
+     "regex": true
+    }
+   ],
+   "expect": {
+    "problem": "too long to run"
+   }
+  }
+ ]
+}

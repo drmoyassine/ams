@@ -12,14 +12,14 @@ import { assistantConversation, assistantMessage } from '@ams/db';
 import { ASSISTANT_MAX_STEPS, parseParts, type AssistantContext, type AssistantUsage, type MessagePart } from '@ams/shared';
 import { AssistantContextSchema } from '@ams/shared';
 import {
-  AiCallError, AiDisabledError, AiNotConfiguredError, AssistantDisabledError, BudgetExceeded, aiAgent, type AgentStep,
+  AiCallError, AiDisabledError, AiNotConfiguredError, AssistantDisabledError, BudgetExceeded, aiAgent, aiExtract, type AgentStep,
 } from '../ai/index.js';
 import { loadAssistantRuntime } from '../ai/settings.js';
 import type { JobHandler } from '../jobs/handlers.js';
 import { describeContext } from './context.js';
 import { memoryBlock, retrieveMemory } from './memory.js';
 import { ASSISTANT_TOOLS, toAgentTools } from './tools/registry.js';
-import type { ToolEnv } from './tools/types.js';
+import type { RewriteSet, ToolEnv } from './tools/types.js';
 
 const PayloadSchema = z.object({ conversationId: z.uuid(), userMessageId: z.uuid(), assistantMessageId: z.uuid() });
 
@@ -28,6 +28,27 @@ const HISTORY_CHARS = 16_000;
 const HISTORY_MESSAGES = 24;
 
 const textOf = (parts: MessagePart[]) => parts.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join('\n').trim();
+
+/** The batch answer of the rewrite step (draft_rewrites). */
+const RewriteBatchSchema = z.object({ items: z.array(z.object({ id: z.string(), text: z.string() })) });
+
+/**
+ * An earlier turn as the model reads it: its text, and for each change proposal ONE line saying what became of it. The model learns
+ * only from such a line that a change was applied; a pending, cancelled or replaced proposal changed nothing.
+ */
+export function historyText(parts: MessagePart[]): string {
+  return parts.flatMap((p) => {
+    if (p.type === 'text') return [p.text];
+    if (p.type !== 'change_proposal') return [];
+    const r = p.result;
+    const how = p.status === 'applied' ? `status applied${r ? `: ${r.message}${r.state === 'undone' ? ' (since undone by the person)' : ''}` : ''}${r?.newVersionId ? `; the new draft version id is ${r.newVersionId}` : ''}`
+      : p.status === 'pending' ? 'status pending: the person has not pressed Do it, nothing was changed'
+        : p.status === 'failed' ? `status failed, nothing was changed${p.error ? `: ${p.error}` : ''}`
+          : p.status === 'stale' ? 'status stale: it no longer matched the data, nothing was changed'
+            : p.status === 'cancelled' ? 'status cancelled by the person, nothing was changed' : 'status replaced by a newer proposal, nothing was changed';
+    return [`[Change proposal "${p.summary}" (${p.counts.items} items in ${p.versionLabel}): ${how}]`];
+  }).join('\n').trim();
+}
 
 /** The plain sentence a person reads when a turn fails. Never contains a key or internals. */
 function failureMessage(e: unknown): string {
@@ -80,7 +101,7 @@ export const assistantJob: JobHandler = async (ctx, rawPayload) => {
     const history: { role: 'user' | 'assistant'; content: string }[] = [];
     for (const m of earlier.slice(-HISTORY_MESSAGES).reverse()) {
       if (m.role !== 'user' && m.role !== 'assistant') continue;
-      const content = textOf(parseParts(m.parts));
+      const content = historyText(parseParts(m.parts));
       if (!content || budget - content.length < 0) continue;
       budget -= content.length;
       history.unshift({ role: m.role, content });
@@ -90,9 +111,19 @@ export const assistantJob: JobHandler = async (ctx, rawPayload) => {
     const dataBlock = [await describeContext(ctx, context), '', memoryBlock(memory)].join('\n');
 
     const pending: MessagePart[] = [];
+    const rewriteSets = new Map<string, RewriteSet>();
     const env: ToolEnv = {
-      context, conversationId: conv.id, messageId: asst.id, seenText: [], seenProposals: [],
-      emit: (p) => { pending.push(p); },
+      context, conversationId: conv.id, messageId: asst.id, seenText: [], seenProposals: [], rewriteSets,
+      emit: (p) => {
+        // A newer proposal replaces an earlier one of this turn that the person has not answered.
+        if (p.type === 'change_proposal') for (const q of [...parts, ...pending]) if (q.type === 'change_proposal' && q.status === 'pending') q.status = 'superseded';
+        pending.push(p);
+      },
+      // The job-side step of a text edit: the model writes new texts for a batch, within this turn's budget and call log.
+      rewrite: async (batch) => {
+        const r = await aiExtract({ task: 'assistant_rewrite', promptVersion: 'v1', input: JSON.stringify(batch), schema: RewriteBatchSchema, runtime });
+        return r.data.items;
+      },
     };
     const byName = new Map(ASSISTANT_TOOLS.map((t) => [t.name, t]));
     const onStep = async (step: AgentStep) => {
@@ -114,7 +145,7 @@ export const assistantJob: JobHandler = async (ctx, rawPayload) => {
     };
 
     const result = await aiAgent({
-      task: 'assistant', promptVersion: 'v1', context: dataBlock, messages: [...history, { role: 'user', content: question }],
+      task: 'assistant', promptVersion: 'v2', context: dataBlock, messages: [...history, { role: 'user', content: question }],
       tools: toAgentTools(ctx, env), runtime, maxSteps: ASSISTANT_MAX_STEPS, onStep, shouldStop: isCancelled,
     });
 

@@ -11,6 +11,7 @@
     "test:e2e": "bash scripts/smoke.sh",
     "test:responsive": "node e2e/responsive.mjs",
     "analysis:eval-mapping": "node scripts/analysis-eval-mapping.mjs",
+    "assistant:eval": "node scripts/assistant-eval.mjs",
     "test:routes":"vitest run apps/api/src/routes.test.ts",
     "db:test": "vitest run packages/db",
     "db:generate": "pnpm --filter @ams/db exec drizzle-kit generate",

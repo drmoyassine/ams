@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import type { AssistantLink, AssistantMessage, MemoryProposalPart, MemoryScopeType, MessagePart } from '@ams/shared';
+import type { AssistantLink, AssistantMessage, ChangeProposalPart, MemoryProposalPart, MemoryScopeType, MessagePart } from '@ams/shared';
 import { Button } from '../ui/button';
 import { ApiError } from '../../lib/framework-api';
 import type { AssistantApi } from '../../lib/assistant-api';
 import type { ScreenContext } from '../../lib/assistant-screen';
+import { ChangeCard } from './change-card';
 import { MarkdownLite } from './markdown-lite';
 
 const selectClass = 'h-10 w-full rounded-md border border-border bg-background px-2 text-sm';
@@ -136,9 +137,12 @@ function Usage({ message }: { message: AssistantMessage }) {
 }
 
 /** One message: the person's on the end side, the assistant's on the start side. */
-export function MessageView({ message, api, screen, onOpenLink, onRetry, onResolved, onOpenMemory }: {
+export function MessageView({ message, api, screen, onOpenLink, onRetry, onResolved, onOpenMemory, onChangePart, onChangeIt, onChanged }: {
   message: AssistantMessage; api: AssistantApi; screen: ScreenContext; onOpenLink: (l: AssistantLink) => void; onRetry: (m: AssistantMessage) => void;
   onResolved: (messageId: string, partId: string, patch: Partial<MemoryProposalPart>) => void; onOpenMemory: () => void;
+  /** A change proposal's state moved (confirmed, applied, cancelled ...): the panel keeps the new part. */
+  onChangePart?: (messageId: string, partId: string, next: ChangeProposalPart) => void;
+  onChangeIt?: () => void; onChanged?: () => void;
 }) {
   if (message.role === 'user') {
     const text = message.parts.filter((p) => p.type === 'text').map((p) => p.text).join('\n');
@@ -159,6 +163,10 @@ export function MessageView({ message, api, screen, onOpenLink, onRetry, onResol
           if (p.type === 'text') return <div key={p.id} className="rounded-2xl rounded-es-sm bg-muted px-3 py-2"><MarkdownLite text={p.text} /></div>;
           if (p.type === 'memory_proposal') {
             return <MemoryCard key={p.id} part={p} messageId={message.id} api={api} screen={screen} locked={running} onResolved={(partId, patch) => onResolved(message.id, partId, patch)} onOpenMemory={onOpenMemory} />;
+          }
+          if (p.type === 'change_proposal') {
+            return <ChangeCard key={p.id} part={p} messageId={message.id} api={api} locked={running} onUpdate={(partId, next) => onChangePart?.(message.id, partId, next)}
+              onChangeIt={() => onChangeIt?.()} onChanged={() => onChanged?.()} />;
           }
           return null;
         })}

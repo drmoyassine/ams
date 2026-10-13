@@ -1,16 +1,18 @@
-// The registry: every tool the assistant has, by name, and how a tool run is made safe. Phase 1 = read tools over framework
-// content + propose_memory. There is deliberately no tool for evidence, datasets, responses, requests, forms or letters, and no
-// tool that writes standards (a test pins the list).
+// The registry: every tool the assistant has, by name, and how a tool run is made safe. Read tools over framework content,
+// propose_memory, and (Phase 2) the PROPOSE tools for bulk edits: they show the person a card and change nothing. There is
+// deliberately no tool for evidence, datasets, responses, requests, forms or letters, and NO tool that applies, confirms,
+// publishes or approves anything: only the person's button press does (a test pins the list).
 import { sql } from 'drizzle-orm';
 import { ZodError } from 'zod';
 import type { AgentTool, AgentToolOutput } from '../../ai/index.js';
 import type { Ctx } from '../../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../ctx.js';
+import { CHANGE_TOOLS } from './change-tools.js';
 import { FRAMEWORK_TOOLS } from './framework-tools.js';
 import { proposeMemoryTool } from './memory-tool.js';
 import type { AssistantTool, ToolEnv, ToolOutput } from './types.js';
 
-export const ASSISTANT_TOOLS: readonly AssistantTool[] = [...FRAMEWORK_TOOLS, proposeMemoryTool] as readonly AssistantTool[];
+export const ASSISTANT_TOOLS: readonly AssistantTool[] = [...FRAMEWORK_TOOLS, ...CHANGE_TOOLS, proposeMemoryTool] as readonly AssistantTool[];
 export const ASSISTANT_TOOL_NAMES: readonly string[] = ASSISTANT_TOOLS.map((t) => t.name);
 
 /** Every string inside a value (a tool result), for the "never remember text from a document" check. */

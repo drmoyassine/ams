@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ASSISTANT_MAX_MESSAGE_CHARS, type AssistantConversation, type AssistantLink, type AssistantMessage, type MemoryProposalPart } from '@ams/shared';
+import { ASSISTANT_MAX_MESSAGE_CHARS, type AssistantConversation, type AssistantLink, type AssistantMessage, type ChangeProposalPart, type MemoryProposalPart } from '@ams/shared';
 import { Button } from '../ui/button';
 import { confirmDialog } from '../confirm-dialog';
 import { ApiError } from '../../lib/framework-api';
 import type { AssistantApi } from '../../lib/assistant-api';
 import { chipsFor, contextFor, navFor, useScreen, type ChipId } from '../../lib/assistant-screen';
+import { onUndone } from '../../lib/undo';
 import { MessageView } from './message-view';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -21,6 +22,7 @@ const EXAMPLES = [
   'How many requirements are in this version, by level?',
   'Find the requirements about the library.',
   'What does the latest analysis report say still needs a look?',
+  'In this draft, put each indicator\'s statement in its title where the title is only the code.',
 ];
 
 const mergeMessages = (current: AssistantMessage[], incoming: AssistantMessage[]): AssistantMessage[] => {
@@ -179,6 +181,17 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
   };
   const resolved = (messageId: string, partId: string, patch: Partial<MemoryProposalPart>) =>
     setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, parts: m.parts.map((p) => (p.id === partId && p.type === 'memory_proposal' ? { ...p, ...patch } : p)) } : m)));
+  const changed = (messageId: string, partId: string, next: ChangeProposalPart) =>
+    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, parts: m.parts.map((p) => (p.id === partId && p.type === 'change_proposal' ? next : p)) } : m)));
+  // "Change it": the card stays; the person says what to change and the assistant proposes again (the old card is then replaced).
+  const changeIt = () => { setDraft((d) => d || 'Change it: '); input.current?.focus(); };
+  // After a change was applied, undone or redone (here or from the toast): the data under the screens moved, and so did the cards.
+  const refreshChanged = useCallback(async () => {
+    void qc.invalidateQueries();
+    if (!convId) return;
+    try { const r = await api.since(convId, null); setMessages((cur) => mergeMessages(cur, r.messages)); } catch { /* the next refresh tries again */ }
+  }, [api, convId, qc]);
+  useEffect(() => onUndone(() => { void refreshChanged(); }), [refreshChanged]);
   const openLink = (l: AssistantLink) => {
     const nav = l.kind === 'version' ? undefined : navFor(l.versionId);
     if (l.kind === 'requirement') { if (nav) nav.showRequirement(l.id); else onNavigate({ to: '/settings/versions/$versionId', params: { versionId: l.versionId }, search: { req: l.id } }); }
@@ -268,7 +281,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
             {status.isError && <p role="alert" className="mb-3 text-sm text-red-700">Could not check whether the assistant is available.</p>}
             {messages.length === 0 && !unavailable && (
               <div className="space-y-3 text-sm" data-testid="assistant-empty">
-                <p dir="auto">Hi. I can look things up in your standards for you: requirements, notes, sources, links and the latest analysis. I only read; I never change or publish anything.</p>
+                <p dir="auto">Hi. I can look things up in your standards for you: requirements, notes, sources, links and the latest analysis. I can also suggest changes to a draft version; I tell you what I would do, and nothing changes until you press Do it. Every change can be undone. I never publish or approve anything.</p>
                 <ul className="space-y-1">
                   {EXAMPLES.map((e) => <li key={e}><button type="button" className="w-full rounded-md border border-border px-3 py-2 text-start hover:bg-muted" onClick={() => { setDraft(e); input.current?.focus(); }}>{e}</button></li>)}
                 </ul>
@@ -277,6 +290,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
             <ol ref={list} role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversation" className="space-y-3">
               {messages.map((m) => (
                 <MessageView key={m.id} message={m} api={api} screen={screen} onOpenLink={openLink} onRetry={retry} onResolved={resolved}
+                  onChangePart={changed} onChangeIt={changeIt} onChanged={() => { void refreshChanged(); }}
                   onOpenMemory={() => { onNavigate({ to: '/settings/assistant-memory' }); if (modal) onClose(); }} />
               ))}
             </ol>

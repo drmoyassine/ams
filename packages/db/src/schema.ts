@@ -936,3 +936,79 @@ export const memoryItem = pgTable('memory_item', {
   check('memory_item_scope_id_check', sql`(${t.scopeType} = 'institution') = (${t.scopeId} is null)`),
   check('memory_item_text_length_check', sql`char_length(${t.text}) <= 1000`),
 ]);
+
+// ---- The assistant's bulk edits (DEC-027, Phase 2; migration 0051) -------------------------------------------------------------
+
+/**
+ * A one-time permission to apply ONE change proposal (the "Do it" button). Written only by the confirm endpoint of the API
+ * (the worker's role has no grant on this table at all), tied to the person, the message part and the hash of the exact change
+ * set, valid for ten minutes, consumed once. Only the SHA-256 of the token is stored.
+ */
+export const assistantConfirmation = pgTable('assistant_confirmation', {
+  ...base(), ...tenant(),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  messageId: uuid('message_id').notNull().references(() => assistantMessage.id, { onDelete: 'cascade' }),
+  partId: text('part_id').notNull(),
+  changeSetHash: text('change_set_hash').notNull(),
+  planHash: text('plan_hash').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  consumedResult: text('consumed_result'),
+}, (t) => [
+  uniqueIndex('assistant_confirmation_token_idx').on(t.tokenHash),
+  index('assistant_confirmation_part_idx').on(t.messageId, t.partId),
+  check('assistant_confirmation_result_check', sql`${t.consumedResult} is null or ${t.consumedResult} in ('consuming', 'applied', 'failed', 'stale', 'superseded', 'refused')`),
+]);
+
+export const ASSISTANT_CHANGE_STATES = ['applied', 'undone'] as const;
+/**
+ * An applied change set: what the assistant proposed and the person confirmed, with what is needed to take it back.
+ * `inverse` is the ordered list of undo descriptors the core services reported while applying (run in that order, in one
+ * transaction, to undo; the answers become the next `inverse`, which redoes). The audit trail records counts only.
+ * `version_id` has no foreign key (the version can be deleted to the Trash and come back).
+ */
+export const assistantChangeSet = pgTable('assistant_change_set', {
+  ...base(), ...tenant(),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  messageId: uuid('message_id').references(() => assistantMessage.id, { onDelete: 'set null' }),
+  partId: text('part_id'),
+  versionId: uuid('version_id').notNull(),
+  summary: text('summary').notNull(),
+  changeSetHash: text('change_set_hash').notNull(),
+  operations: jsonb('operations').notNull(),
+  counts: jsonb('counts').notNull(),
+  inverse: jsonb('inverse').notNull().default(sql`'[]'::jsonb`),
+  state: text('state', { enum: ASSISTANT_CHANGE_STATES }).notNull().default('applied'),
+  appliedAt: timestamp('applied_at', { withTimezone: true }).notNull().defaultNow(),
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+}, (t) => [
+  index('assistant_change_set_user_idx').on(t.userId, t.appliedAt),
+  oneOf('assistant_change_set_state_check', t.state, ASSISTANT_CHANGE_STATES),
+  check('assistant_change_set_counts_check', sql`jsonb_typeof(${t.counts}) = 'object'`),
+]);
+
+export const WRITTEN_TEXT_STATES = ['pending', 'kept', 'reverted'] as const;
+/**
+ * A text the assistant WROTE (a rewrite the person confirmed): which requirement and field, the text as written, and the
+ * value it replaced. The requirement card shows "Written by the assistant" with Keep / Revert while it is pending and the
+ * field still holds exactly this text. No foreign key on the requirement (it can be deleted to the Trash and restored).
+ */
+export const assistantWrittenText = pgTable('assistant_written_text', {
+  ...base(), ...tenant(),
+  changeSetId: uuid('change_set_id').notNull().references(() => assistantChangeSet.id, { onDelete: 'cascade' }),
+  versionId: uuid('version_id').notNull(),
+  requirementId: uuid('requirement_id').notNull(),
+  field: text('field').notNull(),
+  text: text('text').notNull(),
+  previous: text('previous'),
+  state: text('state', { enum: WRITTEN_TEXT_STATES }).notNull().default('pending'),
+  decidedBy: uuid('decided_by').references(() => appUser.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+}, (t) => [
+  index('assistant_written_text_version_idx').on(t.versionId, t.state),
+  index('assistant_written_text_requirement_idx').on(t.requirementId),
+  oneOf('assistant_written_text_state_check', t.state, WRITTEN_TEXT_STATES),
+  oneOf('assistant_written_text_field_check', t.field, ['title', 'officialText', 'translationEn']),
+]);

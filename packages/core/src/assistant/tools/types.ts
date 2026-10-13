@@ -28,14 +28,24 @@ export interface ToolEnv {
   seenText: string[];
   /** The texts already suggested as memory in this turn (not suggested twice). */
   seenProposals: string[];
-  /** Adds a part to the assistant's message (a memory proposal). */
+  /** Adds a part to the assistant's message (a memory proposal, a change proposal). */
   emit(part: MessagePart): void;
+  /**
+   * Phase 2. Asks the model to write new texts for a batch of items (draft_rewrites). Only the job provides it (it calls the AI
+   * through the one import point, inside the turn's budget); absent where there is no model (tests of single tools).
+   */
+  rewrite?: (batch: RewriteBatch) => Promise<{ id: string; text: string }[]>;
+  /** Texts written by the model in this turn, by set id; propose_changes copies them into the proposal (a `rewrite_text` operation). */
+  rewriteSets?: Map<string, RewriteSet>;
 }
+
+export interface RewriteBatch { instruction: string; field: 'title' | 'officialText' | 'translationEn'; items: { id: string; code: string; text: string }[] }
+export interface RewriteSet { versionId: string; field: 'title' | 'officialText' | 'translationEn'; instruction: string; items: { id: string; text: string }[] }
 
 export interface AssistantTool<I extends z.ZodType = z.ZodType> {
   name: string;
   description: string;
-  /** `read`: looks things up. `propose`: shows the person something to confirm (the memory card; Phase 2 change proposals). Never writes. */
+  /** `read`: looks things up. `propose`: shows the person something to confirm (the memory card, a change proposal). Never changes anything itself. */
   access: 'read' | 'propose';
   input: I;
   /** The arguments in plain words, for the person's list of steps. */

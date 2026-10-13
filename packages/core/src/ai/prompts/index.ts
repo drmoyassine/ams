@@ -1,4 +1,7 @@
 import { assistantV1 } from './assistant.v1.js';
+import { assistantV2 } from './assistant.v2.js';
+import { assistantRewriteV1 } from './assistant-rewrite.v1.js';
+import { assistantEvalV1 } from './assistant-eval.v1.js';
 import { configsurveyV1 } from './configsurvey.v1.js';
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
@@ -36,7 +39,11 @@ export const PROMPTS = {
   vocab: { v1: vocabV1 },
   template: { v1: templateV1 },
   // The in-app assistant (DEC-027): a multi-step conversation turn with read-only tools (aiAgent).
-  assistant: { v1: assistantV1 },
+  assistant: { v1: assistantV1, v2: assistantV2 },
+  // Phase 2: the model writes new texts for a batch of items (draft_rewrites); the person confirms them like any other change.
+  assistant_rewrite: { v1: assistantRewriteV1 },
+  // Only for `pnpm assistant:eval`: instruction -> operations, over a fixture, with a real model.
+  assistant_eval: { v1: assistantEvalV1 },
 } as const satisfies Record<string, Record<string, string>>;
 
 export type PromptTask = keyof typeof PROMPTS;

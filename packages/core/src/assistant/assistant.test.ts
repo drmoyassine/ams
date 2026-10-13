@@ -165,7 +165,7 @@ describe('refusals: the person\'s own permissions', () => {
     const args: Record<string, unknown> = {
       list_versions: {}, get_version_summary: { versionId: ids.puc }, count_requirements: { versionId: ids.puc }, search_requirements: { versionId: ids.puc, query: 'x' },
       get_requirement: { requirementId: ids.req }, read_source_page: { documentId: crypto.randomUUID(), page: 1 }, get_analysis_report_summary: { versionId: ids.puc },
-      list_mappings: { versionId: ids.puc }, get_glossary_term: { term: 'standard' },
+      list_mappings: { versionId: ids.puc }, get_glossary_term: { term: 'standard' }, find_requirements: { versionId: ids.puc, filter: {} },
     };
     const out = await as('outsider', (ctx) => runAssistantTool(ctx, tool, args[tool.name], { context: null, conversationId: ids.puc!, messageId: ids.puc!, seenText: [], seenProposals: [], emit: () => undefined }));
     expect(out.refused).toBe(true);
@@ -197,13 +197,14 @@ describe('refusals: the person\'s own permissions', () => {
 });
 
 describe('the registry', () => {
-  it('has only framework read tools and propose_memory; nothing for evidence, datasets, responses, requests, forms or letters', () => {
+  it('has only framework read tools and PROPOSE tools; nothing for evidence, datasets, responses, requests, forms or letters, and nothing that applies', () => {
     expect([...ASSISTANT_TOOL_NAMES].sort()).toEqual([
-      'count_requirements', 'get_analysis_report_summary', 'get_glossary_term', 'get_requirement', 'get_version_summary',
-      'list_mappings', 'list_versions', 'propose_memory', 'read_source_page', 'search_requirements',
+      'count_requirements', 'create_draft_proposal', 'draft_rewrites', 'find_requirements', 'get_analysis_report_summary', 'get_glossary_term', 'get_requirement',
+      'get_version_summary', 'list_mappings', 'list_versions', 'propose_changes', 'propose_memory', 'read_source_page', 'search_requirements',
     ]);
-    expect(ASSISTANT_TOOL_NAMES.join(' ')).not.toMatch(/evidence|dataset|response|request(?!ing)|form|letter|write|update|delete|create|apply/i);
-    expect(ASSISTANT_TOOLS.every((t) => t.access === 'read' || t.name === 'propose_memory')).toBe(true);
+    expect(ASSISTANT_TOOL_NAMES.join(' ')).not.toMatch(/evidence|dataset|response|request(?!ing)|form|letter|update|delete|apply|confirm|execute|publish|approve/i);
+    // The only tools that are not plain reads show the person something to confirm; none of them changes anything itself.
+    expect(ASSISTANT_TOOLS.filter((t) => t.access !== 'read').map((t) => t.name).sort()).toEqual(['create_draft_proposal', 'draft_rewrites', 'propose_changes', 'propose_memory']);
   });
 
   it('no tool source touches the evidence, dataset, response, request, form or letter tables or services', () => {

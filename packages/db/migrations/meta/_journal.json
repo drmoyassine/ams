@@ -358,6 +358,13 @@
       "when": 1791870343347,
       "tag": "0050_analysis_config",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791876798803,
+      "tag": "0051_assistant_changes",
+      "breakpoints": true
     }
   ]
 }

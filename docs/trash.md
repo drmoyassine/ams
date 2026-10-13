@@ -121,6 +121,7 @@ A reversible action returns `X-Undo: <percent-encoded JSON>`:
 | Merge | restore the Trash group with `revertMerge: true` |
 | Split | `POST /api/requirements/{id}/unsplit` |
 | Change a note's authority | `POST /api/notes/{id}/authority` with the earlier one (not for the AI's own label) |
+| An assistant change set (many edits, moves, creates, deletes, merges and splits made by one confirmed bulk edit) | `POST /api/assistant/changes/{id}/undo`: one small descriptor for the group; the descriptors the services reported are stored in `assistant_change_set` and replayed in one transaction (see `docs/assistant-plan.md`). Its Redo is `.../redo` |
 
 Services report it with `ctx.undo?.(descriptor)` (the API's `Ctx` listens; jobs and most tests do not). A service that calls
 others reports **last**, so the outermost action wins. The chain sets the header only for a successful response. An edit

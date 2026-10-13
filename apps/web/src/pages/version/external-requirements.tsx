@@ -20,6 +20,7 @@ import { LOOK_HINT, LOOK_KINDS, LOOK_LABEL, lookCounts, lookItems, nextLookItem,
 import { AddNote, NotePanel } from './requirements-tab';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
 import { SourceViewer, useWide, type Citation } from './source-viewer';
+import { WrittenByAssistant } from '../../components/assistant/written-marker';
 
 /** What follows the tag: the title, unless it only repeats the code. */
 const titleOf = (r: Requirement) => distinctTitle(r.code, r.title);
@@ -118,6 +119,7 @@ function NodeBody({ p, showSource }: { p: NodeProps; showSource: () => void }) {
         <div className="space-y-1" data-testid="requirement-detail">
           <Shaded>Description</Shaded>
           {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description.</p>}
+          <WrittenByAssistant versionId={version.id} requirementId={r.id} canWrite={editable} onChanged={p.invalidateTree} />
           {!r.isAssessable && <p className="text-xs text-muted-foreground">A heading only; it is not assessed itself.</p>}
           {r.sourceQuote && (
             <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground" data-testid="requirement-source">

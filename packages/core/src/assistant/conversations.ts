@@ -12,6 +12,7 @@ import { assertHuman } from '../framework/common.js';
 import { assistantReadiness } from '../ai/settings.js';
 import { enqueueJob } from '../jobs/jobs.js';
 import { validateContext } from './context.js';
+import { supersedePendingProposals } from './changes/proposal.js';
 
 type ConversationRow = typeof assistantConversation.$inferSelect;
 type MessageRow = typeof assistantMessage.$inferSelect;
@@ -133,6 +134,8 @@ export async function sendMessage(ctx: Ctx, conversationId: string, input: { tex
     throw new ConflictError('The assistant is still answering the last question. Wait for it, or press Stop.');
   }
   const context = await validateContext(ctx, input.context);
+  // A new message replaces any proposal the person has not answered: a new request needs a new proposal and a new confirmation.
+  await supersedePendingProposals(ctx, conversationId);
   const [userRow] = await ctx.tx.insert(assistantMessage).values({
     institutionId: ctx.caller.institutionId, conversationId, role: 'user', parts: [{ id: crypto.randomUUID(), type: 'text', text }], context,
   }).returning();

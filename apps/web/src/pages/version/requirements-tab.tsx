@@ -15,6 +15,7 @@ import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } f
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { Me } from '@ams/shared';
+import { WrittenByAssistant } from '../../components/assistant/written-marker';
 
 type Props = { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi };
 
@@ -131,6 +132,7 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
         <h3 className="text-lg font-semibold"><ContentText>{req.code} — {req.title}</ContentText></h3>
         <ReviewBadge status={req.reviewStatus} />
       </div>
+      <WrittenByAssistant versionId={version.id} requirementId={req.id} canWrite={canWrite} onChanged={invalidate} />
       <form key={`${req.id}-${req.title}-${req.officialText}-${req.code}`} onSubmit={save} className="space-y-2">
         <label className="block text-sm">Code <Input name="code" defaultValue={req.code} readOnly={!canWrite} dir="auto" /></label>
         <label className="block text-sm">Title <Input name="title" defaultValue={req.title} readOnly={!canWrite} dir="auto" /></label>

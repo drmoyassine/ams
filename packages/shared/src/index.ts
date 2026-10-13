@@ -9,6 +9,7 @@ export * from './evidence.js';
 export * from './dataset.js';
 export * from './ai.js';
 export * from './assistant.js';
+export * from './assistant-changes.js';
 export * from './analysis.js';
 export * from './analysis-report.js';
 export * from './trash.js';

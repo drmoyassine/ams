@@ -2,6 +2,7 @@
 // Phase 1 is read-only answers plus memory. Phase 2 (bulk edits confirmed in the chat) adds more PART TYPES to the message
 // format below and more TOOLS to the registry; nothing here has to change shape for it (see MessagePartSchema).
 import { z } from 'zod';
+import { ChangeProposalPartSchema } from './assistant-changes.js';
 
 // ---- Limits (constants, shown in errors and in the UI) --------------------------------------------------------------
 /** A person may start this many assistant turns per hour. */
@@ -156,7 +157,7 @@ export const MemoryProposalPartSchema = z.object({
   /** Set once saved. */
   memoryId: z.uuid().nullable().optional(),
 });
-export const MessagePartSchema = z.discriminatedUnion('type', [TextPartSchema, ToolCallPartSchema, ToolResultPartSchema, MemoryProposalPartSchema]);
+export const MessagePartSchema = z.discriminatedUnion('type', [TextPartSchema, ToolCallPartSchema, ToolResultPartSchema, MemoryProposalPartSchema, ChangeProposalPartSchema]);
 export type MessagePart = z.infer<typeof MessagePartSchema>;
 export type MemoryProposalPart = z.infer<typeof MemoryProposalPartSchema>;
 export type ToolResultPart = z.infer<typeof ToolResultPartSchema>;

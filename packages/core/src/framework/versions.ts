@@ -10,6 +10,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { placeWording } from './exchange.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
+import { countUnreviewedWrittenTexts } from '../assistant/changes/marks.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
 
 const ROW_META = ['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'] as const;
@@ -255,18 +256,22 @@ async function checkExternalContent(ctx: Ctx, versionId: string): Promise<{ issu
 
 export async function validateVersion(ctx: Ctx, versionId: string): Promise<VersionValidation> {
   await require_(ctx, 'framework:read');
+  // Texts the assistant wrote that nobody has kept or reverted yet: a reminder, never a block (publishing stays the person's gate).
+  const unreviewed = await countUnreviewedWrittenTexts(ctx, versionId);
+  const assistantWarnings: Issue[] = unreviewed ? [{ path: 'requirements', message: `${plural(unreviewed, 'text written by the assistant has', 'texts written by the assistant have')} not been reviewed` }] : [];
   if (await isInternalVersion(ctx, versionId)) {
     // The institution's own framework has no accreditor lifecycle, vocabularies or report templates: only its level names.
     const labels = LevelLabelsSchema.safeParse((await getVersion(ctx, versionId)).levelLabels);
-    return labels.success ? { ok: true } : { ok: false, issues: [{ path: 'level_labels', message: 'name at least one level, e.g. Standard' }] };
+    return labels.success ? { ok: true, ...(assistantWarnings.length ? { warnings: assistantWarnings } : {}) } : { ok: false, issues: [{ path: 'level_labels', message: 'name at least one level, e.g. Standard' }], ...(assistantWarnings.length ? { warnings: assistantWarnings } : {}) };
   }
   const raw = await loadConfig(ctx, versionId) as Record<string, unknown>;
   if (raw.rating_method === null) delete raw.rating_method;
   const config = validateFrameworkConfig(raw);
   const content = await checkExternalContent(ctx, versionId);
   const issues = [...(config.ok ? [] : config.issues), ...content.issues];
-  if (issues.length) return { ok: false, issues, warnings: content.warnings };
-  return { ok: true, config: (config as { config: FrameworkConfig }).config, warnings: content.warnings };
+  const warnings = [...content.warnings, ...assistantWarnings];
+  if (issues.length) return { ok: false, issues, warnings };
+  return { ok: true, config: (config as { config: FrameworkConfig }).config, warnings };
 }
 
 async function assertReady(ctx: Ctx, versionId: string) {

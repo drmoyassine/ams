@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, performance, requestAnimationFrame, cancelAnimationFrame, Buffer */
+/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, performance, requestAnimationFrame, cancelAnimationFrame, Buffer, crypto */
 // Responsiveness check (`pnpm test:responsive`): boots the real API + built SPA against a fresh test database, signs in
 // through the login page in Chromium, and visits the main screens at 375, 768 and 1280 px. For each page and width it
 // asserts the page does not scroll horizontally and saves a full-page screenshot to e2e/screenshots/<width>/<page>.png.
@@ -197,6 +197,39 @@ async function seedDemo(db, base) {
     const accounts = await call('GET', '/api/settings/ai/accounts');
     await call('PUT', '/api/settings/ai', { enabled: true, analysis: { accountId: accounts[0].id, model: 'responsive-check-model' } });
     const [req] = await q(`select id, code, title from requirement where framework_version_id = $1 and parent_id is not null order by display_order, code limit 1`, [versionId]);
+    // Bulk edits confirmed in the chat (Phase 2): a proposal waiting for the person's answer, and one already applied. Long Arabic and
+    // English text, a skipped list and named deletes must wrap on a phone. (Inserted first: the chat list shows newest first and the
+    // other states click the first chat.)
+    const target = ids.draftId ?? versionId;
+    const longAr = 'توضح رسالة المؤسسة الغرض من إنشائها وتتضمن الفئات المستفيدة من خدماتها ومجالات عملها الأساسية وأولوياتها للسنوات الخمس القادمة بما يتسق مع رؤيتها';
+    const longEn = 'The institution publishes its policies, procedures and decisions in a form that staff, students and external reviewers can find without help';
+    const baseProposal = {
+      type: 'change_proposal', versionId: target, versionLabel: 'ABET responsive-draft', operations: [{ op: 'swap_title_and_description', filter: { level: 'Indicator' }, direction: 'statement_to_title' }],
+      changeSetHash: 'h'.repeat(64), planHash: 'p'.repeat(64),
+      counts: { items: 149, byOperation: [{ op: 'swap_title_and_description', label: 'Put the statement in the title', items: 149 }], deletes: 0, linksByCode: 0, writtenByAssistant: 0 },
+      examples: [{ code: '1-1-1', field: 'title', before: '1-1-1', after: longAr }, { code: '3-2-4', field: 'title', before: '3-2-4', after: longEn }, { code: '6-1-8', field: 'title', before: '6-1-8', after: 'a-very-long-unbroken-title-sample-'.repeat(4) }],
+      skipped: [{ code: '1-2-2', reason: 'the statement is longer than 300 characters, so it stays the description' }, { code: '1-2-3', reason: 'the title is only the code and there is no description to use' }, { code: '2-1-9', reason: 'it already has a description' }, { code: '2-1-10', reason: 'it already has a description' }],
+      skippedCount: 4, deletes: [], deletesCount: 0, warnings: [], dryRun: { ok: true, problems: [] }, remaining: 0, newDraft: null, error: null,
+    };
+    const pending = { ...baseProposal, id: 'cp1', status: 'pending', summary: 'Make the statement the title of 149 indicators in ABET responsive-draft', result: null };
+    const [{ id: convChange }] = await q(`insert into assistant_conversation (institution_id, user_id, title, context) values ($1, $2, 'Put each indicator statement in its title in the responsive draft, where the title is only the code', '{}') returning id`, [inst, admin]);
+    await q(`insert into assistant_message (institution_id, conversation_id, role, parts, created_at) values ($1, $2, 'user', $3::jsonb, now() - interval '4 minutes')`,
+      [inst, convChange, JSON.stringify([{ id: 'cu1', type: 'text', text: 'Put each indicator statement in its title where the title is only the code.' }])]);
+    await q(`insert into assistant_message (institution_id, conversation_id, role, status, parts, created_at) values ($1, $2, 'assistant', 'done', $3::jsonb, now() - interval '3 minutes')`,
+      [inst, convChange, JSON.stringify([
+        { id: 'ct1', type: 'text', text: 'I will make the statement the title of **149 indicators** in ABET responsive-draft, for example 1-1-1: «' + longAr + '». 4 are skipped. Go ahead?' },
+        pending,
+      ])]);
+    const applied = { ...baseProposal, id: 'cp2', status: 'applied', summary: 'Delete the empty headings in ABET responsive-draft',
+      counts: { items: 8, byOperation: [{ op: 'delete_by_filter', label: 'Delete (to the Trash)', items: 8 }], deletes: 2, linksByCode: 0, writtenByAssistant: 0 }, examples: [], skipped: [], skippedCount: 0,
+      deletes: [{ code: '4.2', title: 'Facilities and a very long heading that has to wrap on a narrow phone screen', subItems: 5, notes: 2 }, { code: '4.3', title: 'قاعات الدراسة', subItems: 1, notes: 0 }], deletesCount: 2,
+      operations: [{ op: 'delete_by_filter', filter: { emptyHeading: true } }],
+      result: { changeSetId: crypto.randomUUID(), state: 'applied', message: 'Changed 8 items in ABET responsive-draft', items: 8, appliedAt: new Date().toISOString(), newVersionId: null } };
+    const [{ id: convApplied }] = await q(`insert into assistant_conversation (institution_id, user_id, title, context) values ($1, $2, 'Delete the empty headings in the responsive draft', '{}') returning id`, [inst, admin]);
+    await q(`insert into assistant_message (institution_id, conversation_id, role, parts, created_at) values ($1, $2, 'user', $3::jsonb, now() - interval '9 minutes')`,
+      [inst, convApplied, JSON.stringify([{ id: 'cu2', type: 'text', text: 'Delete the empty headings.' }])]);
+    await q(`insert into assistant_message (institution_id, conversation_id, role, status, parts, created_at) values ($1, $2, 'assistant', 'done', $3::jsonb, now() - interval '8 minutes')`,
+      [inst, convApplied, JSON.stringify([{ id: 'ct2', type: 'text', text: 'Done. I deleted 2 empty headings and what was under them; they are in the Trash for 30 days.' }, applied])]);
     const [{ id: conv }] = await q(`insert into assistant_conversation (institution_id, user_id, title, context) values ($1, $2, 'Which requirement is about the mission, and what does its source say on page 12 of the handbook?', '{}') returning id`, [inst, admin]);
     await q(`insert into assistant_message (institution_id, conversation_id, role, parts, created_at) values ($1, $2, 'user', $3::jsonb, now() - interval '2 minutes')`,
       [inst, conv, JSON.stringify([{ id: 'u1', type: 'text', text: 'Which requirement is about the mission? من فضلك أخبرني أيضا عن المصدر.' }])]);
@@ -403,6 +436,20 @@ function pagesFor(ids) {
       await page.getByRole('list', { name: 'Your chats' }).getByRole('button').first().click();
       await page.getByTestId('memory-card').waitFor();
       await page.getByTestId('assistant-steps').locator('summary').click();
+    } },
+    { name: 'assistant-change-proposal', path: '/engagements', action: async (page) => {
+      await page.getByTestId('assistant-bubble').click();
+      await page.getByRole('button', { name: 'Chat history' }).click();
+      await page.getByRole('list', { name: 'Your chats' }).getByRole('button', { name: /^Put each indicator statement/ }).click();
+      await page.getByTestId('change-card').waitFor();
+      await page.getByTestId('change-skipped').locator('summary').click();
+      await page.getByTestId('change-do-it').scrollIntoViewIfNeeded();
+    } },
+    { name: 'assistant-change-applied', path: '/engagements', action: async (page) => {
+      await page.getByTestId('assistant-bubble').click();
+      await page.getByRole('button', { name: 'Chat history' }).click();
+      await page.getByRole('list', { name: 'Your chats' }).getByRole('button', { name: /^Delete the empty headings/ }).click();
+      await page.getByTestId('change-result').waitFor();
     } },
     { name: 'assistant-panel-history', path: '/engagements', action: async (page) => {
       await page.getByTestId('assistant-bubble').click();
