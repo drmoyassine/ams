@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEGREE_LEVELS, type Program } from '@ams/shared';
+import { ReadOnlyNote } from '../../components/read-only-note';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -70,7 +71,10 @@ export function ProgramsSettingsPage({ api: override }: { api?: SettingsApi }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Programs</h2>
+        <div>
+          <h3 className="text-lg font-semibold">Programs</h3>
+          <ReadOnlyNote show={!!me.data && !canWrite} />
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
           {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add program'}</Button>}

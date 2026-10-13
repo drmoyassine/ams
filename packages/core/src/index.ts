@@ -18,6 +18,8 @@ export * from './framework/index.js';
 export * from './engagement/index.js';
 export * from './org/users.js';
 export * from './org/institution.js';
+export * from './org/institution-logo.js';
+export * from './org/public-branding.js';
 export * from './org/units.js';
 export * from './glossary/defaults.js';
 export * from './glossary/glossary.js';

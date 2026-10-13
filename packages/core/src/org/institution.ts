@@ -8,6 +8,7 @@ import { assertPermitted } from '../permissions.js';
 
 const toDto = (r: typeof institution.$inferSelect): Institution => ({
   id: r.id, nameEn: r.nameEn, nameAr: r.nameAr, country: r.country, defaultLocale: r.defaultLocale, accentColor: r.accentColor,
+  logoVersion: r.logoPath && r.logoUpdatedAt ? String(r.logoUpdatedAt.getTime()) : null,
 });
 
 /** The caller's institution: its names and branding, shown in the app shell for everyone. */

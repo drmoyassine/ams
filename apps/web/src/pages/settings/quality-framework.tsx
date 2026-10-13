@@ -6,6 +6,7 @@ import { confirmAndDeleteAll } from '../../lib/delete-requirements';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { ReadOnlyNote } from '../../components/read-only-note';
 import type { FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
 import type { EvidenceApi } from '../../lib/evidence-api';
@@ -67,6 +68,7 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
         <h2 className="text-lg font-semibold">Internal Quality Framework</h2>
         <p className="text-sm text-muted-foreground">Your institution's own standards and sub-standards, each with the evidence that supports it. Each accreditor's standard maps onto it from its own page, so evidence is collected once and reported to every accreditor.</p>
       </div>
+      <ReadOnlyNote show={!!me.data && !canWrite} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
       {!data.framework && (canWrite ? (

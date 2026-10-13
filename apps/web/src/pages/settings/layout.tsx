@@ -6,13 +6,12 @@ import { defaultSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { defaultTrashApi, type TrashApi } from '../../lib/trash-api';
 
 const ITEMS = [
-  { to: '/settings/organization', label: 'Organization', hint: 'Names, branding and org chart' },
-  { to: '/settings/programs', label: 'Programs', hint: 'Add and edit programs' },
+  { to: '/settings/organization', label: 'Organization', hint: 'Institution details, logo and org chart; programs' },
   { to: '/settings/quality-framework', label: 'Internal Quality Framework', hint: 'The institution\'s own standards and terms' },
-  { to: '/settings/external-standards', label: 'External Standards', hint: 'Accreditors\' standards: add, import, edit and publish' },
+  { to: '/settings/external-standards', label: 'External Standards', hint: 'Accreditors\' standards: browse them; add, import, edit and publish if you can edit' },
 ] as const;
-const TRASH_ITEM = { to: '/settings/trash', label: 'Trash', hint: 'Deleted items, kept for 30 days: restore or remove them' } as const;
-const AI_ITEM = { to: '/settings/ai', label: 'AI', hint: 'Model, key and spend limits for document analysis' } as const;
+const TRASH_ITEM = { to: '/settings/trash', label: 'Trash', hint: 'Deleted items, kept for 30 days: restore or remove them (editors only)' } as const;
+const AI_ITEM = { to: '/settings/ai', label: 'AI', hint: 'Model, key and spend limits for document analysis (administrators only)' } as const;
 const MEMORY_ITEM = { to: '/settings/assistant-memory', label: 'Assistant memory', hint: 'What the assistant remembers: yours and the team\'s' } as const;
 const COMING = [] as readonly { label: string; hint: string }[];
 
@@ -26,7 +25,11 @@ const item = [
   'lg:whitespace-normal lg:rounded-md lg:border-b-0 lg:hover:bg-muted lg:[&.active]:bg-muted',
 ].join(' ');
 
-/** Settings: its own sub-menu beside the page. Items still to come are listed, not linked. */
+/**
+ * Settings: its own sub-menu beside the page. Everyone who can read the organization sees it and can read every page that
+ * holds no secrets; editing controls show only to those who can edit. Trash (editors) and AI (administrators) stay hidden
+ * from everyone else. Items still to come are listed, not linked.
+ */
 export function SettingsLayout({ api = defaultSettingsApi, trashApi = defaultTrashApi }: { api?: SettingsApi; trashApi?: TrashApi } = {}) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const nav = useRef<HTMLElement>(null);

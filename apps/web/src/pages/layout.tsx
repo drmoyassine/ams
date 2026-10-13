@@ -5,7 +5,7 @@ import { isReadableAccent } from '@ams/shared';
 import { useTranslation } from 'react-i18next';
 import { AssistantLauncher } from '../components/assistant/launcher';
 import { ConfirmHost } from '../components/confirm-dialog';
-import { ContentText } from '../components/content-text';
+import { InstitutionMark } from '../components/institution-mark';
 import { UndoToaster } from '../components/undo-toaster';
 import { Button } from '../components/ui/button';
 import { authClient } from '../lib/auth';
@@ -31,7 +31,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 
 /**
  * The shell. At `lg` and up the navigation is a sidebar; below it a slim top bar opens the same navigation in a
- * slide-in drawer. Settings is for people who can manage something there; the pages themselves also check each action.
+ * slide-in drawer. Settings is for everyone who can read the organization (the pages are read-only for people who cannot
+ * edit, and each action is still checked); the institution's logo, when it has one, stands in for its name.
  */
 export function AppLayout({ api: override, evidence, assistant }: { api?: SettingsApi; evidence?: EvidenceApi; assistant?: AssistantApi }) {
   const { t } = useTranslation();
@@ -46,12 +47,13 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
     if (accent && isReadableAccent(accent)) root.style.setProperty('--primary', accent); else root.style.removeProperty('--primary');
     return () => { root.style.removeProperty('--primary'); };
   }, [accent]);
-  const canSettings = can(me.data, 'org:write') || can(me.data, 'program:write') || can(me.data, 'institution:write') || can(me.data, 'framework:write') || can(me.data, 'framework:review');
+  const canSettings = can(me.data, 'org:read');
   const nav = [
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
   ] as const;
   const inst = institution.data;
+  const logoUrl = inst?.logoVersion ? api.institutionLogoUrl(inst.logoVersion) : null;
   const institutionName = inst ? (inst.nameAr && inst.defaultLocale === 'ar' ? inst.nameAr : inst.nameEn) : null;
 
   const [drawer, setDrawer] = useState(false);
@@ -118,12 +120,12 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
         ><span aria-hidden="true">☰</span></button>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <p className="shrink-0 font-semibold">{t('appName')}</p>
-          {institutionName && <p className="min-w-0 truncate text-sm text-muted-foreground"><ContentText>{institutionName}</ContentText></p>}
+          {institutionName && <p className="flex min-w-0 items-center text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-7 max-w-40" textClassName="truncate" /></p>}
         </div>
       </header>
       <aside className="print:hidden hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
         <p className="text-lg font-semibold">{t('appName')}</p>
-        <p className="mb-6 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <ContentText>{institutionName}</ContentText>}</p>
+        <p className="mb-6 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <InstitutionMark name={institutionName} logoUrl={logoUrl} />}</p>
         {!drawer && links}
       </aside>
       {drawer && (
@@ -137,7 +139,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
             <div className="mb-6 flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-semibold">{t('appName')}</p>
-                {institutionName && <p className="break-words text-sm text-muted-foreground"><ContentText>{institutionName}</ContentText></p>}
+                {institutionName && <p className="break-words text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-12 max-w-full" /></p>}
               </div>
               <button type="button" aria-label="Close menu" onClick={close} className={`-me-2 ${iconButton}`}><span aria-hidden="true">✕</span></button>
             </div>

@@ -7,6 +7,7 @@ import { Dialog } from '../components/dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { ReadOnlyNote } from '../components/read-only-note';
 import { CreateFromFilesDialog } from './create-from-files';
 import { ApiError, type FrameworkApi, type Issue } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
@@ -155,6 +156,7 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
           </div>
         )}
       </div>
+      <ReadOnlyNote show={!!me.data && !canWrite} />
       {isError && <p role="alert">Could not load standards.</p>}
       <p className="text-sm text-muted-foreground">Accreditors' standards. Add or import one, edit its requirements while it is a draft, then publish it; map its requirements to your internal standards in each version's Mappings tab.</p>
       {data?.length === 0 && <p className="text-muted-foreground">No standards yet.{canWrite ? ' Use Create from files to add one from the accreditor documents, or New Standard to import or start from scratch.' : ''}</p>}

@@ -6,6 +6,7 @@ import { analysisRoutes } from './routes/analysis.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { evidenceRoutes } from './routes/evidence.js';
+import { publicRoutes } from './routes/public.js';
 import { requestRoutes } from './routes/requests.js';
 import { datasetRoutes } from './routes/datasets.js';
 import { formRoutes } from './routes/forms.js';
@@ -71,6 +72,8 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
 
     // Settings: institution, org chart, program edits.
     .route('/', settingsRoutes(registry, deps, options))
+    // Sign-in page branding: the only data served without signing in.
+    .route('/', publicRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))
     .route('/', mappingRoutes(registry, deps, options))
     .route('/', evidenceRoutes(registry, deps, options))

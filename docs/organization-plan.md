@@ -2,6 +2,8 @@
 
 Owner's decisions are recorded as DEC-028. This page is the plan.
 
+**Status (2026-10-13): step 1 is built (TASK-069).** Organization has its two tabs and the institution logo (header and sign-in page), Programs moved under it, and Settings is readable by every role that can read the organization. Languages, the org chart builder and the Docs tab follow in the order below.
+
 ## Decisions (owner, 2026-10-13)
 
 1. **Organization has two tabs:** **Institution** (details and logo, **Languages** and **Org chart** as sections) and **Programs**.
@@ -52,6 +54,16 @@ On the Programs tab: a list, and a **Docs** tab. Upload a document (a catalogue,
 2. **From an image or PDF.** It is a Docs-pattern import: the vision model reads the boxes and lines and proposes a tree beside the image; you edit and apply it as one undoable change. The image and the names on it go to the AI vision model (decided, DEC-028).
 3. **Directory sync.** A connector interface with LDAP/LDAPS as the first implementation (Active Directory and OpenLDAP speak it); SCIM or others behind the same interface; no vendor SDKs (DEC-008). Settings: server, bind account (encrypted at rest), base DN, filters, attribute mapping to units, heads and members. A scheduled job in the general `worker` service reads the directory and shows a "what would change" list; the person applies it (or turns on automatic apply). Each unit records its source (manual, image, directory); sync never overwrites a unit a person edited or locked and never deletes (removed units go to the Trash). Where there is nothing to connect to, a CSV or spreadsheet import through the same Docs pattern fills the gap.
 4. **Directory: what we need to ask.** The institution signs in through QuickLaunch. We do not yet know which protocols it exposes: ask IT whether it offers SAML or OIDC for sign-in (the app supports both today), and whether it exposes SCIM, LDAP or an export of users, units and managers. The request for Active Directory access goes to IT in parallel. The connector is built once we know what we can reach.
+
+## Public exposure (the sign-in page)
+
+The sign-in page shows the institution's name, accent colour and logo before anyone is authenticated. This is the **only** data served without signing in besides the health check, the authentication endpoints and one-time links:
+
+- `GET /api/public/branding` returns exactly `{ name, accentColor, logoUrl }`: the display name (the Arabic name when Arabic is the default language and it is set, else the English one), the accent colour (only if white text is readable on it) and the address of the logo with a version query. All three are `null` when there is nothing to show.
+- `GET /api/public/branding/logo` returns the logo image itself (404 when there is none).
+- A deployment serves one institution. The API reads it through one SECURITY DEFINER function, `app_public_branding()` (migration 0052), that selects only those fields and returns nothing unless there is exactly one institution; it never guesses among several. The application role still cannot read the `institution` table without an identity.
+- Nothing else about the institution is public: no id, country, languages, org chart, programs or people; no listing.
+- Tests: `apps/api/src/institution-logo.test.ts` (exact keys, no id or country, 404 elsewhere, more than one institution shows nothing), `packages/db/src/public-branding.test.ts`.
 
 ## Build order
 

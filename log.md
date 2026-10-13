@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-13 — Organization tabs, institution logo, read-only Settings (TASK-069)
+
+Decisions: DEC-028. ROADMAP-012. Step 1 of docs/organization-plan.md.
+- **Organization** is one screen with two tabs (`?tab=institution|programs`, keyboard tablist); Institution holds Details, Logo and the org units editor as "Org chart"; Programs is the old Programs page. `/settings/programs` redirects; the Settings menu lost Programs.
+- **Institution logo:** same rules as the accreditor logo, now one helper (`framework/logo-image.ts`) both use; migration 0052 adds `logo_path/mime/updated_at`; `PUT/GET/DELETE /api/institution/logo`; replacing or removing deletes the old object after commit. Shown in the sidebar, the small-screen bar and drawer, and the sign-in page (falls back to the name; alt text is the name).
+- **Public route:** the sign-in page needs the name, accent and logo before authentication. `GET /api/public/branding` and `/logo` read one SECURITY DEFINER function that returns nothing unless exactly one institution exists. Exposure documented in docs/organization-plan.md and ARCHITECTURE.md.
+- **Settings for every role:** the Settings entry shows for `org:read` (every role but external reviewer); read-only pages show "You can view this; ask an administrator to change it." No role definition changed (the roles are in code, `ROLE_PERMISSIONS`, not in the database).
+- Learnings: TanStack parent routes pass the raw `search` through to children, so an invalid `?tab=` must be dropped in the component as well as in `validateSearch`; `app.request` tests need the app's `fetch` in place before `lib/api` is imported (a hoisted delegate).
+- Tests: `apps/api/src/institution-logo.test.ts`, `packages/core/src/org/institution-logo.test.ts`, `packages/db/src/public-branding.test.ts`, `apps/web/src/organization-ui.test.tsx`; `e2e/responsive.mjs` has the new tab and logo states.
+
 ## 2026-10-12 — Redo in the undo system (TASK-065)
 
 Decisions: DEC-026, DEC-027. ROADMAP-012.

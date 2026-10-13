@@ -143,8 +143,20 @@ import { isReadableAccent } from './branding.js';
 export const InstitutionSchema = z.object({
   id: z.string(), nameEn: z.string(), nameAr: z.string().nullable(), country: z.string().nullable(),
   defaultLocale: z.string(), accentColor: z.string().nullable(),
+  /** Changes whenever the logo does (used in the logo URL to refresh browser caches); null when there is no logo. */
+  logoVersion: z.string().nullable(),
 });
 export type Institution = z.infer<typeof InstitutionSchema>;
+
+/**
+ * The only thing served without signing in (the sign-in page): the institution's display name, accent colour and the
+ * address of its logo. Nothing else about the institution is public. Every field is null when the deployment has no single
+ * institution to show.
+ */
+export const PublicBrandingSchema = z.object({
+  name: z.string().nullable(), accentColor: z.string().nullable(), logoUrl: z.string().nullable(),
+});
+export type PublicBranding = z.infer<typeof PublicBrandingSchema>;
 
 export const UpdateInstitutionSchema = z.object({
   nameEn: z.string().trim().min(1).optional(),

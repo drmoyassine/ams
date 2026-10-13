@@ -34,6 +34,10 @@ export const institution = pgTable('institution', {
   defaultLocale: text('default_locale').notNull().default('en'),
   /** Branding: the colour of primary buttons and highlights, `#rrggbb`; null keeps the built-in one. */
   accentColor: text('accent_color'),
+  /** The institution's logo: a small PNG, JPEG or WebP in the object store (same rules as an accreditor's). `logoUpdatedAt` busts browser caches. */
+  logoPath: text('logo_path'),
+  logoMime: text('logo_mime'),
+  logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`)]);
 
 /**

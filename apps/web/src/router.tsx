@@ -1,6 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
 import { createRootRoute, createRoute, createRouter, redirect, Outlet } from '@tanstack/react-router';
 import { authClient } from './lib/auth';
+import { can, useMe } from './lib/me';
+import { defaultSettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
@@ -13,8 +15,7 @@ import { RequirementWorkspacePage } from './pages/requirement-workspace';
 import { RequestsPage } from './pages/requests';
 import { RespondPage } from './pages/respond';
 import { AnswerFormPage, PublicFormPage } from './pages/answer-form';
-import { OrganizationPage } from './pages/settings/organization';
-import { ProgramsSettingsPage } from './pages/settings/programs';
+import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
 import { SettingsLayout } from './pages/settings/layout';
 import { AiSettingsPage } from './pages/settings/ai';
 import { AssistantMemoryPage } from './pages/settings/assistant-memory';
@@ -40,17 +41,35 @@ const appRoute = createRoute({
     if (!data) throw redirect({ to: '/login' });
   },
 });
-// The home page is the list of engagements; programs live in Settings.
+// The home page is the list of engagements; programs live in Settings -> Organization.
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/engagements' }); } });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsLayout });
 const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/settings/organization' }); } });
-const organizationRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationPage /> });
+// Organization: two tabs, deep-linkable as ?tab=institution|programs (the address follows the tab, replacing the entry).
+const organizationRoute = createRoute({
+  getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationRoute />,
+  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab } => (s.tab === 'institution' || s.tab === 'programs' ? { tab: s.tab } : {}),
+});
+function OrganizationRoute() {
+  const { tab } = organizationRoute.useSearch();
+  const navigate = organizationRoute.useNavigate();
+  // The parent routes pass the raw address through, so an unknown value is dropped here as well.
+  return <OrganizationPage tab={tab === 'programs' ? 'programs' : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
+}
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });
 const qualityRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-framework', component: () => <QualityFrameworkPage /> });
-const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
+// Programs moved under Organization; the old address still works.
+const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', beforeLoad: () => { throw redirect({ to: '/settings/organization', search: { tab: 'programs' } }); } });
 // External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
-const trashRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/trash', component: () => <TrashPage /> });
+// The Trash is for people who can edit standards; anyone else who opens the address is told so (the menu hides it too).
+const trashRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/trash', component: () => <TrashRoute /> });
+function TrashRoute() {
+  const me = useMe(defaultSettingsApi);
+  if (!me.data) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!can(me.data, 'framework:write')) return <p role="note" className="text-sm text-muted-foreground">The Trash is only for people who can edit standards.</p>;
+  return <TrashPage />;
+}
 const aiSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/ai', component: () => <AiSettingsPage /> });
 // What the assistant remembers (DEC-027): anyone who can use the assistant sees their own and the shared notes they may read.
 const assistantMemoryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/assistant-memory', component: () => <AssistantMemoryPage /> });

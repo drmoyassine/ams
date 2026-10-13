@@ -23,11 +23,11 @@ let pool: pg.Pool;
 let app: ReturnType<typeof createApp>['app'];
 const ids = {} as Record<string, string>;
 const one = async (sql: string, p: unknown[] = []) => (await db.su.query(sql, p)).rows[0].id as string;
-const apiFor = (who: string): SettingsApi => settingsApi(createApi(((input: RequestInfo | URL, init?: RequestInit) => {
+const apiFor = (who: string): SettingsApi => { const f = ((input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers);
   headers.set('x-test-user', `${ids[who]}:${ids.inst}`);
   return app.request(input as string, { ...init, headers });
-}) as typeof fetch));
+}) as typeof fetch; return settingsApi(createApi(f), f); };
 function wrap(ui: React.ReactElement) {
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>;
@@ -50,12 +50,12 @@ afterEach(() => { cleanup(); document.documentElement.style.removeProperty('--pr
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('app shell', () => {
-  it('shows Settings only to people who can manage something, and no Programs entry', async () => {
+  it('shows Settings to every role that can read the organization (read-only for those who cannot edit), and no Programs entry', async () => {
     render(wrap(<AppLayout api={apiFor('viewer')} />));
     await screen.findByTestId('institution-name');
     const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(within(nav).queryByText('Programs')).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+    expect(await screen.findByRole('link', { name: 'Settings' })).toBeTruthy();
     cleanup();
     render(wrap(<AppLayout api={apiFor('lead')} />));
     expect(await screen.findByRole('link', { name: 'Settings' })).toBeTruthy();

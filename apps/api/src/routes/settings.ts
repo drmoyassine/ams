@@ -1,5 +1,5 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createAiAccount, createOrgUnit, deleteAiAccount, getAiSettings, getInstitution, listAccountModels, listAiAccounts, listOrgUnits, testAiAccount, testAiConnection, updateAiAccount, updateAiSettings, updateInstitution, updateOrgUnit, updateProgram } from '@ams/core';
+import { MAX_LOGO_BYTES, ValidationError, createAiAccount, createOrgUnit, deleteAiAccount, getAiSettings, getInstitution, listAccountModels, listAiAccounts, listOrgUnits, readInstitutionLogo, removeInstitutionLogo, setInstitutionLogo, testAiAccount, testAiConnection, updateAiAccount, updateAiSettings, updateInstitution, updateOrgUnit, updateProgram } from '@ams/core';
 import {
   AiAccountSchema, AiAccountTestSchema, AiModelListSchema, AiSettingSchema, AiTestRequestSchema, AiTestResultSchema, CreateAiAccountSchema, CreateOrgUnitSchema, UpdateAiAccountSchema, UpdateAiSettingSchema, InstitutionSchema, OrgUnitSchema, ProgramSchema, UpdateInstitutionSchema, UpdateOrgUnitSchema, UpdateProgramSchema, toDto,
 } from '@ams/shared';
@@ -20,6 +20,29 @@ export function settingsRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { body: { required: true, ...json(UpdateInstitutionSchema) } },
       responses: { 200: { description: 'Updated', ...json(InstitutionSchema) }, ...errors },
     }), async (c) => c.json(toDto(InstitutionSchema, await updateInstitution(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/institution/logo', access: requires('org:read'), tags: tag,
+      responses: { 200: { description: 'The institution logo image', content: { 'application/octet-stream': { schema: z.string() } } }, ...errors },
+    }), async (c) => {
+      const f = await readInstitutionLogo(c.get('ctx'));
+      return c.body(f.bytes as unknown as ArrayBuffer, 200, { 'content-type': f.mime, 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=86400' }) as never;
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/institution/logo', access: requires('institution:write', scopeFrom.institution), tags: tag,
+      description: 'The request body is the image itself (PNG, JPEG or WebP, at most 512 KB). The previous logo file is deleted.',
+      responses: { 204: { description: 'Saved' }, ...errors },
+    }), async (c) => {
+      if (Number(c.req.header('content-length') ?? 0) > MAX_LOGO_BYTES) throw new ValidationError(`the logo is larger than ${MAX_LOGO_BYTES / 1024} KB`);
+      await setInstitutionLogo(c.get('ctx'), new Uint8Array(await c.req.arrayBuffer()));
+      return c.body(null, 204);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'delete', path: '/api/institution/logo', access: requires('institution:write', scopeFrom.institution), tags: tag,
+      responses: { 204: { description: 'Removed' }, ...errors },
+    }), async (c) => { await removeInstitutionLogo(c.get('ctx')); return c.body(null, 204); })
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/settings/ai', access: requires('ai:manage', scopeFrom.institution), tags: tag,

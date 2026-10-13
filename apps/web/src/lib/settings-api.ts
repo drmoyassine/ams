@@ -1,13 +1,23 @@
-import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateProgram, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
+import type { PublicBranding, AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateProgram, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
+import { readBytes } from './read-bytes';
 
 /** Settings calls (institution, org chart, programs), through the typed client. */
-export function settingsApi(api: Api = defaultApi) {
+export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {
   return {
     me: () => api.api.me.$get().then((r) => unwrap<Me>(r)),
     institution: () => api.api.institution.$get().then((r) => unwrap<Institution>(r)),
     updateInstitution: (json: UpdateInstitution) => api.api.institution.$patch({ json }).then((r) => unwrap<Institution>(r)),
+    /** Where the institution's logo is served; `version` changes when the logo does, so the browser fetches the new one. */
+    institutionLogoUrl: (version: string) => `/api/institution/logo?v=${version}`,
+    uploadInstitutionLogo: async (file: File) => {
+      const body = await readBytes(file);
+      return fetcher('/api/institution/logo', { method: 'PUT', body, headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include' }).then((r) => unwrap<void>(r));
+    },
+    removeInstitutionLogo: () => api.api.institution.logo.$delete().then((r) => unwrap<void>(r)),
+    /** Before sign-in: the institution's display name, accent colour and logo address, and nothing else. */
+    publicBranding: () => api.api.public.branding.$get().then((r) => unwrap<PublicBranding>(r)),
     aiSettings: () => api.api.settings.ai.$get().then((r) => unwrap<AiSetting>(r)),
     updateAiSettings: (json: UpdateAiSetting) => api.api.settings.ai.$put({ json }).then((r) => unwrap<AiSetting>(r)),
     testAi: (role: AiRole = 'analysis') => api.api.settings.ai.test.$post({ json: { role } }).then((r) => unwrap<AiTestResult>(r)),

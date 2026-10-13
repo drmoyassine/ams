@@ -95,3 +95,29 @@ export const resolveRequestLink = (pool: pg.Pool, tokenHash: string) =>
 /** Finds the data item whose open form a public link answers (DEC-020); null when the form is closed or the link off. */
 export const resolveFormLink = (pool: pg.Pool, token: string) =>
   resolveLink(pool, 'select * from app_resolve_form_link($1)', token, (r) => ({ itemId: r.evidence_item_id!, institutionId: r.institution_id! }));
+
+/**
+ * What the sign-in page may show before anyone is authenticated: the one institution's names, accent colour and logo
+ * file, and nothing else (the SQL function selects exactly these columns, and returns nothing unless the deployment
+ * has exactly one institution). Packages/core turns it into the public answer.
+ */
+export interface PublicBrandingRow {
+  nameEn: string; nameAr: string | null; defaultLocale: string; accentColor: string | null;
+  logoPath: string | null; logoMime: string | null; logoUpdatedAt: Date | null;
+}
+export async function resolvePublicBranding(pool: pg.Pool): Promise<PublicBrandingRow | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role ams_app');
+    const { rows } = await client.query<{ name_en: string; name_ar: string | null; default_locale: string; accent_color: string | null; logo_path: string | null; logo_mime: string | null; logo_updated_at: Date | null }>('select * from app_public_branding()');
+    await client.query('commit');
+    const r = rows[0];
+    return r ? { nameEn: r.name_en, nameAr: r.name_ar, defaultLocale: r.default_locale, accentColor: r.accent_color, logoPath: r.logo_path, logoMime: r.logo_mime, logoUpdatedAt: r.logo_updated_at } : null;
+  } catch (e) {
+    await client.query('rollback').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}

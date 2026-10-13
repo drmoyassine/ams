@@ -5,6 +5,7 @@ import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { ReadOnlyNote } from '../../components/read-only-note';
 import { useGlossaryApi, type GlossaryApi } from '../../lib/glossary-api';
 import { can, useMe } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
@@ -72,6 +73,7 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
     <div className="space-y-4">
       {!embedded && <h2 className="text-lg font-semibold">Terms</h2>}
       <p className="text-sm text-muted-foreground">Your words for what accreditors find and ask for. Each external standard's Settings → Terminology maps its own words onto these, so everyone inside uses one language.</p>
+      <ReadOnlyNote show={!embedded && !!me.data && !canEdit} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
       {terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}

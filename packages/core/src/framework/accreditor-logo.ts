@@ -3,19 +3,11 @@
 import { eq } from 'drizzle-orm';
 import { accreditor } from '@ams/db';
 import type { Ctx } from '../ctx.js';
-import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
+import { ConflictError, NotFoundError } from '../ctx.js';
 import { require_ } from './common.js';
+import { checkLogoBytes } from './logo-image.js';
 
-export const MAX_LOGO_BYTES = 512 * 1024;
-
-/** The image type the bytes really are (not what the caller says), or null. */
-function sniff(b: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' | null {
-  const at = (i: number, ...v: number[]) => v.every((x, k) => b[i + k] === x);
-  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
-  if (at(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
-  if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
-  return null;
-}
+export { MAX_LOGO_BYTES } from './logo-image.js';
 
 async function getAccreditor(ctx: Ctx, id: string) {
   const [row] = await ctx.tx.select().from(accreditor).where(eq(accreditor.id, id));
@@ -28,10 +20,7 @@ export async function setAccreditorLogo(ctx: Ctx, accreditorId: string, bytes: U
   await require_(ctx, 'framework:write');
   if (!ctx.store) throw new ConflictError('file storage is not configured');
   await getAccreditor(ctx, accreditorId);
-  if (bytes.byteLength === 0) throw new ValidationError('the file is empty');
-  if (bytes.byteLength > MAX_LOGO_BYTES) throw new ValidationError(`the logo is larger than ${MAX_LOGO_BYTES / 1024} KB`);
-  const mime = sniff(bytes);
-  if (!mime) throw new ValidationError('the logo must be a PNG, JPEG or WebP image');
+  const mime = checkLogoBytes(bytes);
   const key = `${ctx.caller.institutionId}/accreditors/${accreditorId}/logo-${crypto.randomUUID()}`;
   try {
     await ctx.store.put(key, bytes, mime);

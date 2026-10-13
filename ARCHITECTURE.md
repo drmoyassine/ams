@@ -91,6 +91,8 @@ Invariants (PRD §6.9) are enforced by triggers and constraints, not by conventi
 - **Request chain** — authenticate → authorize (`requires`) → transaction with `SET LOCAL` identity → validate → handle; enforced at route registration and in CI. ([DEC-010](DECISIONS.md#DEC-010))
 - **Authentication** — Better Auth, OIDC/SAML SSO, password fallback; sessions in PostgreSQL. ([DEC-015](DECISIONS.md#DEC-015))
 - **Authorization** — permission service + PostgreSQL RLS (defence in depth).
+- **Public surface** — besides the health check, the authentication endpoints and one-time links, the only data served without signing in is the sign-in page's branding: `GET /api/public/branding` (display name, accent colour, logo URL) and `GET /api/public/branding/logo`, read through the single SECURITY DEFINER function `app_public_branding()`, which returns nothing unless the deployment has exactly one institution. See `docs/organization-plan.md`. ([DEC-028](DECISIONS.md#DEC-028))
+- **Settings** — Settings -> Organization is one screen with two tabs (`/settings/organization?tab=institution|programs`: Institution = Details, Logo, Org chart; Programs). Settings is visible to everyone who holds `org:read`; pages are read-only with a one-line note for people who cannot edit, and Trash (editors) and AI (administrators) are hidden from everyone else. The institution logo shares its validation (`framework/logo-image.ts`) with the accreditor logo. ([DEC-028](DECISIONS.md#DEC-028))
 - **Audit** — trigger-written, append-only, actor from session settings (user, system or AI identity).
 - **Files** — signed upload/download URLs issued after permission checks; confidentiality respected.
 - **Internationalisation** — Arabic and English content, RTL rendering; UI English first.

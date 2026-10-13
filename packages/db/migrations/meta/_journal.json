@@ -365,6 +365,13 @@
       "when": 1791876798803,
       "tag": "0051_assistant_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791895746079,
+      "tag": "0052_institution_logo",
+      "breakpoints": true
     }
   ]
 }

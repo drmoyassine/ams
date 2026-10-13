@@ -257,6 +257,8 @@ async function expandFirst(page) {
   return false;
 }
 const clickTab = (name) => async (page) => { await page.getByRole('tab', { name }).first().click(); };
+// A real 1x1 PNG, for the institution logo.
+const LOGO_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==', 'base64');
 const FILES = [
   { name: 'Accreditation handbook 2027 with a long name.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 handbook') },
   { name: 'دليل المعايير والمؤشرات الخاصة باعتماد المؤسسات.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('docx') },
@@ -356,8 +358,21 @@ function pagesFor(ids) {
     { name: 'evidence-card-open', path: '/evidence', action: expandFirst },
     { name: 'evidence-requests', path: '/evidence', action: clickTab('Requests') },
     { name: 'my-requests', path: '/requests' },
+    // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
     { name: 'settings-organization', path: '/settings/organization' },
-    { name: 'settings-programs', path: '/settings/programs' },
+    { name: 'settings-organization-programs', path: '/settings/organization?tab=programs' },
+    { name: 'settings-programs-redirect', path: '/settings/programs' },
+    { name: 'settings-organization-tab-keys', path: '/settings/organization', action: async (page) => { await page.getByRole('tab', { name: 'Institution' }).focus(); await page.keyboard.press('ArrowRight'); await page.getByRole('tab', { name: 'Programs', selected: true }).waitFor(); } },
+    // The logo is uploaded here and stays for the pages after it (header and sidebar show it), then is removed.
+    { name: 'settings-organization-logo-uploaded', path: '/settings/organization', action: async (page) => {
+      await page.getByLabel('Logo file').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: LOGO_PNG });
+      await page.getByRole('button', { name: 'Change' }).waitFor();
+    } },
+    { name: 'login-with-logo', path: '/login', action: async (page) => { await page.getByTestId('institution-logo').waitFor(); } },
+    { name: 'settings-organization-logo-removed', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('button', { name: 'Remove', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload logo' }).waitFor();
+    } },
     { name: 'settings-quality-framework', path: '/settings/quality-framework' },
     { name: 'settings-external-standards', path: '/settings/external-standards' },
     { name: 'settings-ai', path: '/settings/ai' },
