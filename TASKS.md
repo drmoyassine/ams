@@ -2896,31 +2896,119 @@ Left over from phase 1 (docs/assistant-plan.md).
 
 ---
 
-## TASK-069 — Organization screen: tabs, Programs tab, institution logo, read-only Settings
+## TASK-069 — Organization screen: Institution and Programs tabs, institution logo, read-only Settings
 
 ---
 id: TASK-069
-title: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+title: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
 description: >-
-  Organization becomes one screen with Institution, Languages, Org chart and Programs tabs; the institution logo is
-  uploaded and shown in the app; Settings are readable by every role
+  Organization becomes one screen with two tabs, Institution (details, logo, Languages, Org chart) and Programs; the
+  institution logo is uploaded and shown in the app; Settings are readable by every role
 status: pending
 priority: P2
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
   url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-069 — Organization screen: tabs, Programs tab, institution logo, read-only Settings
+# TASK-069 — Organization screen: Institution and Programs tabs, institution logo, read-only Settings
 
-Step 1 of docs/organization-plan.md. Tabs; Programs leaves the Settings sidebar (old address redirects); institution logo reusing the accreditor-logo upload rules and shown in the header and sign-in page; Settings visible read-only to all roles, editing unchanged.
+Step 1 of docs/organization-plan.md. Two tabs only: Institution (details and logo, then the Languages and Org chart sections as they arrive) and Programs. Programs leaves the Settings sidebar (old address redirects). Institution logo reusing the accreditor-logo upload rules and shown in the header and sign-in page. Settings visible read-only to all roles, editing unchanged.
+
+---
+
+## TASK-075 — Documents and AI import foundation: registry, Docs tab, Documents area
+
+---
+id: TASK-075
+title: Documents and AI import foundation: registry, Docs tab, Documents area
+description: >-
+  One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
+  Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
+  their Docs tab
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-069
+    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    url: /TASKS.md#TASK-069
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+---
+# TASK-075 — Documents and AI import foundation: registry, Docs tab, Documents area
+
+Section A of docs/organization-plan.md.
+- import_document table (scope kind and id, file, name, type, size, hash, language, uploader, time, read status, pages; Trash on delete); standards keep source_document and the Docs list reads both through one adapter. Evidence is never listed or sent to the AI.
+- One Docs tab component: list with who and when, upload (many files), open, re-read, delete, Import, and the history of imports with their reports; permissions follow the scope (read to see, write to upload and import).
+- Version page: Sources becomes the Docs tab beside Requirements, Mappings and Report; the IQF page and the Organization sections get a Docs tab.
+- Settings -> Documents: every upload the person may see, filters by place, uploader, date, type, status, each linking to where it is used.
+- Import engine: a target registry (Zod schema, versioned prompt, validator, proposal writer) and an `import` job in the agent service (read through the parser, extract, verify, propose) with budget, cancel, resume and a report; proposals are reviewed in an editable table beside the source page and applied as one undoable change; never overwrites a person's edits.
+
+---
+
+## TASK-076 — Programs from documents: upload, AI parse, drafts
+
+---
+id: TASK-076
+title: Programs from documents: upload, AI parse, drafts
+description: >-
+  On the Programs tab, upload a catalogue or program list, press Import, review the proposed programs beside the source
+  page, and apply them as one undoable change
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-075
+    name: Documents and AI import foundation: registry, Docs tab, Documents area
+    url: /TASKS.md#TASK-075
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+---
+# TASK-076 — Programs from documents: upload, AI parse, drafts
+
+Section C of docs/organization-plan.md. Extractor for programs (name in English and Arabic, degree level, owning unit, code, duration, mode, whatever the document states); unit matching uses the org chart, an unknown unit becomes a proposed unit; re-importing a newer document proposes only what changed; Programs gets a Docs tab.
 
 ---
 
@@ -2930,29 +3018,33 @@ Step 1 of docs/organization-plan.md. Tabs; Programs leaves the Settings sidebar 
 id: TASK-070
 title: Languages: secondary language, UI language and content switchers
 description: >-
-  An administrator chooses a secondary language; each person picks the interface language; library screens switch
+  An administrator chooses one secondary language; each person picks the interface language; library screens switch
   between original, English and the secondary language; primary is always English
 status: pending
 priority: P2
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
     url: /TASKS.md#TASK-069
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
 # TASK-070 — Languages: secondary language, UI language and content switchers
 
-Step 2 of docs/organization-plan.md. Language registry (direction, font, native name), institution secondary-language setting, per-person UI language, UI catalogues (English in the repository, the secondary produced by the translation job and reviewable), content switcher with fallback to English, RTL and CJK visual pass.
+Section D of docs/organization-plan.md. Language registry (direction, font, native name), institution secondary-language setting (Institution tab, Languages section), per-person UI language (default from the institution), UI catalogues (English in the repository, the secondary produced by the translation job and reviewable), content switcher with fallback to English, right-to-left and CJK visual pass.
 
 ---
 
@@ -2969,7 +3061,7 @@ priority: P2
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
@@ -2978,13 +3070,20 @@ depends_on:
   - id: TASK-070
     name: Languages: secondary language, UI language and content switchers
     url: /TASKS.md#TASK-070
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-021
+    name: Framework analysis may send the institution's IQF text to the AI
+    url: /DECISIONS.md#DEC-021
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
 # TASK-071 — Translate the IQF and the standards into the secondary language
 
-Step 3 of docs/organization-plan.md. content_translation table (entity, language, field, text, origin, reviewed, source hash); translate job in the agent service (framework text only, DEC-021; glossary-aware; spend cap; progress); review screen (accept, edit, retranslate; filters needs review / out of date); the existing translation_en becomes the English row; assistant can offer to translate a selection.
+Section D of docs/organization-plan.md. content_translation table (entity, language, field, text, origin, reviewed, source hash); translate job in the agent service (framework text only, DEC-021; glossary-aware; spend cap; progress); review screen (accept, edit, retranslate; filters needs review and out of date); the existing translation_en becomes the English row; the assistant can offer to translate a selection.
 
 ---
 
@@ -2994,29 +3093,33 @@ Step 3 of docs/organization-plan.md. content_translation table (entity, language
 id: TASK-072
 title: Org chart: visual builder (tree and chart view)
 description: >-
-  Org units are edited in a drag-and-drop tree and drawn as a chart (zoom, pan, collapse, RTL aware, export as image),
-  with a head and programs on each unit
+  Org units are edited in a drag-and-drop tree and drawn as a chart (zoom, pan, collapse, right-to-left aware, export as
+  image), with a head and programs on each unit
 status: pending
 priority: P2
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
     url: /TASKS.md#TASK-069
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
 # TASK-072 — Org chart: visual builder (tree and chart view)
 
-Step 4 of docs/organization-plan.md. Reuses the tree drag-and-drop, selection, Trash and Undo/Redo; configurable levels and types; names in both languages; each unit records its source (manual, image, directory).
+Section E.1 of docs/organization-plan.md. Reuses the tree drag-and-drop, selection, Trash and Undo/Redo; configurable levels and types; names in both languages; each unit records its source (manual, image, directory). Lives in the Institution tab's Org chart section, with its Docs.
 
 ---
 
@@ -3026,14 +3129,14 @@ Step 4 of docs/organization-plan.md. Reuses the tree drag-and-drop, selection, T
 id: TASK-073
 title: Org chart from an uploaded image
 description: >-
-  Upload a picture or PDF of an org chart; a vision model proposes the tree; the person reviews and applies it as one
-  undoable change
+  Upload a picture or PDF of an org chart; the vision model proposes the tree; the person reviews and applies it as one
+  undoable change (a Docs-pattern import)
 status: pending
 priority: P3
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
@@ -3042,30 +3145,40 @@ depends_on:
   - id: TASK-072
     name: Org chart: visual builder (tree and chart view)
     url: /TASKS.md#TASK-072
+  - id: TASK-075
+    name: Documents and AI import foundation: registry, Docs tab, Documents area
+    url: /TASKS.md#TASK-075
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
 # TASK-073 — Org chart from an uploaded image
 
-Step 5 of docs/organization-plan.md. Needs a decision record first: the image, and the names on it, go to the AI vision model (DEC-021 covers standards text only). Proposal beside the image, editable, applied as one undoable group; never overwrites units a person edited.
+Section E.2 of docs/organization-plan.md. The image and the names on it go to the AI vision model (decided, DEC-028). Proposal beside the image, editable, applied as one undoable group; never overwrites units a person edited.
 
 ---
 
-## TASK-074 — Org chart: directory sync (LDAP)
+## TASK-074 — Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
 
 ---
 id: TASK-074
-title: Org chart: directory sync (LDAP)
+title: Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
 description: >-
-  A read-only LDAP/LDAPS connector keeps the chart in step with a directory, with a what-would-change list, scheduled
+  A read-only directory connector keeps the chart in step with a directory, with a what-would-change list, scheduled
   runs and locks on units a person edited
 status: pending
 priority: P3
 last_updated: '2026-10-13'
 generated:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 roadmap_item:
   id: ROADMAP-012
   name: Settings, internal framework and glossary
@@ -3074,10 +3187,14 @@ depends_on:
   - id: TASK-072
     name: Org chart: visual builder (tree and chart view)
     url: /TASKS.md#TASK-072
+related_decisions:
+  - id: DEC-028
+    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
-  at: '2026-10-13T13:00:00.000Z'
+  at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-074 — Org chart: directory sync (LDAP)
+# TASK-074 — Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
 
-Step 6 of docs/organization-plan.md. Settings (server, bind account encrypted at rest, base DN, filters, attribute mapping); a scheduled job in the general worker service; diff shown before apply (or automatic apply switched on); never deletes (Trash); sign-in through the directory is a separate question. Needs the owner to say which directory is used.
+Section E.3 and E.4 of docs/organization-plan.md. Connector interface with LDAP/LDAPS first; settings (server, bind account encrypted at rest, base DN, filters, attribute mapping); a scheduled job in the general worker service; diff before apply (or automatic apply); never deletes (Trash). Blocked on the owner: ask IT which protocols QuickLaunch exposes (SAML or OIDC for sign-in, SCIM, LDAP or an export for users and units) and request Active Directory access; a CSV import through the Docs pattern is the fallback.
