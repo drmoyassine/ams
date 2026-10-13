@@ -562,3 +562,7 @@ Decisions: DEC-027, DEC-006, DEC-026, DEC-010. ROADMAP-012. Details and the list
 - **Learnings.** The API client type grew past what the compiler will print (TS7056): `createApi` now has an explicit `ApiClient` type. The chat card appears while the turn is still being polled, so its buttons wait for the end of the turn (tests wait for that). Tests of expiry move the confirmation's row (the trigger is switched off for that one statement), not the clock. A fixed-value rule (bulk assessable) does not depend on other fields, so a later edit of a title does not make it stale; a rule that reads the text does.
 - Not done: IQF proposals as an operation; clean-up of expired confirmations; the evaluation script does not run the tool loop.
 - Tests: `changes/changes.test.ts`, `changes/eval.test.ts` (core), `packages/db/src/assistant-changes.test.ts`, `apps/api/src/assistant-changes.test.ts`, `apps/web/src/assistant-changes-ui.test.tsx`; responsive states `assistant-change-proposal` and `assistant-change-applied`.
+
+## 2026-10-13 — Plan: Organization, languages, org chart
+
+Owner asked for a secondary language (primary always English) with translation of the IQF and standards, content and UI language switchers; an org chart built visually, from an image, and synced from a directory; Programs as a tab under Organization. Planned in docs/organization-plan.md with TASK-069 to TASK-074 (all pending); five decisions need the owner's answer. Nothing built.

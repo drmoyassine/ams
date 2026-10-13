@@ -2893,3 +2893,191 @@ Left over from phase 1 (docs/assistant-plan.md).
 - The report tab's selected run as a context chip.
 - Version-page layout at about 1280px with the panel open (the title wraps tightly).
 - Retrying a failed turn resends the same text; offer to edit it first.
+
+---
+
+## TASK-069 — Organization screen: tabs, Programs tab, institution logo, read-only Settings
+
+---
+id: TASK-069
+title: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+description: >-
+  Organization becomes one screen with Institution, Languages, Org chart and Programs tabs; the institution logo is
+  uploaded and shown in the app; Settings are readable by every role
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-069 — Organization screen: tabs, Programs tab, institution logo, read-only Settings
+
+Step 1 of docs/organization-plan.md. Tabs; Programs leaves the Settings sidebar (old address redirects); institution logo reusing the accreditor-logo upload rules and shown in the header and sign-in page; Settings visible read-only to all roles, editing unchanged.
+
+---
+
+## TASK-070 — Languages: secondary language, UI language and content switchers
+
+---
+id: TASK-070
+title: Languages: secondary language, UI language and content switchers
+description: >-
+  An administrator chooses a secondary language; each person picks the interface language; library screens switch
+  between original, English and the secondary language; primary is always English
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-069
+    name: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+    url: /TASKS.md#TASK-069
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-070 — Languages: secondary language, UI language and content switchers
+
+Step 2 of docs/organization-plan.md. Language registry (direction, font, native name), institution secondary-language setting, per-person UI language, UI catalogues (English in the repository, the secondary produced by the translation job and reviewable), content switcher with fallback to English, RTL and CJK visual pass.
+
+---
+
+## TASK-071 — Translate the IQF and the standards into the secondary language
+
+---
+id: TASK-071
+title: Translate the IQF and the standards into the secondary language
+description: >-
+  A background translation job and a side-by-side review screen store translations beside the English, flag them out of
+  date when the English changes, and label external-standard translations as not the official wording
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-070
+    name: Languages: secondary language, UI language and content switchers
+    url: /TASKS.md#TASK-070
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-071 — Translate the IQF and the standards into the secondary language
+
+Step 3 of docs/organization-plan.md. content_translation table (entity, language, field, text, origin, reviewed, source hash); translate job in the agent service (framework text only, DEC-021; glossary-aware; spend cap; progress); review screen (accept, edit, retranslate; filters needs review / out of date); the existing translation_en becomes the English row; assistant can offer to translate a selection.
+
+---
+
+## TASK-072 — Org chart: visual builder (tree and chart view)
+
+---
+id: TASK-072
+title: Org chart: visual builder (tree and chart view)
+description: >-
+  Org units are edited in a drag-and-drop tree and drawn as a chart (zoom, pan, collapse, RTL aware, export as image),
+  with a head and programs on each unit
+status: pending
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-069
+    name: Organization screen: tabs, Programs tab, institution logo, read-only Settings
+    url: /TASKS.md#TASK-069
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-072 — Org chart: visual builder (tree and chart view)
+
+Step 4 of docs/organization-plan.md. Reuses the tree drag-and-drop, selection, Trash and Undo/Redo; configurable levels and types; names in both languages; each unit records its source (manual, image, directory).
+
+---
+
+## TASK-073 — Org chart from an uploaded image
+
+---
+id: TASK-073
+title: Org chart from an uploaded image
+description: >-
+  Upload a picture or PDF of an org chart; a vision model proposes the tree; the person reviews and applies it as one
+  undoable change
+status: pending
+priority: P3
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-072
+    name: Org chart: visual builder (tree and chart view)
+    url: /TASKS.md#TASK-072
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-073 — Org chart from an uploaded image
+
+Step 5 of docs/organization-plan.md. Needs a decision record first: the image, and the names on it, go to the AI vision model (DEC-021 covers standards text only). Proposal beside the image, editable, applied as one undoable group; never overwrites units a person edited.
+
+---
+
+## TASK-074 — Org chart: directory sync (LDAP)
+
+---
+id: TASK-074
+title: Org chart: directory sync (LDAP)
+description: >-
+  A read-only LDAP/LDAPS connector keeps the chart in step with a directory, with a what-would-change list, scheduled
+  runs and locks on units a person edited
+status: pending
+priority: P3
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-072
+    name: Org chart: visual builder (tree and chart view)
+    url: /TASKS.md#TASK-072
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T13:00:00.000Z'
+---
+# TASK-074 — Org chart: directory sync (LDAP)
+
+Step 6 of docs/organization-plan.md. Settings (server, bind account encrypted at rest, base DN, filters, attribute mapping); a scheduled job in the general worker service; diff shown before apply (or automatic apply switched on); never deletes (Trash); sign-in through the directory is a separate question. Needs the owner to say which directory is used.
