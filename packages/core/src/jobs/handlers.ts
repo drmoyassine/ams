@@ -3,7 +3,7 @@ import type { Ctx } from '../ctx.js';
 import { AiDisabledError, AiNotConfiguredError, aiOcr } from '../ai/index.js';
 import { loadAiRuntime } from '../ai/settings.js';
 import { extractText } from '../framework/reading.js';
-import { extractImportText } from '../documents/reading.js';
+import { extractImportText, ocrPromptVersionFor } from '../documents/reading.js';
 import { importJob } from '../documents/stages.js';
 import { analyseJob } from '../framework/analysis/stages.js';
 import { assistantJob } from '../assistant/turn.js';
@@ -31,8 +31,9 @@ export const handlers: Partial<Record<JobType, JobHandler>> = {
     const ocr = runtime.ocr ?? { enabled: true, maxPages: Number.MAX_SAFE_INTEGER, language: null };
     if (!ocr.enabled) return read(ctx, payload, { notes: ['scanned pages were not read by the AI: "Read scanned pages with AI" is off (Settings -> AI)'] });
     if (runtime.visionError) return read(ctx, payload, { notes: [`scanned pages were not read by the AI: ${runtime.visionError}`] });
+    const promptVersion = 'importDocumentId' in payload ? await ocrPromptVersionFor(ctx, payload) : 'v1';
     const result = await read(ctx, payload, {
-      ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, runtime })).text,
+      ocrPage: async (p) => (await aiOcr({ image: p.image, lang: p.language, promptVersion, runtime })).text,
       ocrMaxPages: ocr.maxPages, ocrLanguage: ocr.language,
     });
     return { ...result, ai: runtime.calls };

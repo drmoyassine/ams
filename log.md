@@ -22,6 +22,15 @@ Decisions: DEC-028, DEC-021, DEC-006. ROADMAP-012. Section D of docs/organizatio
 - **Unofficial:** a standard's translation is labelled "Unofficial translation" wherever shown; English is only ever hidden in the view, never replaced; quote matching and exports read the English tables only.
 - **Not done:** glossary as a source (it already has Arabic columns), report templates and lifecycle labels, carrying translations to a new version's copies, the assistant offering to translate a selection. Migration 0056 is reserved for another change; 0057's journal `when` (1791970000000) must stay later than 0056's.
 
+## 2026-10-14 — Org chart from an uploaded image (TASK-073)
+
+Decisions: DEC-028, DEC-006. ROADMAP-012. Section E.2 of docs/organization-plan.md; the worked image example is section 2.5 of docs/ai-import.md.
+- **No new engine, no migration:** the `org_chart` target (`packages/core/src/org/org-chart-import.ts`) uses the reading (vision) model for extraction. The picture is turned into page text by the existing `aiOcr` hook; for documents of the `org_chart` scope the hook now uses the new `ocr` v2 prompt (the chart as an indented outline, one line per box) so the boxes and the tree survive as text the import can cite. `import_org_chart` v1 proposes the units.
+- **Honest verification:** nothing can be quote-matched on pixels (the quote is checked only against the model's own outline), so rows are flagged for low confidence, no parent, unclear parent, illegible text; the review shows the image beside the proposals.
+- **Apply rules:** match by name (Arabic folded) rather than duplicate; locked or `edited_by_person` units are skipped with the reason; an unedited, unlocked existing unit under another parent is moved; new units go in with `source = 'image'`. Undo = Trash + moves back, Redo = restore group. Note `mark_person_edit` marks every non-worker update, so a moved unit (and siblings the move renumbers) count as person-edited afterwards; the undo check therefore compares names and parents, not that flag.
+- Learnings: the PDF test fixture cannot carry Arabic (Latin-1), so Arabic folding is tested through `apply` directly; a worktree needs `pnpm install --offline` before anything runs.
+- Tests: `packages/core/src/org/org-chart-import.test.ts`, `apps/web/src/org-chart-docs-ui.test.tsx`; `e2e/responsive.mjs` has the org chart Docs list, Import dialog and review with the image. Not run against a real vision model.
+
 ## 2026-10-14 — Documents and AI import foundation (TASK-075)
 
 Decisions: DEC-028, DEC-006, DEC-013, DEC-019. ROADMAP-012. Section A of docs/organization-plan.md; contributor guide docs/ai-import.md.

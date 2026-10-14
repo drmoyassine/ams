@@ -6,11 +6,13 @@ import { configsurveyV1 } from './configsurvey.v1.js';
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
 import { importExtractV1 } from './import-extract.v1.js';
+import { importOrgChartV1 } from './import-org-chart.v1.js';
 import { importProgramsV1 } from './import-programs.v1.js';
 import { lifecycleV1 } from './lifecycle.v1.js';
 import { mapV1 } from './map.v1.js';
 import { newiqfV1 } from './newiqf.v1.js';
 import { ocrV1 } from './ocr.v1.js';
+import { ocrV2 } from './ocr.v2.js';
 import { recoverV1 } from './recover.v1.js';
 import { structureV1 } from './structure.v1.js';
 import { surveyV1 } from './survey.v1.js';
@@ -25,7 +27,8 @@ import { vocabV1 } from './vocab.v1.js';
  */
 export const PROMPTS = {
   connection_test: { v1: connectionTestV1 },
-  ocr: { v1: ocrV1 },
+  // v2 reads a picture of an org chart as an indented outline (TASK-073); v1 transcribes any other page.
+  ocr: { v1: ocrV1, v2: ocrV2 },
   // Framework analysis (step C): survey each source, find the hierarchy, extract requirements and notes.
   survey: { v1: surveyV1 },
   structure: { v1: structureV1 },
@@ -34,6 +37,8 @@ export const PROMPTS = {
   import_extract: { v1: importExtractV1 },
   // Document import for Programs (TASK-076): the general rules plus what a program is.
   import_programs: { v1: importProgramsV1 },
+  // Document import for the org chart (TASK-073): units, their parents and heads from a picture or a PDF page.
+  import_org_chart: { v1: importOrgChartV1 },
   // Step D: narrow questions about a few pages when the checks found a gap.
   recover: { v1: recoverV1 },
   // Step E: judge shortlisted IQF items for each external requirement; draft new IQF items where nothing fits.

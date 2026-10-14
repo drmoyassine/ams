@@ -9,6 +9,17 @@ import { ConflictError, NotFoundError } from '../ctx.js';
 import { parseDocument, type OcrPageHook, type ParserInfo } from '../framework/parse-document.js';
 
 const PayloadSchema = z.object({ importDocumentId: z.uuid() });
+
+/**
+ * The version of the OCR prompt (`ocr`) a page of this document is read with: a picture of an org chart is written down as an
+ * indented outline (v2, TASK-073) so its boxes and lines survive as text the import can cite; everything else is v1.
+ */
+export async function ocrPromptVersionFor(ctx: Ctx, payload: Record<string, unknown>): Promise<string> {
+  const parsed = PayloadSchema.safeParse(payload);
+  if (!parsed.success) return 'v1';
+  const [doc] = await ctx.tx.select({ scopeKind: importDocument.scopeKind }).from(importDocument).where(eq(importDocument.id, parsed.data.importDocumentId));
+  return doc?.scopeKind === 'org_chart' ? 'v2' : 'v1';
+}
 const BATCH = 200;
 
 export interface ExtractImportTextResult {

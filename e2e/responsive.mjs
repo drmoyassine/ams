@@ -227,6 +227,27 @@ async function seedDemo(db, base) {
           [inst, prun, pseq, payload.nameEn, JSON.stringify(payload), cat, page, quote, verified, confidence, JSON.stringify(flags)]);
       }
     }
+    // TASK-073: a finished org chart import from a picture (long and Arabic names, a head, a unit with no parent, a low-confidence box).
+    {
+      const [{ id: img }] = await q(`insert into import_document (institution_id, scope_kind, file_name, mime, size, sha256, file_path, read_status, page_count, created_by) values ($1, 'org_chart', 'university-organization-chart-2025-scan-of-the-board-approved-poster-with-a-long-name.png', 'image/png', 820000, $2, 'k/chart-img', 'read', 1, $3) returning id`, [inst, sha('e'), admin]);
+      await q(`insert into import_page (institution_id, import_document_id, page_no, text, method) values ($1, $2, 1, $3, 'ocr')`,
+        [inst, img, 'Board of Trustees\n  College of Engineering and Applied Sciences | Dr Layla Hassan\n    Department of Mechanical Engineering\n  كلية العلوم الصحية | عميد الكلية: د. هناء\n    Unsure Centre [parent unclear]']);
+      const [{ id: orun }] = await q(`insert into import_run (institution_id, scope_kind, target_kind, document_ids, status, stage, progress, usage, report, started_by, started_at, finished_at, prompt_version, model)
+        values ($1, 'org_chart', 'org_chart', array[$2::uuid], 'succeeded', 'finalise', '{"windowsTotal":1,"windowsDone":1,"items":5}', '{"inputTokens":2100,"outputTokens":380,"costUsd":0.03,"calls":2}', '{"runtime":{"model":"responsive-check-model","role":"reading"}}', $3, now(), now(), 'v1', 'responsive-check-model') returning id`, [inst, img, admin]);
+      const oprops = [
+        [{ nameEn: 'Board of Trustees', nameAr: null, type: null, parentName: null, headName: null, boxText: 'Board of Trustees' }, 'Board of Trustees', true, 0.9, ['No parent box was found: it would be added at the top level.']],
+        [{ nameEn: 'College of Engineering and Applied Sciences', nameAr: null, type: 'college', parentName: 'Board of Trustees', headName: 'Dr Layla Hassan', boxText: '  College of Engineering and Applied Sciences | Dr Layla Hassan' }, 'College of Engineering and Applied Sciences | Dr Layla Hassan', true, 0.92, []],
+        [{ nameEn: 'Department of Mechanical Engineering', nameAr: null, type: 'department', parentName: 'College of Engineering and Applied Sciences', headName: null, boxText: '    Department of Mechanical Engineering' }, 'Department of Mechanical Engineering', true, 0.9, []],
+        [{ nameEn: 'كلية العلوم الصحية', nameAr: 'كلية العلوم الصحية', type: 'college', parentName: 'Board of Trustees', headName: 'د. هناء', boxText: '  كلية العلوم الصحية | عميد الكلية: د. هناء' }, 'كلية العلوم الصحية | عميد الكلية: د. هناء', true, 0.85, []],
+        [{ nameEn: 'Unsure Centre', nameAr: null, type: null, parentName: 'كلية العلوم الصحية', headName: null, boxText: '    Unsure Centre [parent unclear]' }, 'Unsure Centre [parent unclear]', true, 0.3, ['The AI was not sure about this one.', 'The AI could not tell which box this hangs from.']],
+      ];
+      let oseq = 0;
+      for (const [payload, quote, verified, confidence, flags] of oprops) {
+        oseq += 1;
+        await q(`insert into import_proposal (institution_id, run_id, target_kind, candidate, seq, label, payload, document_id, page_no, quote, quote_verified, confidence, flags) values ($1, $2, 'org_chart', false, $3, $4, $5, $6, 1, $7, $8, $9, $10)`,
+          [inst, orun, oseq, payload.nameEn, JSON.stringify(payload), img, quote, verified, confidence, JSON.stringify(flags)]);
+      }
+    }
   } catch (e) { console.warn(`seed: documents and import skipped (${e.message})`); }
   // Two saved AI accounts (the screen opens on Models when there are some), so the cards, the model pickers and the add dialog have content.
   try {
@@ -509,6 +530,19 @@ function pagesFor(ids) {
       await page.getByRole('button', { name: /^Review the proposals of the Programs/ }).click();
       await page.getByRole('table', { name: 'Proposals' }).waitFor();
       await page.getByTestId('source-page-text').waitFor();
+    } },
+    // TASK-073: Org chart -> Docs (the list, the Import dialog, and the review of units read from a picture, with the image beside).
+    { name: 'org-chart-docs', path: '/settings/organization', action: async (page) => { await page.getByRole('tab', { name: 'Docs' }).click(); await page.getByRole('region', { name: 'Docs' }).getByTestId('doc-row').first().waitFor(); } },
+    { name: 'org-chart-docs-import-dialog', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('tab', { name: 'Docs' }).click();
+      await page.getByRole('button', { name: 'Import org chart' }).click();
+      await page.getByRole('dialog', { name: /^Import org chart/ }).waitFor();
+    } },
+    { name: 'org-chart-docs-import-review', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('tab', { name: 'Docs' }).click();
+      await page.getByRole('button', { name: /^Review the proposals of the Org chart/ }).click();
+      await page.getByRole('table', { name: 'Proposals' }).waitFor();
+      await page.getByTestId('source-image').waitFor();
     } },
     { name: 'settings-documents', path: '/settings/documents', action: async (page) => { await page.getByTestId('library-row').first().waitFor(); } },
     { name: 'settings-documents-filtered', path: '/settings/documents', action: async (page) => {

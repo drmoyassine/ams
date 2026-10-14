@@ -1,8 +1,8 @@
 # Documents and AI import: how to add a place or an import
 
 One pattern for every place where the AI reads uploaded documents and fills drafts (TASK-075, section A of
-[organization-plan.md](organization-plan.md), DEC-028). The standards' analysis was the first; Programs (TASK-076), the org
-chart image (TASK-073), the IQF and the glossary follow. **Adding one is a registration plus a Docs tab, not a new engine.**
+[organization-plan.md](organization-plan.md), DEC-028). The standards' analysis was the first; Programs (TASK-076) and the org
+chart image (TASK-073) are built; the IQF and the glossary follow. **Adding one is a registration plus a Docs tab, not a new engine.**
 
 ## What exists
 
@@ -124,6 +124,22 @@ the returned value as the next `inverse`: Undo calls `reverse` on the apply's in
 create-only target: `inverse = { ids, to: 'inactive' }` switches the created rows off and returns `{ ids, to: 'active' }`. Throw a
 `ConflictError` when it cannot be done (a record changed since): "Cannot undo: ..." is shown and nothing changes. Prefer reversing
 through services that are themselves undoable (Trash: delete = snapshot, restore = put back).
+
+### 2.5 Worked example: reading an image (the org chart, TASK-073)
+
+`packages/core/src/org/org-chart-import.ts` is the target for pictures. What is different from a text target:
+
+- `aiRole: 'reading'`: the extract stage uses the Reading (vision) model of Settings -> AI. The image and the names on it go to it (DEC-028).
+- **How a picture becomes pages:** an upload is read by the parser's `extract_text` job; a page with no text layer (an image is one such page) goes to the
+  existing `aiOcr` hook. `ocrPromptVersionFor` (`documents/reading.ts`) picks the OCR prompt per scope: documents of the `org_chart` scope use `ocr` v2
+  (`prompts/ocr.v2.ts`: the chart as an indented outline, one line per box, words exactly as written), all others use v1. A new picture-reading place
+  adds its own version there; the engine and the registries stay as they are.
+- **Verification:** there is nothing to quote-match on pixels. The item's quote is the box's outline line, checked against the model's own outline, which is
+  weak, so the target's `validate` and the engine's low-confidence flag are what make a person look, and the review shows the original image beside the
+  proposals (`SourceImage` in `import-review.tsx`, for sources named `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`).
+- **Apply:** `createOrgUnit({ source: 'image' })` for new units (parents first, parent matched by name among existing and accepted units), `moveOrgUnits` only for
+  an existing unit that is neither locked nor `edited_by_person`; those two kinds are skipped with the reason. `reverse` moves back (placements) and puts the
+  created units in the Trash (`deleteOrgUnits`); the inverse remembers the Trash group so Redo restores it. It refuses when a unit it made was changed since.
 
 ## 3. What the engine guarantees
 

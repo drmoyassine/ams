@@ -203,6 +203,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
             <p className="text-xs text-muted-foreground">{list.length} {targetNoun} proposed · {ready.length} accepted · {list.filter((p) => p.status === 'applied').length} applied</p>
           </div>
           <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            {current?.documentId && current.documentName && IMAGE_NAME.test(current.documentName) && <div className="mb-3"><SourceImage api={api} documentId={current.documentId} name={current.documentName} /></div>}
             {current && (current.documentId && current.pageNo
               ? <SourceViewer key={current.id} api={{ pageView: api.pageView, sourceFileUrl: api.fileUrl }} title={current.label} heading="Source page"
                 citations={[{ key: current.id, label: current.documentName ?? 'document', documentId: current.documentId, page: current.pageNo, quote: current.quote }]} />
@@ -211,6 +212,18 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
         </div>
       )}
     </section>
+  );
+}
+
+const IMAGE_NAME = /\.(png|jpe?g|webp|gif)$/i;
+
+/** The picture itself, beside the proposals, when the source is an image (an org chart): the person checks each box against it. */
+function SourceImage({ api, documentId, name }: { api: DocumentsApi; documentId: string; name: string | null }) {
+  return (
+    <figure className="space-y-1" data-testid="source-image">
+      <img src={api.fileUrl(documentId)} alt={`The uploaded image ${name ?? ''}`.trim()} className="max-h-[50dvh] w-full rounded-md border border-border bg-background object-contain" />
+      <figcaption className="text-xs text-muted-foreground">The image the AI read. Check each proposed unit against it; the text below is the AI's reading of it.</figcaption>
+    </figure>
   );
 }
 

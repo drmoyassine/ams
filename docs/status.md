@@ -29,6 +29,12 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 |---|---|---|
 | **Org chart** | Institution -> Org chart has two views of the same units: Tree (drag and drop, keyboard drag, multi-select, bulk delete to the Trash with Undo and Redo) and Chart (automatic top-down layout, zoom, pan, collapse, mirrored for right-to-left, export as PNG or SVG, print to one page). Each unit has names in both languages, a type, a head (a person or a name), a description, a lock, a source (manual, image or directory) and its programs; a unit with programs cannot be deleted. Unit types are configurable per institution (add, rename, reorder, remove when unused). Smooth with 300 units | TASK-072, DEC-028 |
 
+## Built: org chart from an image (TASK-073)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Org chart from an image** | Institution -> Org chart has a Docs tab (Chart | Docs). Upload a picture (PNG, JPEG, WebP) or a PDF of the org chart and press Import: the AI reading model writes the chart down as an outline and proposes one unit per box (names in English and Arabic, type, which box it hangs from, head when shown). The review shows the picture itself beside the proposals, editable cells, and flags for low confidence, no parent found and unclear boxes (there is no quote check against pixels). Apply adds the accepted units as you (source "image") in one undoable change; units already in the chart are matched by name (Arabic folded) and never duplicated, and a locked or person-edited unit is left alone with the reason. Undo puts the added units in the Trash and moves back any that were moved; Redo restores them. The image and the names on it go to the AI reading model (DEC-028). Not run against a real model yet | TASK-073, DEC-028 |
+
 ## Built: Languages (TASK-070)
 
 | Area | What works | Roadmap / tasks |
@@ -47,7 +53,7 @@ In the order I would do them.
 
 1. **Check what exists on real documents (needs the owner).** Redeploy, then the real run on the WSCUC, PUC and ABET files and tuning from the report: TASK-059 (production check of the services and the parser image) and TASK-056 (the PRD §19.2 acceptance test, seed-data replacement, embeddings decision).
 2. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice.
-3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** the shared Docs tab, Documents area and import engine for every place the AI parses uploads into drafts (built, TASK-075; docs/ai-import.md); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); the org chart builder is built (TASK-072); the org chart from an image (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
+3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** the shared Docs tab, Documents area and import engine for every place the AI parses uploads into drafts (built, TASK-075; docs/ai-import.md); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); the org chart builder is built (TASK-072); the org chart from an image is built (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
 4. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
 5. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
 6. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.

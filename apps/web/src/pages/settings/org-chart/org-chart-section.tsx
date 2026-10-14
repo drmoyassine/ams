@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { defaultCollapsed } from '@ams/shared';
+import { DocsTab } from '../../../components/docs';
 import { ReadOnlyNote } from '../../../components/read-only-note';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
+import { useDocumentsApi, type DocumentsApi } from '../../../lib/documents-api';
 import type { SettingsApi } from '../../../lib/settings-api';
 import { downloadBlob, svgToPng } from './chart-export';
 import { OrgChartView, type ChartHandle } from './org-chart-view';
@@ -28,10 +30,18 @@ export const defaultExporters: ChartExporters = { png: (svg, size) => svgToPng(s
 
 const readRtl = () => typeof document !== 'undefined' && getComputedStyle(document.documentElement).direction === 'rtl';
 
-export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defaultExporters, initialView = 'tree' }: {
-  api: SettingsApi; canEdit: boolean; onOpenPrograms: () => void; exporters?: ChartExporters; initialView?: ChartViewName;
+export type OrgChartSectionName = 'chart' | 'docs';
+const SECTIONS: { id: OrgChartSectionName; label: string }[] = [{ id: 'chart', label: 'Chart' }, { id: 'docs', label: 'Docs' }];
+
+export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defaultExporters, initialView = 'tree', initialSection = 'chart', docs: docsOverride }: {
+  api: SettingsApi; canEdit: boolean; onOpenPrograms: () => void; exporters?: ChartExporters; initialView?: ChartViewName; initialSection?: OrgChartSectionName; docs?: DocumentsApi;
 }) {
   const qc = useQueryClient();
+  const docs = useDocumentsApi(docsOverride);
+  const [section, setSection] = useState<OrgChartSectionName>(initialSection);
+  const targets = useQuery({ queryKey: ['import-targets', 'org_chart'], queryFn: () => docs.targets({ kind: 'org_chart', id: null }), enabled: section === 'docs' });
+  // An import applied (or undone) in Docs changes the units: the chart is read again when the person comes back to it.
+  const chooseSection = (id: OrgChartSectionName) => { setSection(id); if (id === 'chart') void qc.invalidateQueries({ queryKey: [...ORG_CHART_KEY] }); };
   const { data, isLoading } = useQuery({ queryKey: [...ORG_CHART_KEY], queryFn: () => api.orgChart() });
   const units = useMemo(() => data?.units ?? [], [data]);
   const types = useMemo(() => data?.types ?? [], [data]);
@@ -110,14 +120,26 @@ export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defa
     <Card>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <h3 className="text-lg font-semibold">Org chart</h3>
-        <div role="group" aria-label="Org chart view" className="ms-auto flex rounded-md border border-border p-0.5">
+        <div role="tablist" aria-label="Org chart sections" className="flex gap-1">
+          {SECTIONS.map((o) => (
+            <button key={o.id} id={`org-section-${o.id}`} role="tab" type="button" aria-selected={section === o.id} aria-controls="org-section-panel" onClick={() => chooseSection(o.id)}
+              className={`rounded-md px-3 py-1 text-sm ${section === o.id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{o.label}</button>
+          ))}
+        </div>
+        {section === 'chart' && <div role="group" aria-label="Org chart view" className="ms-auto flex rounded-md border border-border p-0.5">
           {VIEWS.map((v) => (
             <button key={v.id} ref={(el) => { tabs.current[v.id] = el; }} id={`org-view-${v.id}`} type="button" aria-pressed={view === v.id} aria-controls="org-view-panel"
               onClick={() => setView(v.id)} onKeyDown={onTabKey}
               className={`rounded px-3 py-1 text-sm ${view === v.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>{v.label}</button>
           ))}
-        </div>
+        </div>}
       </div>
+      {section === 'docs' ? (
+        <div role="tabpanel" id="org-section-panel" aria-labelledby="org-section-docs" className="mt-3">
+          <p className="mb-3 text-sm text-muted-foreground">Upload a picture or PDF of your org chart. The AI reading model proposes the units; you review them beside the image and apply them as one change you can undo. The image and the names on it go to the AI reading model.</p>
+          <DocsTab scopeKind="org_chart" scopeId={null} targets={targets.data ?? []} canWrite={canEdit} api={docs} />
+        </div>
+      ) : (<>
       <p className="mb-3 text-sm text-muted-foreground">Colleges, schools, departments and administrative units, each with a head and its programs. Roles can be given for a whole unit.</p>
       <ReadOnlyNote show={!canEdit} className="mb-3" />
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -146,6 +168,7 @@ export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defa
           </>
         )}
       </div>
+      </>)}
       {drawer && (
         <UnitDrawer key={current?.id ?? `add-${drawer.kind === 'add' ? (drawer.parent?.id ?? 'top') : ''}`} api={api} mode={current ? { kind: 'edit', unit: current } : drawer}
           types={types} people={people.data ?? []} editable={canEdit} onClose={() => setDrawer(null)} onSaved={refresh} onOpenPrograms={onOpenPrograms} />

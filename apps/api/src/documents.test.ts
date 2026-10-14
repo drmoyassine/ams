@@ -128,7 +128,8 @@ describe('import API', () => {
   it('runs an import, reviews it and applies it as one undoable group', async () => {
     setAiModelForTests(createFakeAiModel([testUnitsResponder()]).model);
     const targets = await call('viewer', 'GET', '/api/imports/targets?scopeKind=org_chart');
-    expect(targets.body).toMatchObject([{ kind: TEST_TARGET_KIND, label: 'Units (test)', itemsLabel: 'units' }]);
+    // The org chart scope offers the production import of org charts and the invented one of the tests.
+    expect(targets.body).toEqual(expect.arrayContaining([expect.objectContaining({ kind: TEST_TARGET_KIND, label: 'Units (test)', itemsLabel: 'units' }), expect.objectContaining({ kind: 'org_chart' })]));
     const pre = await call('lead', 'GET', `/api/imports/preflight?scopeKind=org_chart&targetKind=${TEST_TARGET_KIND}`);
     expect(pre.body).toMatchObject({ canStart: true });
 
