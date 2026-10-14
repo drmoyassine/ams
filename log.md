@@ -34,6 +34,15 @@ Decisions: DEC-028, DEC-026. ROADMAP-012. Section E.1 of docs/organization-plan.
 - Performance (Chromium, 300 units): tree open about 0.5 s, select all 83 ms, chart open 97 ms with 182 boxes, expand all (300) 74 ms, zoom and pan at a steady 16.7 ms frame gap, SVG export 117 ms, PNG 332 ms, 1 PDF page.
 - Tests: `packages/shared/src/org-layout.test.ts`, `packages/core/src/org/org-chart.test.ts`, `apps/api/src/org-chart.test.ts`, `packages/db/src/org-chart.test.ts`, `apps/web/src/org-chart-ui.test.tsx`, `chart-model.test.ts`; `e2e/responsive.mjs` has the org chart states and the 300-unit run. The `org_chart` document scope points at the Institution tab until its Docs tab (TASK-073).
 
+## 2026-10-14 — Languages: secondary language, interface language, translate job (TASK-070)
+
+Decisions: DEC-028. ROADMAP-012. Section D of docs/organization-plan.md (the interface half; content is TASK-071).
+- **Data model:** `institution.secondary_language` (nullable, registry code), `default_locale` kept but now "default interface language" (`en` or the secondary; existing `ar` became secondary `ar`), `app_user.ui_locale`, `ui_translation`, `translation_run` (migration 0057, numbered apart from other work; the lead renumbers on merge). Triggers: a person's language must be en or the secondary; changing the secondary clears others' choices and fixes the default; the worker may write only unreviewed AI `ui_translation` rows.
+- **Generic job:** `translate` (agent group, compose `WORKER_QUEUES`), kind `ui`; `TranslationSource` registry (`translation/register.ts`) is where TASK-071 adds kinds. One job = one batch; run row holds cursor, progress, usage, set-aside items; a spend stop is `stopped` and Resume gives a fresh allowance (`report.spendBase`).
+- **Honest coverage:** the app had 15 `t()` calls against about 1,700 hard-coded literals (0.9%). Converted the shell and shared chrome; now 11.1% (docs/i18n-coverage.md, `pnpm i18n:coverage`). The version pages and the org chart section were left alone because other work is in them. A warning-level lint rule protects converted files.
+- Learnings: a CHECK like `a = 'en' OR a = b` passes when b is NULL (use `IS NOT NULL`); `GRANT EXECUTE ON ALL FUNCTIONS` in a later migration re-grants functions earlier migrations restricted (the Trash tests caught it); i18next's `changeLanguage` is not synchronous, so Intl helpers read their own current-locale variable; the e2e Arabic pass seeds generated Arabic of 1.4x the English length (stresses layout, not meaning).
+- Tests: `packages/shared/src/languages.test.ts`, `packages/db/src/languages.test.ts`, `packages/core/src/translation/translation.test.ts`, `apps/api/src/languages.test.ts`, `apps/web/src/languages-ui.test.tsx`, `i18n-extract.test.ts`, `lint-rules.test.ts`; `pnpm test:responsive` has Arabic and Chinese passes (`--pages=languages` for only them).
+
 ## 2026-10-13 — Organization tabs, institution logo, read-only Settings (TASK-069)
 
 Decisions: DEC-028. ROADMAP-012. Step 1 of docs/organization-plan.md.

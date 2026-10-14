@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { plural, TRASH_KIND_LABELS, TRASH_KINDS, type RestoreOptions, type TrashGroup, type TrashKind } from '@ams/shared';
 import { useConfirm } from '../../components/confirm-dialog';
 import { Dialog } from '../../components/dialog';
+import { useTranslation } from '../../i18n';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ApiError } from '../../lib/framework-api';
@@ -64,6 +65,7 @@ function PlaceDialog({ message, nearest, onPick, onClose }: { message: string; n
 }
 
 export function TrashPage({ api: override }: { api?: TrashApi }) {
+  const { t } = useTranslation();
   const api = useTrashApi(override);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -114,8 +116,8 @@ export function TrashPage({ api: override }: { api?: TrashApi }) {
   return (
     <section className="space-y-4" aria-labelledby="trash-title">
       <div>
-        <h2 id="trash-title" className="text-xl font-semibold">Trash</h2>
-        <p className="text-sm text-muted-foreground">Deleted items stay here for {plural(retention, 'day')}, then they are removed for good. Restore puts them back as they were.</p>
+        <h2 id="trash-title" className="text-xl font-semibold">{t('settings.trash')}</h2>
+        <p className="text-sm text-muted-foreground">{t('trash.intro', { days: retention })}</p>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex w-full min-w-0 flex-col text-sm sm:w-auto sm:max-w-xs sm:flex-1">Search the Trash

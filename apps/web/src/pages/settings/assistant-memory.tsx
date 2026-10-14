@@ -7,6 +7,7 @@ import { MEMORY_KINDS, MEMORY_MAX_CHARS, type MemoryItem, type MemoryKind, type 
 import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
+import { useTranslation } from '../../i18n';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -152,6 +153,7 @@ function Row({ item, onEdit, onPin, onDelete, onRestore }: { item: MemoryItem; o
 export function AssistantMemoryPage({ api: override, frameworks: fwOverride, engagements = defaultEngagementApi }: {
   api?: AssistantApi; frameworks?: FrameworkApi; engagements?: Pick<EngagementApi, 'list'>;
 }) {
+  const { t } = useTranslation();
   const api = useAssistantApi(override);
   const frameworks = useApi(fwOverride);
   const qc = useQueryClient();
@@ -187,10 +189,9 @@ export function AssistantMemoryPage({ api: override, frameworks: fwOverride, eng
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold">Assistant memory</h2>
+          <h2 className="text-xl font-semibold">{t('settings.memory')}</h2>
           <p className="max-w-prose text-sm text-muted-foreground">
-            What the assistant remembers between chats. Notes are saved only when you say so; it never saves words it finds in a document.
-            A shared note is seen only by people who can open what it is about.
+            {t('memory.intro')}
           </p>
         </div>
         <Button type="button" onClick={() => setDialog({ item: null })}>Add memory</Button>

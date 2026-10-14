@@ -121,3 +121,26 @@ export async function resolvePublicBranding(pool: pg.Pool): Promise<PublicBrandi
     client.release();
   }
 }
+
+/**
+ * What the sign-in page may read of the language setting before anyone is authenticated: the default and secondary
+ * language codes of the one institution, and the text of exactly the keys asked for (the API passes the fixed sign-in key
+ * list). Returns nothing unless the deployment has exactly one institution.
+ */
+export async function resolvePublicLanguages(pool: pg.Pool, keys: readonly string[]): Promise<{ defaultLocale: string; secondaryLanguage: string | null; strings: Record<string, string> } | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role ams_app');
+    const l = await client.query<{ default_locale: string; secondary_language: string | null }>('select * from app_public_languages()');
+    const s = await client.query<{ key: string; text: string }>('select * from app_public_ui_strings($1::text[])', [[...keys]]);
+    await client.query('commit');
+    const r = l.rows[0];
+    return r ? { defaultLocale: r.default_locale, secondaryLanguage: r.secondary_language, strings: Object.fromEntries(s.rows.map((x) => [x.key, x.text])) } : null;
+  } catch (e) {
+    await client.query('rollback').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}

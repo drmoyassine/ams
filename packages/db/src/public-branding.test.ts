@@ -21,8 +21,8 @@ describe('public branding', () => {
   });
 
   it('returns exactly the display fields of the one institution', async () => {
-    await db.su.query(`insert into institution (name_en, name_ar, country, default_locale, accent_color, logo_path, logo_mime, logo_updated_at)
-      values ('Gulf University', 'جامعة الخليج', 'Qatar', 'ar', '#1f3b66', 'x/institution/logo-1', 'image/png', now())`);
+    await db.su.query(`insert into institution (name_en, name_ar, country, default_locale, secondary_language, accent_color, logo_path, logo_mime, logo_updated_at)
+      values ('Gulf University', 'جامعة الخليج', 'Qatar', 'ar', 'ar', '#1f3b66', 'x/institution/logo-1', 'image/png', now())`);
     const r = await resolvePublicBranding(pool);
     expect(Object.keys(r!).sort()).toEqual(['accentColor', 'defaultLocale', 'logoMime', 'logoPath', 'logoUpdatedAt', 'nameAr', 'nameEn']);
     expect(r).toMatchObject({ nameEn: 'Gulf University', nameAr: 'جامعة الخليج', accentColor: '#1f3b66', logoMime: 'image/png' });

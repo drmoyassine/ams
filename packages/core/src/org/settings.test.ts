@@ -37,8 +37,8 @@ afterAll(async () => { await pool.end(); await db.close(); });
 describe('institution identity and branding', () => {
   it('is readable by everyone and changed only by an admin', async () => {
     expect(await as('viewer', (c) => getInstitution(c))).toMatchObject({ nameEn: 'Gulf University', nameAr: null, accentColor: null, defaultLocale: 'en' });
-    const out = await as('admin', (c) => updateInstitution(c, { nameEn: 'Gulf University of Science', nameAr: 'جامعة الخليج', country: 'KW', defaultLocale: 'ar', accentColor: '#1F4E79' }));
-    expect(out).toEqual({ id: ids.inst, nameEn: 'Gulf University of Science', nameAr: 'جامعة الخليج', country: 'KW', defaultLocale: 'ar', accentColor: '#1f4e79', logoVersion: null });
+    const out = await as('admin', (c) => updateInstitution(c, { nameEn: 'Gulf University of Science', nameAr: 'جامعة الخليج', country: 'KW', secondaryLanguage: 'ar', defaultLocale: 'ar', accentColor: '#1F4E79' }));
+    expect(out).toEqual({ id: ids.inst, nameEn: 'Gulf University of Science', nameAr: 'جامعة الخليج', country: 'KW', defaultLocale: 'ar', secondaryLanguage: 'ar', accentColor: '#1f4e79', logoVersion: null });
     await expect(as('leadA', (c) => updateInstitution(c, { nameEn: 'x' }))).rejects.toThrow(ForbiddenError);
     await expect(as('viewer', (c) => updateInstitution(c, { nameEn: 'x' }))).rejects.toThrow(ForbiddenError);
   });

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../i18n';
 import { StandardCard } from '../components/standard-card';
 import { Dialog } from '../components/dialog';
 import { Button } from '../components/ui/button';
@@ -148,7 +148,7 @@ export function FrameworksPage({ api: apiProp }: { api?: FrameworkApi }) {
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="min-w-0 text-xl font-semibold break-words sm:text-2xl">{t('framework.title', 'External Standards')}</h1>
+        <h1 className="min-w-0 text-xl font-semibold break-words sm:text-2xl">{t('settings.external')}</h1>
         {canWrite && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setCreating('files')}>Create from files</Button>

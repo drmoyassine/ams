@@ -14,5 +14,8 @@ export * from './analysis.js';
 export * from './analysis-report.js';
 export * from './trash.js';
 export * from './documents.js';
+export * from './languages.js';
+export * from './i18n-keys.js';
+export { EN_CATALOGUE, UNTRANSLATED_KEYS, PUBLIC_UI_KEYS } from './locales/en.js';
 export * from './tree-move.js';
 export * from './org-layout.js';

@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { getPublicBranding, readPublicLogo } from '@ams/core';
-import { PublicBrandingSchema } from '@ams/shared';
+import { getPublicBranding, getPublicI18n, readPublicLogo } from '@ams/core';
+import { PublicBrandingSchema, PublicI18nSchema } from '@ams/shared';
 import { publicRoute, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { json } from './common.js';
 
@@ -17,6 +17,12 @@ export function publicRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
       description: 'Public. The institution\'s display name, accent colour and logo address, for the sign-in page. Nothing else.',
       responses: { 200: { description: 'Branding (all null when the deployment has no single institution)', ...json(PublicBrandingSchema) } },
     }), async (c) => c.json(await getPublicBranding(deps.pool), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/public/i18n', access: publicRoute(), tags: tag,
+      description: 'Public. The institution\'s default and secondary language codes and the text of the sign-in page\'s own keys in the secondary language. Nothing else.',
+      responses: { 200: { description: 'Sign-in page language data', ...json(PublicI18nSchema) } },
+    }), async (c) => c.json(await getPublicI18n(deps.pool), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/public/branding/logo', access: publicRoute(), tags: tag,

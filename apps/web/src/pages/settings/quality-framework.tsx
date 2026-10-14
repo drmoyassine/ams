@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { ReadOnlyNote } from '../../components/read-only-note';
+import { useTranslation } from '../../i18n';
 import type { FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
 import type { EvidenceApi } from '../../lib/evidence-api';
@@ -27,6 +28,7 @@ const TABS = [
  * It is edited, reviewed and published like any standard, and external standards are mapped onto it.
  */
 export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidence }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi; evidence?: EvidenceApi }) {
+  const { t } = useTranslation();
   const api = useApi(apiProp);
   const me = useMe(api);
   const qc = useQueryClient();
@@ -65,8 +67,8 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Internal Quality Framework</h2>
-        <p className="text-sm text-muted-foreground">Your institution's own standards and sub-standards, each with the evidence that supports it. Each accreditor's standard maps onto it from its own page, so evidence is collected once and reported to every accreditor.</p>
+        <h2 className="text-lg font-semibold">{t('settings.iqf')}</h2>
+        <p className="text-sm text-muted-foreground">{t('iqf.intro')}</p>
       </div>
       <ReadOnlyNote show={!!me.data && !canWrite} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

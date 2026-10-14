@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { contrastWithWhite, isReadableAccent, type Institution } from '@ams/shared';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { OrgChartSection } from './org-chart/org-chart-section';
+import { useTranslation } from '../../i18n';
+import { LanguagesSection } from './languages-section';
 import { ProgramsSettingsPage } from './programs';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -29,7 +31,6 @@ function InstitutionForm({ api, canEdit, initial, saved, onSaved }: { api: Setti
   const [nameEn, setNameEn] = useState(initial.nameEn);
   const [nameAr, setNameAr] = useState(initial.nameAr ?? '');
   const [country, setCountry] = useState(initial.country ?? '');
-  const [locale, setLocale] = useState<'en' | 'ar'>(initial.defaultLocale === 'ar' ? 'ar' : 'en');
   const [accent, setAccent] = useState(initial.accentColor ?? '');
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
@@ -37,7 +38,7 @@ function InstitutionForm({ api, canEdit, initial, saved, onSaved }: { api: Setti
   const save = useMutation({
     mutationFn: async () => {
       setError(null); onSaved(false);
-      const r = await act(() => api.updateInstitution({ nameEn, nameAr: nameAr || null, country: country || null, defaultLocale: locale, accentColor: accent || null }));
+      const r = await act(() => api.updateInstitution({ nameEn, nameAr: nameAr || null, country: country || null, accentColor: accent || null }));
       if (r) { onSaved(true); await qc.invalidateQueries({ queryKey: ['institution'] }); }
     },
   });
@@ -52,11 +53,6 @@ function InstitutionForm({ api, canEdit, initial, saved, onSaved }: { api: Setti
         <label className={field}>Name (English)<Input aria-label="Name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} disabled={!canEdit} required /></label>
         <label className={field}>Name (Arabic)<Input aria-label="Name (Arabic)" dir="auto" value={nameAr} onChange={(e) => setNameAr(e.target.value)} disabled={!canEdit} /></label>
         <label className={field}>Country<Input aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!canEdit} /></label>
-        <label className={field}>Default language
-          <select aria-label="Default language" className={select} value={locale} onChange={(e) => setLocale(e.target.value as 'en' | 'ar')} disabled={!canEdit}>
-            <option value="en">English</option><option value="ar">Arabic</option>
-          </select>
-        </label>
         <div className={`${field} sm:col-span-2`}>
           <span>Accent colour (buttons and highlights)</span>
           <div className="flex flex-wrap items-center gap-3">
@@ -129,7 +125,7 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution', label: 'Institution' }, { id: 'programs', label: 'Programs' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
@@ -137,16 +133,18 @@ export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
 export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?: SettingsApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void }) {
+  const { t } = useTranslation();
   const api = useSettingsApi(override);
   const me = useMe(api);
   const [local, setLocal] = useState<OrganizationTab>('institution');
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const choose = (t: OrganizationTab) => { setLocal(t); onTab?.(t); };
+  const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
+  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
-    const i = ORGANIZATION_TABS.findIndex((t) => t.id === tab);
+    const i = ORGANIZATION_TABS.findIndex((o) => o.id === tab);
     const n = ORGANIZATION_TABS.length;
     const forward = rtl ? 'ArrowLeft' : 'ArrowRight';
     const back = rtl ? 'ArrowRight' : 'ArrowLeft';
@@ -159,12 +157,12 @@ export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?:
   };
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Organization</h2>
-      <div role="tablist" aria-label="Organization" className="flex flex-wrap gap-1 border-b border-border">
-        {ORGANIZATION_TABS.map((t) => (
-          <button key={t.id} ref={(el) => { refs.current[t.id] = el; }} id={`org-tab-${t.id}`} role="tab" type="button" aria-selected={tab === t.id} aria-controls="org-tabpanel"
-            tabIndex={tab === t.id ? 0 : -1} onClick={() => choose(t.id)} onKeyDown={onKey}
-            className={`px-3 py-2 text-sm ${tab === t.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
+      <h2 className="text-xl font-semibold">{t('settings.organization')}</h2>
+      <div role="tablist" aria-label={t('settings.organization')} className="flex flex-wrap gap-1 border-b border-border">
+        {ORGANIZATION_TABS.map((o) => (
+          <button key={o.id} ref={(el) => { refs.current[o.id] = el; }} id={`org-tab-${o.id}`} role="tab" type="button" aria-selected={tab === o.id} aria-controls="org-tabpanel"
+            tabIndex={tab === o.id ? 0 : -1} onClick={() => choose(o.id)} onKeyDown={onKey}
+            className={`px-3 py-2 text-sm ${tab === o.id ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{tabLabel[o.id]}</button>
         ))}
       </div>
       <div role="tabpanel" id="org-tabpanel" aria-labelledby={`org-tab-${tab}`} className="space-y-6">
@@ -172,6 +170,7 @@ export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?:
           <>
             <InstitutionCard api={api} canEdit={can(me.data, 'institution:write')} />
             <LogoCard api={api} canEdit={can(me.data, 'institution:write')} />
+            <LanguagesSection api={api} canEdit={can(me.data, 'institution:write')} />
             <OrgChartSection api={api} canEdit={can(me.data, 'org:write')} onOpenPrograms={() => choose('programs')} />
           </>
         ) : <ProgramsSettingsPage api={api} />}

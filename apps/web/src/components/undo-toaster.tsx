@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from '../i18n';
 import { dismissToast, getToasts, hasRedo, hasUndo, onUndone, redoEntry, redoLast, subscribe, TOAST_MS, undoEntry, undoLast, type Toast } from '../lib/undo';
 
 /** Is the keyboard focus in something people type into? Then Ctrl/Cmd+Z belongs to that field, not to the screen. */
@@ -14,6 +15,7 @@ export function isTextTarget(t: EventTarget | null): boolean {
 }
 
 function ToastView({ toast }: { toast: Toast }) {
+  const { t } = useTranslation();
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -29,9 +31,9 @@ function ToastView({ toast }: { toast: Toast }) {
       <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" dir="auto">{toast.label}</span>
       {toast.entry && (
         <button type="button" disabled={busy} className="shrink-0 rounded px-2 py-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-          onClick={() => { setBusy(true); void (toast.kind === 'redo' ? redoEntry : undoEntry)(toast.entry!).finally(() => setBusy(false)); }}>{toast.kind === 'redo' ? 'Redo' : 'Undo'}</button>
+          onClick={() => { setBusy(true); void (toast.kind === 'redo' ? redoEntry : undoEntry)(toast.entry!).finally(() => setBusy(false)); }}>{toast.kind === 'redo' ? t('common.redo') : t('common.undo')}</button>
       )}
-      <button type="button" aria-label="Dismiss" className="shrink-0 rounded px-1.5 py-1 text-muted-foreground hover:bg-muted" onClick={() => dismissToast(toast.id)}>✕</button>
+      <button type="button" aria-label={t('common.dismiss')} className="shrink-0 rounded px-1.5 py-1 text-muted-foreground hover:bg-muted" onClick={() => dismissToast(toast.id)}>✕</button>
     </div>
   );
 }
@@ -42,6 +44,7 @@ function ToastView({ toast }: { toast: Toast }) {
  * focused) and are plain buttons in the page order, so the keyboard reaches them. Mounted once, in the app layout.
  */
 export function UndoToaster() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const toasts = useSyncExternalStore(subscribe, getToasts, getToasts);
   useEffect(() => onUndone(() => { void qc.invalidateQueries(); }), [qc]);
@@ -61,7 +64,7 @@ export function UndoToaster() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   return (
-    <div aria-label="Notifications" role="region" className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex flex-col items-center gap-2 p-4 sm:items-end">
+    <div aria-label={t('common.notifications')} role="region" className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex flex-col items-center gap-2 p-4 sm:items-end">
       {toasts.map((t) => <ToastView key={t.id} toast={t} />)}
     </div>
   );

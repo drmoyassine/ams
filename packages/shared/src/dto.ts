@@ -131,8 +131,12 @@ export function toDto<S extends z.ZodType>(schema: S, value: unknown): z.output<
   return schema.parse(JSON.parse(JSON.stringify(value)));
 }
 
+import { LanguageStateSchema } from './languages.js';
+
 export const MeSchema = z.object({
   userId: z.string().nullable(), institutionId: z.string(), roles: z.array(z.enum(ROLES)), permissions: z.array(z.enum(PERMISSIONS)),
+  /** The language setting that applies to this person (TASK-070). */
+  language: LanguageStateSchema.optional(),
 });
 export type Me = z.infer<typeof MeSchema>;
 
@@ -142,7 +146,10 @@ import { isReadableAccent } from './branding.js';
 
 export const InstitutionSchema = z.object({
   id: z.string(), nameEn: z.string(), nameAr: z.string().nullable(), country: z.string().nullable(),
+  /** The interface language for people who have not chosen one: `en` or the secondary language. */
   defaultLocale: z.string(), accentColor: z.string().nullable(),
+  /** The one secondary language (a registry code), or null. */
+  secondaryLanguage: z.string().nullable(),
   /** Changes whenever the logo does (used in the logo URL to refresh browser caches); null when there is no logo. */
   logoVersion: z.string().nullable(),
 });
@@ -162,7 +169,8 @@ export const UpdateInstitutionSchema = z.object({
   nameEn: z.string().trim().min(1).optional(),
   nameAr: z.string().trim().nullable().optional(),
   country: z.string().trim().nullable().optional(),
-  defaultLocale: z.enum(['en', 'ar']).optional(),
+  defaultLocale: z.string().optional(),
+  secondaryLanguage: z.string().nullable().optional(),
   accentColor: z.string().nullable().optional().refine((v) => v == null || isReadableAccent(v), { message: 'choose a darker colour: white text on it must reach a contrast of 4.5 (#rrggbb)' }),
 }).strict();
 export type UpdateInstitution = z.infer<typeof UpdateInstitutionSchema>;

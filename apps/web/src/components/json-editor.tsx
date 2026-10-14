@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from './ui/button';
+import { useTranslation } from '../i18n';
 import type { Issue } from '../lib/framework-api';
 import { ApiError } from '../lib/framework-api';
 
@@ -14,6 +15,7 @@ export function JsonEditor({ label, value, onSave, readOnly = false, rows = 16 }
   readOnly?: boolean;
   rows?: number;
 }) {
+  const { t } = useTranslation();
   const pretty = JSON.stringify(value ?? null, null, 2);
   const [text, setText] = useState(pretty);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -40,15 +42,15 @@ export function JsonEditor({ label, value, onSave, readOnly = false, rows = 16 }
         onChange={(e) => { setText(e.target.value); setSaved(false); }}
         className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs"
       />
-      {parseError && <p role="alert" className="text-sm text-red-700">Not valid JSON: {parseError}</p>}
+      {parseError && <p role="alert" className="text-sm text-red-700">{t('json.invalid', { message: parseError })}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {issues.length > 0 && (
-        <ul aria-label="Validation issues" className="list-disc space-y-1 ps-5 text-sm text-red-700">
-          {issues.map((i, n) => <li key={n}><code>{i.path || '(root)'}</code>: {i.message}</li>)}
+        <ul aria-label={t('json.issues')} className="list-disc space-y-1 ps-5 text-sm text-red-700">
+          {issues.map((i, n) => <li key={n}><code>{i.path || t('json.root')}</code>: {i.message}</li>)}
         </ul>
       )}
-      {saved && <p role="status" className="text-sm text-emerald-700">Saved.</p>}
-      {!readOnly && <Button type="button" onClick={save} disabled={parseError !== null || text === pretty}>Save {label}</Button>}
+      {saved && <p role="status" className="text-sm text-emerald-700">{t('common.saved')}</p>}
+      {!readOnly && <Button type="button" onClick={save} disabled={parseError !== null || text === pretty}>{t('json.save', { label })}</Button>}
     </div>
   );
 }

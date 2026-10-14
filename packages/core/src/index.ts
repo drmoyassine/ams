@@ -19,6 +19,8 @@ export * from './assistant/index.js';
 export * from './framework/index.js';
 export * from './engagement/index.js';
 export * from './org/users.js';
+export * from './org/preferences.js';
+export * from './translation/index.js';
 export * from './org/institution.js';
 export * from './org/institution-logo.js';
 export * from './org/public-branding.js';

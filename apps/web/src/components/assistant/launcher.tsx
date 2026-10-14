@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { routeLabelOf, usePublishScreen } from '../../lib/assistant-screen';
 import { useAssistantApi, type AssistantApi } from '../../lib/assistant-api';
+import { useTranslation } from '../../i18n';
 import { AssistantPanel, type AssistantTarget } from './panel';
 
 const WIDE = '(min-width: 64rem)';
@@ -35,6 +36,7 @@ function useRouteContext() {
  * phone; at least 44 px to tap. On wide screens the page makes room beside the drawer instead of sitting under it.
  */
 export function AssistantLauncher({ api: override, canManageAi, pollMs }: { api?: AssistantApi; canManageAi: boolean; pollMs?: number }) {
+  const { t } = useTranslation();
   const api = useAssistantApi(override);
   const navigate = useNavigate();
   const wide = useWideScreen();
@@ -58,10 +60,10 @@ export function AssistantLauncher({ api: override, canManageAi, pollMs }: { api?
   };
   if (open) return <AssistantPanel api={api} modal={!wide} onClose={() => setOpen(false)} onNavigate={go} canManageAi={canManageAi} {...(pollMs ? { pollMs } : {})} />;
   return (
-    <button ref={bubble} type="button" onClick={() => setOpen(true)} aria-label="Assistant" aria-haspopup="dialog" data-testid="assistant-bubble"
+    <button ref={bubble} type="button" onClick={() => setOpen(true)} aria-label={t('assistant.title')} aria-haspopup="dialog" data-testid="assistant-bubble"
       className="print:hidden fixed bottom-20 end-4 z-30 flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg hover:opacity-90 lg:bottom-6 lg:end-6">
       <span aria-hidden="true">✦</span>
-      <span>Assistant</span>
+      <span>{t('assistant.title')}</span>
     </button>
   );
 }

@@ -19,7 +19,26 @@
   --color-primary-foreground: var(--primary-foreground);
 }
 html { -webkit-text-size-adjust: 100%; }
-body { background: var(--background); color: var(--foreground); font-family: system-ui, sans-serif; }
+body { background: var(--background); color: var(--foreground); font-family: var(--font-body); }
+
+/* Font stacks by script (TASK-070). <html data-script> is set from the language registry (packages/shared/src/languages.ts) by
+   the language switcher; every stack ends in system-ui so Latin text and numerals keep the normal look, and lists system fonts
+   only (no web fonts to download, DEC-008). CJK stacks are per region so the right glyph forms are chosen. */
+:root { --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
+html[data-script='arabic'] { --font-body: 'Noto Naskh Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, 'Geeza Pro', 'Arabic Typesetting', system-ui, sans-serif; }
+html[data-script='hebrew'] { --font-body: 'Noto Sans Hebrew', 'Segoe UI', 'Arial Hebrew', Arial, system-ui, sans-serif; }
+html[data-script='cjk-sc'] { --font-body: system-ui, 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif; }
+html[data-script='cjk-tc'] { --font-body: system-ui, 'Noto Sans CJK TC', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans TC', sans-serif; }
+html[data-script='cjk-jp'] { --font-body: system-ui, 'Noto Sans CJK JP', 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', Meiryo, 'Source Han Sans JP', sans-serif; }
+html[data-script='cjk-kr'] { --font-body: system-ui, 'Noto Sans CJK KR', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Source Han Sans KR', sans-serif; }
+html[data-script='devanagari'] { --font-body: 'Noto Sans Devanagari', 'Nirmala UI', 'Kohinoor Devanagari', system-ui, sans-serif; }
+html[data-script='bengali'] { --font-body: 'Noto Sans Bengali', 'Nirmala UI', 'Kohinoor Bangla', system-ui, sans-serif; }
+html[data-script='thai'] { --font-body: 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', system-ui, sans-serif; }
+html[data-script='cyrillic'], html[data-script='greek'] { --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif; }
+/* CJK text has no word breaks: let lines break anywhere rather than overflow. */
+html[data-script^='cjk'] body { overflow-wrap: anywhere; line-break: strict; }
+/* Arrows and other direction-bearing glyphs flip in right-to-left languages. */
+[dir='rtl'] .mirror-rtl { display: inline-block; transform: scaleX(-1); }
 
 /* The navigation drawer on small screens slides in from the start edge (the right in Arabic). */
 @keyframes drawer-in { from { transform: translateX(-100%); } }

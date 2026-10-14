@@ -1,6 +1,7 @@
 import { useRef, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { parseCell, type DataColumn } from '@ams/shared';
 import { Button } from './ui/button';
+import { useTranslation } from '../i18n';
 
 /** A row as typed: what each cell shows, by column key. Checked against the columns as it is typed. */
 export type DraftRow = Record<string, string>;
@@ -41,6 +42,7 @@ export function DataGrid({ columns, rows, onChange, readOnly = false, serverIssu
   /** Problems the server reported, by "row:key". */
   serverIssues?: Map<string, string>;
 }) {
+  const { t } = useTranslation();
   const table = useRef<HTMLTableElement>(null);
   const shown = readOnly ? rows : withTrailingRow(rows, columns);
   const set = (next: DraftRow[]) => onChange?.(withTrailingRow(next, columns));
@@ -73,17 +75,17 @@ export function DataGrid({ columns, rows, onChange, readOnly = false, serverIssu
 
   return (
     <div className="max-h-[32rem] overflow-auto rounded-md border border-border">
-      <table ref={table} className="w-full border-collapse text-sm" aria-label="Data">
+      <table ref={table} className="w-full border-collapse text-sm" aria-label={t('grid.data')}>
         <thead className="sticky top-0 z-10 bg-muted">
           <tr>
             <th scope="col" className="w-10 border-b border-border px-2 py-1 text-xs font-normal text-muted-foreground">#</th>
             {columns.map((c) => (
               <th key={c.key} scope="col" className="min-w-32 border-b border-s border-border px-2 py-1 text-start font-medium">
                 <span dir="auto">{c.label}</span>{c.unit ? <span className="text-xs font-normal text-muted-foreground"> ({c.unit})</span> : null}
-                {c.required && <span className="text-red-700" title="Required"> *</span>}
+                {c.required && <span className="text-red-700" title={t('grid.required')}> *</span>}
               </th>
             ))}
-            {!readOnly && <th className="w-8 border-b border-border" aria-label="Remove" />}
+            {!readOnly && <th className="w-8 border-b border-border" aria-label={t('common.remove')} />}
           </tr>
         </thead>
         <tbody>

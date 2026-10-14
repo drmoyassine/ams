@@ -29,6 +29,12 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 |---|---|---|
 | **Org chart** | Institution -> Org chart has two views of the same units: Tree (drag and drop, keyboard drag, multi-select, bulk delete to the Trash with Undo and Redo) and Chart (automatic top-down layout, zoom, pan, collapse, mirrored for right-to-left, export as PNG or SVG, print to one page). Each unit has names in both languages, a type, a head (a person or a name), a description, a lock, a source (manual, image or directory) and its programs; a unit with programs cannot be deleted. Unit types are configurable per institution (add, rename, reorder, remove when unused). Smooth with 300 units | TASK-072, DEC-028 |
 
+## Built: Languages (TASK-070)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Languages** | A registry of 31 languages (direction, script, native name). An administrator chooses one secondary language and the default interface language in Settings -> Organization -> Languages (English is always primary); each person switches between English and that language from the header, saved on them and applied at every sign-in (the page's language, direction and font follow). The English interface catalogue lives in the repository; the secondary language's is made by a background translate job (batches, spend limit, cancel, resume, placeholder checks, never over a person's edit) and reviewed in a table; Arabic and CJK pages checked at 375, 768 and 1280 px. About 11% of the app's text goes through the catalogue so far (the shell and shared chrome); the rest is listed in docs/i18n-coverage.md | TASK-070, DEC-028 |
+
 ## Left to build
 
 In the order I would do them.

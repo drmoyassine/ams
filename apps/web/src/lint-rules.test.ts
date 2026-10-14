@@ -33,3 +33,38 @@ describe('no browser dialogs in the web app', () => {
     expect((await lint("export const a = () => confirm('x');", 'packages/core/src/example.ts')).filter((m) => m.ruleId?.startsWith('no-restricted'))).toEqual([]);
   });
 });
+
+describe('no hard-coded UI text in converted files (warning)', () => {
+  const converted = 'apps/web/src/pages/layout.tsx';
+  const rule = (m: { ruleId: string | null }) => m.ruleId === 'ams/no-literal-ui-text';
+
+  it('warns about JSX text and visible attributes in a converted file', async () => {
+    const messages = await lint("export const A = () => <button title=\"Close it\" aria-label=\"Close\" placeholder=\"Type here\">Save the draft</button>;", converted);
+    const hits = messages.filter(rule);
+    expect(hits).toHaveLength(4);
+    expect(hits.every((m) => m.severity === 1)).toBe(true); // a warning, not an error
+    expect(hits.map((m) => m.message).join(' ')).toContain('use t(');
+  });
+
+  it('accepts text that comes from t(), symbols, numbers and code', async () => {
+    const ok = "export const A = ({ t }: { t: (k: string) => string }) => <p title={t('a.b')}><span aria-hidden=\"true\">✕</span> {t('a.c')} 12 · <code>pnpm test</code></p>;";
+    expect((await lint(ok, converted)).filter(rule)).toEqual([]);
+  });
+
+  it('does not reach files that are not converted yet', async () => {
+    expect((await lint('export const A = () => <p>Some English text</p>;', 'apps/web/src/pages/version.tsx')).filter(rule)).toEqual([]);
+  });
+
+  it('covers every converted file listed in the configuration', async () => {
+    const { CONVERTED_UI } = (await import('../../../eslint.config.js' as string)) as { CONVERTED_UI: string[] };
+    expect(CONVERTED_UI.length).toBeGreaterThan(10);
+    for (const f of CONVERTED_UI) expect((await lint('export const A = () => <p>Some English text</p>;', f)).filter(rule), f).toHaveLength(1);
+  });
+
+  it('keeps the converted files clean today', async () => {
+    const { CONVERTED_UI } = (await import('../../../eslint.config.js' as string)) as { CONVERTED_UI: string[] };
+    const results = await eslint.lintFiles(CONVERTED_UI.map((f: string) => resolve(root, f)));
+    const left = results.flatMap((r) => r.messages.filter(rule).map((m) => `${r.filePath.replace(root, '')}:${m.line} ${m.message}`));
+    expect(left).toEqual([]);
+  });
+});

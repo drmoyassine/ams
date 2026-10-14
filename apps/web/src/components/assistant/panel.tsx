@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ASSISTANT_MAX_MESSAGE_CHARS, type AssistantConversation, type AssistantLink, type AssistantMessage, type ChangeProposalPart, type MemoryProposalPart } from '@ams/shared';
 import { Button } from '../ui/button';
+import { useTranslation } from '../../i18n';
+import { formatDate } from '../../lib/intl';
 import { confirmDialog } from '../confirm-dialog';
 import { ApiError } from '../../lib/framework-api';
 import type { AssistantApi } from '../../lib/assistant-api';
@@ -18,12 +20,11 @@ export type AssistantTarget =
   | { to: '/settings/assistant-memory' }
   | { to: '/settings/ai' };
 
-const EXAMPLES = [
-  'How many requirements are in this version, by level?',
-  'Find the requirements about the library.',
-  'What does the latest analysis report say still needs a look?',
-  'In this draft, put each indicator\'s statement in its title where the title is only the code.',
-];
+/** The example questions offered on an empty chat (the English wording is also what a person gets when they pick one). */
+const useExamples = () => {
+  const { t } = useTranslation();
+  return [t('assistant.example1'), t('assistant.example2'), t('assistant.example3'), t('assistant.example4')];
+};
 
 const mergeMessages = (current: AssistantMessage[], incoming: AssistantMessage[]): AssistantMessage[] => {
   const byId = new Map(current.map((m) => [m.id, m]));
@@ -31,7 +32,7 @@ const mergeMessages = (current: AssistantMessage[], incoming: AssistantMessage[]
   return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || (a.role === 'user' ? -1 : 1));
 };
 const isRunning = (m: AssistantMessage) => m.role === 'assistant' && (m.status === 'queued' || m.status === 'running');
-const dateOf = (iso: string) => new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short' });
+const dateOf = (iso: string) => formatDate(iso, { day: 'numeric', month: 'short' });
 
 /**
  * The assistant: a drawer beside the page on wide screens, a full-screen sheet on phones. It keeps the person's conversations
@@ -43,6 +44,8 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
   /** Full-screen sheet (focus is kept inside, the page behind is still); false: a drawer the page can be used beside. */
   modal: boolean; pollMs?: number; onNavigate: (to: AssistantTarget) => void; canManageAi: boolean;
 }) {
+  const { t } = useTranslation();
+  const examples = useExamples();
   const qc = useQueryClient();
   const screen = useScreen();
   const root = useRef<HTMLElement>(null);
@@ -138,7 +141,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
       const { messages: ms, ...rest } = c;
       setConversation(rest); setMessages(ms); cursor.current = ms.reduce((n, m) => (m.updatedAt > n ? m.updatedAt : n), ''); if (!cursor.current) cursor.current = null;
       setView('chat');
-    } catch (e) { setError(e instanceof ApiError ? e.message : 'Could not open that chat'); }
+    } catch (e) { setError(e instanceof ApiError ? e.message : t('assistant.openFailed')); }
   };
   const send = useCallback(async (text: string, context: ReturnType<typeof contextFor>) => {
     setSending(true); setError(null);
@@ -156,7 +159,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
       void qc.invalidateQueries({ queryKey: ['assistant', 'conversations'] });
       return true;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'The message could not be sent');
+      setError(e instanceof ApiError ? e.message : t('assistant.sendFailed'));
       return false;
     } finally { setSending(false); }
   }, [api, convId, qc]);
@@ -171,7 +174,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
   const stop = async () => {
     const m = [...messages].reverse().find(isRunning);
     if (!m) return;
-    try { const r = await api.cancel(m.id); setMessages((cur) => mergeMessages(cur, [r])); } catch (e) { setError(e instanceof ApiError ? e.message : 'Could not stop'); }
+    try { const r = await api.cancel(m.id); setMessages((cur) => mergeMessages(cur, [r])); } catch (e) { setError(e instanceof ApiError ? e.message : t('assistant.stopFailed')); }
   };
   const retry = (failed: AssistantMessage) => {
     const i = messages.findIndex((m) => m.id === failed.id);
@@ -184,7 +187,7 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
   const changed = (messageId: string, partId: string, next: ChangeProposalPart) =>
     setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, parts: m.parts.map((p) => (p.id === partId && p.type === 'change_proposal' ? next : p)) } : m)));
   // "Change it": the card stays; the person says what to change and the assistant proposes again (the old card is then replaced).
-  const changeIt = () => { setDraft((d) => d || 'Change it: '); input.current?.focus(); };
+  const changeIt = () => { setDraft((d) => d || t('assistant.changeIt')); input.current?.focus(); };
   // After a change was applied, undone or redone (here or from the toast): the data under the screens moved, and so did the cards.
   const refreshChanged = useCallback(async () => {
     void qc.invalidateQueries();
@@ -202,51 +205,51 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
   };
   const deleteChat = async (c: AssistantConversation) => {
     const ok = await confirmDialog({
-      title: 'Delete this chat?', message: `“${c.title}” and all its messages will be deleted for good. Anything you saved to memory stays.`, confirmLabel: 'Delete', tone: 'danger',
+      title: t('assistant.deleteChat.title'), message: t('assistant.deleteChat.message', { title: c.title }), confirmLabel: t('common.delete'), tone: 'danger',
     });
     if (!ok) return;
     try {
       await api.deleteConversation(c.id);
       if (c.id === convId) reset();
       await qc.invalidateQueries({ queryKey: ['assistant', 'conversations'] });
-    } catch (e) { setError(e instanceof ApiError ? e.message : 'Could not delete that chat'); }
+    } catch (e) { setError(e instanceof ApiError ? e.message : t('assistant.deleteFailed')); }
   };
   const rename = async (title: string) => {
     if (!conversation) return;
     setRenaming(null);
     if (!title.trim() || title.trim() === conversation.title) return;
-    try { setConversation(await api.renameConversation(conversation.id, title.trim())); void qc.invalidateQueries({ queryKey: ['assistant', 'conversations'] }); } catch (e) { setError(e instanceof ApiError ? e.message : 'Could not rename'); }
+    try { setConversation(await api.renameConversation(conversation.id, title.trim())); void qc.invalidateQueries({ queryKey: ['assistant', 'conversations'] }); } catch (e) { setError(e instanceof ApiError ? e.message : t('assistant.renameFailed')); }
   };
 
   const unavailable = status.data && !status.data.available ? status.data : null;
   return (
     <aside
-      ref={root} role="dialog" aria-modal={modal} aria-label="Assistant" data-testid="assistant-panel"
+      ref={root} role="dialog" aria-modal={modal} aria-label={t('assistant.title')} data-testid="assistant-panel"
       className="print:hidden fixed inset-0 z-50 flex flex-col bg-background lg:inset-y-0 lg:start-auto lg:end-0 lg:z-40 lg:w-[26rem] lg:border-s lg:border-border lg:shadow-xl"
     >
       <header className="flex items-center gap-1 border-b border-border px-3 py-2">
         <h2 className="min-w-0 flex-1 truncate text-base font-semibold" dir="auto">
-          {view === 'history' ? 'Your chats' : 'Assistant'}
+          {view === 'history' ? t('assistant.history') : t('assistant.title')}
         </h2>
-        <Button type="button" variant="outline" onClick={reset} aria-label="New chat">New chat</Button>
-        <button type="button" className={iconButton} aria-label={view === 'history' ? 'Back to the chat' : 'Chat history'} aria-pressed={view === 'history'} onClick={() => setView(view === 'history' ? 'chat' : 'history')}>
-          <span aria-hidden="true">{view === 'history' ? '←' : '☰'}</span>
+        <Button type="button" variant="outline" onClick={reset} aria-label={t('assistant.newChat')}>{t('assistant.newChat')}</Button>
+        <button type="button" className={iconButton} aria-label={view === 'history' ? t('assistant.backToChat') : t('assistant.chatHistory')} aria-pressed={view === 'history'} onClick={() => setView(view === 'history' ? 'chat' : 'history')}>
+          <span aria-hidden="true" className={view === 'history' ? 'mirror-rtl' : ''}>{view === 'history' ? '←' : '☰'}</span>
         </button>
-        <button type="button" className={iconButton} aria-label="Close the assistant" onClick={onClose}><span aria-hidden="true">✕</span></button>
+        <button type="button" className={iconButton} aria-label={t('assistant.close')} onClick={onClose}><span aria-hidden="true">✕</span></button>
       </header>
 
       {view === 'history' ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {history.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {history.data && history.data.length === 0 && <p className="text-sm text-muted-foreground">No chats yet. Ask the assistant something and it will be kept here.</p>}
-          <ul className="space-y-1" aria-label="Your chats">
+          {history.isLoading && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+          {history.data && history.data.length === 0 && <p className="text-sm text-muted-foreground">{t('assistant.noChats')}</p>}
+          <ul className="space-y-1" aria-label={t('assistant.history')}>
             {(history.data ?? []).map((c) => (
               <li key={c.id} className="flex items-center gap-1 rounded-md border border-border">
                 <button type="button" onClick={() => void open(c.id)} className="min-w-0 flex-1 px-3 py-2 text-start text-sm hover:bg-muted" aria-current={c.id === convId ? 'true' : undefined}>
                   <span className="block truncate" dir="auto">{c.title}</span>
                   <span className="block text-xs text-muted-foreground">{dateOf(c.updatedAt)}</span>
                 </button>
-                <button type="button" className={iconButton} aria-label={`Delete the chat “${c.title}”`} onClick={() => void deleteChat(c)}><span aria-hidden="true">🗑</span></button>
+                <button type="button" className={iconButton} aria-label={t('assistant.deleteChat.label', { title: c.title })} onClick={() => void deleteChat(c)}><span aria-hidden="true">🗑</span></button>
               </li>
             ))}
           </ul>
@@ -257,13 +260,13 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
           {conversation && (
             <div className="flex items-center gap-1 border-b border-border px-3 py-1 text-sm">
               {renaming !== null ? (
-                <input aria-label="Chat title" autoFocus value={renaming} maxLength={120} onChange={(e) => setRenaming(e.target.value)} dir="auto"
+                <input aria-label={t('assistant.chatTitle')} autoFocus value={renaming} maxLength={120} onChange={(e) => setRenaming(e.target.value)} dir="auto"
                   onBlur={() => void rename(renaming)} onKeyDown={(e) => { if (e.key === 'Enter') void rename(renaming); if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}
                   className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2" />
               ) : (
                 <>
                   <p className="min-w-0 flex-1 truncate text-muted-foreground" dir="auto" data-testid="chat-title">{conversation.title}</p>
-                  <button type="button" className="flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Rename this chat" onClick={() => setRenaming(conversation.title)}><span aria-hidden="true">✎</span></button>
+                  <button type="button" className="flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label={t('assistant.rename')} onClick={() => setRenaming(conversation.title)}><span aria-hidden="true">✎</span></button>
                 </>
               )}
             </div>
@@ -271,23 +274,23 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {unavailable && (
               <div role="status" className="mb-3 space-y-2 rounded-md border border-border bg-muted/50 p-3 text-sm" data-testid="assistant-unavailable">
-                <p className="font-medium">{unavailable.reason === 'assistant_off' ? 'The assistant is switched off' : unavailable.reason === 'ai_off' ? 'AI is switched off' : 'The assistant is not set up yet'}</p>
+                <p className="font-medium">{unavailable.reason === 'assistant_off' ? t('assistant.off') : unavailable.reason === 'ai_off' ? t('assistant.aiOff') : t('assistant.notSetUp')}</p>
                 <p dir="auto">{unavailable.message}</p>
                 {canManageAi
-                  ? <button type="button" className="underline" onClick={() => { onNavigate({ to: '/settings/ai' }); if (modal) onClose(); }}>Open Settings → AI</button>
-                  : <p className="text-muted-foreground">An administrator can switch it on in Settings → AI.</p>}
+                  ? <button type="button" className="underline" onClick={() => { onNavigate({ to: '/settings/ai' }); if (modal) onClose(); }}>{t('assistant.openAiSettings')}</button>
+                  : <p className="text-muted-foreground">{t('assistant.adminCanSwitchOn')}</p>}
               </div>
             )}
-            {status.isError && <p role="alert" className="mb-3 text-sm text-red-700">Could not check whether the assistant is available.</p>}
+            {status.isError && <p role="alert" className="mb-3 text-sm text-red-700">{t('assistant.statusFailed')}</p>}
             {messages.length === 0 && !unavailable && (
               <div className="space-y-3 text-sm" data-testid="assistant-empty">
-                <p dir="auto">Hi. I can look things up in your standards for you: requirements, notes, sources, links and the latest analysis. I can also suggest changes to a draft version; I tell you what I would do, and nothing changes until you press Do it. Every change can be undone. I never publish or approve anything.</p>
+                <p dir="auto">{t('assistant.intro')}</p>
                 <ul className="space-y-1">
-                  {EXAMPLES.map((e) => <li key={e}><button type="button" className="w-full rounded-md border border-border px-3 py-2 text-start hover:bg-muted" onClick={() => { setDraft(e); input.current?.focus(); }}>{e}</button></li>)}
+                  {examples.map((e) => <li key={e}><button type="button" className="w-full rounded-md border border-border px-3 py-2 text-start hover:bg-muted" onClick={() => { setDraft(e); input.current?.focus(); }}>{e}</button></li>)}
                 </ul>
               </div>
             )}
-            <ol ref={list} role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversation" className="space-y-3">
+            <ol ref={list} role="log" aria-live="polite" aria-relevant="additions text" aria-label={t('assistant.conversation')} className="space-y-3">
               {messages.map((m) => (
                 <MessageView key={m.id} message={m} api={api} screen={screen} onOpenLink={openLink} onRetry={retry} onResolved={resolved}
                   onChangePart={changed} onChangeIt={changeIt} onChanged={() => { void refreshChanged(); }}
@@ -297,11 +300,11 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
           </div>
           <div className="space-y-2 border-t border-border p-3">
             {chips.length > 0 && (
-              <ul className="flex flex-wrap gap-1" aria-label="What the assistant can see on this screen">
+              <ul className="flex flex-wrap gap-1" aria-label={t('assistant.context')}>
                 {chips.map((c) => (
                   <li key={c.id} className="flex items-center gap-1 rounded-full border border-border bg-muted ps-2.5 text-xs">
                     <span dir="auto" className="py-0.5">{c.label}</span>
-                    <button type="button" aria-label={`Remove “${c.label}”`} onClick={() => removeChip(c.id)} className="flex size-7 items-center justify-center rounded-full hover:bg-background"><span aria-hidden="true">✕</span></button>
+                    <button type="button" aria-label={t('assistant.removeChip', { label: c.label })} onClick={() => removeChip(c.id)} className="flex size-7 items-center justify-center rounded-full hover:bg-background"><span aria-hidden="true">✕</span></button>
                   </li>
                 ))}
               </ul>
@@ -309,16 +312,16 @@ export function AssistantPanel({ api, onClose, modal, pollMs = 1000, onNavigate,
             {error && <p role="alert" className="text-sm text-red-700" data-testid="assistant-send-error">{error}</p>}
             <div className="flex items-end gap-2">
               <label className="min-w-0 flex-1">
-                <span className="sr-only">Ask the assistant</span>
-                <textarea ref={input} aria-label="Ask the assistant" dir="auto" rows={2} value={draft} maxLength={ASSISTANT_MAX_MESSAGE_CHARS} disabled={running || sending || !available}
-                  placeholder={available ? 'Ask about your standards…' : 'The assistant is not available'} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKeyDown}
+                <span className="sr-only">{t('assistant.ask')}</span>
+                <textarea ref={input} aria-label={t('assistant.ask')} dir="auto" rows={2} value={draft} maxLength={ASSISTANT_MAX_MESSAGE_CHARS} disabled={running || sending || !available}
+                  placeholder={available ? t('assistant.placeholder') : t('assistant.unavailable')} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKeyDown}
                   className="max-h-40 min-h-11 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-60" />
               </label>
               {running
-                ? <Button type="button" variant="outline" onClick={() => void stop()}>Stop</Button>
-                : <Button type="button" onClick={() => void submit()} disabled={!draft.trim() || sending || !available}>Send</Button>}
+                ? <Button type="button" variant="outline" onClick={() => void stop()}>{t('assistant.stop')}</Button>
+                : <Button type="button" onClick={() => void submit()} disabled={!draft.trim() || sending || !available}>{t('assistant.send')}</Button>}
             </div>
-            <p className="text-[11px] text-muted-foreground">Enter sends, Shift+Enter starts a new line.</p>
+            <p className="text-[11px] text-muted-foreground">{t('assistant.keys')}</p>
           </div>
         </>
       )}

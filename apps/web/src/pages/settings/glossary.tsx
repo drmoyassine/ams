@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { ReadOnlyNote } from '../../components/read-only-note';
+import { useTranslation } from '../../i18n';
 import { useGlossaryApi, type GlossaryApi } from '../../lib/glossary-api';
 import { can, useMe } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
@@ -55,6 +56,7 @@ function TermRow({ term, canEdit, onSave }: { term: GlossaryTerm; canEdit: boole
  * external standard's Settings → Terminology maps that standard's own words onto these. Shown inside Settings → Internal Quality Framework.
  */
 export function GlossaryPage({ api: override, settings, embedded = false }: { api?: GlossaryApi; settings?: SettingsApi; embedded?: boolean }) {
+  const { t } = useTranslation();
   const api = useGlossaryApi(override);
   const qc = useQueryClient();
   const me = useMe(useSettingsApi(settings));
@@ -71,8 +73,8 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
 
   return (
     <div className="space-y-4">
-      {!embedded && <h2 className="text-lg font-semibold">Terms</h2>}
-      <p className="text-sm text-muted-foreground">Your words for what accreditors find and ask for. Each external standard's Settings → Terminology maps its own words onto these, so everyone inside uses one language.</p>
+      {!embedded && <h2 className="text-lg font-semibold">{t('terms.title')}</h2>}
+      <p className="text-sm text-muted-foreground">{t('terms.intro')}</p>
       <ReadOnlyNote show={!embedded && !!me.data && !canEdit} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}

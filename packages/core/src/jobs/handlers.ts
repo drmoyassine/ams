@@ -7,6 +7,7 @@ import { extractImportText } from '../documents/reading.js';
 import { importJob } from '../documents/stages.js';
 import { analyseJob } from '../framework/analysis/stages.js';
 import { assistantJob } from '../assistant/turn.js';
+import { translateJob } from '../translation/engine.js';
 
 export type JobHandler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
 
@@ -42,5 +43,7 @@ export const handlers: Partial<Record<JobType, JobHandler>> = {
   import: importJob,
   // One turn of the in-app assistant, run as the person who sent the message (assistant/turn.ts).
   assistant: assistantJob,
+  // One batch of a translation run (translation/engine.ts): the interface catalogue now, library content in TASK-071.
+  translate: translateJob,
   notify: async (_ctx, payload) => ({ delivered: false, echoed: payload.message ?? null }),
 };

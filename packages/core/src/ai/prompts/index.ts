@@ -15,6 +15,7 @@ import { recoverV1 } from './recover.v1.js';
 import { structureV1 } from './structure.v1.js';
 import { surveyV1 } from './survey.v1.js';
 import { templateV1 } from './template.v1.js';
+import { translateV1 } from './translate.v1.js';
 import { vocabV1 } from './vocab.v1.js';
 
 /**
@@ -44,6 +45,8 @@ export const PROMPTS = {
   lifecycle: { v1: lifecycleV1 },
   vocab: { v1: vocabV1 },
   template: { v1: templateV1 },
+  // The generic translation job (TASK-070): English into the secondary language, in batches (interface now, content in TASK-071).
+  translate: { v1: translateV1 },
   // The in-app assistant (DEC-027): a multi-step conversation turn with read-only tools (aiAgent).
   assistant: { v1: assistantV1, v2: assistantV2 },
   // Phase 2: the model writes new texts for a batch of items (draft_rewrites); the person confirms them like any other change.

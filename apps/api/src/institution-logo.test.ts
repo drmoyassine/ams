@@ -91,7 +91,7 @@ describe('institution logo API', () => {
   });
 
   it('shows the Arabic name when Arabic is the default language, and nothing once the logo is removed', async () => {
-    await db.su.query(`update institution set default_locale = 'ar'`);
+    await db.su.query(`update institution set secondary_language = 'ar', default_locale = 'ar'`);
     expect((await (await app.request('/api/public/branding')).json() as { name: string }).name).toBe('جامعة الخليج');
     expect((await app.request('/api/institution/logo', { method: 'DELETE', headers: as('admin') })).status).toBe(204);
     expect(store.objects.size).toBe(0);

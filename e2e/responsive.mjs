@@ -610,7 +610,7 @@ function pagesFor(ids) {
     { name: 'settings-assistant-memory-add', path: '/settings/assistant-memory', action: async (page) => { await page.getByRole('button', { name: 'Add memory' }).click(); await page.getByRole('dialog', { name: 'Add memory' }).waitFor(); } },
     { name: 'settings-ai-assistant', path: '/settings/ai', action: async (page) => { await clickTab('Models')(page); await page.getByRole('region', { name: 'Assistant model' }).scrollIntoViewIfNeeded(); } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
-  ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name));
+  ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
 
 /** Runs in the page: horizontal overflow, and the elements that push past the viewport. */
@@ -654,6 +654,56 @@ function measure() {
   }
   wide.sort((a, b) => b.width - a.width);
   return { vw, scrollWidth, overflow: scrollWidth > vw + 1, offenders: offenders.slice(0, 5), wide: wide.slice(0, 3) };
+}
+
+// ---- Languages (TASK-070): the main screens in a right-to-left interface and in a CJK one -------------------------------
+// The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
+// same script and a longer length than the English, which is what stresses a layout), the person's interface language is
+// switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai'];
+const SAMPLES = {
+  ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
+  'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },
+};
+async function seedCatalogue(app, code) {
+  const { EN_CATALOGUE, UNTRANSLATED_KEYS } = await dist('packages/shared/dist/index.js');
+  const sample = SAMPLES[code];
+  const [{ id: inst }] = (await app.db.su.query('select id from institution')).rows;
+  await app.db.su.query(`update institution set secondary_language = $1, default_locale = 'en'`, [code]);
+  await app.db.su.query('delete from ui_translation where language = $1', [code]);
+  const rows = Object.entries(EN_CATALOGUE).filter(([k]) => !UNTRANSLATED_KEYS.includes(k)).map(([k, en]) => {
+    const n = Math.max(1, Math.ceil(en.split(/\s+/).length * sample.stretch));
+    const holders = [...en.matchAll(/\{\{[^}]+\}\}/g)].map((m) => m[0]);
+    const sep = code === 'zh-Hans' ? '' : ' ';
+    return [k, Array.from({ length: n }, (_, i) => sample.words[i % sample.words.length]).join(sep) + (holders.length ? ` ${holders.join(' ')}` : '')];
+  });
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100);
+    await app.db.su.query(
+      `insert into ui_translation (institution_id, language, key, source_hash, text, origin) select $1, $2, k, 'x', t, 'ai' from unnest($3::text[], $4::text[]) as u(k, t)`,
+      [inst, code, chunk.map((r) => r[0]), chunk.map((r) => r[1])]);
+  }
+}
+async function languagePass(app, page, dir, width, results, code) {
+  const sample = SAMPLES[code];
+  await app.db.su.query('update app_user set ui_locale = $1 where email = $2', [code, EMAIL]);
+  const tag = code === 'ar' ? 'ar' : 'cjk';
+  for (const p of pagesFor(app.ids).filter((x) => x && LANGUAGE_PAGES.includes(x.name) && (code === 'ar' || ['engagements', 'settings-organization'].includes(x.name)))) {
+    const name = `${tag}:${p.name}`;
+    try {
+      await page.goto(p.path);
+      await page.waitForFunction((c) => document.documentElement.lang === c, code, { timeout: 10000 });
+      await settle(page);
+      const attrs = await page.evaluate(() => ({ dir: document.documentElement.dir, script: document.documentElement.dataset.script }));
+      if (attrs.dir !== sample.dir || attrs.script !== sample.script) throw new Error(`expected dir=${sample.dir} script=${sample.script}, got ${JSON.stringify(attrs)}`);
+      results.push({ width, name, note: '', ...(await page.evaluate(measure)) });
+      await page.screenshot({ path: join(dir, `${tag}-${p.name}.png`), fullPage: true });
+    } catch (e) {
+      results.push({ width, name, error: e.message.split('\n')[0] });
+      await page.screenshot({ path: join(dir, `${tag}-${p.name}.error.png`), fullPage: true }).catch(() => undefined);
+    }
+  }
+  await app.db.su.query('update app_user set ui_locale = null where email = $1', [EMAIL]);
 }
 
 async function settle(page) {
@@ -829,6 +879,12 @@ async function main() {
           results.push({ width, name: p.name, error: e.message.split('\n')[0] });
           await page.screenshot({ path: join(dir, `${p.name}.error.png`), fullPage: true }).catch(() => undefined); // to see where it stopped
         }
+      }
+      if (!onlyPages || onlyPages.includes('languages')) {
+        for (const code of ['ar', 'zh-Hans']) {
+          try { await seedCatalogue(app, code); await languagePass(app, page, dir, width, results, code); } catch (e) { results.push({ width, name: `${code}:setup`, error: e.message.split('\n')[0] }); }
+        }
+        await app.db.su.query(`update institution set secondary_language = null, default_locale = 'en'`);
       }
       if (width === Math.max(...widths) && !onlyPages) {
         try { await perfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-600-rows', error: e.message.split('\n')[0] }); }

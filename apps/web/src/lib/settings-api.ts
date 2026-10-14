@@ -1,4 +1,4 @@
-import type { PublicBranding, AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateOrgUnitType, CreateProgram, DeletePreview, DeleteResult, MoveManyInput, OrgChart, OrgUnitType, UpdateOrgUnitType, UserSummary, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
+import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, CreateOrgUnit, CreateOrgUnitType, CreateProgram, DeletePreview, DeleteResult, I18nBundle, Institution, LanguageState, LanguagesSettings, Me, MoveManyInput, OrgChart, OrgUnit, OrgUnitType, Program, PublicBranding, PublicI18n, SaveUiTranslation, TranslationRun, UiTranslationPage, UpdateAiAccount, UpdateAiSetting, UpdateInstitution, UpdateOrgUnit, UpdateOrgUnitType, UpdateProgram, UserSummary } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
@@ -18,6 +18,23 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     removeInstitutionLogo: () => api.api.institution.logo.$delete().then((r) => unwrap<void>(r)),
     /** Before sign-in: the institution's display name, accent colour and logo address, and nothing else. */
     publicBranding: () => api.api.public.branding.$get().then((r) => unwrap<PublicBranding>(r)),
+    /** Before sign-in: the language setting and the sign-in page's own strings, and nothing else. */
+    publicI18n: () => api.api.public.i18n.$get().then((r) => unwrap<PublicI18n>(r)),
+    /** The signed-in person's own preferences (the interface language); null goes back to the institution's default. */
+    updateMyPreferences: (json: { uiLocale: string | null }) => api.api.me.preferences.$patch({ json }).then((r) => unwrap<LanguageState>(r)),
+    /** The secondary language's interface catalogue, merged over English by the app; null when that language is not the institution's. */
+    i18nBundle: async (language: string): Promise<I18nBundle | null> => {
+      const r = await api.api.i18n[':language'].$get({ param: { language } });
+      return r.status === 404 ? null : unwrap<I18nBundle>(r);
+    },
+    languagesSettings: () => api.api.settings.languages.$get().then((r) => unwrap<LanguagesSettings>(r)),
+    uiTranslations: (query: { filter?: 'all' | 'missing' | 'needs_review' | 'reviewed' | 'stale'; q?: string; offset?: number; limit?: number } = {}) =>
+      api.api.settings.languages.translations.$get({ query: { ...(query.filter ? { filter: query.filter } : {}), ...(query.q ? { q: query.q } : {}), ...(query.offset !== undefined ? { offset: String(query.offset) } : {}), ...(query.limit !== undefined ? { limit: String(query.limit) } : {}) } }).then((r) => unwrap<UiTranslationPage>(r)),
+    saveUiTranslation: (json: SaveUiTranslation) => api.api.settings.languages.translations.$put({ json }).then((r) => unwrap<UiTranslationPage['rows'][number]>(r)),
+    markUiReviewed: (keys?: string[]) => api.api.settings.languages.translations.reviewed.$post({ json: keys ? { keys } : {} }).then((r) => unwrap<{ marked: number }>(r)),
+    startTranslation: (retranslateStale = false) => api.api.settings.languages.translate.$post({ json: { kind: 'ui' as const, retranslateStale } }).then((r) => unwrap<TranslationRun>(r)),
+    cancelTranslation: (id: string) => api.api.settings.languages.translate[':id'].cancel.$post({ param: { id } }).then((r) => unwrap<TranslationRun>(r)),
+    resumeTranslation: (id: string) => api.api.settings.languages.translate[':id'].resume.$post({ param: { id } }).then((r) => unwrap<TranslationRun>(r)),
     aiSettings: () => api.api.settings.ai.$get().then((r) => unwrap<AiSetting>(r)),
     updateAiSettings: (json: UpdateAiSetting) => api.api.settings.ai.$put({ json }).then((r) => unwrap<AiSetting>(r)),
     testAi: (role: AiRole = 'analysis') => api.api.settings.ai.test.$post({ json: { role } }).then((r) => unwrap<AiTestResult>(r)),

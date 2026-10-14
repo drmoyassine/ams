@@ -74,7 +74,7 @@ describe('Organization: two tabs, deep-linkable', () => {
     return router;
   }
 
-  it('opens on Institution with Details, Logo and Org chart in that order, and no Languages yet', async () => {
+  it('opens on Institution with Details, Logo and Org chart in that order, Languages between the logo and the org chart', async () => {
     current = 'admin';
     const router = await openRouter('/settings/organization');
     const tabs = await screen.findByRole('tablist', { name: 'Organization' });
@@ -83,8 +83,7 @@ describe('Organization: two tabs, deep-linkable', () => {
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });
     await within(panel).findByRole('heading', { name: 'Org chart' });
-    expect(within(panel).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Org chart']);
-    expect(screen.queryByText('Languages')).toBeNull();
+    expect(within(panel).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Languages', 'Org chart']);
     expect(router.state.location.pathname).toBe('/settings/organization');
   });
 
@@ -271,7 +270,7 @@ describe('Settings for every role', () => {
     await screen.findByLabelText('Org chart');
     expect(screen.queryByLabelText(/^Add a unit under /)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add unit' })).toBeNull();
-    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(3)); // details, logo, org chart
+    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(4)); // details, logo, languages, org chart
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
     await screen.findByText('BS Physics');
     expect(screen.queryByRole('button', { name: 'Add program' })).toBeNull();
@@ -284,7 +283,7 @@ describe('Settings for every role', () => {
     render(wrap(<OrganizationPage api={settingsFor('lead')} />));
     expect(((await screen.findByLabelText('Name (English)')) as HTMLInputElement).disabled).toBe(true);
     expect(await screen.findByLabelText('Add a unit under College of Engineering')).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(2)); // details, logo
+    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(3)); // details, logo, languages
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
     expect(await screen.findByRole('button', { name: 'Add program' })).toBeTruthy();
     expect(screen.queryByText('You can view this; ask an administrator to change it.')).toBeNull();

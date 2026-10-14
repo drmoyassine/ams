@@ -13,6 +13,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from './ui/button';
 import { Dialog } from './dialog';
+import i18n from '../i18n';
 
 export interface ConfirmOptions {
   title: string;
@@ -73,7 +74,7 @@ export function ConfirmHost() {
     <Dialog key={queue.length ? `${ask.title}-${queue.length}` : ask.title} labelledBy="confirm-title" size="sm" z="z-[80]" onClose={() => answer(false)} initialFocus={danger ? '[data-confirm-cancel]' : '[data-confirm-ok]'}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <h2 id="confirm-title" className={`min-w-0 pt-1 text-lg font-semibold break-words ${danger ? 'text-red-800' : ''}`} dir="auto">{ask.title}</h2>
-        <Button type="button" variant="ghost" aria-label="Close" onClick={() => answer(false)}>✕</Button>
+        <Button type="button" variant="ghost" aria-label={i18n.t('common.close')} onClick={() => answer(false)}>✕</Button>
       </div>
       <div className="space-y-2 text-sm" aria-describedby={undefined}>
         <p dir="auto" id="confirm-message">{ask.message}</p>
@@ -82,8 +83,8 @@ export function ConfirmHost() {
         )}
       </div>
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" data-confirm-cancel="" onClick={() => answer(false)}>{ask.cancelLabel ?? 'Cancel'}</Button>
-        <Button type="button" data-confirm-ok="" className={danger ? 'bg-red-700 text-white hover:bg-red-800' : ''} onClick={() => answer(true)}>{ask.confirmLabel ?? 'OK'}</Button>
+        <Button type="button" variant="outline" data-confirm-cancel="" onClick={() => answer(false)}>{ask.cancelLabel ?? i18n.t('common.cancel')}</Button>
+        <Button type="button" data-confirm-ok="" className={danger ? 'bg-red-700 text-white hover:bg-red-800' : ''} onClick={() => answer(true)}>{ask.confirmLabel ?? i18n.t('common.ok')}</Button>
       </div>
     </Dialog>
   );

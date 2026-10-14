@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { institution } from '@ams/db';
-import { isReadableAccent, type Institution, type UpdateInstitution } from '@ams/shared';
+import { isReadableAccent, secondaryLanguageProblem, uiLocaleProblem, type Institution, type UpdateInstitution } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { assertPermitted } from '../permissions.js';
 
 const toDto = (r: typeof institution.$inferSelect): Institution => ({
-  id: r.id, nameEn: r.nameEn, nameAr: r.nameAr, country: r.country, defaultLocale: r.defaultLocale, accentColor: r.accentColor,
+  id: r.id, nameEn: r.nameEn, nameAr: r.nameAr, country: r.country, defaultLocale: r.defaultLocale, accentColor: r.accentColor, secondaryLanguage: r.secondaryLanguage,
   logoVersion: r.logoPath && r.logoUpdatedAt ? String(r.logoUpdatedAt.getTime()) : null,
 });
 
@@ -28,7 +28,21 @@ export async function updateInstitution(ctx: Ctx, patch: UpdateInstitution): Pro
   if (patch.nameEn !== undefined) set.nameEn = patch.nameEn;
   if (patch.nameAr !== undefined) set.nameAr = patch.nameAr || null;
   if (patch.country !== undefined) set.country = patch.country || null;
-  if (patch.defaultLocale !== undefined) set.defaultLocale = patch.defaultLocale;
+  // Languages: English is always primary; the secondary one is in the registry; the default interface language is English or the
+  // secondary one. Changing the secondary language keeps the old language's translations; people who had chosen it go back to the
+  // default (database trigger), and a default that no longer fits becomes English.
+  if (patch.secondaryLanguage !== undefined || patch.defaultLocale !== undefined) {
+    const [cur] = await ctx.tx.select({ secondary: institution.secondaryLanguage, def: institution.defaultLocale }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
+    const secondary = patch.secondaryLanguage !== undefined ? patch.secondaryLanguage : cur?.secondary ?? null;
+    const sProblem = secondaryLanguageProblem(secondary);
+    if (sProblem) throw new ValidationError(sProblem, [{ path: 'secondaryLanguage', message: sProblem }]);
+    let def = patch.defaultLocale ?? cur?.def ?? 'en';
+    if (patch.defaultLocale === undefined && uiLocaleProblem(def, secondary) !== null) def = 'en';
+    const dProblem = uiLocaleProblem(def, secondary);
+    if (dProblem) throw new ValidationError(dProblem, [{ path: 'defaultLocale', message: dProblem }]);
+    set.secondaryLanguage = secondary;
+    set.defaultLocale = def;
+  }
   if (patch.accentColor !== undefined) set.accentColor = patch.accentColor?.toLowerCase() ?? null;
   if (Object.keys(set).length === 0) return getInstitution(ctx);
   const [row] = await ctx.tx.update(institution).set(set).where(eq(institution.id, ctx.caller.institutionId)).returning();

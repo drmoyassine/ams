@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { isReadableAccent } from '@ams/shared';
-import { useTranslation } from 'react-i18next';
 import { AssistantLauncher } from '../components/assistant/launcher';
 import { ConfirmHost } from '../components/confirm-dialog';
 import { InstitutionMark } from '../components/institution-mark';
 import { UndoToaster } from '../components/undo-toaster';
 import { Button } from '../components/ui/button';
+import { useTranslation } from '../i18n';
 import { authClient } from '../lib/auth';
+import { LanguageMenu, LanguageSync } from '../lib/language';
 import type { AssistantApi } from '../lib/assistant-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
@@ -54,7 +55,8 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
   ] as const;
   const inst = institution.data;
   const logoUrl = inst?.logoVersion ? api.institutionLogoUrl(inst.logoVersion) : null;
-  const institutionName = inst ? (inst.nameAr && inst.defaultLocale === 'ar' ? inst.nameAr : inst.nameEn) : null;
+  // The Arabic name is shown to people using the Arabic interface (the institution's name is kept in English and Arabic only).
+  const institutionName = inst ? (inst.nameAr && me.data?.language?.effectiveLocale === 'ar' ? inst.nameAr : inst.nameEn) : null;
 
   const [drawer, setDrawer] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
@@ -91,7 +93,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
   /** The navigation itself: the same in the sidebar and in the drawer (rendered in one of them at a time). */
   const links = (
     <>
-      <nav className="flex flex-col gap-1" aria-label="Main">
+      <nav className="flex flex-col gap-1" aria-label={t('nav.main')}>
         {nav.map((n) => (
           <Link key={n.to} to={n.to} className={navLink}>
             {n.label}
@@ -100,7 +102,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
         <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
       </nav>
       {canSettings && (
-        <Link to="/settings" className={`mt-6 block ${navLink}`}>{t('nav.settings', 'Settings')}</Link>
+        <Link to="/settings" className={`mt-6 block ${navLink}`}>{t('nav.settings')}</Link>
       )}
       <Button
         variant="ghost" className={`${canSettings ? 'mt-1' : 'mt-6'} w-full justify-start px-3`}
@@ -113,26 +115,29 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
   const iconButton = 'flex size-10 shrink-0 items-center justify-center rounded-md text-xl leading-none hover:bg-background';
   return (
     <div className="min-h-screen lg:flex">
+      <LanguageSync api={api} />
       <header className="print:hidden sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-muted px-4 py-1.5 lg:hidden">
         <button
-          ref={menuButton} type="button" aria-label="Open menu" aria-expanded={drawer} aria-controls="app-drawer"
+          ref={menuButton} type="button" aria-label={t('nav.openMenu')} aria-expanded={drawer} aria-controls="app-drawer"
           onClick={() => setDrawer(true)} className={`-ms-2 ${iconButton}`}
         ><span aria-hidden="true">☰</span></button>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <p className="shrink-0 font-semibold">{t('appName')}</p>
           {institutionName && <p className="flex min-w-0 items-center text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-7 max-w-40" textClassName="truncate" /></p>}
         </div>
+        <LanguageMenu api={api} className="shrink-0" />
       </header>
       <aside className="print:hidden hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
         <p className="text-lg font-semibold">{t('appName')}</p>
-        <p className="mb-6 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <InstitutionMark name={institutionName} logoUrl={logoUrl} />}</p>
+        <p className="mb-3 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <InstitutionMark name={institutionName} logoUrl={logoUrl} />}</p>
+        <LanguageMenu api={api} className="mb-6" />
         {!drawer && links}
       </aside>
       {drawer && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" aria-hidden="true" data-testid="drawer-backdrop" onClick={close} />
           <div
-            ref={panel} id="app-drawer" role="dialog" aria-modal="true" aria-label="Menu"
+            ref={panel} id="app-drawer" role="dialog" aria-modal="true" aria-label={t('nav.menu')}
             className="drawer-in absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-e border-border bg-muted p-4 shadow-xl"
             onClick={(e) => { if ((e.target as Element).closest('a')) close(); }}
           >
@@ -141,7 +146,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
                 <p className="text-lg font-semibold">{t('appName')}</p>
                 {institutionName && <p className="break-words text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-12 max-w-full" /></p>}
               </div>
-              <button type="button" aria-label="Close menu" onClick={close} className={`-me-2 ${iconButton}`}><span aria-hidden="true">✕</span></button>
+              <button type="button" aria-label={t('nav.closeMenu')} onClick={close} className={`-me-2 ${iconButton}`}><span aria-hidden="true">✕</span></button>
             </div>
             {links}
           </div>

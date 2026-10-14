@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createProgram, listPrograms, listUsers, myAccess } from '@ams/core';
-import { CreateProgramSchema, MeSchema, ProgramSchema, UserSummarySchema } from '@ams/shared';
+import { createProgram, languageStateOf, listPrograms, listUsers, myAccess, updateMyPreferences } from '@ams/core';
+import { CreateProgramSchema, LanguageStateSchema, MeSchema, ProgramSchema, UpdateMyPreferencesSchema, UserSummarySchema } from '@ams/shared';
 import { publicRoute, requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from './chain.js';
 import { analysisRoutes } from './routes/analysis.js';
 import { assistantRoutes } from './routes/assistant.js';
@@ -13,6 +13,7 @@ import { documentRoutes } from './routes/documents.js';
 import { formRoutes } from './routes/forms.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { glossaryRoutes } from './routes/glossary.js';
+import { languageRoutes } from './routes/languages.js';
 import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { settingsRoutes } from './routes/settings.js';
@@ -33,7 +34,14 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/me', access: requires('program:read'), tags: ['session'],
       responses: { 200: { description: 'The signed-in user, their roles and effective permissions', ...json(MeSchema) }, 401: { description: 'Unauthenticated' }, 403: { description: 'Forbidden' } },
-    }), async (c) => c.json(await myAccess(c.get('ctx')), 200))
+    }), async (c) => c.json({ ...(await myAccess(c.get('ctx'))), language: await languageStateOf(c.get('ctx')) }, 200))
+
+    // The signed-in person's own preferences: only their own row can change (there is no id to name).
+    .openapi(secured(registry, deps, {
+      method: 'patch', path: '/api/me/preferences', access: requires('program:read'), tags: ['session'],
+      request: { body: { required: true, ...json(UpdateMyPreferencesSchema) } },
+      responses: { 200: { description: 'The language setting after the change: English or the institution\'s secondary language, or null for the default', ...json(LanguageStateSchema) }, 400: { description: 'Not an allowed language' }, 401: { description: 'Unauthenticated' }, 403: { description: 'Forbidden' } },
+    }), async (c) => c.json(await updateMyPreferences(c.get('ctx'), c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/programs', access: requires('program:read'),
@@ -78,6 +86,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', orgChartRoutes(registry, deps, options))
     // Sign-in page branding: the only data served without signing in.
     .route('/', publicRoutes(registry, deps, options))
+    .route('/', languageRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))
     .route('/', mappingRoutes(registry, deps, options))
     .route('/', evidenceRoutes(registry, deps, options))

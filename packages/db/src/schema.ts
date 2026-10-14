@@ -31,14 +31,21 @@ export const institution = pgTable('institution', {
   nameEn: text('name_en').notNull(),
   nameAr: text('name_ar'),
   country: text('country'),
+  /** The interface language for people who have not chosen one: 'en' or `secondaryLanguage` (migration 0055). */
   defaultLocale: text('default_locale').notNull().default('en'),
+  /** The ONE secondary language (a registry code, packages/shared/src/languages.ts); English is always primary. */
+  secondaryLanguage: text('secondary_language'),
   /** Branding: the colour of primary buttons and highlights, `#rrggbb`; null keeps the built-in one. */
   accentColor: text('accent_color'),
   /** The institution's logo: a small PNG, JPEG or WebP in the object store (same rules as an accreditor's). `logoUpdatedAt` busts browser caches. */
   logoPath: text('logo_path'),
   logoMime: text('logo_mime'),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
-}, (t) => [check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`)]);
+}, (t) => [
+  check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`),
+  check('institution_secondary_language_check', sql`${t.secondaryLanguage} is null or (${t.secondaryLanguage} <> 'en' and ${t.secondaryLanguage} ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$')`),
+  check('institution_default_locale_check', sql`${t.defaultLocale} = 'en' or (${t.secondaryLanguage} is not null and ${t.defaultLocale} = ${t.secondaryLanguage})`),
+]);
 
 /**
  * A saved AI connection (Settings -> AI -> Accounts, DEC-025): a user label, a provider and its key. The key is stored
@@ -209,6 +216,8 @@ export const appUser = pgTable('app_user', {
   fullName: text('full_name').notNull(),
   email: text('email').notNull(),
   locale: text('locale').notNull().default('en'),
+  /** The person's own interface language: null (the institution's default), 'en' or the secondary language. A trigger checks it. */
+  uiLocale: text('ui_locale'),
   active: boolean('active').notNull().default(true),
 }, (t) => [
   uniqueIndex('app_user_email_idx').on(t.institutionId, sql`lower(${t.email})`),
@@ -259,7 +268,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import', 'translate'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -522,6 +531,53 @@ export const analysisRun = pgTable('analysis_run', {
   uniqueIndex('analysis_run_one_active_idx').on(t.frameworkVersionId).where(sql`${t.status} in ('queued', 'running')`),
   oneOf('analysis_run_status_check', t.status, ANALYSIS_STATUSES),
   check('analysis_run_stage_check', sql`${t.stage} is null or ${t.stage} in (${sql.raw(ANALYSIS_STAGES.map((v) => `'${v}'`).join(', '))})`),
+]);
+
+/**
+ * A run of the generic `translate` job (TASK-070): one kind of text (`ui` now; content kinds join in TASK-071), one language,
+ * optionally one scope (e.g. a framework version). Progress, spend and the items set aside are kept on the row; the job takes one
+ * batch per step, so a stopped or cancelled run resumes where the pending items are.
+ */
+export const translationRun = pgTable('translation_run', {
+  ...base(), ...tenant(),
+  kind: text('kind').notNull(),
+  language: text('language').notNull(),
+  scopeId: uuid('scope_id'),
+  status: text('status').notNull().default('queued'),
+  options: jsonb('options').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  progress: jsonb('progress').$type<Record<string, number>>().notNull().default(sql`'{}'::jsonb`),
+  model: text('model'),
+  promptVersions: jsonb('prompt_versions').$type<Record<string, string>>().notNull().default(sql`'{}'::jsonb`),
+  usage: jsonb('usage').$type<AnalysisUsage>().notNull().default(sql`'{"inputTokens":0,"outputTokens":0,"costUsd":null,"calls":0}'::jsonb`),
+  error: text('error'),
+  startedBy: uuid('started_by').references((): AnyPgColumn => appUser.id),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  report: jsonb('report').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+}, (t) => [
+  index('translation_run_idx').on(t.institutionId, t.kind, t.language, t.createdAt),
+  oneOf('translation_run_status_check', t.status, ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'stopped']),
+  oneOf('translation_run_kind_check', t.kind, ['ui']),
+]);
+
+/**
+ * The secondary language's interface catalogue (TASK-070): one row per English key. `sourceHash` is the hash of the English the
+ * text came from, so a later English edit shows as out of date. `origin` ai|person; the worker may write only unreviewed AI rows and
+ * never touches a person's or a reviewed row (trigger). Rows for a language that stops being the secondary one are kept.
+ */
+export const uiTranslation = pgTable('ui_translation', {
+  ...base(), ...tenant(),
+  language: text('language').notNull(),
+  key: text('key').notNull(),
+  sourceHash: text('source_hash').notNull(),
+  text: text('text').notNull(),
+  origin: text('origin', { enum: ['ai', 'person'] }).notNull(),
+  reviewed: boolean('reviewed').notNull().default(false),
+  runId: uuid('run_id').references((): AnyPgColumn => translationRun.id),
+}, (t) => [
+  uniqueIndex('ui_translation_key_idx').on(t.institutionId, t.language, t.key),
+  oneOf('ui_translation_origin_check', t.origin, ['ai', 'person']),
+  check('ui_translation_language_check', sql`${t.language} <> 'en'`),
 ]);
 
 export const DISMISSAL_KINDS = ['requirement', 'note'] as const;

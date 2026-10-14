@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../i18n';
 import { cn } from '../lib/utils';
 
 const AUTHORITY = {
@@ -38,10 +38,10 @@ export function ReviewBadge({ status }: { status: keyof typeof REVIEW }) {
   );
 }
 
-const STATUS = { draft: 'Draft', in_review: 'In review', published: 'Published', retired: 'Retired' } as const;
-export function VersionStatusBadge({ status }: { status: keyof typeof STATUS }) {
+export function VersionStatusBadge({ status }: { status: 'draft' | 'in_review' | 'published' | 'retired' }) {
   const { t } = useTranslation();
-  return <span data-testid="version-status" className="rounded bg-primary px-2 py-0.5 text-xs text-primary-foreground">{t(`framework.status.${status}`, STATUS[status])}</span>;
+  const STATUS = { draft: t('framework.status.draft'), in_review: t('framework.status.in_review'), published: t('framework.status.published'), retired: t('framework.status.retired') } as const;
+  return <span data-testid="version-status" className="rounded bg-primary px-2 py-0.5 text-xs text-primary-foreground">{STATUS[status]}</span>;
 }
 
 const ORIGIN = {
@@ -82,10 +82,12 @@ export const MILESTONE_STATUS = { not_started: 'Not started', in_progress: 'In p
 
 /** Made by the framework analysis (origin 'ai'). Stays after a person edits it: the origin is kept (PRD 16). */
 export function AiMarker() {
-  return <span title="Made by the AI analysis from the sources" aria-label="Made by AI" data-testid="ai-marker" className="rounded border border-violet-300 bg-violet-50 px-1.5 text-xs text-violet-900">AI</span>;
+  const { t } = useTranslation();
+  return <span title={t('badge.ai.hint')} aria-label={t('badge.ai.label')} data-testid="ai-marker" className="rounded border border-violet-300 bg-violet-50 px-1.5 text-xs text-violet-900">{t('badge.ai')}</span>;
 }
 
 /** The AI's quote was not found on the cited page (or its neighbours): check it against the source. */
 export function QuoteNotFoundBadge() {
-  return <span role="note" data-testid="quote-not-found" className="rounded border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-900">Quote not found in source</span>;
+  const { t } = useTranslation();
+  return <span role="note" data-testid="quote-not-found" className="rounded border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-900">{t('badge.quoteNotFound')}</span>;
 }
