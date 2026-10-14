@@ -100,7 +100,7 @@ ALTER TABLE "ui_translation" ADD CONSTRAINT "ui_translation_run_fk" FOREIGN KEY 
 CREATE UNIQUE INDEX "ui_translation_key_idx" ON "ui_translation" USING btree ("institution_id","language","key");--> statement-breakpoint
 
 ALTER TABLE "job" DROP CONSTRAINT "job_type_check";--> statement-breakpoint
-ALTER TABLE "job" ADD CONSTRAINT "job_type_check" CHECK ("job"."type" in ('extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'translate'));--> statement-breakpoint
+ALTER TABLE "job" ADD CONSTRAINT "job_type_check" CHECK ("job"."type" in ('extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import', 'translate'));--> statement-breakpoint
 
 -- ---- Tenant isolation, actor stamping, audit -----------------------------------------------------------------------------
 ALTER TABLE translation_run ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

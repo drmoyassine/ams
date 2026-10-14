@@ -13,8 +13,6 @@ import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 
-const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
-
 /**
  * Loads the institution, then hands it to the form. The form is keyed by the saved values, so a background refetch that
  * returns the same data never resets what someone is typing, and a save (or another admin's change) refreshes it.
