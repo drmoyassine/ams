@@ -5,12 +5,13 @@
 import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { program } from '@ams/db';
-import { DEGREE_LEVELS, ORG_UNIT_TYPES, type OrgUnit } from '@ams/shared';
+import { DEGREE_LEVELS, type OrgUnit } from '@ams/shared';
 import { ConflictError, ForbiddenError } from '../ctx.js';
 import { normalizeQuoteText } from '../framework/quote-match.js';
 import { registerImportTarget, type ApplyOutcome, type ImportTarget } from '../documents/targets.js';
 import { createProgram, listPrograms, updateProgram } from './programs.js';
 import { createOrgUnit, listOrgUnits, updateOrgUnit } from './units.js';
+import { listOrgUnitTypes } from './unit-types.js';
 
 // Every field is present in a stored proposal (null when the document does not state it), so the review shows a cell for each to fill in.
 const opt = <T extends z.ZodType>(t: T) => t.nullish().default(null);
@@ -22,7 +23,7 @@ export const ProgramImportItemSchema = z.object({
   discipline: opt(z.string().trim()),
   /** The owning unit as the document names it; matched to the org chart, or proposed as a new unit. */
   unitName: opt(z.string().trim()),
-  unitType: opt(z.enum(ORG_UNIT_TYPES)),
+  unitType: opt(z.string().trim().min(1)),
   /** Stated by the document and shown in the review; the program record has no column for these yet. */
   code: opt(z.string().trim()),
   durationYears: opt(z.number().positive()),
@@ -68,6 +69,7 @@ export const programsTarget: ImportTarget<ProgramImportItem> = {
     const existing = new Set((await listPrograms(ctx)).flatMap((p) => [keyOf(p.nameEn, p.degreeLevel), ...(p.nameAr ? [keyOf(p.nameAr, p.degreeLevel)] : [])]));
     const unitByName = new Map<string, OrgUnit>();
     for (const u of units) { unitByName.set(fold(u.nameEn), u); if (u.nameAr) unitByName.set(fold(u.nameAr), u); }
+    const unitTypes = new Set((await listOrgUnitTypes(ctx)).map((t) => t.key));
     const outcomes: ApplyOutcome[] = [];
     const created: CreatedProgram[] = [];
     const createdUnits: string[] = [];
@@ -85,7 +87,7 @@ export const programsTarget: ImportTarget<ProgramImportItem> = {
       if (!unit) {
         // An unknown unit becomes a proposed unit: it is added to the org chart with this apply, and goes away with an undo.
         try {
-          unit = await createOrgUnit(ctx, { parentId: null, type: p.unitType ?? 'other', nameEn: p.unitName.normalize('NFC').trim() });
+          unit = await createOrgUnit(ctx, { parentId: null, type: unitTypes.has(p.unitType ?? '') ? (p.unitType as string) : 'other', nameEn: p.unitName.normalize('NFC').trim() });
         } catch (e) {
           if (!(e instanceof ForbiddenError)) throw e;
           skip(it.proposalId, `the unit "${p.unitName}" is not in the org chart and you may not add units`); continue;
