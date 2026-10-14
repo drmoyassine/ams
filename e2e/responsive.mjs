@@ -85,7 +85,7 @@ async function startApp() {
     await api.seedFrameworks(pool);
     await api.seedGlossary(pool);
 
-    registerTestTarget(); // the invented import target of the tests, so the Docs tab shows its Import button and review (no production target exists yet)
+    registerTestTarget(); // the invented import target of the tests, so the version's Docs tab shows its Import button and review (the Programs target is the production one, registered by @ams/core)
     const queue = { send: async () => undefined }; // no worker: jobs are dropped
     const { app } = api.createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue, store: new MemoryStore() });
     const webRoot = join(root, 'apps/web/dist');
@@ -205,6 +205,26 @@ async function seedDemo(db, base) {
         seq += 1;
         await q(`insert into import_proposal (institution_id, run_id, target_kind, candidate, seq, label, payload, document_id, page_no, quote, quote_verified, confidence, flags) values ($1, $2, 'test_units', false, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [inst, run, seq, payload.name, JSON.stringify(payload), src, page, quote, verified, confidence, JSON.stringify(flags)]);
+      }
+    }
+    // TASK-076: a finished Programs import (long and Arabic names, a missing degree level, a quote that is not on the page) on a readable catalogue.
+    {
+      const [{ id: cat }] = await q(`insert into import_document (institution_id, scope_kind, file_name, mime, size, sha256, file_path, read_status, page_count, created_by) values ($1, 'programs', 'program-catalogue-2025-2026-undergraduate-and-graduate-with-a-long-name.pdf', 'application/pdf', 480000, $2, 'k/cat', 'read', 3, $3) returning id`, [inst, sha('f'), admin]);
+      await q(`insert into import_page (institution_id, import_document_id, page_no, text, method) values ($1, $2, 1, $3, 'pdf_text'), ($1, $2, 2, $4, 'pdf_text')`,
+        [inst, cat, 'Bachelor of Science in Mechanical Engineering, College of Engineering. Master of Business Administration in Technology Management and Innovation, School of Business.', 'بكالوريوس العلوم في التمريض - كلية العلوم الصحية. Diploma in Applied Welding Technology.']);
+      const [{ id: prun }] = await q(`insert into import_run (institution_id, scope_kind, target_kind, document_ids, status, stage, progress, usage, report, started_by, started_at, finished_at, prompt_version, model)
+        values ($1, 'programs', 'programs', array[$2::uuid], 'succeeded', 'finalise', '{"windowsTotal":1,"windowsDone":1,"items":4}', '{"inputTokens":1800,"outputTokens":420,"costUsd":0.03,"calls":1}', '{"runtime":{"model":"responsive-check-model","role":"analysis"}}', $3, now(), now(), 'v1', 'responsive-check-model') returning id`, [inst, cat, admin]);
+      const pprops = [
+        [{ nameEn: 'Bachelor of Science in Mechanical Engineering', nameAr: null, degreeLevel: 'bachelor', discipline: 'Engineering', unitName: 'College of Engineering', unitType: 'college', code: 'ME-BSC', durationYears: 4, mode: 'full-time' }, 1, 'Bachelor of Science in Mechanical Engineering, College of Engineering', true, 0.93, []],
+        [{ nameEn: 'Master of Business Administration in Technology Management and Innovation', nameAr: null, degreeLevel: 'master', discipline: 'Business', unitName: 'School of Business', unitType: 'school', code: null, durationYears: 2, mode: 'part-time' }, 1, 'Master of Business Administration in Technology Management and Innovation', true, 0.9, []],
+        [{ nameEn: 'بكالوريوس العلوم في التمريض', nameAr: 'بكالوريوس العلوم في التمريض', degreeLevel: 'bachelor', discipline: null, unitName: 'كلية العلوم الصحية', unitType: 'college', code: null, durationYears: null, mode: null }, 2, 'بكالوريوس العلوم في التمريض - كلية العلوم الصحية', true, 0.85, []],
+        [{ nameEn: 'Diploma in Applied Welding Technology', nameAr: null, degreeLevel: null, discipline: null, unitName: null, unitType: null, code: null, durationYears: null, mode: null }, 3, 'a quote that is not on the page', false, 0.4, ['The quote was not found on the page it cites.', 'No degree level was found.', 'No owning unit was found.']],
+      ];
+      let pseq = 0;
+      for (const [payload, page, quote, verified, confidence, flags] of pprops) {
+        pseq += 1;
+        await q(`insert into import_proposal (institution_id, run_id, target_kind, candidate, seq, label, payload, document_id, page_no, quote, quote_verified, confidence, flags) values ($1, $2, 'programs', false, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [inst, prun, pseq, payload.nameEn, JSON.stringify(payload), cat, page, quote, verified, confidence, JSON.stringify(flags)]);
       }
     }
   } catch (e) { console.warn(`seed: documents and import skipped (${e.message})`); }
@@ -476,6 +496,19 @@ function pagesFor(ids) {
     ids.draftId && { name: 'docs-import-report', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
       await page.getByRole('button', { name: /^Report of the Units/ }).click();
       await page.getByRole('region', { name: 'Import report' }).waitFor();
+    } },
+    // TASK-076: Programs -> Docs (the list with a failed and a read catalogue, the Import dialog, and the review of imported programs).
+    { name: 'programs-docs', path: '/settings/organization?tab=programs', action: async (page) => { await page.getByRole('tab', { name: 'Docs' }).click(); await page.getByRole('region', { name: 'Docs' }).getByTestId('doc-row').first().waitFor(); } },
+    { name: 'programs-docs-import-dialog', path: '/settings/organization?tab=programs', action: async (page) => {
+      await page.getByRole('tab', { name: 'Docs' }).click();
+      await page.getByRole('button', { name: 'Import programs' }).click();
+      await page.getByRole('dialog', { name: /^Import programs/ }).waitFor();
+    } },
+    { name: 'programs-docs-import-review', path: '/settings/organization?tab=programs', action: async (page) => {
+      await page.getByRole('tab', { name: 'Docs' }).click();
+      await page.getByRole('button', { name: /^Review the proposals of the Programs/ }).click();
+      await page.getByRole('table', { name: 'Proposals' }).waitFor();
+      await page.getByTestId('source-page-text').waitFor();
     } },
     { name: 'settings-documents', path: '/settings/documents', action: async (page) => { await page.getByTestId('library-row').first().waitFor(); } },
     { name: 'settings-documents-filtered', path: '/settings/documents', action: async (page) => {

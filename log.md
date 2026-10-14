@@ -600,3 +600,7 @@ Owner asked for a secondary language (primary always English) with translation o
 ## 2026-10-13 — Organization plan: owner's answers and the Docs pattern
 
 Owner answered the five questions (DEC-028): Organization has two tabs (Institution with Languages and Org chart; Programs); one secondary language; translations of standards labelled unofficial; per-person UI language; org-chart images may go to the vision model; directory sync waits on what QuickLaunch and the university's Active Directory offer. New requirement: wherever the AI parses uploads into drafts, a Docs tab (who uploaded, when) plus a general Documents area. Plan rewritten around that pattern; TASK-075 (foundation) and TASK-076 (Programs from documents) added; TASK-069 to TASK-074 rewritten.
+
+## 2026-10-14 — Programs from documents (TASK-076)
+
+Programs registered as an import target on the shared engine; the Programs tab got a Docs tab. See docs/ai-import.md.

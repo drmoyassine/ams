@@ -2984,7 +2984,7 @@ title: Programs from documents: upload, AI parse, drafts
 description: >-
   On the Programs tab, upload a catalogue or program list, press Import, review the proposed programs beside the source
   page, and apply them as one undoable change
-status: pending
+status: completed
 priority: P2
 last_updated: '2026-10-13'
 generated:
@@ -3012,6 +3012,8 @@ modified:
 # TASK-076 — Programs from documents: upload, AI parse, drafts
 
 Section C of docs/organization-plan.md. Extractor for programs (name in English and Arabic, degree level, owning unit, code, duration, mode, whatever the document states); unit matching uses the org chart, an unknown unit becomes a proposed unit; re-importing a newer document proposes only what changed; Programs gets a Docs tab.
+
+Built: import target `programs` (`packages/core/src/org/programs-import.ts`, prompt `import-programs.v1`) registered for the `programs` scope; Programs tab has a Docs tab with Import; review, apply and Undo/Redo use the shared engine. Tests: `org/programs-import.test.ts`, `programs-docs-ui.test.tsx`, responsive states.
 
 ---
 

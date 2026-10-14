@@ -1,6 +1,7 @@
 export * from './ctx.js';
 export * from './permissions.js';
 export * from './org/programs.js';
+export * from './org/programs-import.js';
 export * from './ai/index.js';
 export * from './ai/settings.js';
 export { listAiAccounts, createAiAccount, updateAiAccount, deleteAiAccount, listAccountModels, testAiAccount } from './ai/accounts.js';

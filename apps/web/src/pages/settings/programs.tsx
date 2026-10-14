@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEGREE_LEVELS, type Program } from '@ams/shared';
+import { DocsTab } from '../../components/docs';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
 import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
@@ -51,8 +53,36 @@ function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
   );
 }
 
-export function ProgramsSettingsPage({ api: override }: { api?: SettingsApi }) {
+/**
+ * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
+ * the AI import proposes programs for review (TASK-076). `docs` is for tests; the app's own client is the default.
+ */
+export function ProgramsSettingsPage({ api: override, docs: docsOverride }: { api?: SettingsApi; docs?: DocumentsApi }) {
   const api = useSettingsApi(override);
+  const docs = useDocumentsApi(docsOverride);
+  const [section, setSection] = useState<'list' | 'docs'>('list');
+  const me0 = useMe(api);
+  const writer = can(me0.data, 'program:write');
+  const targets = useQuery({ queryKey: ['import-targets', 'programs'], queryFn: () => docs.targets({ kind: 'programs', id: null }), enabled: section === 'docs' });
+  const sections = [{ id: 'list', label: 'List' }, { id: 'docs', label: 'Docs' }] as const;
+  return (
+    <div className="space-y-4">
+      <div role="tablist" aria-label="Programs sections" className="flex flex-wrap gap-1">
+        {sections.map((t) => (
+          <button key={t.id} id={`programs-section-${t.id}`} role="tab" type="button" aria-selected={section === t.id} aria-controls="programs-section-panel" onClick={() => setSection(t.id)}
+            className={`rounded-md px-3 py-1 text-sm ${section === t.id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
+        ))}
+      </div>
+      <div role="tabpanel" id="programs-section-panel" aria-labelledby={`programs-section-${section}`}>
+        {section === 'list'
+          ? <ProgramsList api={api} />
+          : <DocsTab scopeKind="programs" scopeId={null} targets={targets.data ?? []} canWrite={writer} api={docs} />}
+      </div>
+    </div>
+  );
+}
+
+function ProgramsList({ api }: { api: SettingsApi }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
