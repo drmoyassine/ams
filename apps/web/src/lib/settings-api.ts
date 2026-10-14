@@ -1,4 +1,4 @@
-import type { PublicBranding, AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateProgram, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
+import type { PublicBranding, AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, UpdateAiAccount, UpdateAiSetting, CreateOrgUnit, CreateOrgUnitType, CreateProgram, DeletePreview, DeleteResult, MoveManyInput, OrgChart, OrgUnitType, UpdateOrgUnitType, UserSummary, Institution, Me, OrgUnit, Program, UpdateInstitution, UpdateOrgUnit, UpdateProgram } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
@@ -31,6 +31,17 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     orgUnits: () => api.api['org-units'].$get().then((r) => unwrap<OrgUnit[]>(r)),
     createOrgUnit: (json: Partial<CreateOrgUnit> & Pick<CreateOrgUnit, 'type' | 'nameEn'>) => api.api['org-units'].$post({ json }).then((r) => unwrap<OrgUnit>(r)),
     updateOrgUnit: (id: string, json: UpdateOrgUnit) => api.api['org-units'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<OrgUnit>(r)),
+    /** The org chart builder: the chart (units in tree order with programs and counts, and the unit types). */
+    orgChart: () => api.api['org-chart'].$get().then((r) => unwrap<OrgChart>(r)),
+    moveOrgUnits: (json: MoveManyInput) => api.api['org-units']['move-many'].$post({ json }).then((r) => unwrap<{ moved: number; changed: number; unchanged: boolean }>(r)),
+    previewDeleteOrgUnits: (ids: string[]) => api.api['org-units']['delete-preview'].$post({ json: { ids } }).then((r) => unwrap<DeletePreview>(r)),
+    deleteOrgUnits: (ids: string[]) => api.api['org-units'].delete.$post({ json: { ids } }).then((r) => unwrap<DeleteResult>(r)),
+    createOrgUnitType: (json: CreateOrgUnitType) => api.api['org-unit-types'].$post({ json }).then((r) => unwrap<OrgUnitType>(r)),
+    updateOrgUnitType: (id: string, json: UpdateOrgUnitType) => api.api['org-unit-types'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<OrgUnitType>(r)),
+    reorderOrgUnitTypes: (ids: string[]) => api.api['org-unit-types'].reorder.$post({ json: { ids } }).then((r) => unwrap<OrgUnitType[]>(r)),
+    removeOrgUnitType: (id: string) => api.api['org-unit-types'][':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    /** People of the institution (to pick a head). */
+    people: () => api.api.users.$get().then((r) => unwrap<UserSummary[]>(r)),
     programs: () => api.api.programs.$get().then((r) => unwrap<Program[]>(r)),
     createProgram: (json: Partial<CreateProgram> & Pick<CreateProgram, 'orgUnitId' | 'nameEn' | 'degreeLevel'>) => api.api.programs.$post({ json }).then((r) => unwrap<Program>(r)),
     updateProgram: (id: string, json: UpdateProgram) => api.api.programs[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Program>(r)),

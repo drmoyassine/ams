@@ -167,18 +167,85 @@ export const UpdateInstitutionSchema = z.object({
 }).strict();
 export type UpdateInstitution = z.infer<typeof UpdateInstitutionSchema>;
 
-export const ORG_UNIT_TYPES = ['college', 'school', 'department', 'admin_unit', 'other'] as const;
+// ---- Org chart (TASK-072, docs/organization-plan.md E.1) ----------------------------------------------------------------
+
+/** Where a unit came from. Imports and directory sync only ever touch units they made, and never an edited or locked one. */
+export const ORG_UNIT_SOURCES = ['manual', 'image', 'directory'] as const;
+export type OrgUnitSource = (typeof ORG_UNIT_SOURCES)[number];
+
+/** How deep the org chart may go (a university, its colleges, departments, sections ... ). */
+export const ORG_MAX_DEPTH = 12;
+
+/** The unit types a new institution starts with (the database seeds the same five; they are ordinary rows afterwards). */
+export const DEFAULT_ORG_UNIT_TYPES = [
+  { key: 'college', labelEn: 'College', labelAr: 'كلية' },
+  { key: 'school', labelEn: 'School', labelAr: 'مدرسة' },
+  { key: 'department', labelEn: 'Department', labelAr: 'قسم' },
+  { key: 'admin_unit', labelEn: 'Administrative unit', labelAr: 'وحدة إدارية' },
+  { key: 'other', labelEn: 'Other', labelAr: 'أخرى' },
+] as const;
+
+/** A kind of unit (college, school ...) of one institution: configurable, in an order. `key` is stable; units refer to it. */
+export const OrgUnitTypeSchema = z.object({
+  id: z.string(), key: z.string(), labelEn: z.string(), labelAr: z.string().nullable(), displayOrder: z.number(),
+  /** How many units use it (a type can be removed only when none does). */
+  unitCount: z.number(),
+});
+export type OrgUnitType = z.infer<typeof OrgUnitTypeSchema>;
+export const CreateOrgUnitTypeSchema = z.object({
+  /** Lower-case letters, digits and _; made from the English label when left out. */
+  key: z.string().regex(/^[a-z][a-z0-9_]{0,47}$/, 'lower-case letters, digits and _').optional(),
+  labelEn: z.string().trim().min(1).max(80), labelAr: z.string().trim().min(1).max(80).optional(),
+  /** Where it goes in the list (default: last). */
+  index: z.number().int().min(0).optional(),
+}).strict();
+export type CreateOrgUnitType = z.infer<typeof CreateOrgUnitTypeSchema>;
+export const UpdateOrgUnitTypeSchema = z.object({
+  labelEn: z.string().trim().min(1).max(80).optional(), labelAr: z.string().trim().max(80).nullable().optional(),
+}).strict();
+export type UpdateOrgUnitType = z.infer<typeof UpdateOrgUnitTypeSchema>;
+export const ReorderOrgUnitTypesSchema = z.object({ ids: z.array(z.uuid()).min(1).max(200) }).strict();
+export type ReorderOrgUnitTypes = z.infer<typeof ReorderOrgUnitTypesSchema>;
+
+export const OrgUnitProgramSchema = z.object({
+  id: z.string(), nameEn: z.string(), nameAr: z.string().nullable(), degreeLevel: z.string(), active: z.boolean(),
+});
+export type OrgUnitProgram = z.infer<typeof OrgUnitProgramSchema>;
+
 export const OrgUnitSchema = z.object({
-  id: z.string(), parentId: z.string().nullable(), type: z.enum(ORG_UNIT_TYPES), nameEn: z.string(), nameAr: z.string().nullable(), active: z.boolean(),
+  id: z.string(), parentId: z.string().nullable(),
+  /** The key of one of the institution's unit types. */
+  type: z.string(),
+  nameEn: z.string(), nameAr: z.string().nullable(), description: z.string().nullable(), active: z.boolean(),
+  source: z.enum(ORG_UNIT_SOURCES), locked: z.boolean(), editedByPerson: z.boolean(),
+  /** Position among its siblings, 0, 1, 2 ... */
+  displayOrder: z.number(),
+  /** The head: a person (with the name resolved) or free text; at most one of the two. */
+  headUserId: z.string().nullable(), headName: z.string().nullable(), headUserName: z.string().nullable(),
+  programCount: z.number(), memberCount: z.number(),
+  programs: z.array(OrgUnitProgramSchema),
 });
 export type OrgUnit = z.infer<typeof OrgUnitSchema>;
+
+/** The whole org chart: the units in tree order and the institution's unit types. */
+export const OrgChartSchema = z.object({ units: z.array(OrgUnitSchema), types: z.array(OrgUnitTypeSchema) });
+export type OrgChart = z.infer<typeof OrgChartSchema>;
+
 export const CreateOrgUnitSchema = z.object({
-  parentId: z.uuid().nullable().default(null), type: z.enum(ORG_UNIT_TYPES), nameEn: z.string().trim().min(1), nameAr: z.string().trim().min(1).optional(),
+  parentId: z.uuid().nullable().default(null), type: z.string().min(1), nameEn: z.string().trim().min(1), nameAr: z.string().trim().min(1).optional(),
+  description: z.string().trim().min(1).optional(),
+  headUserId: z.uuid().optional(), headName: z.string().trim().min(1).optional(),
+  /** Where among its siblings (default: last). */
+  index: z.number().int().min(0).optional(),
 }).strict();
 export type CreateOrgUnit = z.infer<typeof CreateOrgUnitSchema>;
+/** Name, type, head, description, lock, active. Moving and reordering is `move-many`; deleting goes to the Trash. */
 export const UpdateOrgUnitSchema = z.object({
-  parentId: z.uuid().nullable().optional(), type: z.enum(ORG_UNIT_TYPES).optional(), nameEn: z.string().trim().min(1).optional(),
-  nameAr: z.string().trim().nullable().optional(), active: z.boolean().optional(),
+  type: z.string().min(1).optional(), nameEn: z.string().trim().min(1).optional(),
+  nameAr: z.string().trim().nullable().optional(), description: z.string().trim().nullable().optional(), active: z.boolean().optional(),
+  locked: z.boolean().optional(),
+  /** Setting one head clears the other; null for both clears the head. */
+  headUserId: z.uuid().nullable().optional(), headName: z.string().trim().nullable().optional(),
 }).strict();
 export type UpdateOrgUnit = z.infer<typeof UpdateOrgUnitSchema>;
 

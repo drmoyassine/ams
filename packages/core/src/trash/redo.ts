@@ -29,6 +29,11 @@ export function redeleteDescriptor(items: RestoredItem[], opts: { revertMerge?: 
     const ids = items.flatMap((i) => ((i.payload.root as { rootIds?: string[] }).rootIds ?? []));
     return ids.length ? d('POST', '/api/requirements/delete', { ids }) : null;
   }
+  // Org units (one group may hold several top-level ones): one delete of all their roots.
+  if (items.every((i) => i.kind === 'org_unit')) {
+    const ids = items.flatMap((i) => ((i.payload.root as { rootIds?: string[] }).rootIds ?? []));
+    return ids.length ? d('POST', '/api/org-units/delete', { ids }) : null;
+  }
   if (items.length !== 1) return null;
   const { kind, payload: p } = items[0]!;
   const root = p.root as Record<string, unknown>;

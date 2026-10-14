@@ -21,6 +21,7 @@ type ItemRow = typeof trashItem.$inferSelect;
 export const KIND_PERMISSION: Record<TrashKind, Permission> = {
   requirement: 'framework:write', note: 'framework:write', source_document: 'framework:write', source_page: 'framework:write', report_template: 'framework:write',
   framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
+  org_unit: 'org:write',
 };
 
 async function allowedKinds(ctx: Ctx): Promise<TrashKind[]> {
@@ -92,6 +93,8 @@ async function loadItems(ctx: Ctx, by: { groupId?: string; itemId?: string }): P
   return rows;
 }
 
+/** Units deleted together come back in the order they stood in the tree (so each returns to its own place in the list). */
+const sortKey = (r: ItemRow) => Number(((r.payload as TrashPayload).root as { sortKey?: number } | undefined)?.sortKey ?? 0);
 const order = (k: string) => { const i = (RESTORE_ORDER as readonly string[]).indexOf(k); return i < 0 ? 99 : i; };
 
 /**
@@ -100,7 +103,7 @@ const order = (k: string) => { const i = (RESTORE_ORDER as readonly string[]).in
  */
 export async function restoreTrash(ctx: Ctx, by: { groupId?: string; itemId?: string }, opts: RestoreOptions = {}): Promise<RestoreResult> {
   assertHuman(ctx);
-  const items = (await loadItems(ctx, by)).sort((a, b) => order(a.kind) - order(b.kind) || a.createdAt.getTime() - b.createdAt.getTime());
+  const items = (await loadItems(ctx, by)).sort((a, b) => order(a.kind) - order(b.kind) || a.createdAt.getTime() - b.createdAt.getTime() || sortKey(a) - sortKey(b));
   const parts = [];
   // Read before the rows are marked restored (that empties the payload): the Redo of this restore deletes the same things again.
   const again = redeleteDescriptor(items.map((it) => ({ kind: it.kind, label: it.label, payload: it.payload as TrashPayload })), opts);
@@ -162,6 +165,18 @@ function describe(payload: TrashPayload): Described[] {
   for (const r of t.requirement_mapping ?? []) out.push({ table: 'requirement_mapping', id: str(r.id), label: `${str(r.external_code)} → ${str(r.internal_code)} (${str(r.relation).replace('_', ' ')})`, depth: 1 });
   for (const r of t.evidence_link ?? []) out.push({ table: 'evidence_link', id: str(r.id), label: str(r.rationale).slice(0, 80), depth: 0 });
   for (const r of t.milestone ?? []) out.push({ table: 'milestone', id: str(r.id), label: str(r.name), depth: 0 });
+  // Org units as a tree (parents first, siblings in their order).
+  const units = t.org_unit ?? [];
+  if (units.length) {
+    const uById = new Map(units.map((u) => [str(u.id), u]));
+    const uKids = new Map<string, Record<string, unknown>[]>();
+    for (const u of units) if (uById.has(str(u.parent_id))) uKids.set(str(u.parent_id), [...(uKids.get(str(u.parent_id)) ?? []), u]);
+    const walkUnit = (u: Record<string, unknown>, d: number) => {
+      out.push({ table: 'org_unit', id: str(u.id), label: str(u.name_ar) ? `${str(u.name_en)} · ${str(u.name_ar)}` : str(u.name_en), depth: d });
+      for (const c of (uKids.get(str(u.id)) ?? []).sort((a, b) => Number(a.display_order) - Number(b.display_order))) walkUnit(c, d + 1);
+    };
+    for (const u of units.filter((x) => !uById.has(str(x.parent_id)))) walkUnit(u, 0);
+  }
   return out;
 }
 

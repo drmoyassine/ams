@@ -125,36 +125,41 @@ describe('organization settings', () => {
     render(wrap(<OrganizationPage api={apiFor('lead')} />));
     expect((await screen.findByLabelText('Name (English)') as HTMLInputElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(await screen.findByLabelText('Edit College of Engineering')).toBeTruthy();
-    expect(screen.queryByLabelText('New top-level unit')).toBeNull();
+    expect(await screen.findByLabelText('Add a unit under College of Engineering')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add unit' })).toBeTruthy();
   });
 
   it('builds and changes the org chart: add a top-level unit and a sub-unit, rename, and refuse a deactivation that would strand a child', async () => {
     const user = userEvent.setup();
     render(wrap(<OrganizationPage api={apiFor('admin')} />));
-    await user.type(await screen.findByLabelText('New top-level unit'), 'Deanship of Research');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
+    const addUnit = await screen.findByRole('button', { name: 'Add unit' });
+    await waitFor(() => expect((addUnit as HTMLButtonElement).disabled).toBe(false)); // the chart has loaded
+    await user.click(addUnit);
+    let dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Unit name (English)'), 'Deanship of Research');
+    await user.click(within(dialog).getByRole('button', { name: 'Add unit' }));
     await screen.findByText('Deanship of Research');
 
     await user.click(await screen.findByLabelText('Add a unit under College of Engineering'));
-    await user.type(screen.getByLabelText('Name of the new unit under College of Engineering'), 'Mechanical Department');
-    await user.click(screen.getByRole('button', { name: 'Add unit' }));
+    dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading').textContent).toBe('New unit under College of Engineering');
+    await user.type(within(dialog).getByLabelText('Unit name (English)'), 'Mechanical Department');
+    await user.click(within(dialog).getByRole('button', { name: 'Add unit' }));
     const child = await screen.findByText('Mechanical Department');
-    expect(child.closest('[data-testid="org-unit"]')!.getAttribute('style')).toMatch(/padding-inline-start: 2rem/);
+    expect(child.closest('[data-testid="org-unit"]')!.getAttribute('data-depth')).toBe('1');
 
-    await user.click(screen.getByLabelText('Edit Mechanical Department'));
-    const form = (await screen.findByLabelText('Unit name')).closest('form')!;
-    await user.clear(within(form).getByLabelText('Unit name'));
-    await user.type(within(form).getByLabelText('Unit name'), 'Department of Mechanical Engineering');
-    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByLabelText('Open Mechanical Department'));
+    dialog = await screen.findByRole('dialog');
+    await user.clear(within(dialog).getByLabelText('Unit name (English)'));
+    await user.type(within(dialog).getByLabelText('Unit name (English)'), 'Department of Mechanical Engineering');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     await screen.findByText('Department of Mechanical Engineering');
 
-    await user.click(screen.getByLabelText('Edit College of Engineering'));
-    const parentForm = (await screen.findAllByLabelText('Unit name'))[0]!.closest('form')!;
-    const options = within(within(parentForm).getByLabelText('Unit parent')).getAllByRole('option').map((o) => o.textContent);
-    expect(options).not.toContain('Department of Mechanical Engineering'); // a unit cannot move under its own sub-unit
-    await user.click(within(parentForm).getByRole('button', { name: 'Deactivate' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/deactivate its sub-units first/);
+    await user.click(screen.getByLabelText('Open College of Engineering'));
+    dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByLabelText('Active'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/deactivate its sub-units first/);
   });
 });
 

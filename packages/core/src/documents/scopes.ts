@@ -78,7 +78,7 @@ registerDocScope({
 });
 registerDocScope({
   kind: 'org_chart', label: 'Org chart', storage: 'import', read: 'org:read', write: 'org:write',
-  describe: async () => fixed('Org chart', '/settings/organization?tab=institution&section=org-chart-docs'),
+  describe: async () => fixed('Org chart', '/settings/organization?tab=institution'),
 });
 registerDocScope({
   kind: 'glossary', label: 'Glossary', storage: 'import', read: 'framework:read', write: 'framework:write',

@@ -23,13 +23,19 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 | **Organization** | One screen with two deep-linkable tabs, Institution (Details, Logo, Org chart) and Programs; Programs left the Settings menu and its old address redirects. The institution logo (PNG, JPEG or WebP, 512 KB, no SVG, same rules as an accreditor's) shows in the app header and on the sign-in page, which reads one public route that returns only the institution's display name, accent colour and logo | TASK-069, DEC-028 |
 | **Settings for every role** | Settings is visible to everyone who can read the organization; Organization, Internal Quality Framework, Terms, External Standards and Assistant memory show their content read-only (with a one-line note) to people who cannot edit; Trash (editors) and AI (administrators) stay hidden | TASK-069 |
 
+## Built: org chart builder (TASK-072)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Org chart** | Institution -> Org chart has two views of the same units: Tree (drag and drop, keyboard drag, multi-select, bulk delete to the Trash with Undo and Redo) and Chart (automatic top-down layout, zoom, pan, collapse, mirrored for right-to-left, export as PNG or SVG, print to one page). Each unit has names in both languages, a type, a head (a person or a name), a description, a lock, a source (manual, image or directory) and its programs; a unit with programs cannot be deleted. Unit types are configurable per institution (add, rename, reorder, remove when unused). Smooth with 300 units | TASK-072, DEC-028 |
+
 ## Left to build
 
 In the order I would do them.
 
 1. **Check what exists on real documents (needs the owner).** Redeploy, then the real run on the WSCUC, PUC and ABET files and tuning from the report: TASK-059 (production check of the services and the parser image) and TASK-056 (the PRD §19.2 acceptance test, seed-data replacement, embeddings decision).
 2. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice.
-3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** the shared Docs tab, Documents area and import engine for every place the AI parses uploads into drafts (built, TASK-075; docs/ai-import.md); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); an org chart builder (TASK-072), from an image (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
+3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** the shared Docs tab, Documents area and import engine for every place the AI parses uploads into drafts (built, TASK-075; docs/ai-import.md); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); the org chart builder is built (TASK-072); the org chart from an image (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
 4. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
 5. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
 6. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.

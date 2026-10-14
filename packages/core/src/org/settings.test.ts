@@ -6,6 +6,7 @@ import { createTestDb, type TestDb } from '@ams/db/test-db';
 import { ConflictError, ForbiddenError, ValidationError, type Ctx } from '../ctx.js';
 import { getInstitution, updateInstitution } from './institution.js';
 import { updateProgram } from './programs.js';
+import { moveOrgUnits } from './unit-move.js';
 import { createOrgUnit, listOrgUnits, updateOrgUnit } from './units.js';
 
 let db: TestDb;
@@ -57,20 +58,21 @@ describe('org chart', () => {
     await expect(as('leadA', (c) => createOrgUnit(c, { parentId: ids.colB!, type: 'department', nameEn: 'x' }))).rejects.toThrow(ForbiddenError);
     await expect(as('leadA', (c) => createOrgUnit(c, { parentId: null, type: 'college', nameEn: 'x' }))).rejects.toThrow(ForbiddenError);
     await expect(as('viewer', (c) => createOrgUnit(c, { parentId: ids.colA!, type: 'department', nameEn: 'x' }))).rejects.toThrow(ForbiddenError);
-    expect((await as('viewer', (c) => listOrgUnits(c))).map((u) => u.nameEn)).toEqual(['College A', 'College B', 'College C', 'Physics Dept']);
+    expect((await as('viewer', (c) => listOrgUnits(c))).map((u) => u.nameEn)).toEqual(['College A', 'Physics Dept', 'College B', 'College C']);
   });
 
   it('renames and retypes, and moves a unit only where the caller may write at both ends', async () => {
     expect(await as('leadA', (c) => updateOrgUnit(c, ids.deptA!, { nameEn: 'Department of Physics', type: 'school' }))).toMatchObject({ nameEn: 'Department of Physics', type: 'school' });
-    await expect(as('leadA', (c) => updateOrgUnit(c, ids.deptA!, { parentId: ids.colB! }))).rejects.toThrow(ForbiddenError);
-    const moved = await as('admin', (c) => updateOrgUnit(c, ids.deptA!, { parentId: ids.colB! }));
-    expect(moved.parentId).toBe(ids.colB);
-    await as('admin', (c) => updateOrgUnit(c, ids.deptA!, { parentId: ids.colA! }));
+    const to = (parentId: string) => ({ moves: [{ id: ids.deptA!, parentId, index: 0 }] });
+    await expect(as('leadA', (c) => moveOrgUnits(c, to(ids.colB!)))).rejects.toThrow(ForbiddenError);
+    await as('admin', (c) => moveOrgUnits(c, to(ids.colB!)));
+    expect((await as('admin', (c) => listOrgUnits(c))).find((u) => u.id === ids.deptA)!.parentId).toBe(ids.colB);
+    await as('admin', (c) => moveOrgUnits(c, to(ids.colA!)));
   });
 
   it('never creates a cycle', async () => {
-    await expect(as('admin', (c) => updateOrgUnit(c, ids.colA!, { parentId: ids.deptA! }))).rejects.toThrow(/under itself/);
-    await expect(as('admin', (c) => updateOrgUnit(c, ids.colA!, { parentId: ids.colA! }))).rejects.toThrow(/under itself/);
+    await expect(as('admin', (c) => moveOrgUnits(c, { moves: [{ id: ids.colA!, parentId: ids.deptA!, index: 0 }] }))).rejects.toThrow(/under itself/);
+    await expect(as('admin', (c) => moveOrgUnits(c, { moves: [{ id: ids.colA!, parentId: ids.colA!, index: 0 }] }))).rejects.toThrow(/under itself/);
   });
 
   it('deactivates only a unit with nothing active under it, and reactivates only under an active parent', async () => {

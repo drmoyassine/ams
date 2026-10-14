@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, performance, requestAnimationFrame, cancelAnimationFrame, Buffer, crypto */
+/* global process, console, fetch, TextEncoder, URL, window, document, getComputedStyle, performance, requestAnimationFrame, cancelAnimationFrame, Buffer, crypto, Event */
 // Responsiveness check (`pnpm test:responsive`): boots the real API + built SPA against a fresh test database, signs in
 // through the login page in Chromium, and visits the main screens at 375, 768 and 1280 px. For each page and width it
 // asserts the page does not scroll horizontally and saves a full-page screenshot to e2e/screenshots/<width>/<page>.png.
@@ -95,11 +95,36 @@ async function startApp() {
     server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' });
 
     const ids = await seedDemo(db, base);
+    ids.orgUnits = await seedOrgChart(db);
     return { base, ids, stop, db };
   } catch (e) {
     await stop();
     throw e;
   }
+}
+
+
+/**
+ * 300 org units for the org chart screens (and their performance numbers): a university, 5 colleges, 25 departments, 150
+ * sections and 118 labs, 5 levels deep (300 with the demo college). Names mix English and Arabic, and some are long, so boxes wrap. Inserted in SQL
+ * (as a bulk import would be), with gap-free display orders per parent.
+ */
+async function seedOrgChart(db) {
+  const q = async (sql, p = []) => (await db.su.query(sql, p)).rows;
+  const [{ id: inst }] = await q(`select id from institution limit 1`);
+  await q(`with
+    uni as (insert into org_unit (institution_id, type, name_en, name_ar, display_order) values ($1, 'other', 'Gulf University of Science and Technology', 'جامعة الخليج للعلوم والتكنولوجيا', 1) returning id),
+    col as (insert into org_unit (institution_id, parent_id, type, name_en, name_ar, display_order)
+      select $1, uni.id, 'college', 'College ' || i || ' of Engineering, Petroleum and Applied Sciences', 'كلية رقم ' || i || ' للهندسة والبترول', i from uni, generate_series(0, 4) i returning id, display_order),
+    dep as (insert into org_unit (institution_id, parent_id, type, name_en, display_order)
+      select $1, col.id, 'department', 'Department ' || col.display_order || '.' || j, j from col, generate_series(0, 4) j returning id, name_en, display_order),
+    sec as (insert into org_unit (institution_id, parent_id, type, name_en, name_ar, display_order)
+      select $1, dep.id, 'other', 'Section ' || substr(dep.name_en, 12) || '.' || k, 'قسم فرعي ' || k, k from dep, generate_series(0, 5) k returning id, name_en, display_order),
+    numbered as (select id, name_en, row_number() over (order by name_en) as n from sec)
+    insert into org_unit (institution_id, parent_id, type, name_en, display_order)
+      select $1, id, 'admin_unit', 'Lab ' || substr(name_en, 9), 0 from numbered where n <= 118`, [inst]);
+  const [{ n }] = await q(`select count(*)::int as n from org_unit`);
+  return n;
 }
 
 /** Signs in over HTTP and creates what the screens need, through the API as a person would. */
@@ -395,6 +420,23 @@ function pagesFor(ids) {
     { name: 'my-requests', path: '/requests' },
     // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
     { name: 'settings-organization', path: '/settings/organization' },
+    { name: 'org-chart-tree', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); } },
+    { name: 'org-chart-tree-select-bar', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); await tickRows(page, 2, true); } },
+    { name: 'org-chart-tree-keyboard-drag', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor();
+      await page.getByRole('button', { name: /^Move College 1 of/ }).focus();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
+      await page.getByTestId('tree-live').filter({ hasText: 'Put ' }).waitFor({ state: 'attached' });
+    } },
+    { name: 'org-chart-chart', path: '/settings/organization', action: async (page) => { await openChart(page); } },
+    { name: 'org-chart-chart-expanded', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByRole('button', { name: 'Expand all' }).click(); await page.waitForTimeout(500); } },
+    { name: 'org-chart-chart-zoomed', path: '/settings/organization', action: async (page) => { await openChart(page); for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Zoom in' }).click(); } },
+    { name: 'org-chart-unit-drawer', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); await page.getByLabel('Open Gulf University of Science and Technology').click(); await page.getByRole('dialog').waitFor(); } },
+    { name: 'org-chart-chart-box-drawer', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByTestId('chart-box').first().dispatchEvent('click'); await page.getByRole('dialog').waitFor(); } },
+    { name: 'org-chart-unit-types', path: '/settings/organization', action: async (page) => { await page.getByRole('button', { name: 'Unit types' }).click(); await page.getByRole('dialog', { name: 'Unit types' }).waitFor(); } },
+    { name: 'org-chart-add-unit', path: '/settings/organization', action: async (page) => { await page.getByRole('button', { name: 'Add unit' }).click(); await page.getByRole('dialog').waitFor(); } },
     { name: 'settings-organization-programs', path: '/settings/organization?tab=programs' },
     { name: 'settings-programs-redirect', path: '/settings/programs' },
     { name: 'settings-organization-tab-keys', path: '/settings/organization', action: async (page) => { await page.getByRole('tab', { name: 'Institution' }).focus(); await page.keyboard.press('ArrowRight'); await page.getByRole('tab', { name: 'Programs', selected: true }).waitFor(); } },
@@ -588,6 +630,127 @@ async function settle(page) {
   await page.waitForTimeout(300);
 }
 
+/** Opens the Chart view of the org chart and waits for the boxes. */
+async function openChart(page) {
+  await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Chart', exact: true }).click();
+  await page.getByTestId('chart-box').first().waitFor();
+}
+
+/** The width and height of a PNG, read from its header (and whether it is a PNG at all). */
+function pngSize(buf) {
+  const sig = buf.subarray(0, 8).toString('hex') === '89504e470d0a1a0a';
+  return { png: sig, width: sig ? buf.readUInt32BE(16) : 0, height: sig ? buf.readUInt32BE(20) : 0 };
+}
+
+/**
+ * The org chart with 300 units in a real browser: how long the tree and the chart take to appear, to select everything, to
+ * expand every branch, to zoom and pan (frame gaps), and the exports: the PNG and the SVG must be non-empty with the
+ * expected size and aspect and carry the Arabic names; the mirrored chart for right-to-left; and the print sheet must make
+ * one PDF page. Printed, not asserted (machines differ); only a stall over a few seconds, or a wrong export, fails the run.
+ */
+async function orgChartPerfCheck(page, app) {
+  const out = {};
+  const click = (locator) => locator.evaluate((el) => new Promise((resolve) => {
+    const t = performance.now();
+    el.click();
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now() - t)));
+  }));
+  let t0 = Date.now();
+  await page.goto('/settings/organization');
+  await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor({ timeout: 30000 });
+  await page.getByTestId('org-unit').nth(299).waitFor({ timeout: 30000 });
+  out['open the tree, 300 rows'] = Date.now() - t0;
+  await settle(page);
+  out['Select (turn on)'] = await click(page.getByRole('button', { name: 'Select', exact: true }));
+  out['select all 300'] = await click(page.getByRole('button', { name: /^Select all \(/ }));
+  out['clear 300'] = await click(page.getByTestId('bulk-bar').getByRole('button', { name: 'Clear' }));
+
+  // The chart: collapsed beyond level 3 on open.
+  out['Tree to Chart (click to next paint)'] = await click(page.getByRole('button', { name: 'Chart', exact: true }));
+  await page.getByTestId('chart-box').first().waitFor();
+  await settle(page);
+  out['boxes drawn on open (collapsed beyond level 3)'] = await page.getByTestId('chart-box').count();
+  out['Expand all (click to next paint)'] = await click(page.getByRole('button', { name: 'Expand all' }));
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="chart-box"]').length >= 300, null, { timeout: 30000 });
+  out['boxes drawn expanded'] = await page.getByTestId('chart-box').count();
+  out['Fit'] = await click(page.getByRole('button', { name: 'Fit', exact: true }));
+  out['Zoom in (one click)'] = await click(page.getByRole('button', { name: 'Zoom in' }));
+  // Wheel zoom and drag pan with the frame gaps recorded.
+  const vp = await page.getByTestId('chart-viewport').boundingBox();
+  await page.evaluate(() => { window.__gaps = []; let last = performance.now(); const tick = (t) => { window.__gaps.push(t - last); last = t; window.__raf = requestAnimationFrame(tick); }; window.__raf = requestAnimationFrame(tick); });
+  await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+  for (let i = 0; i < 20; i += 1) await page.mouse.wheel(0, i % 2 ? 120 : -120);
+  await page.mouse.move(vp.x + 40, vp.y + 40);
+  await page.mouse.down();
+  for (let i = 1; i <= 60; i += 1) await page.mouse.move(vp.x + 40 + i * 4, vp.y + 40 + i * 2);
+  await page.mouse.up();
+  const gaps = await page.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__gaps; });
+  const sorted = [...gaps].sort((x, y) => x - y);
+  out['frames while zooming and panning (count)'] = gaps.length;
+  out['frame gap, median'] = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  out['frame gap, 95th percentile'] = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
+  out['frame gap, worst'] = sorted[sorted.length - 1] ?? 0;
+  await page.getByRole('button', { name: 'Fit', exact: true }).click();
+
+  // Exports: the PNG and the SVG (non-empty, size and aspect as expected, Arabic text present).
+  const download = async (name) => {
+    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name }).click()]);
+    return { file: d.suggestedFilename(), buf: readFileSync(await d.path()) };
+  };
+  t0 = Date.now();
+  const svgFile = await download('Export as SVG');
+  out['Export as SVG'] = Date.now() - t0;
+  const svgText = svgFile.buf.toString('utf8');
+  const vb = /viewBox="0 0 (\d+) (\d+)"/.exec(svgText);
+  if (!vb || svgFile.buf.length < 5000) throw new Error('the exported SVG is empty or has no viewBox');
+  if (!svgText.includes('جامعة الخليج') || !svgText.includes('direction="rtl"')) throw new Error('the exported SVG lacks the Arabic names or their direction');
+  if (/data-view/.test(svgText) && /<g[^>]*data-view[^>]*transform=/.test(svgText)) throw new Error('the exported SVG kept the zoom and pan transform');
+  const [vw, vh] = [Number(vb[1]), Number(vb[2])];
+  out['SVG size (bytes)'] = svgFile.buf.length;
+  out['chart size (px)'] = `${vw} x ${vh}`;
+  t0 = Date.now();
+  const pngFile = await download('Export as image');
+  out['Export as image (PNG)'] = Date.now() - t0;
+  const png = pngSize(pngFile.buf);
+  if (!png.png || pngFile.buf.length < 2000) throw new Error('the exported PNG is empty or not a PNG');
+  const scale = png.width / vw;
+  if (Math.abs(png.height / vh - scale) > 0.02 || scale < 0.05 || scale > 2.01) throw new Error(`the exported PNG has the wrong size or aspect: ${png.width}x${png.height} for a ${vw}x${vh} chart`);
+  out['PNG size (px, bytes)'] = `${png.width} x ${png.height}, ${pngFile.buf.length} bytes (scale ${Math.round(scale * 100) / 100})`;
+
+  // Print: the sheet must come out as one landscape page.
+  await page.evaluate(() => { window.print = () => undefined; }); // headless has no print dialog; the sheet stays on the page
+  await page.getByRole('button', { name: 'Print / save as PDF' }).click();
+  await page.getByTestId('print-sheet').waitFor({ state: 'attached' });
+  await page.waitForTimeout(300);
+  await page.emulateMedia({ media: 'print' });
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  await page.emulateMedia({ media: 'screen' });
+  const pdfPages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+  out['PDF pages'] = pdfPages;
+  if (pdfPages !== 1) throw new Error(`"Print / save as PDF" made ${pdfPages} pages, not 1`);
+  await page.evaluate(() => { window.dispatchEvent(new Event('afterprint')); });
+
+  // Right to left: the same chart mirrored (the first college is on the right) and the Arabic still in the export.
+  await page.evaluate(() => { document.documentElement.style.direction = 'rtl'; });
+  await page.getByRole('button', { name: 'Tree', exact: true }).click();
+  await page.getByRole('button', { name: 'Chart', exact: true }).click();
+  await page.getByTestId('chart-box').first().waitFor();
+  const xs = await page.evaluate(() => {
+    const at = (label) => { const b = [...document.querySelectorAll('[data-testid="chart-box"]')].find((el) => el.getAttribute('aria-label')?.startsWith(label)); return b ? Number(/translate\(([-\d.]+)/.exec(b.getAttribute('transform'))[1]) : null; };
+    return { c0: at('College 0 of'), c1: at('College 1 of') };
+  });
+  out['RTL: College 0 is right of College 1'] = xs.c0 !== null && xs.c1 !== null && xs.c0 > xs.c1;
+  if (!(xs.c0 > xs.c1)) throw new Error('the right-to-left chart is not mirrored');
+  const rtlSvg = (await download('Export as SVG')).buf.toString('utf8');
+  if (!rtlSvg.includes('كلية رقم')) throw new Error('the right-to-left export lacks the Arabic names');
+  await page.evaluate(() => { document.documentElement.style.direction = ''; });
+
+  console.log(`\nOrg chart with ${app.ids.orgUnits} units in Chromium (ms unless noted):`);
+  for (const [k, v] of Object.entries(out)) console.log(`  ${k.padEnd(48)} ${typeof v === 'number' ? Math.round(v * 10) / 10 : v}`);
+  if (out['frame gap, worst'] > 3000 || out['select all 300'] > 3000 || out['Expand all (click to next paint)'] > 5000) throw new Error('the 300-unit org chart stalled for several seconds');
+}
+
 async function main() {
   const { chromium } = await loadPlaywright();
   console.log('starting the app on a fresh test database…');
@@ -636,6 +799,7 @@ async function main() {
       }
       if (width === Math.max(...widths) && !onlyPages) {
         try { await perfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-600-rows', error: e.message.split('\n')[0] }); }
+        try { await orgChartPerfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-org-chart-300', error: e.message.split('\n')[0] }); }
       }
       if (errors.length) console.warn(`page errors at ${width}px:\n  ${[...new Set(errors)].join('\n  ')}`);
       await context.close();

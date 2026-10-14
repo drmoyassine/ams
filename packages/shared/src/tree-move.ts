@@ -38,7 +38,7 @@ export const MoveManyInputSchema = z.object({
 export type MoveManyInput = z.infer<typeof MoveManyInputSchema>;
 
 /** How deep a tree may go: `maxLevels` levels (the internal framework: as many as it names; an external standard: the general cap). */
-export interface DepthLimits { maxLevels: number; levelNames?: readonly string[] }
+export interface DepthLimits { maxLevels: number; levelNames?: readonly string[]; /** What the tree holds, in the messages ('requirement' by default; the org chart says 'unit'). */ noun?: string }
 export const DEFAULT_LIMITS: DepthLimits = { maxLevels: MAX_TREE_DEPTH };
 
 /** The limit for a version: the internal framework allows the levels it names, an external standard the general cap. */
@@ -115,11 +115,11 @@ function finish(rows: readonly TreeRow[], lists: Lists, touched: Set<string | nu
     if (below && depth >= limits.maxLevels) tooDeep.push(id);
     for (const c of lists.get(id) ?? []) stack.push({ id: c, depth: depth + 1, below: below || moved.has(c) });
   }
-  if (reached < rows.length) return fail('cycle', 'A requirement cannot be moved under itself or one of its own sub-items.');
+  if (reached < rows.length) return fail('cycle', `A ${limits.noun ?? 'requirement'} cannot be moved under itself or one of its own sub-items.`);
   if (tooDeep.length) {
     const n = limits.maxLevels;
     const named = limits.levelNames && limits.levelNames.length ? ` (${limits.levelNames.join(', ')})` : '';
-    return fail('depth', `That would put ${label(tooDeep[0]!)} more than ${n} level${n === 1 ? '' : 's'} deep, which is the most ${limits.levelNames ? 'this framework has' : 'a standard can have'}${named}.`);
+    return fail('depth', `That would put ${label(tooDeep[0]!)} more than ${n} level${n === 1 ? '' : 's'} deep, which is the most ${limits.noun && limits.noun !== 'requirement' ? `the ${limits.noun} tree can have` : limits.levelNames ? 'this framework has' : 'a standard can have'}${named}.`);
   }
   const before = new Map(rows.map((r) => [r.id, r] as const));
   const updates: RowUpdate[] = [];
@@ -243,7 +243,7 @@ export function resolveDrop(rows: readonly TreeRow[], dragIds: readonly string[]
   if (ids.includes(over.id)) return { ok: true, moves: [], parentId: over.parentId ?? null, noop: true };
   // Dropped into (or next to something inside) one of the dragged items' own subtrees.
   const inside = new Set(ids.flatMap((id) => descendantIds(rows, id)));
-  if (inside.has(over.id)) return { ok: false, message: 'A requirement cannot be moved under itself or one of its own sub-items.' };
+  if (inside.has(over.id)) return { ok: false, message: `A ${limits.noun ?? 'requirement'} cannot be moved under itself or one of its own sub-items.` };
   const lists = childLists(rows);
   const taken = new Set(ids);
   const parentId = target.position === 'inside' ? over.id : (over.parentId ?? null);

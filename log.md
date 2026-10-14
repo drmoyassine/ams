@@ -24,6 +24,16 @@ Decisions: DEC-028, DEC-006, DEC-013, DEC-019. ROADMAP-012. Section A of docs/or
 - Learnings: a toast lives 9 s, shorter than the tests' 10 s wait: find it by test id at once. Never `cd` to the shared checkout from a worktree session (an early edit went to /home/user/ams by mistake and was reverted).
 - Tests: `packages/core/src/documents/*.test.ts` (invented target `test-target.ts`), `packages/db/src/imports.test.ts`, `apps/api/src/documents.test.ts`, `apps/web/src/docs-ui.test.tsx`; `e2e/responsive.mjs` has the Docs tab, import dialog, review, report and Documents states.
 
+## 2026-10-14 — Org chart visual builder (TASK-072)
+
+Decisions: DEC-028, DEC-026. ROADMAP-012. Section E.1 of docs/organization-plan.md.
+- **Data (migration 0054):** unit types are rows (`org_unit_type`, per institution, seeded by a trigger on `institution`), and `org_unit.type` is their key through a composite foreign key, so a type in use cannot be removed. `org_unit` gained `source`, `locked`, `display_order`, `head_user_id` / `head_name`, `description` and `edited_by_person` (the existing `mark_person_edit` trigger), the hooks for the image import and directory sync (not built).
+- **One tree layer, two trees:** `components/tree/tree.tsx` now takes a `TreeAdapter` (query key, depth limits, how to move and delete, the optimistic update, words); the requirement trees pass `requirementAdapter`, the org chart passes its own. Moves reuse `planMoves` / `planPlacements`; deleting a unit with its subtree goes to the Trash (kind `org_unit`) and is refused while programs are attached.
+- **Chart:** `layoutOrgChart` is pure (tidy tree; leaf sub-units hang in one column, which is what keeps 25 departments with 6 sections each readable instead of 30,000 px wide). The drawing is an SVG with inline attributes only, so the same markup is the export; PNG is drawn client-side at 2x (less for huge charts, canvas limits). Print uses a sheet appended to `body` and a named `@page` (landscape), one PDF page.
+- Learnings: a Dialog button named "Close" appears twice (the X and the footer) so tests pick the first; a form that opens before its data loads must derive defaults at submit time, not in `useState`; headless Chromium needs `window.print` stubbed and `emulateMedia('print')` to produce the sheet's PDF; SVG boxes shrunk by a 3% fit cannot be clicked by Playwright, dispatch the click.
+- Performance (Chromium, 300 units): tree open about 0.5 s, select all 83 ms, chart open 97 ms with 182 boxes, expand all (300) 74 ms, zoom and pan at a steady 16.7 ms frame gap, SVG export 117 ms, PNG 332 ms, 1 PDF page.
+- Tests: `packages/shared/src/org-layout.test.ts`, `packages/core/src/org/org-chart.test.ts`, `apps/api/src/org-chart.test.ts`, `packages/db/src/org-chart.test.ts`, `apps/web/src/org-chart-ui.test.tsx`, `chart-model.test.ts`; `e2e/responsive.mjs` has the org chart states and the 300-unit run. The `org_chart` document scope points at the Institution tab until its Docs tab (TASK-073).
+
 ## 2026-10-13 — Organization tabs, institution logo, read-only Settings (TASK-069)
 
 Decisions: DEC-028. ROADMAP-012. Step 1 of docs/organization-plan.md.

@@ -269,8 +269,8 @@ describe('Settings for every role', () => {
     expect((screen.getByLabelText('Accent colour') as HTMLInputElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     await screen.findByLabelText('Org chart');
-    expect(screen.queryByLabelText(/^Edit /)).toBeNull();
-    expect(screen.queryByLabelText('New top-level unit')).toBeNull();
+    expect(screen.queryByLabelText(/^Add a unit under /)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add unit' })).toBeNull();
     await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(3)); // details, logo, org chart
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
     await screen.findByText('BS Physics');
@@ -283,7 +283,7 @@ describe('Settings for every role', () => {
     const user = userEvent.setup();
     render(wrap(<OrganizationPage api={settingsFor('lead')} />));
     expect(((await screen.findByLabelText('Name (English)')) as HTMLInputElement).disabled).toBe(true);
-    expect(await screen.findByLabelText('Edit College of Engineering')).toBeTruthy();
+    expect(await screen.findByLabelText('Add a unit under College of Engineering')).toBeTruthy();
     await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(2)); // details, logo
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
     expect(await screen.findByRole('button', { name: 'Add program' })).toBeTruthy();

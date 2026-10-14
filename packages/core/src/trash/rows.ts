@@ -10,7 +10,7 @@ import { guardIntegrity } from '../framework/errors.js';
  * the ones it points to). Deleting goes through them in reverse.
  */
 export const TRASH_TABLES = [
-  'framework', 'framework_version', 'analysis_dismissal', 'source_document', 'source_page', 'analysis_run', 'requirement', 'requirement_note', 'report_template',
+  'org_unit', 'framework', 'framework_version', 'analysis_dismissal', 'source_document', 'source_page', 'analysis_run', 'requirement', 'requirement_note', 'report_template',
   'extraction_item', 'iqf_item_proposal', 'requirement_mapping', 'glossary_alias', 'evidence_link', 'milestone', 'import_document', 'import_page',
 ] as const;
 export type TrashTable = (typeof TRASH_TABLES)[number];

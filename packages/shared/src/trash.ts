@@ -6,7 +6,7 @@ export const TRASH_RETENTION_DAYS = 30;
 
 /** What a Trash row holds. Each kind is one thing a person deleted; its rows travel together in the payload. */
 export const TRASH_KINDS = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit',
 ] as const;
 export type TrashKind = (typeof TRASH_KINDS)[number];
 
@@ -23,6 +23,7 @@ export const TRASH_KIND_LABELS: Record<TrashKind, { one: string; many: string }>
   evidence_link: { one: 'Evidence link', many: 'Evidence links' },
   milestone: { one: 'Milestone', many: 'Milestones' },
   import_document: { one: 'Document', many: 'Documents' },
+  org_unit: { one: 'Organization unit', many: 'Organization units' },
 };
 
 /**

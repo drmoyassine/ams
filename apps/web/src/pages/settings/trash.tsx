@@ -17,6 +17,7 @@ export function countWords(counts: Record<string, number>): string {
   add('versions', 'version');
   add('subItems', 'sub-item');
   add('requirements', 'standard');
+  add('evidenceOwners', 'evidence item that loses its owner', 'evidence items that lose their owner');
   add('documents', 'source document');
   add('pages', 'page');
   add('notes', 'note');

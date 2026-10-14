@@ -16,6 +16,7 @@ import { glossaryRoutes } from './routes/glossary.js';
 import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { settingsRoutes } from './routes/settings.js';
+import { orgChartRoutes } from './routes/org-chart.js';
 import { templateRoutes } from './routes/templates.js';
 import { trashRoutes } from './routes/trash.js';
 
@@ -74,6 +75,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
 
     // Settings: institution, org chart, program edits.
     .route('/', settingsRoutes(registry, deps, options))
+    .route('/', orgChartRoutes(registry, deps, options))
     // Sign-in page branding: the only data served without signing in.
     .route('/', publicRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))

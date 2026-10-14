@@ -19,8 +19,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode,
 } from 'react';
-import { appendMoves, limitsFor, planMoves, resolveDrop, topmostIds, type DropPosition, type MoveSpec } from '@ams/shared';
+import { appendMoves, limitsFor, planMoves, resolveDrop, topmostIds, type DepthLimits, type DropPosition, type MoveSpec, type RowUpdate } from '@ams/shared';
 import { ApiError, type FrameworkApi, type Requirement, type Version } from '../../lib/framework-api';
+import type { ConfirmOptions } from '../confirm-dialog';
 import { confirmAndDelete } from '../../lib/delete-requirements';
 import { checkboxLabel, clickSelect, extendSelect, prune, selectAll, summarize, selectionWords, type ClickMods } from '../../lib/tree-selection';
 import { applyUpdates, codeHint, describePlace, dropSlots, droppedWords, normalizePlace, pointerY, zoneAt, type Slot } from '../../lib/tree-dnd';
@@ -34,8 +35,35 @@ import { BulkMoveDialog } from '../../pages/version/review-dialogs';
 /** Tests set this to count how often a row renders (the point of the store is that a selection or a drag move re-renders few). */
 export const treeProbe: { row: ((id: string) => void) | null; card: ((id: string) => void) | null } = { row: null, card: null };
 
+/**
+ * What the tree needs to know about a row: where it sits and how to say what it is. A requirement is one (its code and
+ * title); so is an org unit (its English name as `code`, its Arabic name as `title`).
+ */
+export interface TreeItem { id: string; parentId: string | null; displayOrder: number; code: string; title?: string | null | undefined }
+
+/**
+ * What differs between the trees that use this layer: the cache key of the rows, the depth rules, how a move and a delete are
+ * sent to the server, how the cached rows look right after a drop, and the words. The requirement trees get theirs from
+ * `api` and `version`; another tree (the org chart) passes its own `adapter`.
+ */
+export interface TreeAdapter {
+  queryKey: readonly unknown[];
+  limits: DepthLimits;
+  moveMany: (moves: MoveSpec[]) => Promise<unknown>;
+  /** Asks the person and deletes; resolves true when deleted, false when they said no. */
+  deleteIds: (ids: string[], title: string, confirm: (o: ConfirmOptions) => Promise<boolean>) => Promise<boolean>;
+  /** Shows the result of a drop at once; returns the function that puts the cache back if the server refuses. */
+  applyOptimistic: (qc: ReturnType<typeof useQueryClient>, rows: readonly TreeItem[], updates: readonly RowUpdate[]) => () => void;
+  /** A note after a single move (the quality framework's codes say where an item belongs). */
+  hint?: (row: TreeItem | undefined, parent: TreeItem | undefined) => string | null;
+  /** Whether "Move to…" (a requirement picker) is offered; default yes. */
+  moveTo?: boolean;
+  /** The words in the keyboard instructions ("requirement"). */
+  noun?: string;
+}
+
 export interface RowInfo {
-  row: Requirement;
+  row: TreeItem;
   /** Direct children, in order. */
   childIds: string[];
   /** Everything below it. */
@@ -60,6 +88,8 @@ export interface TreeCtx {
   clearSelection: () => void;
   deleteSelected: () => Promise<void>;
   openMove: () => void;
+  /** Whether the bulk bar offers "Move to…". */
+  canMoveTo: boolean;
   count: { shown: number };
 }
 
@@ -70,17 +100,36 @@ export function useTree(): TreeCtx {
   return c;
 }
 
+/** The requirement trees (quality framework, external standard, version list): moves and deletes go through the framework API. */
+export function requirementAdapter(api: NonNullable<TreeProviderProps['api']>, version: NonNullable<TreeProviderProps['version']>): TreeAdapter {
+  const key = ['requirements', version.id] as const;
+  return {
+    queryKey: key,
+    limits: limitsFor({ internal: version.internal, levelLabels: version.levelLabels }),
+    moveMany: (moves) => api.moveMany(version.id, { moves }),
+    deleteIds: (ids, title, confirm) => confirmAndDelete(api, confirm, ids, title),
+    applyOptimistic: (qc, rows, updates) => {
+      const before = qc.getQueryData<Requirement[]>([...key]);
+      qc.setQueryData([...key], applyUpdates(rows as Requirement[], updates));
+      return () => { qc.setQueryData([...key], before); };
+    },
+    ...(version.internal ? { hint: (row: TreeItem | undefined, parent: TreeItem | undefined) => codeHint(row?.code ?? '', parent?.code ?? null) } : {}),
+  };
+}
+
 export interface TreeProviderProps {
-  api: Pick<FrameworkApi, 'moveMany' | 'previewDelete' | 'deleteMany'>;
-  version: Pick<Version, 'id' | 'levelLabels'> & { internal?: boolean | undefined };
-  /** Every requirement of the version, in tree order, with depth. */
-  rows: Requirement[];
+  api?: Pick<FrameworkApi, 'moveMany' | 'previewDelete' | 'deleteMany'>;
+  version?: Pick<Version, 'id' | 'levelLabels'> & { internal?: boolean | undefined };
+  /** For a tree that is not a version's requirements (see TreeAdapter); given, `api` and `version` are not needed. */
+  adapter?: TreeAdapter;
+  /** Every row, in tree order. */
+  rows: TreeItem[];
   /** The ids on screen, in order (after any filter, and with the contents of collapsed branches left out). */
   shown: string[];
   editable: boolean;
   reason: string;
   /** What a row is called in words ("Standard 2.1"). */
-  label: (r: Requirement) => string;
+  label: { bivarianceHack(r: any): string }['bivarianceHack']; // eslint-disable-line @typescript-eslint/no-explicit-any
   noun?: { one: string; many: string };
   collapsed: ReadonlySet<string>;
   onCollapse: (id: string, collapsed: boolean) => void;
@@ -92,7 +141,7 @@ export interface TreeProviderProps {
   children: ReactNode;
 }
 
-const INSTRUCTIONS = 'To move a requirement, press space on its move handle. Use the up and down arrow keys to choose a place: before it, inside it or after it. Press space to drop, or escape to cancel.';
+const instructions = (noun: string) => `To move a ${noun}, press space on its move handle. Use the up and down arrow keys to choose a place: before it, inside it or after it. Press space to drop, or escape to cancel.`;
 /**
  * dnd-kit's own live region (a role=status element) is kept out of the accessibility tree: the tree speaks through its own
  * (TreeLiveRegion), so a screen reader hears each thing once, and there is a single status element for the toast to be.
@@ -112,7 +161,7 @@ function useHiddenContainer(): HTMLElement | undefined {
 }
 const focusEl = (id: string) => document.querySelector<HTMLElement>(`[data-tree-focus="${id}"]`);
 
-function buildInfo(rows: readonly Requirement[]): Map<string, RowInfo> {
+function buildInfo(rows: readonly TreeItem[]): Map<string, RowInfo> {
   const m = new Map<string, RowInfo>();
   for (const r of rows) m.set(r.id, { row: r, childIds: [], descendants: 0 });
   for (const r of rows) if (r.parentId) m.get(r.parentId)?.childIds.push(r.id);
@@ -144,8 +193,10 @@ export function TreeProvider(props: TreeProviderProps) {
     return () => { off(); publishScreen('tree-selection', null); };
   }, [store]);
   const info = useMemo(() => buildInfo(rows), [rows]);
-  const live = useRef({ ...props, info, confirm, qc });
-  live.current = { ...props, info, confirm, qc };
+  const { api: reqApi, version: reqVersion } = props;
+  const adapter = useMemo<TreeAdapter>(() => props.adapter ?? requirementAdapter(reqApi!, reqVersion!), [props.adapter, reqApi, reqVersion]);
+  const live = useRef({ ...props, info, confirm, qc, adapter });
+  live.current = { ...props, info, confirm, qc, adapter };
   const hidden = useHiddenContainer();
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveError, setMoveError] = useState('');
@@ -153,7 +204,7 @@ export function TreeProvider(props: TreeProviderProps) {
   const kb = useRef<{ slots: Slot[]; index: number } | null>(null);
   const expandTimer = useRef<{ id: string; t: ReturnType<typeof setTimeout> } | null>(null);
 
-  const limits = useMemo(() => limitsFor({ internal: props.version.internal, levelLabels: props.version.levelLabels }), [props.version.internal, props.version.levelLabels]);
+  const limits = adapter.limits;
   const labelOf = useCallback((id: string) => { const i = live.current.info.get(id); return i ? live.current.label(i.row) : 'an item'; }, []);
   const shownChild = useCallback((id: string) => {
     const l = live.current;
@@ -198,10 +249,10 @@ export function TreeProvider(props: TreeProviderProps) {
     const noun = l.noun ?? { one: 'standard', many: 'standards' };
     const title = roots.length === 1 ? `Delete ${labelOf(roots[0]!)}?` : `Delete ${roots.length} ${noun.many}?`;
     try {
-      const done = await confirmAndDelete(l.api, l.confirm, ids, title);
+      const done = await l.adapter.deleteIds(ids, title, l.confirm);
       if (!done) return;
       store.clear();
-      await l.qc.invalidateQueries({ queryKey: ['requirements', l.version.id] });
+      await l.qc.invalidateQueries({ queryKey: [...l.adapter.queryKey] });
       await l.onChanged?.();
     } catch (e) {
       l.onError(e instanceof ApiError ? e.message : 'Could not delete. Nothing was changed.');
@@ -215,15 +266,14 @@ export function TreeProvider(props: TreeProviderProps) {
     const plan = planMoves(l.rows, moves, labelOf, limits);
     if (!plan.ok) { l.onError(plan.message); announce(plan.message); return plan.message; }
     if (plan.unchanged) { l.onNotice('Nothing changed: it is already there.'); return null; }
-    const key = ['requirements', l.version.id];
-    const before = l.qc.getQueryData<Requirement[]>(key);
+    const key = [...l.adapter.queryKey];
     l.onError('');
     // Show the result at once; put it back if the server refuses.
-    l.qc.setQueryData(key, applyUpdates(l.rows, plan.updates));
+    const rollback = l.adapter.applyOptimistic(l.qc, l.rows, plan.updates);
     try {
-      await l.api.moveMany(l.version.id, { moves });
+      await l.adapter.moveMany(moves);
     } catch (e) {
-      l.qc.setQueryData(key, before);
+      rollback();
       const text = e instanceof ApiError ? e.message : 'Could not move that. Nothing was changed.';
       l.onError(text);
       announce(text);
@@ -235,7 +285,7 @@ export function TreeProvider(props: TreeProviderProps) {
     const parent = first.parentId ? labelOf(first.parentId) : null;
     const same = moves.every((m) => (l.info.get(m.id)?.row.parentId ?? null) === (m.parentId ?? null));
     const what = moves.length === 1 ? labelOf(first.id) : `${moves.length} items`;
-    const hint = l.version.internal && moves.length === 1 ? codeHint(l.info.get(first.id)?.row.code ?? '', first.parentId ? (l.info.get(first.parentId)?.row.code ?? null) : null) : null;
+    const hint = moves.length === 1 ? (l.adapter.hint?.(l.info.get(first.id)?.row, first.parentId ? l.info.get(first.parentId)?.row : undefined) ?? null) : null;
     const text = `${droppedWords(what, parent, same)}${hint ? ` ${hint}` : ''}`;
     l.onNotice(text);
     announce(text);
@@ -422,28 +472,29 @@ export function TreeProvider(props: TreeProviderProps) {
     setCollapsed: (id, c) => live.current.onCollapse(id, c),
     rowClick, toggleSelect, rowKeyDown, rowKeyUp, selectAllShown, clearSelection, deleteSelected,
     openMove: () => { setMoveError(''); setMoveOpen(true); },
+    canMoveTo: adapter.moveTo !== false,
     count: { shown: shown.length },
-  }), [store, editable, props.reason, props.noun?.many, shown.length, rowClick, toggleSelect, rowKeyDown, rowKeyUp, selectAllShown, clearSelection, deleteSelected]);
+  }), [store, editable, adapter.moveTo, props.reason, props.noun?.many, shown.length, rowClick, toggleSelect, rowKeyDown, rowKeyUp, selectAllShown, clearSelection, deleteSelected]);
 
   const active = activeId ? info.get(activeId) : undefined;
-  const selectedRows = [...store.selected].map((id) => info.get(id)?.row).filter((r): r is Requirement => !!r);
+  const selectedRows = [...store.selected].map((id) => info.get(id)?.row).filter((r): r is Requirement => !!r) as unknown as Requirement[];
   return (
     <Ctx.Provider value={ctx}>
       <DndContext sensors={sensors} collisionDetection={collisions} autoScroll={{ threshold: { x: 0.1, y: 0.18 }, acceleration: 14 }}
-        accessibility={{ ...(hidden ? { container: hidden } : {}), screenReaderInstructions: { draggable: INSTRUCTIONS }, announcements: { onDragStart: () => undefined, onDragOver: () => undefined, onDragMove: () => undefined, onDragEnd: () => undefined, onDragCancel: () => undefined } }}
+        accessibility={{ ...(hidden ? { container: hidden } : {}), screenReaderInstructions: { draggable: instructions(adapter.noun ?? 'requirement') }, announcements: { onDragStart: () => undefined, onDragOver: () => undefined, onDragMove: () => undefined, onDragEnd: () => undefined, onDragCancel: () => undefined } }}
         onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         {props.children}
         <DragOverlay dropAnimation={null}>{active ? <DragPreview row={active.row} label={labelOf(active.row.id)} more={Math.max(0, store.dragging.size - 1)} /> : null}</DragOverlay>
       </DndContext>
       <TreeLiveRegion store={store} />
-      {moveOpen && (
-        <BulkMoveDialog items={selectedRows} rows={rows} error={moveError} onClose={() => setMoveOpen(false)} onMove={moveSelectedTo} />
+      {moveOpen && adapter.moveTo !== false && (
+        <BulkMoveDialog items={selectedRows} rows={rows as unknown as Requirement[]} error={moveError} onClose={() => setMoveOpen(false)} onMove={moveSelectedTo} />
       )}
     </Ctx.Provider>
   );
 }
 
-function DragPreview({ row, label, more }: { row: Requirement; label: string; more: number }) {
+function DragPreview({ row, label, more }: { row: TreeItem; label: string; more: number }) {
   return (
     <div className="pointer-events-none flex max-w-sm items-center gap-2 rounded-lg border border-primary bg-background px-3 py-2 text-sm shadow-xl" data-testid="drag-overlay">
       <span className="min-w-0 truncate" dir="auto"><span className="font-medium"><ContentText>{label}</ContentText></span>{row.title && row.title !== row.code ? <span className="text-muted-foreground"> · <ContentText>{row.title}</ContentText></span> : null}</span>
@@ -549,7 +600,7 @@ export function TreeToolbar() {
 }
 
 /** Appears when something is selected: "3 selected, with 14 sub-items · Delete · Move to… · Clear". */
-export function BulkBar({ rows }: { rows: readonly Requirement[] }) {
+export function BulkBar({ rows }: { rows: readonly TreeItem[] }) {
   const t = useTree();
   useStoreVersion(t.store);
   const sel = t.store.selected;
@@ -560,10 +611,10 @@ export function BulkBar({ rows }: { rows: readonly Requirement[] }) {
       <span className="min-w-0 text-sm font-medium" data-testid="bulk-count">{selectionWords(summary)}</span>
       <span className="ms-auto flex flex-wrap items-center gap-2">
         <Button type="button" className="bg-red-700 px-3 py-1 text-white hover:bg-red-800" onClick={() => void t.deleteSelected()}>Delete</Button>
-        <Button type="button" variant="outline" className="px-3 py-1" onClick={t.openMove}>Move to…</Button>
+        {t.canMoveTo && <Button type="button" variant="outline" className="px-3 py-1" onClick={t.openMove}>Move to…</Button>}
         <Button type="button" variant="ghost" className="px-3 py-1" onClick={t.clearSelection}>Clear</Button>
       </span>
-      {summary.subItems > 0 && <span className="basis-full text-xs text-muted-foreground">Deleting or moving a standard takes its sub-items with it.</span>}
+      {summary.subItems > 0 && <span className="basis-full text-xs text-muted-foreground">Deleting or moving a {t.noun.one} takes its sub-items with it.</span>}
     </div>
   );
 }

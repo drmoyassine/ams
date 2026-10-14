@@ -15,6 +15,7 @@ import { ConflictError, NotFoundError } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
 import { require_ } from '../framework/common.js';
 import { assertCanWrite } from '../documents/scopes.js';
+import { restoreOrgUnits } from '../org/unit-trash.js';
 import { relabelByDepth } from '../framework/requirements.js';
 import { existing, idsOf, insertRows, texts, TRASH_TABLES, uuids, type Row, type TrashPayload, type Tables } from './rows.js';
 
@@ -359,6 +360,16 @@ async function restoreMilestone(ctx: Ctx, payload: TrashPayload): Promise<Outcom
   return out;
 }
 
+/** An org unit and everything under it (the rules are in org/unit-trash.ts). */
+async function restoreOrgUnitItem(ctx: Ctx, item: ItemRow, payload: TrashPayload, opts: RestoreOptions): Promise<Outcome> {
+  const r = await restoreOrgUnits(ctx, item, payload, opts);
+  const out = blank();
+  out.restored = r.restored;
+  out.notes = r.notes;
+  out.placedUnder = r.placedUnder;
+  return out;
+}
+
 // ---- Entry points ---------------------------------------------------------------------------------------------------
 
 /** Restores one Trash row (the caller marks it restored). */
@@ -376,11 +387,12 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
     case 'mapping': return restoreMapping(ctx, payload);
     case 'evidence_link': return restoreEvidenceLink(ctx, payload);
     case 'milestone': return restoreMilestone(ctx, payload);
+    case 'org_unit': return restoreOrgUnitItem(ctx, item, payload, opts);
   }
 }
 
 /** The kinds in the order a group is restored: what others hang from first. */
-export const RESTORE_ORDER = ['framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document'] as const;
+export const RESTORE_ORDER = ['org_unit', 'framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document'] as const;
 
 export function mergeOutcomes(parts: Outcome[]): Pick<RestoreResult, 'restored' | 'dropped' | 'renamed' | 'placedUnder'> & { notes: string[] } {
   const o = blank();

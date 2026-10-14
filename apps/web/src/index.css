@@ -43,3 +43,15 @@ body { background: var(--background); color: var(--foreground); font-family: sys
   details:not([open]) > :not(summary) { display: block; }
   section, li, blockquote { overflow-wrap: anywhere; }
 }
+
+/* "Print / save as PDF" on the org chart: only the chart, on one landscape page, scaled to fit. The sheet is added to the page
+   (a direct child of body) while printing; everything else is hidden. */
+.org-chart-print-sheet { display: none; }
+.org-chart-box:focus-visible > .org-chart-frame { stroke: #2563eb; stroke-width: 3; }
+.org-chart-box > g:focus-visible > .org-chart-toggle { stroke: #2563eb; stroke-width: 3; }
+@page org-chart { size: landscape; margin: 10mm; }
+@media print {
+  body.org-chart-printing > *:not(.org-chart-print-sheet) { display: none !important; }
+  body.org-chart-printing .org-chart-print-sheet { display: block; page: org-chart; break-inside: avoid; }
+  body.org-chart-printing .org-chart-print-sheet svg { display: block; width: 100%; height: auto; max-height: 188mm; }
+}

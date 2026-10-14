@@ -3,14 +3,14 @@
 // It shows the whole contract: a schema, a versioned prompt, a validator, labels, a create-only apply that skips what already exists
 // (never overwriting a person's record) and a symmetric `reverse` for Undo and Redo.
 import { z } from 'zod';
+import { DEFAULT_ORG_UNIT_TYPES } from '@ams/shared';
 import { ConflictError } from '../ctx.js';
-import { ORG_UNIT_TYPES } from '@ams/shared';
 import { createOrgUnit, listOrgUnits, updateOrgUnit } from '../org/units.js';
 import { registerImportTarget, unregisterImportTarget, type ImportTarget } from './targets.js';
 
 export const TestUnitSchema = z.object({
   name: z.string().trim().min(1),
-  type: z.enum(ORG_UNIT_TYPES),
+  type: z.enum(DEFAULT_ORG_UNIT_TYPES.map((t) => t.key) as [string, ...string[]]),
   /** The name of the unit it sits under, when the page says so. */
   parent: z.string().trim().min(1).nullish(),
 });

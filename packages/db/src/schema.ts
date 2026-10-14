@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
   AI_PROVIDERS, ANALYSIS_STAGES, IMPORT_APPLY_STATES, IMPORT_PROPOSAL_STATUSES, IMPORT_READ_STATUSES, IMPORT_RUN_STATUSES, IMPORT_SCOPE_KINDS, IMPORT_STAGES, type ImportProgress, type ImportUsage, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
-  MILESTONE_TYPES, PHASE_TYPES, ROLES,
+  MILESTONE_TYPES, ORG_UNIT_SOURCES, PHASE_TYPES, ROLES,
 } from '@ams/shared';
 import {
-  boolean, check, date, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
+  boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 /** Drizzle's `enum` option is type-only; this makes the database enforce the value set too. */
@@ -147,15 +147,49 @@ export const embedding = pgTable('embedding', {
   check('embedding_dimension_check', sql`${t.dimension} > 0 and cardinality(${t.vector}) = ${t.dimension}`),
 ]);
 
-const ORG_UNIT_TYPES = ['college', 'school', 'department', 'admin_unit', 'other'] as const;
+/**
+ * The kinds of unit an institution's org chart has (college, school, department ...): a small table per institution, so the
+ * levels are configurable rather than a fixed list. `key` is stable (units refer to it); the labels are what people see.
+ * A type can be removed only when no unit uses it (the foreign key from org_unit enforces it).
+ */
+export const orgUnitType = pgTable('org_unit_type', {
+  ...base(), ...tenant(),
+  key: text('key').notNull(),
+  labelEn: text('label_en').notNull(),
+  labelAr: text('label_ar'),
+  displayOrder: integer('display_order').notNull().default(0),
+}, (t) => [
+  uniqueIndex('org_unit_type_key_idx').on(t.institutionId, t.key),
+  check('org_unit_type_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+]);
+
 export const orgUnit = pgTable('org_unit', {
   ...base(), ...tenant(),
   parentId: uuid('parent_id').references((): AnyPgColumn => orgUnit.id),
-  type: text('type', { enum: ORG_UNIT_TYPES }).notNull(),
+  /** The key of an `org_unit_type` of the same institution. */
+  type: text('type').notNull(),
   nameEn: text('name_en').notNull(),
   nameAr: text('name_ar'),
+  description: text('description'),
   active: boolean('active').notNull().default(true),
-}, (t) => [index('org_unit_parent_idx').on(t.parentId), oneOf('org_unit_type_check', t.type, ORG_UNIT_TYPES)]);
+  /** manual | image | directory: imports and sync only ever touch units they made (and never an edited or locked one). */
+  source: text('source', { enum: ORG_UNIT_SOURCES }).notNull().default('manual'),
+  /** A person locked it: no import or sync changes it. */
+  locked: boolean('locked').notNull().default(false),
+  /** Position among its siblings, 0, 1, 2 ... (gap-free, kept by the move service). */
+  displayOrder: integer('display_order').notNull().default(0),
+  /** The head: a person of the institution, or (when the head is not a user, "Dr X") free text. At most one of the two. */
+  headUserId: uuid('head_user_id').references(() => appUser.id),
+  headName: text('head_name'),
+  /** Set by a trigger on any update that is not the worker's, so a later import or sync leaves the unit alone. */
+  editedByPerson: boolean('edited_by_person').notNull().default(false),
+}, (t) => [
+  index('org_unit_parent_idx').on(t.parentId),
+  index('org_unit_type_idx').on(t.institutionId, t.type),
+  oneOf('org_unit_source_check', t.source, ORG_UNIT_SOURCES),
+  check('org_unit_head_check', sql`${t.headUserId} is null or ${t.headName} is null`),
+  foreignKey({ columns: [t.institutionId, t.type], foreignColumns: [orgUnitType.institutionId, orgUnitType.key], name: 'org_unit_type_fk' }),
+]);
 
 const DEGREE_LEVELS = ['associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate'] as const;
 export const program = pgTable('program', {
@@ -839,7 +873,7 @@ export const datasetResponse = pgTable('dataset_response', {
 // ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
 
 export const TRASH_KIND_VALUES = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit',
 ] as const;
 /**
  * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are

@@ -36,6 +36,7 @@ Every way a person can delete something today, and whether it goes through the T
 | A link between an external and an internal requirement | `deleteMapping` | Yes, kind `mapping` | |
 | An evidence link | `removeLink` | Yes, kind `evidence_link` | The link only; the evidence itself is never deleted. |
 | A milestone the lead added | `deleteMilestone` | Yes, kind `milestone` | |
+| An org unit with its sub-units (tree or chart, bulk or from the unit's drawer) | `deleteOrgUnits`, `POST /api/org-units/delete`, `DELETE /api/org-units/{id}` | Yes, kind `org_unit` | One Trash item per top-level unit: the unit and every unit under it as stored (names, type, head, lock, source, order), the unit types they use, and which evidence items named a deleted unit as owner. **Refused while programs are attached** to the unit or any sub-unit: the 409 lists them (`details.code = 'has_programs'`) and says to move or reassign them first. Evidence owned by a deleted unit loses its owner (a foreign key would stop the delete) and gets it back on restore. Role assignments scoped to the unit are left alone (no foreign key); they cover nothing while it is gone. |
 
 ### Deliberately not covered
 
@@ -46,7 +47,7 @@ Every way a person can delete something today, and whether it goes through the T
 | `accreditation_status` history, submission snapshots | Immutable by trigger (official status, DEC-005). |
 | Evidence items, versions and files, dataset rows and answers | There is no delete path for them (they are retained as records); only an evidence *link* can be removed. |
 | An engagement | Cannot be deleted (a database rule); it is withdrawn or closed. |
-| Org units, programs, people | No delete path exists (they are made inactive). |
+| Programs, people | No delete path exists (they are made inactive). Org units are deletable to the Trash only when no program is attached (see above). |
 | An AI account | It holds an encrypted credential. Credentials are never copied into a snapshot. It keeps its own in-app confirmation. |
 | Removing a member from an engagement, role assignments | Access control, not content. Adding the person back is an explicit grant. |
 | Evidence requests (cancel), public form links (turn off, new link) | Status changes and security revocations, not deletions. A cancelled request stays visible. A revoked link must stay revoked. |
@@ -82,6 +83,7 @@ Every way a person can delete something today, and whether it goes through the T
 6. **Citations of a deleted source** are dropped (with `quote_verified` cleared) and the message says how many.
 7. **Merge.** Restoring a merged-away requirement moves its sub-items and notes back from the target and restores the
    target's earlier wording (`revertMerge`, on by default; only what is still where the merge left it moves).
+7b. **Org units.** A unit whose parent is gone is the same choice as a requirement (409 `parent_missing`; `placeParentId` any unit, or `atTopLevel`); names may repeat, so nothing is renamed; a unit type removed meanwhile is added back from the snapshot; the unit returns to its old place among its siblings (or last when placed elsewhere) and the lists are renumbered gap-free; units deleted together come back in tree order. Needs `org:write` where it goes.
 8. **Notes, pages, templates, versions, standards, links, milestones** each check what they hang from (the requirement, the
    document, the standard, the engagement is active) and for a clash (page number, template key, edition), with a message.
 9. **Permissions.** Restoring needs the permission that deleting needed (`framework:write` for the library, `evidence:write`
@@ -118,6 +120,9 @@ A reversible action returns `X-Undo: <percent-encoded JSON>`:
 | Edit an IQF item (code, title, description) | `PATCH /api/quality-items/{id}` with the earlier values (renumbers sub-standards back) |
 | Move, indent, outdent | `POST /api/requirements/{id}/move` with the earlier parent and position |
 | Drag and drop, Move to… (one or several items) | `POST /api/framework-versions/{id}/requirements/move-many` with `placements`: runs of items to put back after the sibling they followed |
+| Org unit: create / edit (names, type, head, lock, active) | `DELETE /api/org-units/{id}` / `PATCH /api/org-units/{id}` with the earlier values (the head's two fields are both named, so a person and a typed name restore exactly) |
+| Org unit: drag and drop, keyboard move, reorder | `POST /api/org-units/move-many` with `placements` (runs of units to put back after the sibling they followed) |
+| Org unit types: add / rename / reorder / remove | `DELETE` it / `PATCH` the earlier labels / `POST /api/org-unit-types/reorder` with the earlier order / `POST /api/org-unit-types` with the same key, labels and place |
 | Apply the starting template | `POST /api/framework-versions/{id}/requirements/delete-all` |
 | Merge | restore the Trash group with `revertMerge: true` |
 | Split | `POST /api/requirements/{id}/unsplit` |
@@ -151,6 +156,7 @@ the action.
 | Move, indent, outdent | the Undo was a `move`; it answers with a `move` to where it had been put |
 | Drag and drop, Move to... | the Undo was `move-many` with placements; it answers with `move-many` placements back at the target |
 | Apply the starting template | the Undo was delete-all; it answers with the restore of that group (template rows with their ids) |
+| Org unit delete / create / edit / move / unit types | the same pairs as for requirements: delete <-> restore of the group (`POST /api/org-units/delete {ids}`), create <-> delete, `PATCH` <-> `PATCH`, `move-many` <-> `move-many`, type add <-> remove (`trash/redo.ts`, `org/unit-trash.ts`) |
 | Merge | the Undo was a restore with `revertMerge`; it answers with `POST /api/requirements/{id}/merge {intoId, useMergedWording}` (the merge records `useMergedWording` in its Trash payload) |
 | Split | the Undo was `unsplit`; it answers with `POST /api/requirements/{id}/split {part, code, title}`. Redo creates a **new** requirement (a new id), because unsplit sends the split-out one to the Trash and the original must get its shortened text again; the answer to that redo is an `unsplit` of the new id |
 | Unsplit | same as the row above, read the other way |

@@ -6,6 +6,8 @@ Owner's decisions are recorded as DEC-028. This page is the plan.
 
 **Status (2026-10-13): step 1 is built (TASK-069).** Organization has its two tabs and the institution logo (header and sign-in page), Programs moved under it, and Settings is readable by every role that can read the organization. Languages, the org chart builder and the Docs tab follow in the order below.
 
+**Update (2026-10-14): E.1, the org chart visual builder, is built (TASK-072).** Institution -> Org chart has a Tree view (shared tree layer: drag and drop, keyboard drag, multi-select, bulk delete to the Trash with Undo/Redo) and a Chart view (auto layout, zoom, pan, collapse, right-to-left mirror, export as PNG or SVG, print to one page), a unit drawer (names in both languages, type, head, description, lock, programs) and a "Unit types" manager. Units record their source (manual, image, directory), a lock and an edited-by-person marker for the later image import and directory sync, which are not built.
+
 ## Decisions (owner, 2026-10-13)
 
 1. **Organization has two tabs:** **Institution** (details and logo, **Languages** and **Org chart** as sections) and **Programs**.
