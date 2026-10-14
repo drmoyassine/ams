@@ -12,7 +12,7 @@ const BROWSER_DIALOGS = ['confirm', 'alert', 'prompt'];
  */
 export const CONVERTED_UI = [
   'apps/web/src/pages/layout.tsx', 'apps/web/src/pages/login.tsx', 'apps/web/src/pages/settings/layout.tsx',
-  'apps/web/src/pages/settings/languages-section.tsx',
+  'apps/web/src/pages/settings/languages-section.tsx', 'apps/web/src/pages/version/translations.tsx',
   'apps/web/src/components/confirm-dialog.tsx', 'apps/web/src/components/undo-toaster.tsx', 'apps/web/src/components/read-only-note.tsx',
   'apps/web/src/components/term-mode.tsx', 'apps/web/src/components/json-editor.tsx', 'apps/web/src/components/data-grid.tsx',
   'apps/web/src/components/evidence-links.tsx', 'apps/web/src/components/badges.tsx',

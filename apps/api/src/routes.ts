@@ -13,6 +13,7 @@ import { documentRoutes } from './routes/documents.js';
 import { formRoutes } from './routes/forms.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { glossaryRoutes } from './routes/glossary.js';
+import { contentTranslationRoutes } from './routes/content-translations.js';
 import { languageRoutes } from './routes/languages.js';
 import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
@@ -87,6 +88,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     // Sign-in page branding: the only data served without signing in.
     .route('/', publicRoutes(registry, deps, options))
     .route('/', languageRoutes(registry, deps, options))
+    .route('/', contentTranslationRoutes(registry, deps, options))
     .route('/', glossaryRoutes(registry, deps, options))
     .route('/', mappingRoutes(registry, deps, options))
     .route('/', evidenceRoutes(registry, deps, options))

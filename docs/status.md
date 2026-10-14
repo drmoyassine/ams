@@ -35,6 +35,12 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 |---|---|---|
 | **Languages** | A registry of 31 languages (direction, script, native name). An administrator chooses one secondary language and the default interface language in Settings -> Organization -> Languages (English is always primary); each person switches between English and that language from the header, saved on them and applied at every sign-in (the page's language, direction and font follow). The English interface catalogue lives in the repository; the secondary language's is made by a background translate job (batches, spend limit, cancel, resume, placeholder checks, never over a person's edit) and reviewed in a table; Arabic and CJK pages checked at 375, 768 and 1280 px. About 11% of the app's text goes through the catalogue so far (the shell and shared chrome); the rest is listed in docs/i18n-coverage.md | TASK-070, DEC-028 |
 
+## Built: IQF and standards in the secondary language (TASK-071)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Content translation** | On a version page (the IQF or an external standard) a content switcher shows English or the institution's secondary language; the translation is shown beside the English, English is the fallback. A Translate action runs a background job (batches, spend limit, progress, cancel, resume) that stores unreviewed AI translations of titles, statements and notes in their own table; people edit, mark reviewed and re-translate out-of-date ones in a review dialog; a changed English text marks its translation out of date. Translations of an external standard are labelled "Unofficial translation" and never replace or feed the official text; a published version can still be translated. Arabic shown right to left, checked at 375, 768 and 1280 px | TASK-071, DEC-028 |
+
 ## Left to build
 
 In the order I would do them.

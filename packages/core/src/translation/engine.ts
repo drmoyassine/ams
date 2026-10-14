@@ -1,5 +1,5 @@
 // The generic `translate` job (TASK-070): English into the institution's secondary language, in batches, for any kind of text
-// that has a TranslationSource (the interface catalogue now; the IQF, standards and glossary in TASK-071).
+// that has a TranslationSource (the interface catalogue, the IQF and external standards).
 //
 // One job = one batch, each in its own transaction so progress shows; the run row holds the position (progress.cursor) so a
 // retried or duplicated job is harmless and a crashed run resumes. Each batch goes through aiExtract (temperature 0, prompt
@@ -59,23 +59,34 @@ async function getRunRow(ctx: Ctx, id: string): Promise<Run> {
 
 // ---- Starting, following, cancelling, resuming -------------------------------------------------------------------------
 
-/** Who may translate which kind. The interface catalogue is the institution's: its administrator. */
-async function assertMayTranslate(ctx: Ctx) {
-  await assertPermitted(ctx, 'institution:write', { type: 'institution' });
+/**
+ * Who may translate which kind. The interface catalogue is the institution's: its administrator. The IQF and the standards are
+ * framework content: whoever may write the framework (a published version can still be translated: translations live in their
+ * own table, beside the frozen English).
+ */
+export async function assertMayTranslate(ctx: Ctx, kind: string) {
+  if (kind === 'ui') await assertPermitted(ctx, 'institution:write', { type: 'institution' });
+  else await assertPermitted(ctx, 'framework:write', { type: 'any' });
+}
+
+/** Another active run of the same kind, language and scope (the database allows one). */
+async function activeRunOf(ctx: Ctx, kind: string, language: string, scopeId: string | null) {
+  const [active] = await ctx.tx.select({ id: translationRun.id }).from(translationRun)
+    .where(and(eq(translationRun.kind, kind), eq(translationRun.language, language), scopeId ? eq(translationRun.scopeId, scopeId) : sql`${translationRun.scopeId} is null`,
+      inArray(translationRun.status, [...ACTIVE_TRANSLATION_STATUSES])));
+  return active;
 }
 
 export interface StartOptions { kind: TranslationKind; language: string; scopeId?: string | null; retranslateStale?: boolean; batchItems?: number }
 
 export async function startTranslation(ctx: Ctx, o: StartOptions): Promise<TranslationRun> {
   assertHuman(ctx);
-  await assertMayTranslate(ctx);
+  await assertMayTranslate(ctx, o.kind);
   if (!languageInfo(o.language) || o.language === 'en') throw new ValidationError('choose a secondary language in Settings -> Organization first');
   const ready = await aiReadiness(ctx);
   if (!ready.ok) throw new ConflictError(ready.reason);
   const scopeId = o.scopeId ?? null;
-  const [active] = await ctx.tx.select({ id: translationRun.id }).from(translationRun)
-    .where(and(eq(translationRun.kind, o.kind), eq(translationRun.language, o.language), inArray(translationRun.status, [...ACTIVE_TRANSLATION_STATUSES])));
-  if (active) throw new ConflictError('a translation of this is already running');
+  if (await activeRunOf(ctx, o.kind, o.language, scopeId)) throw new ConflictError('a translation of this is already running');
   const pending = await translationSourceFor(o.kind).listPending(ctx, o.language, { includeStale: !!o.retranslateStale, scopeId });
   if (pending.length === 0) throw new ConflictError('nothing is waiting to be translated');
   const options = { retranslateStale: !!o.retranslateStale, ...(o.batchItems ? { batchItems: o.batchItems } : {}) };
@@ -94,16 +105,16 @@ export async function getTranslationRun(ctx: Ctx, id: string): Promise<Translati
 }
 
 /** The latest run of a kind for a language (newest first), if any. */
-export async function latestTranslationRun(ctx: Ctx, kind: TranslationKind, language: string): Promise<TranslationRun | null> {
+export async function latestTranslationRun(ctx: Ctx, kind: TranslationKind, language: string, scopeId?: string): Promise<TranslationRun | null> {
   const [row] = await ctx.tx.select().from(translationRun)
-    .where(and(eq(translationRun.kind, kind), eq(translationRun.language, language))).orderBy(desc(translationRun.createdAt)).limit(1);
+    .where(and(eq(translationRun.kind, kind), eq(translationRun.language, language), scopeId ? eq(translationRun.scopeId, scopeId) : undefined)).orderBy(desc(translationRun.createdAt)).limit(1);
   return row ? runDto(row) : null;
 }
 
 export async function cancelTranslation(ctx: Ctx, id: string): Promise<TranslationRun> {
   assertHuman(ctx);
-  await assertPermitted(ctx, 'institution:write', { type: 'institution' });
   const run = await getRunRow(ctx, id);
+  await assertMayTranslate(ctx, run.kind);
   if (!(ACTIVE_TRANSLATION_STATUSES as readonly string[]).includes(run.status)) throw new ConflictError(`the translation has already ended (${run.status})`);
   const [row] = await ctx.tx.update(translationRun).set({ status: 'cancelled', finishedAt: new Date(), error: 'cancelled by a person' })
     .where(and(eq(translationRun.id, id), inArray(translationRun.status, [...ACTIVE_TRANSLATION_STATUSES]))).returning();
@@ -117,14 +128,12 @@ export async function cancelTranslation(ctx: Ctx, id: string): Promise<Translati
  */
 export async function resumeTranslation(ctx: Ctx, id: string): Promise<TranslationRun> {
   assertHuman(ctx);
-  await assertPermitted(ctx, 'institution:write', { type: 'institution' });
   const run = await getRunRow(ctx, id);
+  await assertMayTranslate(ctx, run.kind);
   if (!(RESUMABLE_TRANSLATION_STATUSES as readonly string[]).includes(run.status)) throw new ConflictError(`only a stopped, cancelled or failed translation can be resumed (this one is ${run.status})`);
   const ready = await aiReadiness(ctx);
   if (!ready.ok) throw new ConflictError(ready.reason);
-  const [active] = await ctx.tx.select({ id: translationRun.id }).from(translationRun)
-    .where(and(eq(translationRun.kind, run.kind), eq(translationRun.language, run.language), inArray(translationRun.status, [...ACTIVE_TRANSLATION_STATUSES])));
-  if (active) throw new ConflictError('a translation of this is already running');
+  if (await activeRunOf(ctx, run.kind, run.language, run.scopeId)) throw new ConflictError('a translation of this is already running');
   const opts = run.options as { retranslateStale?: boolean };
   const pending = await translationSourceFor(run.kind).listPending(ctx, run.language, { includeStale: !!opts.retranslateStale, scopeId: run.scopeId });
   if (pending.length === 0) throw new ConflictError('nothing is waiting to be translated');

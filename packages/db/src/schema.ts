@@ -557,7 +557,7 @@ export const translationRun = pgTable('translation_run', {
 }, (t) => [
   index('translation_run_idx').on(t.institutionId, t.kind, t.language, t.createdAt),
   oneOf('translation_run_status_check', t.status, ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'stopped']),
-  oneOf('translation_run_kind_check', t.kind, ['ui']),
+  oneOf('translation_run_kind_check', t.kind, ['ui', 'iqf', 'standard']),
 ]);
 
 /**
@@ -580,7 +580,38 @@ export const uiTranslation = pgTable('ui_translation', {
   check('ui_translation_language_check', sql`${t.language} <> 'en'`),
 ]);
 
-export const DISMISSAL_KINDS = ['requirement', 'note'] as const;
+/**
+ * The IQF and the external standards in the institution's secondary language (TASK-071, DEC-028): one row per entity (a requirement
+ * or a note), field and language. The English stays in `requirement` / `requirement_note` and is never replaced. `sourceHash` is
+ * the hash of the English the text came from, so a later English edit shows it out of date. A translation of a standard is
+ * UNOFFICIAL: labelled so wherever it is shown, never used for quote matching or as the official text in an export. Deliberately no
+ * foreign key to the entity or the version: this table is not under the frozen-version triggers, so a published version can still
+ * get translations, and rows come back with an item restored from the Trash. The worker may add only unreviewed AI rows (trigger).
+ */
+export const CONTENT_TRANSLATION_KINDS = ['iqf', 'standard'] as const;
+export const CONTENT_TRANSLATION_FIELDS = ['title', 'statement', 'note'] as const;
+export const contentTranslation = pgTable('content_translation', {
+  ...base(), ...tenant(),
+  kind: text('kind', { enum: CONTENT_TRANSLATION_KINDS }).notNull(),
+  frameworkVersionId: uuid('framework_version_id').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  field: text('field', { enum: CONTENT_TRANSLATION_FIELDS }).notNull(),
+  language: text('language').notNull(),
+  sourceHash: text('source_hash').notNull(),
+  text: text('text').notNull(),
+  origin: text('origin', { enum: ['ai', 'person'] }).notNull(),
+  reviewed: boolean('reviewed').notNull().default(false),
+  runId: uuid('run_id').references((): AnyPgColumn => translationRun.id),
+}, (t) => [
+  uniqueIndex('content_translation_entity_idx').on(t.institutionId, t.language, t.entityId, t.field),
+  index('content_translation_version_idx').on(t.institutionId, t.frameworkVersionId, t.language),
+  oneOf('content_translation_kind_check', t.kind, CONTENT_TRANSLATION_KINDS),
+  oneOf('content_translation_field_check', t.field, CONTENT_TRANSLATION_FIELDS),
+  oneOf('content_translation_origin_check', t.origin, ['ai', 'person']),
+  check('content_translation_language_check', sql`${t.language} <> 'en'`),
+]);
+
+export const DISMISSAL_KINDS =['requirement', 'note'] as const;
 /**
  * A requirement or note the analysis made and a person deleted (step D): a later run must not add it back. Written only
  * by the database (trigger `record_ai_dismissal` on DELETE of an AI row by anyone but the worker), keyed by version and

@@ -14,6 +14,14 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-14 — IQF and standards in the secondary language (TASK-071)
+
+Decisions: DEC-028, DEC-021, DEC-006. ROADMAP-012. Section D of docs/organization-plan.md.
+- **Storage:** `content_translation` (migration 0057), kinds `iqf` / `standard`, fields `title` / `statement` / `note`, keyed by entity id with the framework version beside it. No foreign keys to the entity or version on purpose: the frozen-version triggers guard requirement, requirement_note and the other version tables, so a PUBLISHED version can still receive translations while its English stays immutable; rows also survive the Trash and return on restore (orphans of a purged version are harmless: readers join to the live requirement). Worker limits as `ui_translation` (trigger + column grants).
+- **Job:** the TASK-070 engine is unchanged apart from kind-aware permission (`framework:write` for content, `institution:write` for `ui`) and the one-active-run check being per scope. Sources live in `translation/content-source.ts`; services in `translation/content.ts`; routes in `apps/api/src/routes/content-translations.ts`.
+- **Unofficial:** a standard's translation is labelled "Unofficial translation" wherever shown; English is only ever hidden in the view, never replaced; quote matching and exports read the English tables only.
+- **Not done:** glossary as a source (it already has Arabic columns), report templates and lifecycle labels, carrying translations to a new version's copies, the assistant offering to translate a selection. Migration 0056 is reserved for another change; 0057's journal `when` (1791970000000) must stay later than 0056's.
+
 ## 2026-10-14 — Documents and AI import foundation (TASK-075)
 
 Decisions: DEC-028, DEC-006, DEC-013, DEC-019. ROADMAP-012. Section A of docs/organization-plan.md; contributor guide docs/ai-import.md.

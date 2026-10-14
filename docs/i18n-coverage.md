@@ -42,3 +42,7 @@ Not translated by design: the product name (`appName`), public form and one-time
 - `pnpm i18n:extract` (needs `pnpm build`) lists keys used in code but missing from `packages/shared/src/locales/en.ts` (exit 1) and catalogue keys nothing uses.
 - Add English only to `locales/en.ts`; never translate by hand in the repository. The secondary language is produced by the `translate` job and reviewed in Settings -> Organization -> Languages.
 - Write strings without plural forms (`{{count}} items`-style text that reads right for any number) and keep `{{placeholders}}`; the job refuses a translation that drops or changes one.
+
+## Library content (TASK-071)
+
+The interface catalogue above is only the application's own text. The IQF and the external standards are content, translated by the same `translate` job into `content_translation` (kinds `iqf` and `standard`, one framework version at a time) and reviewed from the version page. The new switcher and review dialog (`apps/web/src/pages/version/translations.tsx`) go through `t()` (`ct.*` keys) and are in `CONVERTED_UI`. Not translated as content yet: the glossary (it keeps its own Arabic columns), report templates, lifecycle and vocabulary labels. Translations of external standards are unofficial (DEC-028): labelled "Unofficial translation", never used for quote matching or exports.

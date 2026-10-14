@@ -706,6 +706,66 @@ async function languagePass(app, page, dir, width, results, code) {
   await app.db.su.query('update app_user set ui_locale = null where email = $1', [EMAIL]);
 }
 
+// ---- Content translation (TASK-071): the IQF and an external standard in Arabic, with the content switcher, labels and review ----
+// The institution's secondary language is Arabic and its content translations are seeded in SQL for the published standard and for the
+// internal quality framework (long Arabic text, some reviewed, some out of date, some missing). Each version page is opened at every
+// width with the Arabic content chosen, a card is opened, then the review dialog; no horizontal scroll, the unofficial label on the
+// standard, and Arabic content with dir="auto" are asserted.
+async function seedContent(app, versionId, kind) {
+  const [{ id: inst }] = (await app.db.su.query('select id from institution')).rows;
+  await app.db.su.query('delete from content_translation');
+  const longAr = 'نص مترجم طويل لاختبار التخطيط والمحاذاة عند الكتابة من اليمين إلى اليسار في البطاقات والجداول والنوافذ على الشاشات الصغيرة. ';
+  await app.db.su.query(
+    `insert into content_translation (institution_id, kind, framework_version_id, entity_id, field, language, source_hash, text, origin, reviewed)
+     select $1::uuid, $3::text, $2::uuid, r.id, 'title', 'ar', 'x', 'عنوان مترجم ' || r.code || ' للمعيار', case when (row_number() over (order by r.code)) % 3 = 0 then 'person' else 'ai' end, (row_number() over (order by r.code)) % 3 = 0
+       from requirement r where r.framework_version_id = $2
+     union all
+     select $1, $3, $2, r.id, 'statement', 'ar', 'x', repeat($4::text, 3), 'ai', false from requirement r where r.framework_version_id = $2::uuid and r.official_text is not null
+     union all
+     select $1, $3, $2, n.id, 'note', 'ar', 'x', $4, 'ai', false from requirement_note n join requirement r on r.id = n.requirement_id where r.framework_version_id = $2`,
+    [inst, versionId, kind, longAr]);
+}
+async function contentPass(app, page, dir, width, results) {
+  await app.db.su.query(`update institution set secondary_language = 'ar', default_locale = 'en'`);
+  const iqf = (await app.db.su.query(`select v.id from framework_version v join framework f on f.id = v.framework_id where f.internal order by v.created_at desc limit 1`)).rows[0]?.id;
+  const targets = [
+    { name: 'content-standard-ar', id: app.ids.versionId, kind: 'standard' },
+    ...(iqf ? [{ name: 'content-iqf-ar', id: iqf, kind: 'iqf' }] : []),
+  ];
+  for (const t of targets) {
+    try {
+      await seedContent(app, t.id, t.kind);
+      await page.goto(`/settings/versions/${t.id}`);
+      await settle(page);
+      await page.getByRole('group', { name: 'Content language' }).getByRole('button', { name: 'العربية' }).click();
+      await settle(page);
+      if (t.kind === 'standard') {
+        await page.getByTestId('requirement-card').first().getByRole('button').first().click();
+        await settle(page);
+        if (!(await page.getByTestId('unofficial-label').first().isVisible().catch(() => false))) throw new Error('the standard\'s translation is not labelled "Unofficial translation"');
+      } else {
+        await page.getByRole('tree', { name: 'Requirements' }).getByRole('button').first().click();
+        await settle(page);
+      }
+      const dirAuto = await page.evaluate(() => [...document.querySelectorAll('[data-testid="content-translation"] p')].every((p) => p.getAttribute('dir') === 'auto' && p.getAttribute('lang') === 'ar'));
+      if (!dirAuto) throw new Error('translated text lacks dir="auto" / lang="ar"');
+      results.push({ width, name: t.name, note: '', ...(await page.evaluate(measure)) });
+      await page.screenshot({ path: join(dir, `${t.name}.png`), fullPage: true });
+      await page.getByRole('button', { name: 'Review translations' }).click();
+      await page.getByRole('dialog').waitFor();
+      await settle(page);
+      results.push({ width, name: `${t.name}-review`, note: '', ...(await page.evaluate(measure)) });
+      await page.screenshot({ path: join(dir, `${t.name}-review.png`), fullPage: true });
+      await page.keyboard.press('Escape');
+    } catch (e) {
+      results.push({ width, name: t.name, error: e.message.split('\n')[0] });
+      await page.screenshot({ path: join(dir, `${t.name}.error.png`), fullPage: true }).catch(() => undefined);
+    }
+  }
+  await app.db.su.query('delete from content_translation');
+  await app.db.su.query(`update institution set secondary_language = null, default_locale = 'en'`);
+}
+
 async function settle(page) {
   await page.mouse.move(0, 0); // no hover tooltips left open from the last click
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
@@ -885,6 +945,9 @@ async function main() {
           try { await seedCatalogue(app, code); await languagePass(app, page, dir, width, results, code); } catch (e) { results.push({ width, name: `${code}:setup`, error: e.message.split('\n')[0] }); }
         }
         await app.db.su.query(`update institution set secondary_language = null, default_locale = 'en'`);
+      }
+      if (!onlyPages || onlyPages.includes('content-translation')) {
+        try { await contentPass(app, page, dir, width, results); } catch (e) { results.push({ width, name: 'content-translation:setup', error: e.message.split('\n')[0] }); }
       }
       if (width === Math.max(...widths) && !onlyPages) {
         try { await perfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-600-rows', error: e.message.split('\n')[0] }); }

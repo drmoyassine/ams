@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type {
+  ContentTranslationField, ContentTranslationMap, ContentTranslationPage, ContentTranslationRow, ContentTranslationStatus, SaveContentTranslation, TranslationRun,
   DeletePreview, DeleteResult, MoveManyInput, AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
@@ -191,6 +192,17 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     /** Can an analysis start now? The checks, and the first blocking reason. */
     analysisPreflight: (versionId: string) => v[':id'].analysis.preflight.$get({ param: { id: versionId } }).then((r) => unwrap<Preflight>(r)),
     cancelAnalysis: (id: string) => api.api.analysis[':id'].cancel.$post({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
+    /** The IQF / a standard in the secondary language (TASK-071): status, the map the content switcher reads, the review table, edits, runs. */
+    contentTranslationStatus: (versionId: string) => v[':id'].translations.$get({ param: { id: versionId } }).then((r) => unwrap<ContentTranslationStatus>(r)),
+    contentTranslationMap: (versionId: string) => v[':id'].translations.map.$get({ param: { id: versionId } }).then((r) => unwrap<ContentTranslationMap>(r)),
+    contentTranslationItems: (versionId: string, query: { filter?: 'all' | 'missing' | 'needs_review' | 'reviewed' | 'stale'; q?: string; offset?: number; limit?: number } = {}) =>
+      v[':id'].translations.items.$get({ param: { id: versionId }, query: { ...(query.filter ? { filter: query.filter } : {}), ...(query.q ? { q: query.q } : {}), ...(query.offset !== undefined ? { offset: String(query.offset) } : {}), ...(query.limit !== undefined ? { limit: String(query.limit) } : {}) } }).then((r) => unwrap<ContentTranslationPage>(r)),
+    saveContentTranslation: (versionId: string, json: SaveContentTranslation) => v[':id'].translations.$put({ param: { id: versionId }, json }).then((r) => unwrap<ContentTranslationRow>(r)),
+    markContentReviewed: (versionId: string, items?: { entityId: string; field: ContentTranslationField }[]) =>
+      v[':id'].translations.reviewed.$post({ param: { id: versionId }, json: items ? { items } : {} }).then((r) => unwrap<{ marked: number }>(r)),
+    startContentTranslation: (versionId: string, retranslateStale = false) => v[':id'].translations.translate.$post({ param: { id: versionId }, json: { retranslateStale } }).then((r) => unwrap<TranslationRun>(r)),
+    cancelContentTranslation: (versionId: string, runId: string) => v[':id'].translations.runs[':runId'].cancel.$post({ param: { id: versionId, runId } }).then((r) => unwrap<TranslationRun>(r)),
+    resumeContentTranslation: (versionId: string, runId: string) => v[':id'].translations.runs[':runId'].resume.$post({ param: { id: versionId, runId } }).then((r) => unwrap<TranslationRun>(r)),
     addPage: (documentId: string, json: { pageNo: number; text: string; method: 'pdf_text' | 'ocr' }) =>
       api.api['source-documents'][':id'].pages.$post({ param: { id: documentId }, json }).then((r) => unwrap<SourcePage>(r)),
   };

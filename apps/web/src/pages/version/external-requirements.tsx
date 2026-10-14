@@ -21,9 +21,8 @@ import { AddNote, NotePanel } from './requirements-tab';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
 import { SourceViewer, useWide, type Citation } from './source-viewer';
 import { WrittenByAssistant } from '../../components/assistant/written-marker';
+import { TranslationBlock, useShownText } from './translations';
 
-/** What follows the tag: the title, unless it only repeats the code. */
-const titleOf = (r: Requirement) => distinctTitle(r.code, r.title);
 const clip = (s: string, n = 48) => (s.length > n ? `${s.slice(0, n)}…` : s);
 
 /** The requirement or note whose source is shown beside the list. */
@@ -119,6 +118,8 @@ function NodeBody({ p, showSource }: { p: NodeProps; showSource: () => void }) {
         <div className="space-y-1" data-testid="requirement-detail">
           <Shaded>Description</Shaded>
           {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description.</p>}
+          <TranslationBlock entityId={r.id} field="title" className="mt-1" />
+          {r.officialText && <TranslationBlock entityId={r.id} field="statement" className="mt-1" />}
           <WrittenByAssistant versionId={version.id} requirementId={r.id} canWrite={editable} onChanged={p.invalidateTree} />
           {!r.isAssessable && <p className="text-xs text-muted-foreground">A heading only; it is not assessed itself.</p>}
           {r.sourceQuote && (
@@ -157,6 +158,7 @@ function Node(p: NodeProps) {
   const top = !r.parentId;
   const childLevel = levels[Math.min((r.depth ?? 0) + 1, levels.length - 1)];
   const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
+  const shownTitle = useShownText(r.id, 'title', r.title);
   const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
   const menu = [
     ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
@@ -171,7 +173,7 @@ function Node(p: NodeProps) {
   return (
     <>
       <TreeRow id={r.id}>
-      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={titleOf(r)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
+      <AccordionCard label={tagOf(r)} tag={tagOf(r)} title={distinctTitle(r.code, shownTitle)} strong={top} tone={top ? 'shaded' : 'plain'} testId="requirement-card" domId={`requirement-${r.id}`}
         gutter={<RowGutter id={r.id} />} toggleProps={focus}
         open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tagOf(r)}`} menu={menu}
         meta={<span className="flex flex-wrap items-center gap-2">

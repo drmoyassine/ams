@@ -16,6 +16,7 @@ import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { Me } from '@ams/shared';
 import { WrittenByAssistant } from '../../components/assistant/written-marker';
+import { TranslationBlock, useShownText } from './translations';
 
 type Props = { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi };
 
@@ -47,6 +48,7 @@ export function NotePanel({ api, note, editable, canReview, perLineReview = true
         {reasons.filter((r) => r !== 'Quote not found').map((r) => <span key={r} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{r}</span>)}
       </div>
       <p className="text-sm"><ContentText>{note.text}</ContentText></p>
+      <TranslationBlock entityId={note.id} field="note" className="mt-1" />
       {note.sourceQuote && <blockquote className="mt-1 border-s-2 border-border ps-2 text-xs text-muted-foreground"><ContentText>{note.sourceQuote}</ContentText> <span>(page {note.sourcePage})</span></blockquote>}
       <div className="mt-2 flex flex-wrap gap-2">
         {onShowSource && note.sourceDocumentId && <Button type="button" variant="outline" className="px-3 py-1" aria-label={`Show the source of this note`} onClick={onShowSource}>Source</Button>}
@@ -133,6 +135,8 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
         <ReviewBadge status={req.reviewStatus} />
       </div>
       <WrittenByAssistant versionId={version.id} requirementId={req.id} canWrite={canWrite} onChanged={invalidate} />
+      <TranslationBlock entityId={req.id} field="title" />
+      {req.officialText && <TranslationBlock entityId={req.id} field="statement" />}
       <form key={`${req.id}-${req.title}-${req.officialText}-${req.code}`} onSubmit={save} className="space-y-2">
         <label className="block text-sm">Code <Input name="code" defaultValue={req.code} readOnly={!canWrite} dir="auto" /></label>
         <label className="block text-sm">Title <Input name="title" defaultValue={req.title} readOnly={!canWrite} dir="auto" /></label>
@@ -167,12 +171,13 @@ function Detail({ api, version, req, me, docs, setError, invalidateTree, evidenc
 /** One row of the list: the checkbox, move handle and branch toggle, then the button that opens it. */
 function ListRow({ r, selected, onSelect }: { r: Requirement; selected: boolean; onSelect: (id: string) => void }) {
   const focus = useRowFocus(r.id);
+  const title = useShownText(r.id, 'title', r.title);
   return (
     <TreeRow id={r.id}>
       <div className="flex items-center">
         <RowGutter id={r.id} />
         <button type="button" {...focus} onClick={() => onSelect(r.id)} className={`min-w-0 flex-1 rounded px-2 py-1 text-start text-sm hover:bg-muted ${selected ? 'bg-muted font-medium' : ''}`}>
-          <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{requirementLabel(r.code, r.title)}</ContentText>
+          <span className="text-muted-foreground">{r.levelLabel}</span> <ContentText>{requirementLabel(r.code, title)}</ContentText>
           {r.reviewStatus !== 'approved' && <span className="ms-2 text-xs text-muted-foreground">({r.reviewStatus})</span>}
         </button>
       </div>

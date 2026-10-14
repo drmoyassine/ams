@@ -21,6 +21,7 @@ import { ReportTab } from './version/report-tab';
 import { RequirementsTab } from './version/requirements-tab';
 import { VersionDocs } from './version/docs-tab';
 import { SettingsTab, type SettingsSection } from './version/settings-tab';
+import { TranslationBar, VersionTranslations } from './version/translations';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
@@ -225,6 +226,8 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
           ))}
         </div>
       )}
+      <VersionTranslations api={api} version={version}>
+      {(internal || tab === 'requirements') && <TranslationBar api={api} version={version} />}
       <div role="tabpanel">
         {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
@@ -232,6 +235,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         {!internal && tab === 'docs' && <VersionDocs api={api} version={version} me={m} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}
         {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(settingsSection ? { initial: settingsSection } : {})} />}
       </div>
+      </VersionTranslations>
       {newVersion && (
         <NewVersionDialog from={version} error={error} onClose={() => { setNewVersion(false); setError(''); }}
           onCreate={async (edition) => {

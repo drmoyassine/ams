@@ -117,8 +117,13 @@ export type UpdateMyPreferences = z.infer<typeof UpdateMyPreferencesSchema>;
 
 // ---- Translation runs and the interface catalogue -------------------------------------------------------------------
 
-/** What can be translated. The engine is generic; TASK-071 adds the content kinds (requirements, notes, glossary...). */
-export const TRANSLATION_KINDS = ['ui'] as const;
+/** What can be translated. The engine is generic: the interface catalogue, the IQF and external standards (TASK-071; the glossary keeps its own Arabic columns). */
+export const TRANSLATION_KINDS = ['ui', 'iqf', 'standard'] as const;
+/** The kinds that translate the content of one framework version (scope = the version): the IQF, or an external standard. */
+export const CONTENT_TRANSLATION_KINDS = ['iqf', 'standard'] as const;
+export type ContentTranslationKind = (typeof CONTENT_TRANSLATION_KINDS)[number];
+export const CONTENT_TRANSLATION_FIELDS = ['title', 'statement', 'note'] as const;
+export type ContentTranslationField = (typeof CONTENT_TRANSLATION_FIELDS)[number];
 export type TranslationKind = (typeof TRANSLATION_KINDS)[number];
 
 export const TRANSLATION_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'stopped'] as const;
@@ -148,7 +153,7 @@ export const TranslationRunSchema = z.object({
 export type TranslationRun = z.infer<typeof TranslationRunSchema>;
 
 export const StartTranslationSchema = z.object({
-  kind: z.enum(TRANSLATION_KINDS).default('ui'),
+  kind: z.enum(['ui']).default('ui'),
   /** Also re-translate machine translations nobody has reviewed whose English has changed since. */
   retranslateStale: z.boolean().default(false),
 }).strict();
@@ -215,3 +220,76 @@ export const PublicI18nSchema = z.object({
   strings: z.record(z.string(), z.string()),
 });
 export type PublicI18n = z.infer<typeof PublicI18nSchema>;
+
+// ---- Content translation: the IQF and external standards (TASK-071) --------------------------------------------------------
+
+/**
+ * Translations of an external standard are UNOFFICIAL (DEC-028): the accreditor's words stay the official text. The label every
+ * screen shows beside one; the English wording is the only one used for quote matching and exports.
+ */
+export const UNOFFICIAL_TRANSLATION_LABEL = 'Unofficial translation';
+
+/** A translated text of one entity's field, as served beside the English (never instead of it). */
+export const ContentTranslationEntrySchema = z.object({
+  entityId: z.string(),
+  field: z.enum(CONTENT_TRANSLATION_FIELDS),
+  text: z.string(),
+  origin: z.enum(['ai', 'person']),
+  reviewed: z.boolean(),
+  /** The English changed since this was written: shown as out of date. */
+  stale: z.boolean(),
+});
+export type ContentTranslationEntry = z.infer<typeof ContentTranslationEntrySchema>;
+
+export const ContentTranslationStatusSchema = z.object({
+  versionId: z.string(),
+  kind: z.enum(CONTENT_TRANSLATION_KINDS),
+  /** Null when the institution has no secondary language: nothing below is filled in. */
+  secondaryLanguage: z.string().nullable(),
+  /** Texts of this version that can be translated (titles, statements and notes with English text). */
+  total: z.number(), translated: z.number(), reviewed: z.number(), stale: z.number(), byAi: z.number(), byPerson: z.number(),
+  run: TranslationRunSchema.nullable(),
+  /** Only filled in for people who can translate. */
+  readiness: z.object({ ok: z.boolean(), reason: z.string().nullable() }).nullable(),
+});
+export type ContentTranslationStatus = z.infer<typeof ContentTranslationStatusSchema>;
+
+/** Every translation of a version, for the library screens' content switcher. */
+export const ContentTranslationMapSchema = z.object({
+  versionId: z.string(), kind: z.enum(CONTENT_TRANSLATION_KINDS), language: z.string().nullable(),
+  entries: z.array(ContentTranslationEntrySchema),
+});
+export type ContentTranslationMap = z.infer<typeof ContentTranslationMapSchema>;
+
+/** The key of an entry in a map: `${entityId}:${field}`. */
+export const contentTranslationKey = (entityId: string, field: ContentTranslationField) => `${entityId}:${field}`;
+
+export const CONTENT_REVIEW_FILTERS = ['all', 'missing', 'needs_review', 'reviewed', 'stale'] as const;
+export const ContentTranslationRowSchema = z.object({
+  entityId: z.string(), field: z.enum(CONTENT_TRANSLATION_FIELDS),
+  /** The requirement's code, so a row can be found in the tree. */
+  code: z.string(),
+  english: z.string(),
+  text: z.string().nullable(),
+  origin: z.enum(['ai', 'person']).nullable(),
+  reviewed: z.boolean(), stale: z.boolean(),
+  updatedAt: z.string().nullable(),
+});
+export type ContentTranslationRow = z.infer<typeof ContentTranslationRowSchema>;
+export const ContentTranslationPageSchema = z.object({ total: z.number(), rows: z.array(ContentTranslationRowSchema) });
+export type ContentTranslationPage = z.infer<typeof ContentTranslationPageSchema>;
+export const ContentTranslationQuerySchema = z.object({
+  filter: z.enum(CONTENT_REVIEW_FILTERS).optional(),
+  q: z.string().optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+export const SaveContentTranslationSchema = z.object({
+  entityId: z.uuid(), field: z.enum(CONTENT_TRANSLATION_FIELDS), text: z.string().min(1).max(20000),
+}).strict();
+export type SaveContentTranslation = z.infer<typeof SaveContentTranslationSchema>;
+export const MarkContentReviewedSchema = z.object({
+  /** The rows to mark; omitted means every translation of this version that is not reviewed yet. */
+  items: z.array(z.object({ entityId: z.uuid(), field: z.enum(CONTENT_TRANSLATION_FIELDS) })).max(5000).optional(),
+}).strict();
+export const StartContentTranslationSchema = z.object({ retranslateStale: z.boolean().default(false) }).strict();
