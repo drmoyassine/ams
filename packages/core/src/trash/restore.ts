@@ -14,6 +14,7 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
 import { require_ } from '../framework/common.js';
+import { assertCanWrite } from '../documents/scopes.js';
 import { relabelByDepth } from '../framework/requirements.js';
 import { existing, idsOf, insertRows, texts, TRASH_TABLES, uuids, type Row, type TrashPayload, type Tables } from './rows.js';
 
@@ -234,6 +235,22 @@ async function restoreSourceDocument(ctx: Ctx, payload: TrashPayload): Promise<O
   return out;
 }
 
+async function restoreImportDocument(ctx: Ctx, payload: TrashPayload): Promise<Outcome> {
+  const out = blank();
+  const root = payload.root as { scopeKind: string; scopeId: string | null };
+  try {
+    await assertCanWrite(ctx, root.scopeKind, root.scopeId ?? null);
+  } catch (e) {
+    if (e instanceof NotFoundError) throw new ConflictError('Cannot restore: the place this document belonged to no longer exists.');
+    throw e;
+  }
+  await insertRows(ctx, 'import_document', payload.tables.import_document ?? []);
+  await insertRows(ctx, 'import_page', payload.tables.import_page ?? []);
+  add(out.restored, 'documents', 1);
+  add(out.restored, 'pages', payload.tables.import_page?.length ?? 0);
+  return out;
+}
+
 async function restoreSourcePage(ctx: Ctx, payload: TrashPayload): Promise<Outcome> {
   await require_(ctx, 'framework:write');
   const out = blank();
@@ -352,6 +369,7 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
     case 'note': return restoreNote(ctx, payload);
     case 'source_document': return restoreSourceDocument(ctx, payload);
     case 'source_page': return restoreSourcePage(ctx, payload);
+    case 'import_document': return restoreImportDocument(ctx, payload);
     case 'report_template': return restoreTemplate(ctx, payload);
     case 'framework_version':
     case 'framework': return restoreVersionOrFramework(ctx, item, payload);
@@ -362,7 +380,7 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
 }
 
 /** The kinds in the order a group is restored: what others hang from first. */
-export const RESTORE_ORDER = ['framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone'] as const;
+export const RESTORE_ORDER = ['framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document'] as const;
 
 export function mergeOutcomes(parts: Outcome[]): Pick<RestoreResult, 'restored' | 'dropped' | 'renamed' | 'placedUnder'> & { notes: string[] } {
   const o = blank();

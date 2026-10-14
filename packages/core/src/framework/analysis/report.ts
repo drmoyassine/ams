@@ -249,7 +249,7 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
   add('unresolved_gaps', unresolved.length, `${plural(unresolved.length, 'gap')} the analysis could not resolve`, 'look', reqLink(unresolved[0]));
   add('conflicts', conflicts.length, `${plural(conflicts.length, 'conflict')}: the same code is worded differently in the sources`, 'look', reqLink(conflicts[0]));
   add('uncovered_pages', uncovered.length, `${plural(uncovered.length, 'source page')} with text that no requirement or note cites`, 'look',
-    uncovered[0] ? { tab: 'settings', section: 'sources', requirementId: null, documentId: uncovered[0].documentId, page: uncovered[0].page } : null);
+    uncovered[0] ? { tab: 'docs', section: null, requirementId: null, documentId: uncovered[0].documentId, page: uncovered[0].page } : null);
   add('low_confidence', lowConfidence.length, `${plural(lowConfidence.length, 'item')} the analysis was not sure about`, 'look', reqLink(lowConfidence[0]));
   add('suggested_notes', suggestedNotConfirmed.length, `${plural(suggestedNotConfirmed.length, 'note')} suggested by the analysis and not confirmed in the source`, 'look', reqLink(suggestedNotConfirmed[0]));
   const toMappings: ReportCheck['link'] = { tab: 'mappings', section: null, requirementId: null, documentId: null, page: null };

@@ -297,15 +297,15 @@ describe('split view on the Requirements tab', () => {
     expect(within(plain).queryByRole('button', { name: 'Show the source of this note' })).toBeNull();
   });
 
-  it('opens the page in the Sources section from the viewer', async () => {
+  it('opens the page in the Docs tab from the viewer', async () => {
     screenIs(true);
     const s = await seed('y', '2042');
     const user = userEvent.setup();
     render(wrap(versionPage(s.v)));
     const panel = await screen.findByTestId('source-panel');
     await openCard(user, 'y1');
-    await user.click(await within(panel).findByRole('button', { name: 'Open in Sources' }));
-    const sources = await screen.findByRole('region', { name: 'Sources' });
+    await user.click(await within(panel).findByRole('button', { name: 'Open in Docs' }));
+    const sources = await screen.findByRole('region', { name: 'Docs' });
     const handbook = await within(sources).findByRole('region', { name: 'Handbook' });
     expect(await within(handbook).findByRole('tab', { name: '1', selected: true })).toBeTruthy();
   });

@@ -35,6 +35,7 @@ export function redeleteDescriptor(items: RestoredItem[], opts: { revertMerge?: 
   switch (kind) {
     case 'note': { const id = first(p, 'requirement_note'); return id ? d('DELETE', `/api/notes/${id}`) : null; }
     case 'source_document': { const id = str(root.documentId); return id ? d('DELETE', `/api/source-documents/${id}`) : null; }
+    case 'import_document': { const id = str(root.documentId); return id ? d('DELETE', `/api/documents/${id}`) : null; }
     case 'source_page': { const id = str(root.documentId); return id && typeof root.pageNo === 'number' ? d('DELETE', `/api/source-documents/${id}/pages/${root.pageNo}`) : null; }
     case 'report_template': { const v = str(root.versionId); const k = str(root.key); return v && k ? d('DELETE', `/api/framework-versions/${v}/report-templates/${encodeURIComponent(k)}`) : null; }
     case 'framework_version': { const id = str(root.versionId); return id ? d('DELETE', `/api/framework-versions/${id}`) : null; }

@@ -212,7 +212,7 @@ function Node(p: NodeProps) {
  */
 export function ExternalRequirements({ api, version, me, focusId, onOpenSource }: {
   api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null;
-  /** Opens a source page in the Sources section. */ onOpenSource?: (documentId: string, page: number) => void;
+  /** Opens a source page in the Docs tab. */ onOpenSource?: (documentId: string, page: number) => void;
 }) {
   const qc = useQueryClient();
   const wide = useWide();
@@ -326,7 +326,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
   }, [selected, selectedReq, selectedDetail.data, documents.data]);
   const viewerTitle = selectedReq ? `${nameOf(selectedReq)}${selected?.kind === 'note' ? ' (note)' : ''}` : '';
   const viewer = selected && selectedReq
-    ? <SourceViewer key={`${selected.kind}:${selected.id}`} api={api} title={viewerTitle} citations={citations} {...(onOpenSource ? { onOpenInSources: onOpenSource } : {})} />
+    ? <SourceViewer key={`${selected.kind}:${selected.id}`} api={api} title={viewerTitle} citations={citations} {...(onOpenSource ? { onOpenInDocs: onOpenSource } : {})} />
     : <p className="text-sm text-muted-foreground">Select a requirement or a note to see where it comes from: the page of the source, with its quote highlighted.</p>;
 
   // ---- Saving ----

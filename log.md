@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-14 — Documents and AI import foundation (TASK-075)
+
+Decisions: DEC-028, DEC-006, DEC-013, DEC-019. ROADMAP-012. Section A of docs/organization-plan.md; contributor guide docs/ai-import.md.
+- **One pattern:** `import_document`/`import_page` registry (migration 0053), scope registry (kind -> permissions, storage, link), target registry (schema, prompt, validate, apply, reverse), `import` job in the agent service, `DocsTab` + `ImportReview` + Settings -> Documents. No production target is registered yet (Programs, TASK-076, is the first).
+- **Apply = one undoable group:** the target's `apply` runs as the person in the request transaction; `import_apply` stores the target's `inverse`; `reverse` is its own inverse, so Undo and Redo are the same call. Targets must skip, with a reason, any record a person edited.
+- **Candidates:** the worker writes proposals as `candidate = true` (invisible); `propose` releases them. A database guard lets the worker touch only candidates, never decide, edit or apply.
+- **Standards:** Settings -> Sources became the version's Docs tab (before Settings); `?tab=settings&section=sources` redirects to `?tab=docs`; the report's source links and the split view's "Open in Docs" open it. The adapter returns `source_document` rows in the shared shape; nothing migrated.
+- Learnings: a toast lives 9 s, shorter than the tests' 10 s wait: find it by test id at once. Never `cd` to the shared checkout from a worktree session (an early edit went to /home/user/ams by mistake and was reverted).
+- Tests: `packages/core/src/documents/*.test.ts` (invented target `test-target.ts`), `packages/db/src/imports.test.ts`, `apps/api/src/documents.test.ts`, `apps/web/src/docs-ui.test.tsx`; `e2e/responsive.mjs` has the Docs tab, import dialog, review, report and Documents states.
+
 ## 2026-10-13 — Organization tabs, institution logo, read-only Settings (TASK-069)
 
 Decisions: DEC-028. ROADMAP-012. Step 1 of docs/organization-plan.md.

@@ -40,11 +40,12 @@ export function HighlightedText({ text, range }: { text: string; range: { start:
 /**
  * The source of the selected requirement or note: the document, the page number and that page's stored text, with the cited
  * quote highlighted (the highlight is computed on the server with the same matcher that verified the quote). Previous and next
- * page, a choice among the sources an item cites, and a link to the Sources section. Direction follows the text (dir="auto").
+ * page, a choice among the sources an item cites, and a link to the Docs tab. Direction follows the text (dir="auto").
  * Remount it (key) when the selection changes.
  */
-export function SourceViewer({ api, title, citations, onOpenInSources, heading = 'Source' }: {
-  api: FrameworkApi; title: string; citations: Citation[]; onOpenInSources?: (documentId: string, page: number) => void; heading?: string;
+export function SourceViewer({ api, title, citations, onOpenInDocs, heading = 'Source' }: {
+  /** Only these two calls: the version page and the import review each give it their own. */
+  api: Pick<FrameworkApi, 'pageView' | 'sourceFileUrl'>; title: string; citations: Citation[]; onOpenInDocs?: (documentId: string, page: number) => void; heading?: string;
 }) {
   const [active, setActive] = useState(citations[0]?.key ?? '');
   const cite = citations.find((c) => c.key === active) ?? citations[0];
@@ -106,11 +107,11 @@ export function SourceViewer({ api, title, citations, onOpenInSources, heading =
             </>
           ) : (
             <p role="note" className="rounded border border-border bg-muted/40 p-2 text-xs" data-testid="page-missing">
-              The text of page {shown} is not stored{v.pageNos.length === 0 ? ': this source has no page text yet. Read its file, or type the page in, under Sources.' : '.'}
+              The text of page {shown} is not stored{v.pageNos.length === 0 ? ': this source has no page text yet. Read its file, or type the page in, under Docs.' : '.'}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            {onOpenInSources && <button type="button" className="underline" onClick={() => onOpenInSources(v.document.id, shown)}>Open in Sources</button>}
+            {onOpenInDocs && <button type="button" className="underline" onClick={() => onOpenInDocs(v.document.id, shown)}>Open in Docs</button>}
             {v.document.hasFile && (
               <a className="underline" target="_blank" rel="noreferrer" href={`${api.sourceFileUrl(v.document.id)}${v.document.mime === 'application/pdf' ? `#page=${shown}` : ''}`}>
                 Open the original file

@@ -218,7 +218,7 @@ describe('suggestions in the Mappings tab', () => {
 
 describe('the analysis panel after step E', () => {
   it('lists what the run suggested, in counts and words', async () => {
-    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const panel = await screen.findByRole('region', { name: 'Analysis' });
     const summary = await within(panel).findByTestId('mapping-summary');
     expect(summary.textContent).toBe('Suggested links: 3 requirements (2 covers, 1 partly covers, 1 related) · 4 without a suggestion · 2 suggested new IQF items · candidates found by words only');

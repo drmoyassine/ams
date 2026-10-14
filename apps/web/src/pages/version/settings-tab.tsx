@@ -9,13 +9,11 @@ import type { GlossaryApi } from '../../lib/glossary-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
 import { ConfigTab } from './config-tab';
-import { SourcesSection } from './sources-section';
 import { TemplatesTab } from './templates-tab';
 import { TerminologyTab } from './terminology-tab';
 
 const SECTIONS = [
   { id: 'details', label: 'Details' },
-  { id: 'sources', label: 'Sources' },
   { id: 'lifecycle', label: 'Lifecycle and vocabularies' },
   { id: 'templates', label: 'Report templates' },
   { id: 'terminology', label: 'Terminology' },
@@ -109,12 +107,9 @@ function Details({ api, f, me }: { api: FrameworkApi; f: FrameworkListItem; me: 
   );
 }
 
-/** A standard's settings: its details (any time), and its version's sources and configuration (while the version is a draft). */
-export function SettingsTab({ api, version, framework, me, glossary, initial = 'details', onShowRequirement, onShowReport, focusPage }: {
+/** A standard's settings: its details (any time), and its version's configuration (while the version is a draft). The documents are the Docs tab. */
+export function SettingsTab({ api, version, framework, me, glossary, initial = 'details' }: {
   api: FrameworkApi; version: Version; framework: FrameworkListItem | undefined; me: Me | undefined; glossary?: GlossaryApi; initial?: SettingsSection;
-  /** Opens a requirement card on the Requirements tab (the analysis's gap links). */ onShowRequirement?: (id: string) => void;
-  /** Opens a run's report on the Report tab. */ onShowReport?: (runId: string) => void;
-  /** A source page to open and scroll to (a report's link to the page). */ focusPage?: { documentId: string; page: number; n: number };
 }) {
   const [section, setSection] = useState<SettingsSection>(initial);
   return (
@@ -127,7 +122,6 @@ export function SettingsTab({ api, version, framework, me, glossary, initial = '
       </nav>
       <div className="min-w-0 flex-1">
         {section === 'details' && (framework ? <Details api={api} f={framework} me={me} /> : <p className="text-sm">Loading…</p>)}
-        {section === 'sources' && <SourcesSection api={api} version={version} me={me} {...(onShowRequirement ? { onShowRequirement } : {})} {...(onShowReport ? { onShowReport } : {})} {...(focusPage ? { focusPage } : {})} />}
         {section === 'lifecycle' && <ConfigTab api={api} version={version} me={me} />}
         {section === 'templates' && <TemplatesTab api={api} version={version} me={me} />}
         {section === 'terminology' && <TerminologyTab version={version} me={me} {...(glossary ? { glossary } : {})} />}

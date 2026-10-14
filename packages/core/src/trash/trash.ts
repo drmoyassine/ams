@@ -2,7 +2,7 @@
 // kinds they are allowed to delete (library kinds need framework:write, evidence links evidence:write, milestones
 // engagement:manage), plus anything they deleted themselves; an admin holds every permission, so sees all.
 import { and, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
-import { appUser, sourceDocument, trashItem } from '@ams/db';
+import { appUser, importDocument, sourceDocument, trashItem } from '@ams/db';
 import {
   plural, TRASH_RETENTION_DAYS, type Permission, type RestoreOptions, type RestoreResult, type TrashContent, type TrashGroup, type TrashItem, type TrashKind, type TrashList,
 } from '@ams/shared';
@@ -20,7 +20,7 @@ type ItemRow = typeof trashItem.$inferSelect;
 /** The permission that lets a person delete (and so see, restore and remove) each kind. */
 export const KIND_PERMISSION: Record<TrashKind, Permission> = {
   requirement: 'framework:write', note: 'framework:write', source_document: 'framework:write', source_page: 'framework:write', report_template: 'framework:write',
-  framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage',
+  framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
 };
 
 async function allowedKinds(ctx: Ctx): Promise<TrashKind[]> {
@@ -140,6 +140,8 @@ function describe(payload: TrashPayload): Described[] {
   for (const r of t.framework ?? []) out.push({ table: 'framework', id: str(r.id), label: str(r.name), depth: 0 });
   for (const r of t.framework_version ?? []) out.push({ table: 'framework_version', id: str(r.id), label: `Version ${str(r.edition)}`, depth: 0 });
   for (const r of t.source_document ?? []) out.push({ table: 'source_document', id: str(r.id), label: str(r.title), depth: 1 });
+  for (const r of t.import_document ?? []) out.push({ table: 'import_document', id: str(r.id), label: str(r.file_name), depth: 1 });
+  if ((t.import_page ?? []).length) out.push({ table: 'import_page', id: 'import_pages', label: `${t.import_page!.length} pages of text`, depth: 2 });
   const pages = t.source_page ?? [];
   if (pages.length > 12) out.push({ table: 'source_page', id: 'pages', label: `${pages.length} pages of text`, depth: 2 });
   else for (const r of pages) out.push({ table: 'source_page', id: str(r.id), label: `Page ${String(r.page_no)}`, depth: 2 });
@@ -187,7 +189,8 @@ async function removableFiles(ctx: Ctx, rows: Pick<ItemRow, 'payload'>[]): Promi
   const keys = [...new Set(rows.flatMap((r) => (r.payload as TrashPayload).files ?? []))];
   if (!keys.length) return [];
   const used = await ctx.tx.select({ k: sourceDocument.filePath }).from(sourceDocument).where(inArray(sourceDocument.filePath, keys));
-  const inUse = new Set(used.map((u) => u.k));
+  const usedImport = await ctx.tx.select({ k: importDocument.filePath }).from(importDocument).where(inArray(importDocument.filePath, keys));
+  const inUse = new Set([...used, ...usedImport].map((u) => u.k));
   return keys.filter((k) => !inUse.has(k));
 }
 

@@ -75,7 +75,7 @@ describe('analysis in the version settings', () => {
   it('starts from "Analyse sources", shows progress while the worker runs, then the run with its counts and AI-marked requirements', async () => {
     setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
     const user = userEvent.setup();
-    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const panel = await screen.findByRole('region', { name: 'Analysis' });
     expect(await within(panel).findByText('Not analysed yet.')).toBeTruthy();
     // The guide's role was left open; the analysis decides it.
@@ -109,7 +109,7 @@ describe('analysis in the version settings', () => {
     expect(within(note).getByTestId('ai-marker')).toBeTruthy();
     // A viewer sees runs but cannot start one.
     cleanup();
-    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialTab="docs" onOpenVersion={() => undefined} />));
     const ro = await screen.findByRole('region', { name: 'Analysis' });
     await within(ro).findByRole('list', { name: 'Recent analyses' });
     expect(within(ro).queryByRole('button', { name: 'Analyse sources' })).toBeNull();
@@ -120,7 +120,7 @@ describe('analysis in the version settings', () => {
     try {
       setAiModelForTests(createFakeAiModel([gappyResponder().reply]).model);
       const user = userEvent.setup();
-      render(wrap(<VersionPage versionId={ids.g!} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+      render(wrap(<VersionPage versionId={ids.g!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel = await screen.findByRole('region', { name: 'Analysis' });
       const start = await within(panel).findByRole('button', { name: 'Analyse sources' });
       await waitFor(() => expect((start as HTMLButtonElement).disabled).toBe(false)); // once the sources are listed

@@ -2,6 +2,8 @@
 
 Owner's decisions are recorded as DEC-028. This page is the plan.
 
+**Status (2026-10-14):** section A is built (TASK-075: registry, Docs tab, Documents area, import engine; how to add a place or an import is in [ai-import.md](ai-import.md)); section B is built (TASK-069). Programs from documents (TASK-076) and the rest follow.
+
 **Status (2026-10-13): step 1 is built (TASK-069).** Organization has its two tabs and the institution logo (header and sign-in page), Programs moved under it, and Settings is readable by every role that can read the organization. Languages, the org chart builder and the Docs tab follow in the order below.
 
 ## Decisions (owner, 2026-10-13)

@@ -2938,9 +2938,9 @@ description: >-
   One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
   Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
   their Docs tab
-status: pending
+status: completed
 priority: P2
-last_updated: '2026-10-13'
+last_updated: '2026-10-14'
 generated:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
@@ -2971,6 +2971,8 @@ Section A of docs/organization-plan.md.
 - Version page: Sources becomes the Docs tab beside Requirements, Mappings and Report; the IQF page and the Organization sections get a Docs tab.
 - Settings -> Documents: every upload the person may see, filters by place, uploader, date, type, status, each linking to where it is used.
 - Import engine: a target registry (Zod schema, versioned prompt, validator, proposal writer) and an `import` job in the agent service (read through the parser, extract, verify, propose) with budget, cancel, resume and a report; proposals are reviewed in an editable table beside the source page and applied as one undoable change; never overwrites a person's edits.
+
+Done 2026-10-14. One pattern for places where the AI reads uploaded documents (docs/ai-import.md). Registry `import_document` / `import_page` / `import_run` / `import_proposal` / `import_apply` (migration 0053; tenant RLS and audit; the worker role writes only runs, candidate proposals and pages). Scope registry (`packages/core/src/documents/scopes.ts`) and target registry (`registerImportTarget`; no production target yet), the `import` job in the agent service (read, extract, verify, propose, finalise; budget, cancel, resume), proposals edited, accepted or skipped and applied as ONE undoable group (`import_apply`, `POST /api/import-applies/{id}/undo|redo`), a run report, readiness checks. Standards adapter: the same list API returns a version's sources. Reusable `DocsTab` and `ImportReview`; the version page has a Docs tab (Requirements | Mappings | Report | Docs | Settings) holding what Settings -> Sources held (old addresses redirect); Settings -> Documents lists everything the person may see. Deleted documents go to the Trash (kind `import_document`). Evidence is never listed or sent.
 
 ---
 

@@ -80,10 +80,11 @@ export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
  * `analyse`: one stage of a framework analysis run (the stage is in the payload; each stage queues the next).
  * `assistant`: one turn of the in-app assistant (DEC-027); the payload names the conversation and the person's message, and the
  * job runs as that person.
+ * `import`: one stage of an AI document import run (docs/ai-import.md); like `analyse`, each stage queues the next.
  * `purge_trash`: a scheduled tick (daily, pg-boss schedule) that removes Trash items older than the retention and their
  * stored files, tenant by tenant under a system identity (DEC-026). It carries no job row.
  */
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 /**
@@ -96,7 +97,7 @@ export type JobType = (typeof JOB_TYPES)[number];
 export const QUEUE_GROUPS = {
   worker: ['export', 'notify', 'purge_trash'],
   parser: ['extract_text'],
-  agent: ['analyse', 'ai_extract', 'ocr', 'assistant'],
+  agent: ['analyse', 'ai_extract', 'ocr', 'assistant', 'import'],
 } as const satisfies Record<string, readonly JobType[]>;
 export type QueueGroup = keyof typeof QUEUE_GROUPS;
 export const QUEUE_GROUP_NAMES = Object.keys(QUEUE_GROUPS) as QueueGroup[];

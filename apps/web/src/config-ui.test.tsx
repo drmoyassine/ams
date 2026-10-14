@@ -141,7 +141,7 @@ describe('Settings: what the analysis found in the configuration', () => {
 
   it('names the documents that can supply configuration in the readiness list, and a viewer sees the marks but no editors', async () => {
     const user = userEvent.setup();
-    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const panel = await screen.findByRole('region', { name: 'Analysis' });
     await user.click(await within(panel).findByText(/Before you start/));
     const checks = within(panel).getAllByTestId('preflight-check').map((c) => c.textContent ?? '');

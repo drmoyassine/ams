@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  AI_PROVIDERS, ANALYSIS_STAGES, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
+  AI_PROVIDERS, ANALYSIS_STAGES, IMPORT_APPLY_STATES, IMPORT_PROPOSAL_STATUSES, IMPORT_READ_STATUSES, IMPORT_RUN_STATUSES, IMPORT_SCOPE_KINDS, IMPORT_STAGES, type ImportProgress, type ImportUsage, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
   MILESTONE_TYPES, PHASE_TYPES, ROLES,
 } from '@ams/shared';
 import {
@@ -225,7 +225,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -839,7 +839,7 @@ export const datasetResponse = pgTable('dataset_response', {
 // ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
 
 export const TRASH_KIND_VALUES = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document',
 ] as const;
 /**
  * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are
@@ -1015,4 +1015,133 @@ export const assistantWrittenText = pgTable('assistant_written_text', {
   index('assistant_written_text_requirement_idx').on(t.requirementId),
   oneOf('assistant_written_text_state_check', t.state, WRITTEN_TEXT_STATES),
   oneOf('assistant_written_text_field_check', t.field, ['title', 'officialText', 'translationEn']),
+]);
+
+// ---- Documents and AI import (TASK-075, docs/ai-import.md) --------------------------------------------------------------
+
+/**
+ * A file uploaded for a place that has a Docs tab (programs, org chart, glossary...). `scope_kind` + `scope_id` say where; who
+ * uploaded it and when are the base columns (`created_by`, `created_at`). The original sits in the object store at `file_path`
+ * and stays there while the row is in the Trash. Standards keep their own `source_document`; the Docs list reads both.
+ * `scope_id` is not a foreign key (the scope kinds point at different tables, and some are institution-wide).
+ */
+export const importDocument = pgTable('import_document', {
+  ...base(), ...tenant(),
+  scopeKind: text('scope_kind', { enum: IMPORT_SCOPE_KINDS }).notNull(),
+  scopeId: uuid('scope_id'),
+  fileName: text('file_name').notNull(),
+  mime: text('mime').notNull(),
+  size: integer('size').notNull(),
+  sha256: text('sha256').notNull(),
+  filePath: text('file_path').notNull(),
+  language: text('language').notNull().default('en'),
+  readStatus: text('read_status', { enum: IMPORT_READ_STATUSES }).notNull().default('queued'),
+  readError: text('read_error'),
+  pageCount: integer('page_count'),
+}, (t) => [
+  index('import_document_scope_idx').on(t.institutionId, t.scopeKind, t.scopeId),
+  index('import_document_sha_idx').on(t.institutionId, t.sha256),
+  oneOf('import_document_scope_kind_check', t.scopeKind, IMPORT_SCOPE_KINDS),
+  oneOf('import_document_read_status_check', t.readStatus, IMPORT_READ_STATUSES),
+  check('import_document_sha256_check', sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+]);
+
+/** The text of one page of an import document, as the parser read it (the same shape as source_page, without person edits). */
+export const importPage = pgTable('import_page', {
+  ...base(), ...tenant(),
+  importDocumentId: uuid('import_document_id').notNull().references(() => importDocument.id),
+  pageNo: integer('page_no').notNull(),
+  text: text('text').notNull(),
+  method: text('method', { enum: PAGE_METHODS }).notNull(),
+  needsOcr: boolean('needs_ocr').notNull().default(false),
+  warnings: jsonb('warnings').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+}, (t) => [
+  uniqueIndex('import_page_doc_page_idx').on(t.importDocumentId, t.pageNo),
+  oneOf('import_page_method_check', t.method, PAGE_METHODS),
+  check('import_page_no_check', sql`${t.pageNo} >= 1`),
+]);
+
+/**
+ * One AI import of some documents of a scope into a target (a registered extractor). Like analysis_run: each stage is its own
+ * job; `progress` holds the stage and the position inside it so a retried job resumes there; `usage` is the AI spend across all
+ * its jobs. `document_ids` name import_document rows (or standards source documents for the standards scope); no foreign keys, a
+ * document can be in the Trash while its run's history stays.
+ */
+export const importRun = pgTable('import_run', {
+  ...base(), ...tenant(),
+  scopeKind: text('scope_kind').notNull(),
+  scopeId: uuid('scope_id'),
+  targetKind: text('target_kind').notNull(),
+  documentIds: uuid('document_ids').array().notNull(),
+  status: text('status', { enum: IMPORT_RUN_STATUSES }).notNull().default('queued'),
+  stage: text('stage', { enum: IMPORT_STAGES }),
+  progress: jsonb('progress').$type<ImportProgress>().notNull().default(sql`'{}'::jsonb`),
+  model: text('model'),
+  promptVersion: text('prompt_version'),
+  usage: jsonb('usage').$type<ImportUsage>().notNull().default(sql`'{"inputTokens":0,"outputTokens":0,"costUsd":null,"calls":0}'::jsonb`),
+  error: text('error'),
+  startedBy: uuid('started_by').references((): AnyPgColumn => appUser.id),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  report: jsonb('report').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+}, (t) => [
+  index('import_run_scope_idx').on(t.institutionId, t.scopeKind, t.scopeId, t.createdAt),
+  uniqueIndex('import_run_one_active_idx').on(t.institutionId, t.scopeKind, sql`coalesce(${t.scopeId}, '00000000-0000-0000-0000-000000000000'::uuid)`, t.targetKind).where(sql`${t.status} in ('queued', 'running')`),
+  oneOf('import_run_status_check', t.status, IMPORT_RUN_STATUSES),
+  check('import_run_stage_check', sql`${t.stage} is null or ${t.stage} in (${sql.raw(IMPORT_STAGES.map((v) => `'${v}'`).join(', '))})`),
+  check('import_run_documents_check', sql`cardinality(${t.documentIds}) >= 1`),
+]);
+
+/**
+ * One thing the AI found, waiting for a person: `payload` is typed by the target's schema. While the run is working a proposal is
+ * a `candidate` (the extract and verify stages write and check them; the propose stage merges duplicates and releases the rest);
+ * the worker can touch candidates only. From then on people own the row: they edit `edited_payload`, decide `status`, and Apply
+ * writes the real record and sets `applied_ref`. The quote is the AI's words from the page, verified by the server's matcher.
+ */
+export const importProposal = pgTable('import_proposal', {
+  ...base(), ...tenant(),
+  runId: uuid('run_id').notNull().references(() => importRun.id),
+  targetKind: text('target_kind').notNull(),
+  candidate: boolean('candidate').notNull().default(true),
+  windowNo: integer('window_no').notNull().default(0),
+  seq: integer('seq').notNull().default(0),
+  label: text('label').notNull().default(''),
+  payload: jsonb('payload').notNull(),
+  editedPayload: jsonb('edited_payload'),
+  documentId: uuid('document_id'),
+  pageNo: integer('page_no'),
+  quote: text('quote'),
+  quoteVerified: boolean('quote_verified').notNull().default(false),
+  confidence: real('confidence'),
+  flags: jsonb('flags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: text('status', { enum: IMPORT_PROPOSAL_STATUSES }).notNull().default('pending'),
+  appliedRef: jsonb('applied_ref'),
+}, (t) => [
+  index('import_proposal_run_idx').on(t.runId, t.candidate, t.seq),
+  oneOf('import_proposal_status_check', t.status, IMPORT_PROPOSAL_STATUSES),
+]);
+
+/**
+ * One Apply of a run's accepted proposals: written in ONE transaction by the target, as the person. `inverse` is the target's own
+ * undo information (before-images, Trash group ids): Undo runs the target's `reverse` on it, and what that returns is the next
+ * `inverse` (which redoes). The audit trail records counts, never the words.
+ */
+export const importApply = pgTable('import_apply', {
+  ...base(), ...tenant(),
+  runId: uuid('run_id').notNull().references(() => importRun.id),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  targetKind: text('target_kind').notNull(),
+  scopeKind: text('scope_kind').notNull(),
+  scopeId: uuid('scope_id'),
+  proposalIds: uuid('proposal_ids').array().notNull(),
+  summary: text('summary').notNull(),
+  counts: jsonb('counts').notNull(),
+  inverse: jsonb('inverse').notNull().default(sql`'null'::jsonb`),
+  state: text('state', { enum: IMPORT_APPLY_STATES }).notNull().default('applied'),
+  appliedAt: timestamp('applied_at', { withTimezone: true }).notNull().defaultNow(),
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+}, (t) => [
+  index('import_apply_run_idx').on(t.runId, t.appliedAt),
+  oneOf('import_apply_state_check', t.state, IMPORT_APPLY_STATES),
+  check('import_apply_counts_check', sql`jsonb_typeof(${t.counts}) = 'object'`),
 ]);

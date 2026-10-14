@@ -5,9 +5,9 @@ description: >-
   One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
   Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
   their Docs tab
-status: pending
+status: completed
 priority: P2
-last_updated: '2026-10-13'
+last_updated: '2026-10-14'
 generated:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'

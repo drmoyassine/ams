@@ -254,7 +254,7 @@ describe('Settings for every role', () => {
   });
 
   it('lists the pages each role may open: Trash for editors, AI for administrators, the rest for everyone', async () => {
-    const base = ['Organization', 'Internal Quality Framework', 'External Standards'];
+    const base = ['Organization', 'Internal Quality Framework', 'External Standards', 'Documents'];
     expect(await settingsLinks('viewer')).toEqual([...base, 'Assistant memory']);
     expect(await settingsLinks('lead')).toEqual([...base, 'Trash', 'Assistant memory']);
     expect(await settingsLinks('admin')).toEqual([...base, 'Trash', 'Assistant memory', 'AI']);

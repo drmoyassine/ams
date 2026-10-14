@@ -13,4 +13,5 @@ export * from './assistant-changes.js';
 export * from './analysis.js';
 export * from './analysis-report.js';
 export * from './trash.js';
+export * from './documents.js';
 export * from './tree-move.js';

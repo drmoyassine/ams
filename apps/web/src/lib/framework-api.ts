@@ -4,6 +4,7 @@ import type {
   SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
+import { documentsApi } from './documents-api';
 import { api as defaultApi, type createApi } from './api';
 
 export type Api = ReturnType<typeof createApi>;
@@ -50,6 +51,8 @@ export async function unwrap<T>(res: Response): Promise<T> {
 export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {
   const v = api.api['framework-versions'];
   return {
+    /** Documents and AI import (the Docs tab, TASK-075), through the same client. */
+    docs: documentsApi(api, fetcher),
     me: () => api.api.me.$get().then((r) => unwrap<Me>(r)),
     /** Where an accreditor's logo is served; `version` changes when the logo does, so the browser fetches the new one. */
     logoUrl: (accreditorId: string, version: string) => `/api/accreditors/${accreditorId}/logo?v=${version}`,

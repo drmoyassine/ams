@@ -124,7 +124,7 @@ export async function deleteSourcePage(ctx: Ctx, documentId: string, pageNo: num
 
 /** Largest original accepted (bytes). */
 export const MAX_SOURCE_BYTES = Number(process.env.SOURCE_MAX_UPLOAD_MB ?? 50) * 1024 * 1024;
-const safeName = (s: string) => [...s.normalize('NFC')].map((ch) => (ch === '/' || ch === '\\' || ch.charCodeAt(0) < 32 ? '_' : ch)).join('').slice(0, 200) || 'file';
+export const safeName = (s: string) => [...s.normalize('NFC')].map((ch) => (ch === '/' || ch === '\\' || ch.charCodeAt(0) < 32 ? '_' : ch)).join('').slice(0, 200) || 'file';
 
 /** Stores the original file of a draft version's source (a PDF, usually), replacing any earlier one. */
 export async function uploadSourceFile(ctx: Ctx, documentId: string, file: { fileName: string; mime: string; bytes: Uint8Array }) {

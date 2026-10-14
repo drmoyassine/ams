@@ -362,7 +362,7 @@ export function ReportTab({ api, versionId, runId, onSelectRun, nav, title }: {
 
   if (runs.isError) return <p role="alert" className="text-sm text-red-700">Could not load the analysis runs.</p>;
   if (!runs.data) return <p>Loading…</p>;
-  if (list.length === 0) return <p className="text-sm text-muted-foreground">No analysis has run on this version yet. Start one under Settings → Sources; its report appears here.</p>;
+  if (list.length === 0) return <p className="text-sm text-muted-foreground">No analysis has run on this version yet. Start one under Docs; its report appears here.</p>;
 
   return (
     <section aria-label="Analysis report" className="space-y-3">

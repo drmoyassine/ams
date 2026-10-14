@@ -323,6 +323,26 @@ export async function trashSourceDocument(ctx: Ctx, doc: Row, info: VersionInfo)
   return { groupId, label, counts: { items: 1, pages: pages.length }, items: 1 };
 }
 
+// ---- Import documents (TASK-075) ----------------------------------------------------------------------------------------
+
+/** An uploaded document of a Docs tab with its pages. The original file stays in storage until the item leaves the Trash. */
+export async function trashImportDocument(ctx: Ctx, doc: Row, place: string): Promise<DeleteResult> {
+  const id = String(doc.id);
+  const pages = await readWhere(ctx, 'import_page', sql`t.import_document_id = ${id}`);
+  const payload: TrashPayload = {
+    ...emptyPayload({ scopeKind: doc.scope_kind, scopeId: doc.scope_id ?? null, documentId: id }), tables: { import_document: [doc], import_page: pages },
+    files: typeof doc.file_path === 'string' ? [doc.file_path] : [],
+  };
+  await deleteRows(ctx, 'import_page', idsOf(pages));
+  await deleteRows(ctx, 'import_document', [id]);
+  const label = `Deleted ${text(doc.file_name)}${pages.length ? ` and its ${plural(pages.length, 'page')}` : ''}`;
+  const groupId = await writeTrash(ctx, [{
+    kind: 'import_document', label: text(doc.file_name), context: place, payload, counts: { items: 1, pages: pages.length, files: payload.files.length },
+  }]);
+  reportUndo(ctx, restoreUndo(groupId, label));
+  return { groupId, label, counts: { items: 1, pages: pages.length }, items: 1 };
+}
+
 // ---- Versions and whole standards ---------------------------------------------------------------------------------------
 
 /** Everything that belongs to one version, as rows. */

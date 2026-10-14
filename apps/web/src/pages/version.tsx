@@ -19,12 +19,14 @@ import { ExternalRequirements } from './version/external-requirements';
 import { MappingsTab } from './version/mappings-tab';
 import { ReportTab } from './version/report-tab';
 import { RequirementsTab } from './version/requirements-tab';
+import { VersionDocs } from './version/docs-tab';
 import { SettingsTab, type SettingsSection } from './version/settings-tab';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
   { id: 'mappings', label: 'Mappings' },
   { id: 'report', label: 'Report' },
+  { id: 'docs', label: 'Docs' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 export type VersionTab = (typeof TABS)[number]['id'];
@@ -63,10 +65,11 @@ function NewVersionDialog({ from, error, onCreate, onClose }: { from: Version; e
  * action the version's state calls for (submit, publish, start a new version); the rest sits in its ⋯ menu.
  */
 export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, initialFocusRequirement, initialFocusPage, onLocation }: {
-  versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab; initialSection?: SettingsSection;
+  versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab;
+  /** A section of Settings. 'sources' is the old address of the Docs tab and opens it. */ initialSection?: SettingsSection | 'sources';
   /** The analysis run the Report tab opens on (the address's ?run=). */ initialRunId?: string;
   /** A requirement's card to open (the address's ?req=, from a link in the assistant). */ initialFocusRequirement?: string;
-  /** A source page to open in Sources (the address's ?doc=&page=). */ initialFocusPage?: { documentId: string; page: number };
+  /** A source page to open in the Docs tab (the address's ?doc=&page=). */ initialFocusPage?: { documentId: string; page: number };
   /** Called when the tab or the selected run changes, so the address can follow and the page can be opened again later. */
   onLocation?: (where: { tab: VersionTab; run?: string }) => void;
 }) {
@@ -75,9 +78,11 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const qc = useQueryClient();
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const [tab, setTabState] = useState<VersionTab>(initialFocusPage ? 'settings' : initialTab);
+  // Settings -> Sources moved up to the Docs tab: the old address (?tab=settings&section=sources) lands there.
+  const legacyDocs = initialTab === 'settings' && initialSection === 'sources';
+  const [tab, setTabState] = useState<VersionTab>(initialFocusPage || legacyDocs ? 'docs' : initialTab);
   const [runId, setRunId] = useState<string | undefined>(initialRunId);
-  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialFocusPage ? 'sources' : initialSection);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(initialSection === 'sources' ? undefined : initialSection);
   const [focusPage, setFocusPage] = useState<{ documentId: string; page: number; n: number } | null>(initialFocusPage ? { ...initialFocusPage, n: 1 } : null);
   const setTab = (t: VersionTab, run: string | undefined = runId) => { setTabState(t); onLocation?.({ tab: t, ...(t === 'report' && run ? { run } : {}) }); };
   const selectRun = (id: string) => { setRunId(id); onLocation?.({ tab: 'report', run: id }); };
@@ -90,14 +95,15 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
   const showRequirement = (id: string) => { setFocusRequirement(id); setTab('requirements'); };
   const reportNav = {
     onShowRequirement: showRequirement,
-    onShowPage: (documentId: string, page: number) => { setSettingsSection('sources'); setFocusPage((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 })); setTab('settings'); },
+    onShowPage: (documentId: string, page: number) => { setFocusPage((f) => ({ documentId, page, n: (f?.n ?? 0) + 1 })); setTab('docs'); },
     onShowMappings: () => setTab('mappings'),
     onShowSettings: (section: 'details' | 'sources' | 'ai' | 'lifecycle' | 'templates') => {
       if (section === 'ai') { void navigate({ to: '/settings/ai' }); return; }
+      if (section === 'sources') { setTab('docs'); return; }
       setSettingsSection(section); setTab('settings');
     },
   };
-  // "Open in Sources" in the split view: the same focus mechanism the report uses.
+  // "Open in Docs" in the split view: the same focus mechanism the report uses.
   const openSource = (documentId: string, page: number) => reportNav.onShowPage(documentId, page);
   const { data: version, isError } = useQuery({ queryKey: ['version', versionId], queryFn: () => api.version(versionId) });
   const internal = !!version?.internal;
@@ -223,7 +229,8 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
         {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
         {!internal && tab === 'report' && <ReportTab api={api} versionId={version.id} runId={runId} onSelectRun={selectRun} nav={reportNav} title={`${f?.name ?? 'Standard'} ${versionLabel(version.edition)}`} />}
-        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(settingsSection ? { initial: settingsSection } : {})} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}
+        {!internal && tab === 'docs' && <VersionDocs api={api} version={version} me={m} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}
+        {!internal && tab === 'settings' && <SettingsTab api={api} version={version} framework={f} me={m} {...(glossary ? { glossary } : {})} {...(settingsSection ? { initial: settingsSection } : {})} />}
       </div>
       {newVersion && (
         <NewVersionDialog from={version} error={error} onClose={() => { setNewVersion(false); setError(''); }}

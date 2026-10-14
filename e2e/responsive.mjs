@@ -62,7 +62,7 @@ const PASSWORD = 'responsive-check-password';
 
 /** Fresh database, seeded admin + demo data, the API serving the built SPA. Returns the base URL and a stop function. */
 async function startApp() {
-  const [{ createTestDb }, api, { createAuth, sessionAuthenticator }, { MemoryStore }, pg, { serve }, { serveStatic }] = await Promise.all([
+  const [{ createTestDb }, api, { createAuth, sessionAuthenticator }, { MemoryStore, registerTestTarget }, pg, { serve }, { serveStatic }] = await Promise.all([
     dist('packages/db/dist/test-db.js'), dist('apps/api/dist/index.js'), dist('apps/api/dist/auth.js'),
     load('@ams/core'), load('pg'), load('@hono/node-server'), load('@hono/node-server/serve-static'),
   ]);
@@ -85,6 +85,7 @@ async function startApp() {
     await api.seedFrameworks(pool);
     await api.seedGlossary(pool);
 
+    registerTestTarget(); // the invented import target of the tests, so the Docs tab shows its Import button and review (no production target exists yet)
     const queue = { send: async () => undefined }; // no worker: jobs are dropped
     const { app } = api.createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue, store: new MemoryStore() });
     const webRoot = join(root, 'apps/web/dist');
@@ -148,6 +149,40 @@ async function seedDemo(db, base) {
     } catch (e) { console.warn(`seed: split-view sources skipped (${e.message})`); }
   }
   const warn = (what, e) => console.warn(`seed: ${what} skipped (${e.message})`);
+  // TASK-075: uploads in other places (long and Arabic file names, every reading status) for Settings -> Documents, and a finished import of
+  // the draft's source with proposals (a long Arabic name, a quote that is not on the page, a low-confidence one) for the review and the report.
+  try {
+    const sha = (c) => c.repeat(64);
+    const docs = [
+      ['org_chart', 'organizational-chart-of-the-university-2025-board-approved-final-version-with-a-very-long-file-name.pdf', 'read', null],
+      ['org_chart', 'الهيكل التنظيمي للجامعة - النسخة المعتمدة من مجلس الأمناء.pdf', 'needs_ocr', null],
+      ['programs', 'catalogue-2025.xlsx', 'failed', 'the workbook is password protected'],
+      ['glossary', 'terms.docx', 'reading', null],
+    ];
+    let n = 0;
+    for (const [scope, name, status, error] of docs) {
+      n += 1;
+      await q(`insert into import_document (institution_id, scope_kind, file_name, mime, size, sha256, file_path, read_status, read_error, page_count, created_by) values ($1, $2, $3, 'application/pdf', $4, $5, $6, $7, $8, 12, $9)`,
+        [inst, scope, name, 150000 * n, sha(String(n)), `k/${n}`, status, error, admin]);
+    }
+    if (ids.draftId) {
+      const [{ id: src }] = await q(`select id from source_document where framework_version_id = $1 and title like 'Accreditation handbook%' limit 1`, [ids.draftId]);
+      const [{ id: run }] = await q(`insert into import_run (institution_id, scope_kind, scope_id, target_kind, document_ids, status, stage, progress, usage, report, started_by, started_at, finished_at, prompt_version, model)
+        values ($1, 'framework_version', $2, 'test_units', array[$3::uuid], 'succeeded', 'finalise', '{"windowsTotal":1,"windowsDone":1,"items":4}', '{"inputTokens":2400,"outputTokens":600,"costUsd":0.04,"calls":1}', '{"runtime":{"model":"responsive-check-model","role":"analysis"}}', $4, now(), now(), 'v1', 'responsive-check-model') returning id`, [inst, ids.draftId, src, admin]);
+      const props = [
+        [{ name: 'College of Engineering and Applied Sciences with a rather long name that has to wrap', type: 'college', parent: null }, 1, 'must publish their mission statement', true, 0.92, []],
+        [{ name: 'كلية الهندسة والعلوم التطبيقية', type: 'college', parent: null }, 2, 'رِسَالَةٌ مُعْلَنَةٌ وَمُعْتَمَدَةٌ', true, 0.88, []],
+        [{ name: 'Phantom Faculty', type: 'other', parent: null }, 1, 'words that are nowhere on this page', false, 0.7, ['The quote was not found on the page it cites.']],
+        [{ name: 'Unsure Centre', type: 'other', parent: 'College of Engineering and Applied Sciences' }, 1, 'review it every year', true, 0.3, ['The AI was not sure about this one.']],
+      ];
+      let seq = 0;
+      for (const [payload, page, quote, verified, confidence, flags] of props) {
+        seq += 1;
+        await q(`insert into import_proposal (institution_id, run_id, target_kind, candidate, seq, label, payload, document_id, page_no, quote, quote_verified, confidence, flags) values ($1, $2, 'test_units', false, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [inst, run, seq, payload.name, JSON.stringify(payload), src, page, quote, verified, confidence, JSON.stringify(flags)]);
+      }
+    }
+  } catch (e) { console.warn(`seed: documents and import skipped (${e.message})`); }
   // Two saved AI accounts (the screen opens on Models when there are some), so the cards, the model pickers and the add dialog have content.
   try {
     await call('POST', '/api/settings/ai/accounts', { name: 'Work OpenAI with a rather long label to check wrapping', provider: 'openai', apiKey: 'sk-responsive-check-1234' });
@@ -381,7 +416,31 @@ function pagesFor(ids) {
     { name: 'settings-ai-limits', path: '/settings/ai', action: clickTab('Limits') },
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
-    ids.draftId && { name: 'version-sources', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
+    // TASK-075: the version's Docs tab (the old Sources section), its import dialog, a finished import's review and report, and Settings -> Documents.
+    ids.draftId && { name: 'version-docs', path: `/settings/versions/${ids.draftId}?tab=docs` },
+    ids.draftId && { name: 'version-docs-legacy-address', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
+    ids.draftId && { name: 'version-docs-source-open', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
+      await page.getByTestId('source-document').first().getByRole('button').first().click();
+    } },
+    ids.draftId && { name: 'docs-import-dialog', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
+      await page.getByRole('button', { name: /^Import units/ }).click();
+      await page.getByRole('dialog', { name: /^Import units/ }).waitFor();
+    } },
+    ids.draftId && { name: 'docs-import-review', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
+      await page.getByRole('button', { name: /^Review the proposals of the Units/ }).click();
+      await page.getByRole('table', { name: 'Proposals' }).waitFor();
+      await page.getByTestId('source-page-text').waitFor();
+    } },
+    ids.draftId && { name: 'docs-import-report', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
+      await page.getByRole('button', { name: /^Report of the Units/ }).click();
+      await page.getByRole('region', { name: 'Import report' }).waitFor();
+    } },
+    { name: 'settings-documents', path: '/settings/documents', action: async (page) => { await page.getByTestId('library-row').first().waitFor(); } },
+    { name: 'settings-documents-filtered', path: '/settings/documents', action: async (page) => {
+      await page.getByTestId('library-row').first().waitFor();
+      await page.locator('form[aria-label="Filter documents"] select').nth(3).selectOption({ value: 'failed' });
+      await page.getByTestId('library-row').first().waitFor();
+    } },
     ids.draftId && { name: 'version-report', path: `/settings/versions/${ids.draftId}?tab=report` },
     // F2: Create from files, and the split view of a draft's requirements (the viewer beside the list on wide screens, a bottom sheet on small ones).
     { name: 'create-from-files', path: '/settings/external-standards', action: openCreateFromFiles },

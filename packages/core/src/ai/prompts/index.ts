@@ -5,6 +5,7 @@ import { assistantEvalV1 } from './assistant-eval.v1.js';
 import { configsurveyV1 } from './configsurvey.v1.js';
 import { connectionTestV1 } from './connection-test.v1.js';
 import { extractV1 } from './extract.v1.js';
+import { importExtractV1 } from './import-extract.v1.js';
 import { lifecycleV1 } from './lifecycle.v1.js';
 import { mapV1 } from './map.v1.js';
 import { newiqfV1 } from './newiqf.v1.js';
@@ -27,6 +28,8 @@ export const PROMPTS = {
   survey: { v1: surveyV1 },
   structure: { v1: structureV1 },
   extract: { v1: extractV1 },
+  // Document import (TASK-075): the general rules for any target; a target's own instructions travel in the message.
+  import_extract: { v1: importExtractV1 },
   // Step D: narrow questions about a few pages when the checks found a gap.
   recover: { v1: recoverV1 },
   // Step E: judge shortlisted IQF items for each external requirement; draft new IQF items where nothing fits.

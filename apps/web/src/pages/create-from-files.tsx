@@ -27,12 +27,12 @@ const messageOf = (e: unknown) => (e instanceof ApiError ? e.message : 'The conn
  * "Create from files": the owner's main way to add an external standard. Name the accreditor and the standard, drop the
  * accreditor's documents, and the system creates the draft, saves each file to it and starts the analysis. Nothing is
  * created until "Create and analyse"; after that the draft and its files are kept whatever happens next (a file that did
- * not upload can be retried; an analysis that cannot start, for want of AI settings, can be started later from Sources).
+ * not upload can be retried; an analysis that cannot start, for want of AI settings, can be started later from the Docs tab).
  */
 export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: FrameworkApi; onClose: () => void; onOpenVersion?: (versionId: string) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const open = onOpenVersion ?? ((id: string) => { void navigate({ to: '/settings/versions/$versionId', params: { versionId: id }, search: { tab: 'settings', section: 'sources' } }); });
+  const open = onOpenVersion ?? ((id: string) => { void navigate({ to: '/settings/versions/$versionId', params: { versionId: id }, search: { tab: 'docs' } }); });
   const standards = useQuery({ queryKey: ['frameworks'], queryFn: () => api.frameworks() });
   const limits = useQuery({ queryKey: ['source-limits'], queryFn: () => api.sourceLimits() });
   const maxBytes = limits.data?.maxFileBytes ?? DEFAULT_MAX_BYTES;
@@ -244,11 +244,11 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
           {analysis.state === 'failed' && (
             <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <p>The analysis did not start: {analysis.message}</p>
-              <p className="mt-1 text-xs">The draft and the {saved} saved file{saved === 1 ? '' : 's'} are kept. Fix this, then press Analyse sources on the draft's Sources page.</p>
+              <p className="mt-1 text-xs">The draft and the {saved} saved file{saved === 1 ? '' : 's'} are kept. Fix this, then press Analyse sources on the draft's Docs tab.</p>
             </div>
           )}
           {phase === 'result' && failed.length > 0 && (
-            <p role="alert" className="text-sm text-red-700">{failed.length} of {rows.length} file{rows.length === 1 ? '' : 's'} could not be saved. Retry them here, or add them later under Sources. The analysis starts once every file is saved, or you can start it with the files that were.</p>
+            <p role="alert" className="text-sm text-red-700">{failed.length} of {rows.length} file{rows.length === 1 ? '' : 's'} could not be saved. Retry them here, or add them later under Docs. The analysis starts once every file is saved, or you can start it with the files that were.</p>
           )}
           {phase === 'result' && created && (
             <div className="flex flex-wrap justify-end gap-2">

@@ -15,7 +15,7 @@ import { createApi } from './lib/api';
 import { frameworkApi, type FrameworkApi } from './lib/framework-api';
 import { FrameworksPage } from './pages/frameworks';
 import { VersionPage } from './pages/version';
-import { readStatus } from './pages/version/sources-section';
+import { readStatus } from './pages/version/docs-tab';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -353,7 +353,7 @@ describe('version page', () => {
     render(wrap(<VersionPage versionId={version.id} api={apiFor('admin')} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { level: 1, name: 'Institutional Guide' })).toBeTruthy();
     expect(document.querySelector('header')!.textContent).toContain('Public University Council · Institutional');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Report', 'Settings']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Report', 'Docs', 'Settings']);
     expect(screen.queryByTestId('config-problems')).toBeNull(); // the configuration is valid
     await user.click(screen.getByRole('button', { name: 'Submit for review' }));
     await waitFor(() => expect(screen.getByTestId('version-status').textContent).toBe('In review'));
@@ -452,11 +452,11 @@ describe('version page', () => {
     await a.updateFramework(version.frameworkId, { name: 'Institutional Guide', scope: 'institution' }); // leave it as the other tests expect
   });
 
-  it('keeps sources under Settings: add one with its original, read and correct its pages, and fixed once published', async () => {
+  it('keeps sources under Docs: add one with its original, read and correct its pages, and fixed once published', async () => {
     const { version } = await importAs('lead', 'sources-ui');
     const user = userEvent.setup();
-    const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
-    const section = await screen.findByRole('region', { name: 'Sources' });
+    const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
+    const section = await screen.findByRole('region', { name: 'Docs' });
     const guide = await within(section).findByRole('region', { name: 'Guide' });
     expect(guide.textContent).toContain('Standards'); // readable labels, not codes
     expect(guide.textContent).toContain('Binding');
@@ -486,8 +486,8 @@ describe('version page', () => {
     const a = apiFor('admin');
     await a.submit(version.id);
     await a.publish(version.id);
-    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
-    const ro = await screen.findByRole('region', { name: 'Sources' });
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
+    const ro = await screen.findByRole('region', { name: 'Docs' });
     expect(within(ro).queryByRole('button', { name: '+ Source' })).toBeNull();
     const fixed = await within(ro).findByRole('region', { name: 'Policy manual 2025' });
     await user.click(within(fixed).getByRole('button', { name: /^Policy and procedure/ }));
@@ -501,7 +501,7 @@ describe('version page', () => {
     const doc = await a.addDocument(version.id, { title: 'Programs list', role: 'other', authority: 'informational' });
     await a.uploadSourceFile(doc.id, new File(['id,name\n1,Mechanical\n2,Civil\n'], 'programs.csv', { type: 'text/csv' }));
     const user = userEvent.setup();
-    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const card = await screen.findByRole('region', { name: 'Programs list' });
     await user.click(within(card).getByRole('button', { name: /^Other/ }));
     expect((await within(card).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Not read yet');
@@ -516,7 +516,7 @@ describe('version page', () => {
     cleanup();
 
     // Someone who cannot edit sees the status but no button.
-    render(wrap(<VersionPage versionId={version.id} api={apiFor('viewer')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+    render(wrap(<VersionPage versionId={version.id} api={apiFor('viewer')} initialTab="docs" onOpenVersion={() => undefined} />));
     const ro = await screen.findByRole('region', { name: 'Programs list' });
     await userEvent.setup().click(within(ro).getByRole('button', { name: /^Other/ }));
     expect((await within(ro).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Read: 1 page');
@@ -524,9 +524,11 @@ describe('version page', () => {
   });
 
   it('describes where reading stands', () => {
-    const d = { title: 'x', storedPages: 4, pageCount: 4, needsOcrPages: 2 } as Parameters<typeof readStatus>[0];
-    expect(readStatus({ ...d, textStatus: 'ocr_needed' })).toBe('Read: 4 pages, 2 need OCR');
-    expect(readStatus({ ...d, textStatus: 'failed' })).toMatch(/could not be read/);
-    expect(readStatus({ ...d, textStatus: 'pending' })).toBe('Not read yet');
+    const d = { pageCount: 4, needsOcrPages: 2 };
+    expect(readStatus({ ...d, status: 'needs_ocr' })).toBe('Read: 4 pages, 2 need OCR');
+    expect(readStatus({ ...d, status: 'read' })).toBe('Read: 4 pages');
+    expect(readStatus({ ...d, status: 'queued' })).toBe('Reading the file…');
+    expect(readStatus({ ...d, status: 'failed' })).toMatch(/could not be read/);
+    expect(readStatus({ ...d, status: 'not_read' })).toBe('Not read yet');
   });
 });

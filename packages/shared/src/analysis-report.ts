@@ -61,8 +61,8 @@ export const ReportSourceSchema = z.object({
 export type ReportSource = z.infer<typeof ReportSourceSchema>;
 
 export const ReportLinkSchema = z.object({
-  tab: z.enum(['requirements', 'mappings', 'settings']),
-  /** Settings section, for tab 'settings'; 'ai' means Settings -> AI (outside the version page). */
+  tab: z.enum(['requirements', 'mappings', 'docs', 'settings']),
+  /** Settings section, for tab 'settings'; 'ai' means Settings -> AI (outside the version page). 'sources' is the old name of the Docs tab. */
   section: z.enum(['details', 'sources', 'ai', 'lifecycle', 'templates']).nullable(),
   requirementId: z.string().nullable(),
   documentId: z.string().nullable(),
@@ -224,7 +224,7 @@ export const PreflightCheckSchema = z.object({
   status: z.enum(['ok', 'problem', 'note']),
   message: z.string(),
   /** Where to fix it. 'ai' is Settings -> AI; 'sources' the Sources section; 'version' is this version's status. */
-  fix: z.object({ label: z.string(), where: z.enum(['ai', 'sources', 'version']) }).nullable(),
+  fix: z.object({ label: z.string(), where: z.enum(['ai', 'sources', 'version', 'docs']) }).nullable(),
 });
 export type PreflightCheck = z.infer<typeof PreflightCheckSchema>;
 export const PreflightSchema = z.object({

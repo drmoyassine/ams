@@ -9,6 +9,7 @@ import { evidenceRoutes } from './routes/evidence.js';
 import { publicRoutes } from './routes/public.js';
 import { requestRoutes } from './routes/requests.js';
 import { datasetRoutes } from './routes/datasets.js';
+import { documentRoutes } from './routes/documents.js';
 import { formRoutes } from './routes/forms.js';
 import { frameworkRoutes } from './routes/frameworks.js';
 import { glossaryRoutes } from './routes/glossary.js';
@@ -66,6 +67,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', trashRoutes(registry, deps, options))
     .route('/', templateRoutes(registry, deps, options))
     .route('/', analysisRoutes(registry, deps, options))
+    .route('/', documentRoutes(registry, deps, options))
 
     // Engagements and roadmaps (M2).
     .route('/', engagementRoutes(registry, deps, options))

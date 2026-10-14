@@ -86,7 +86,7 @@ services:
     env_file: .env
     environment:
       WORKER_NAME: agent
-      WORKER_QUEUES: analyse,ai_extract,ocr,assistant
+      WORKER_QUEUES: analyse,ai_extract,ocr,assistant,import
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

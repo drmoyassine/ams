@@ -81,7 +81,7 @@ describe('the Report tab', () => {
     const where: unknown[] = [];
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialTab="report" onOpenVersion={() => undefined} onLocation={(w) => where.push(w)} />));
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Report', 'Settings']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Requirements', 'Mappings', 'Report', 'Docs', 'Settings']);
     expect(screen.getByRole('tab', { name: 'Report' }).getAttribute('aria-selected')).toBe('true');
     const region = await screen.findByRole('region', { name: 'Analysis report' });
     expect(within(region).getByRole('heading', { level: 2, name: 'Analysis report' })).toBeTruthy();
@@ -129,7 +129,7 @@ describe('the Report tab', () => {
     await user.click(within(list2).getByRole('link', { name: `${FIXTURE_HANDBOOK.title}, page 5` }));
     const source = await screen.findByRole('region', { name: FIXTURE_HANDBOOK.title });
     await waitFor(() => expect(within(source).getByRole('tab', { name: '5' }).getAttribute('aria-selected')).toBe('true'));
-    expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Docs' }).getAttribute('aria-selected')).toBe('true');
   }, 60000);
 
   it('opens on the run named in the address and lets the person pick another', async () => {
@@ -355,7 +355,7 @@ describe('Analyse sources readiness', () => {
     await db.su.query(`insert into ai_setting (institution_id, model, enabled) values ($1, 'm', false)`, [ids.inst]);
     try {
       const a = apiFor('lead');
-      render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+      render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel = await screen.findByRole('region', { name: 'Analysis' });
       const button = await within(panel).findByRole('button', { name: 'Analyse sources' });
       await waitFor(() => expect(button.getAttribute('title')).toMatch(/switched off/));
@@ -372,7 +372,7 @@ describe('Analyse sources readiness', () => {
 
       await db.su.query(`update ai_setting set enabled = true where institution_id = $1`, [ids.inst]);
       setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
-      render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));
+      render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel2 = await screen.findByRole('region', { name: 'Analysis' });
       await waitFor(() => expect((within(panel2).getByRole('button', { name: 'Analyse sources' }) as HTMLButtonElement).disabled).toBe(false));
       expect(within(panel2).queryByText(/switched off/)).toBeNull();
