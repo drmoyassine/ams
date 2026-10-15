@@ -50,6 +50,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
   }, [accent]);
   const canSettings = can(me.data, 'org:read');
   const nav = [
+    { to: '/quality-management', label: t('nav.quality') },
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
   ] as const;
@@ -122,13 +123,11 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
           onClick={() => setDrawer(true)} className={`-ms-2 ${iconButton}`}
         ><span aria-hidden="true">☰</span></button>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <p className="shrink-0 font-semibold">{t('appName')}</p>
           {institutionName && <p className="flex min-w-0 items-center text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-7 max-w-40" textClassName="truncate" /></p>}
         </div>
         <LanguageMenu api={api} className="shrink-0" />
       </header>
       <aside className="print:hidden hidden w-56 shrink-0 border-e border-border bg-muted p-4 lg:block">
-        <p className="text-lg font-semibold">{t('appName')}</p>
         <p className="mb-3 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <InstitutionMark name={institutionName} logoUrl={logoUrl} />}</p>
         <LanguageMenu api={api} className="mb-6" />
         {!drawer && links}
@@ -143,7 +142,6 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
           >
             <div className="mb-6 flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-lg font-semibold">{t('appName')}</p>
                 {institutionName && <p className="break-words text-sm text-muted-foreground"><InstitutionMark name={institutionName} logoUrl={logoUrl} imgClassName="max-h-12 max-w-full" /></p>}
               </div>
               <button type="button" aria-label={t('nav.closeMenu')} onClick={close} className={`-me-2 ${iconButton}`}><span aria-hidden="true">✕</span></button>

@@ -15,7 +15,7 @@ export function EngagementsPage({ api: override }: { api?: EngagementApi }) {
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="min-w-0 text-xl font-semibold sm:text-2xl">Engagements</h1>
+        <h1 className="min-w-0 text-xl font-semibold sm:text-2xl">Accreditations</h1>
         {can(me.data, 'engagement:create') && (
           <Link to="/engagements/new" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">New engagement</Link>
         )}
@@ -25,7 +25,7 @@ export function EngagementsPage({ api: override }: { api?: EngagementApi }) {
         <Card><p className="text-muted-foreground">No engagements yet. An engagement runs one accreditation cycle for an institution or a program, from eligibility to maintenance.</p></Card>
       )}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Engagements">
+        <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Accreditations">
           {data.map((e) => (
             <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
               <div>

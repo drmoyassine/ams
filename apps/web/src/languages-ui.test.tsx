@@ -87,7 +87,7 @@ describe('the language menu in the header', () => {
     expect(document.documentElement.dataset.script).toBe('arabic');
     // Translated where the catalogue has the key, English where it does not.
     await waitFor(() => expect(screen.getAllByText('الأدلة').length).toBeGreaterThan(0));
-    expect(screen.getAllByText('Engagements').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Accreditations').length).toBeGreaterThan(0);
     // Saved on the person, on the server.
     await waitFor(async () => expect((await q(`select ui_locale from app_user where id = $1`, [ids.viewer])).rows[0].ui_locale).toBe('ar'));
     expect((await api.me()).language).toMatchObject({ uiLocale: 'ar', effectiveLocale: 'ar' });

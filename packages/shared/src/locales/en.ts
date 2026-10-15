@@ -45,7 +45,9 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'nav.closeMenu': 'Close menu',
   'nav.settings': 'Settings',
   'nav.programs': 'Programs',
-  'nav.engagements': 'Engagements',
+  'nav.quality': 'Quality Management',
+  'quality.placeholder': 'Running the Internal Quality Framework through its cycle will live here. Until then, the framework itself is in Settings.',
+  'nav.engagements': 'Accreditations',
   'nav.evidence': 'Evidence',
   'nav.myRequests': 'My requests ({{count}})',
 

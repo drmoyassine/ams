@@ -6,6 +6,7 @@ import { defaultSettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
+import { QualityManagementPage } from './pages/quality-management';
 import { AppLayout } from './pages/layout';
 import { EvidencePage } from './pages/evidence';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
@@ -108,6 +109,7 @@ function VersionRoute() {
   };
   return <VersionPage key={versionId} versionId={versionId} onLocation={onLocation} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} {...(run ? { initialRunId: run } : {})} {...(req ? { initialFocusRequirement: req } : {})} {...(doc && page ? { initialFocusPage: { documentId: doc, page } } : {})} />;
 }
+const qualityManagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/quality-management', component: () => <QualityManagementPage /> });
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
 const engagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/$id', component: () => <EngagementRoute /> });
@@ -119,7 +121,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
