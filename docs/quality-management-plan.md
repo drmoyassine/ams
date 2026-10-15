@@ -39,7 +39,10 @@ Cycle  (subject, template, status, dates)
   input to this year's stage 1.
 - **Review is just stages.** A review chain is a run of stages whose output is an `approval`; returning work is
   reopening the earlier stage. No separate review engine.
-- **Owners**: the template says who, as a role or an org-chart rule ("head of the unit", "head of the parent unit",
+- **Responsible unit and owner**: every cycle and every stage has a responsible unit (from the org chart) and an owner
+  (a person). The template gives both as rules (the subject's unit, its parent, a unit of a given type such as the QA
+  office; its head, or a role); launching resolves them, and both can be changed per stage.
+- **Owners (detail)**: the template says who, as a role or an org-chart rule ("head of the unit", "head of the parent unit",
   "QA office"); launching the cycle resolves it to a person, which can be changed per stage.
 - **Dates**: the template gives each stage an offset and a length from the cycle's start; launching turns them into
   dates, editable per stage. Order comes from the inputs, not from the dates, so stages may overlap.
@@ -129,7 +132,7 @@ All of them are **templates (data)**, never code (DEC-002).
 
 | Table / column | Notes |
 |---|---|
-| `cycle_plan` | anchor_kind, anchor_id; template_id; recurrence (`{ every: n, unit: 'term' \| 'month' \| 'year' }` or `{ after: 'previous_ends', setBy: 'decision' }`); first start date; applies_to (subject kinds, unit types, program levels, or a list); `mode`: `own` \| `opt_out` (inheriting is the absence of a plan); active |
+| `cycle_plan` | anchor_kind, anchor_id; template_id; responsible_unit_id and owner (default for its runs); recurrence (`{ every: n, unit: 'term' \| 'month' \| 'year' }` or `{ after: 'previous_ends', setBy: 'decision' }`); first start date; applies_to (subject kinds, unit types, program levels, or a list); `mode`: `own` \| `opt_out` (inheriting is the absence of a plan); active |
 | `cycle.plan_id` | the plan that produced the run (null for one-off cycles) |
 | `cycle.parent_cycle_id`, `cycle.parent_stage_id` | nesting: the stage that runs this child cycle |
 | `cycle.period_label` | "Fall 2026", "AY2026-27" |
@@ -170,7 +173,8 @@ Five new tables plus a permission set. Every table has the usual `id`, timestamp
 {
   key: 'self_evaluation', name: 'Self-evaluation', nameAr?: string,
   process: 'What to do…', checklist: ['…', '…'],
-  owner: { kind: 'role', role: 'lead' } | { kind: 'org', rule: 'head_of_subject' | 'head_of_parent' } | { kind: 'cycle_lead' },
+  unit: { kind: 'subject' } | { kind: 'parent_of_subject' } | { kind: 'unit_type', type: 'qa_office' } | { kind: 'cycle' },  // responsible unit
+  owner: { kind: 'head_of_unit' } | { kind: 'role', role: 'lead' } | { kind: 'cycle_lead' },                         // owner within it
   startOffsetDays: 0, lengthDays: 30,
   outputs: [{ key: 'ser', name: 'Self-evaluation report', kind: 'report' | 'document' | 'approval' | 'note',
               required: true, reportTemplateKey?: string, approver?: <same shape as owner> }],
@@ -190,7 +194,8 @@ Five new tables plus a permission set. Every table has the usual `id`, timestamp
 | anchor_kind | `institution` \| `org_unit` \| `program` \| `framework_version` \| `requirement` \| `evidence_item` \| `engagement` | what the cycle is about |
 | anchor_id | uuid | polymorphic, checked by the service (like `engagement.subject_id`) |
 | subject_kind, subject_id | `institution` \| `org_unit` \| `program`, uuid; both null | who does the work, when not the anchor itself |
-| lead_user_id | uuid | the cycle's lead; fallback owner |
+| responsible_unit_id | uuid | the org unit responsible for the cycle (required) |
+| lead_user_id | uuid | the cycle's owner (a person); fallback stage owner |
 | status | `draft` \| `active` \| `completed` \| `cancelled` | |
 | cancel_reason | text null | required when cancelled |
 | start_date, end_date | date | end = last stage's end unless edited |
@@ -206,7 +211,8 @@ Five new tables plus a permission set. Every table has the usual `id`, timestamp
 | process | text | |
 | checklist | jsonb | `[{ text, done, doneBy, doneAt }]` |
 | display_order | int | gap-free |
-| owner_user_id | uuid null | resolved at launch, editable |
+| responsible_unit_id | uuid | the org unit responsible for the stage; defaults to the cycle's |
+| owner_user_id | uuid null | the person who owns the stage; resolved at launch, editable |
 | start_date, end_date | date | from the offsets at launch, editable |
 | status | `not_started` \| `in_progress` \| `completed` \| `skipped` | completed only when every required output is `final` |
 | skip_reason | text null | required when skipped |

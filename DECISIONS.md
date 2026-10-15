@@ -1428,8 +1428,8 @@ decision: >-
   1. Quality Management runs the IQF through cycles; TASK-077 covers cycles and reporting only. 2. A cycle is made of
   ordered stages and has a status; each stage has inputs -> process -> outputs, an owner, a start date and an end date.
   3. A report is an output of a stage or an input to one (including the previous cycle's report); a review is a stage
-  whose output is an approval, so there is no separate review engine. 4. Owners are given in the template as a role or
-  an org-chart rule and resolved to a person when the cycle is launched. 5. Cycle templates live in Settings, with
+  whose output is an approval, so there is no separate review engine. 4. Every cycle and every stage has a responsible unit
+  (org chart) and an owner (a person), given in the template as rules and resolved when the cycle is launched. 5. Cycle templates live in Settings, with
   defaults (annual program report, periodic program review, admin unit review, internal audit, custom); report
   templates are shared with Accreditations. 6. The design is additive: new tables, nothing in engagements changes. 7.
   Deferred, each its own task if wanted: KPIs, outcome assessment, the shared action register and AI help. 8. Internal approval is never "met" or
