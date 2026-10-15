@@ -14,6 +14,7 @@ Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). Nothing 
 | TASK-083 | Start a cycle from the ⋯ menu; Cycles panels | 080 |
 | TASK-084 | Assistant reads and proposes cycles | 083 |
 | TASK-085 | Report outputs on the shared report engine | 080 + M4 report engine |
+| TASK-086 | IQF in operation: ⋯ menu (Link evidence, Assign scope, Assign champion, Create cycle), scope levels, cascade and inheritance to mapped standards | 078 |
 
 ## Scope
 
@@ -91,6 +92,48 @@ files never go to the AI):
   change.
 - The ⋯ menu's "Start a cycle" has "Ask the assistant to draft it" next to the templates.
 - Drafting report text and summarising stay deferred (see Scope).
+
+## Standards in operation: Link evidence, Assign scope, Assign champion, Create cycle (owner, 2026-10-15)
+
+The ⋯ menu of an IQF standard, sub-standard or item becomes: **Link evidence · Assign scope · Assign champion · Create
+cycle**. "Request evidence" leaves the menu: evidence is requested through a cycle (an evidence-collection cycle).
+
+**Where:** these are operations, not settings. They live on the IQF tree shown in the **Quality Management** menu.
+Settings -> Internal Quality Framework stays the place where the framework itself is written, versioned and published.
+
+### Scope
+
+- A scope says where a standard applies: a **level** (Institution, Unit, Program, Course, …) and optionally a **list**
+  of specific ones at that level ("Standard 4: every Program", or "only BSc Nursing and BSc Pharmacy").
+- The levels are a short list in **Settings -> Organization -> Institution** ("Scope levels"): Institution, Unit,
+  Program, Course to start with. Course is a placeholder level until course records exist; its list stays empty.
+- Scope cascades top-down: a sub-standard takes its standard's scope unless it has its own (override).
+
+### Champion
+
+- Same shape as scope: an overall champion for the standard, and optionally a champion per scoped item (each program's
+  own champion for Standard 4).
+- Champions cascade top-down by default (a sub-standard's champion is its standard's) with optional overrides at any
+  level and for any scoped item.
+
+### External standards inherit through mappings
+
+- An external requirement mapped to IQF nodes takes their scope and champion by default; it can override either.
+- Mapped to several IQF nodes: scope is the union of theirs; the champion is inherited only when they agree, otherwise
+  the screen asks for one.
+- The same rule already planned for cycle plans (inheritance down the IQF, then to mapped external requirements, with
+  override or opt-out at any level).
+
+### Schema additions
+
+| Table | Columns | Notes |
+|---|---|---|
+| `scope_level` | key, label_en, label_ar, kind (`institution` \| `org_unit` \| `program` \| `course` \| `custom`), display_order, active | Settings -> Organization -> Institution; seeded with the four levels |
+| `requirement_scope` | requirement_id, level_key, item_ids uuid[] (empty = all at that level) | an own scope on a node; none = inherit |
+| `requirement_champion` | requirement_id, scope_item_kind + scope_item_id (both null = overall), user_id | an own champion on a node (overall or per scoped item); none = inherit |
+
+These are operational rows outside the immutable framework version: they attach to a requirement and are carried to
+the next version together with mappings and evidence links when a new version is started.
 
 ## Templates
 
