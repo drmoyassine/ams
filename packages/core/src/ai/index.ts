@@ -87,6 +87,8 @@ export function envAiConfig(): AiConfig {
 }
 
 const DEFAULT_MAX_OUTPUT = 16_000;
+/** One model call may take this long (AI_CALL_TIMEOUT_MS, default 120 s) before it is given up; a stalled provider must not hold a run. */
+const callTimeoutMs = () => { const n = Number(process.env.AI_CALL_TIMEOUT_MS); return Number.isFinite(n) && n >= 1000 ? n : 120_000; };
 const redact = (message: string, key: string) => (key ? message.split(key).join('[key]') : message);
 
 /** Checks the budget, calls, and logs the outcome (to `runtime.calls` and as one JSON line) whether or not it worked. */
@@ -124,6 +126,12 @@ async function tracked<T>(
     entry.error = secrets.reduce((m, k) => redact(m, k), raw).slice(0, 500);
     finish();
     if (e instanceof BudgetExceeded) throw e;
+    if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new AiCallError(`The model did not answer within ${Math.round(callTimeoutMs() / 1000)} seconds (${config.model}). Choose a faster model in Settings -> AI.`, false);
+    }
+    if (/No output generated/i.test(raw)) {
+      throw new AiCallError(`The model (${config.model}) returned nothing. It may not support structured answers: choose another model in Settings -> AI.`, false);
+    }
     throw new AiCallError(entry.error);
   }
 }
@@ -145,7 +153,7 @@ export async function aiExtract<T>(p: AiExtractParams<T>): Promise<{ data: T; us
   const system = getPrompt(p.task, p.promptVersion);
   const { value, usage } = await tracked(runtime, { task: p.task, promptVersion: p.promptVersion }, estimateTokens(system + p.input), async (maxOutputTokens) => {
     const r = await generateText({
-      model: createModel(runtime.config), system, prompt: p.input, temperature: 0, maxOutputTokens, maxRetries: 1,
+      model: createModel(runtime.config), system, prompt: p.input, temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
       output: Output.object({ schema: p.schema }),
     });
     return { value: r.output as T, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
@@ -174,7 +182,7 @@ export async function aiOcr(p: AiOcrParams): Promise<{ text: string; usage: AiUs
   // An image costs roughly its pixel area / 750 tokens; the byte size is the only thing known here.
   const { value, usage } = await tracked(runtime, { task: 'ocr', promptVersion: version }, estimateTokens(system) + Math.ceil(p.image.byteLength / 100), async (maxOutputTokens) => {
     const r = await generateText({
-      model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1,
+      model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
       messages: [{ role: 'user', content: [{ type: 'text', text: system }, { type: 'file', data: p.image, mediaType: p.mime ?? 'image/png' }] }],
     });
     return { value: r.text, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };

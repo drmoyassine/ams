@@ -32,5 +32,6 @@ export class AiScopeError extends Error {
 
 /** The provider call failed (network, auth, invalid output). The message never contains the key. */
 export class AiCallError extends Error {
-  constructor(message: string) { super(message); this.name = 'AiCallError'; }
+  /** False when trying the same call again cannot help (the model returned nothing, or ran out of time): the job then stops at once. */
+  constructor(message: string, readonly retryable = true) { super(message); this.name = 'AiCallError'; }
 }

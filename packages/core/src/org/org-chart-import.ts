@@ -55,7 +55,7 @@ async function attempt<T>(ctx: Ctx, fn: () => Promise<T>): Promise<{ ok: true; v
 }
 
 export const orgChartTarget: ImportTarget<OrgChartImportItem> = {
-  kind: ORG_CHART_TARGET_KIND, label: 'Org chart', itemsLabel: 'units', scopeKinds: ['org_chart'], aiRole: 'reading',
+  kind: ORG_CHART_TARGET_KIND, label: 'Org chart', itemsLabel: 'units', scopeKinds: ['org_chart'], aiRole: 'analysis',
   description: 'Reads a picture or PDF of an org chart: the boxes with their names in English and Arabic, which box each hangs from, its type and its head when shown. The image and the names on it go to the AI reading model.',
   schema: OrgChartImportItemSchema,
   promptTask: 'import_org_chart', promptVersion: 'v1',

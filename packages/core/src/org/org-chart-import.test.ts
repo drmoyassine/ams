@@ -77,7 +77,7 @@ describe('the target', () => {
   it('is registered for the org_chart scope with the reading model, a versioned prompt and a schema', async () => {
     expect(findImportTarget(ORG_CHART_TARGET_KIND)).toBe(orgChartTarget);
     expect(orgChartTarget.scopeKinds).toEqual(['org_chart']);
-    expect(orgChartTarget.aiRole).toBe('reading');
+    expect(orgChartTarget.aiRole).toBe('analysis');
     expect(PROMPTS.import_org_chart.v1).toMatch(/organization chart/);
     expect(PROMPTS.ocr.v2).toMatch(/indented outline/);
     expect((await as('alo', (c) => listImportTargets(c, 'org_chart', null))).map((t) => t.kind)).toEqual(['org_chart']);
@@ -124,7 +124,7 @@ describe('a run end to end', () => {
     const run = await as('alo', (c) => startImport(c, { scopeKind: 'org_chart', scopeId: null, targetKind: 'org_chart', documentIds: [d.id] }));
     runId = run.id;
     await drain();
-    expect((await q(`select prompt_version, status, report->'runtime' as rt from import_run where id = $1`, [runId]))[0]).toMatchObject({ prompt_version: 'v1', status: 'succeeded', rt: { role: 'reading' } });
+    expect((await q(`select prompt_version, status, report->'runtime' as rt from import_run where id = $1`, [runId]))[0]).toMatchObject({ prompt_version: 'v1', status: 'succeeded', rt: { role: 'analysis' } });
     const list = (await as('alo', (c) => listImportProposals(c, runId))).proposals;
     expect(list.map((p) => [p.label, p.quoteVerified])).toEqual([['Board of Trustees', true], ['Faculty of Health', true], ['Nursing Department', true], ['Faculty of Law', true], ['Unsure Office', true]]);
     expect(list[0]!.flags).toContain('No parent box was found: it would be added at the top level.');

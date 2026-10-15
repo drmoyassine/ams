@@ -18,7 +18,7 @@ import { importPage, importProposal, importRun, job, sourcePage, sourceDocument 
 import { ACTIVE_IMPORT_STATUSES, IMPORT_STAGES, IMPORT_WINDOW_OVERLAP, IMPORT_WINDOW_PAGES, type ImportProgress, type ImportStage, type ImportUsage } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
-import { AiDisabledError, AiNotConfiguredError, aiExtract, BudgetExceeded, type AiRuntime } from '../ai/index.js';
+import { AiCallError, AiDisabledError, AiNotConfiguredError, aiExtract, BudgetExceeded, type AiRuntime } from '../ai/index.js';
 import { loadAiRuntime } from '../ai/settings.js';
 import { enqueueJob } from '../jobs/jobs.js';
 import { formatPages, LOW_CONFIDENCE, pageWindows } from '../framework/analysis/merge.js';
@@ -354,7 +354,7 @@ export async function importJob(ctx: Ctx, payload: Record<string, unknown>) {
       return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
     }
     const message = e instanceof Error ? e.message : String(e);
-    if (e instanceof ImportStop || e instanceof BudgetExceeded || e instanceof AiDisabledError || e instanceof AiNotConfiguredError || (await attemptsOfThisJob(ctx)) >= MAX_IMPORT_ATTEMPTS) {
+    if (e instanceof ImportStop || e instanceof BudgetExceeded || e instanceof AiDisabledError || e instanceof AiNotConfiguredError || (e instanceof AiCallError && !e.retryable) || (await attemptsOfThisJob(ctx)) >= MAX_IMPORT_ATTEMPTS) {
       const stoppedBy = e instanceof BudgetExceeded || report.stoppedBy === 'budget' ? 'budget' : 'error';
       // At the spend limit anything already proposed is still released; otherwise a failed run shows nothing half-done.
       if (e instanceof BudgetExceeded) await step(ctx, async () => { await verifyCandidates(ctx, run); await releaseCandidates(ctx, run); }).catch(() => undefined);

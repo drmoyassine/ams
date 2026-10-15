@@ -129,7 +129,7 @@ through services that are themselves undoable (Trash: delete = snapshot, restore
 
 `packages/core/src/org/org-chart-import.ts` is the target for pictures. What is different from a text target:
 
-- `aiRole: 'reading'`: the extract stage uses the Reading (vision) model of Settings -> AI. The image and the names on it go to it (DEC-028).
+- `aiRole: 'analysis'` for the org chart: the picture is turned into an outline by the Reading (vision) model in the OCR step; the extract step then works on that text with the Analysis model, which must support structured output (an OCR-only model such as dots returns nothing).
 - **How a picture becomes pages:** an upload is read by the parser's `extract_text` job; a page with no text layer (an image is one such page) goes to the
   existing `aiOcr` hook. `ocrPromptVersionFor` (`documents/reading.ts`) picks the OCR prompt per scope: documents of the `org_chart` scope use `ocr` v2
   (`prompts/ocr.v2.ts`: the chart as an indented outline, one line per box, words exactly as written), all others use v1. A new picture-reading place
@@ -217,3 +217,7 @@ Five-step chain on every route; business rules in `packages/core`; AI only in th
 identifier in code; temperature 0; prompts versioned in the repository; AI proposes, humans publish (the worker never writes your
 records and never approves); Arabic is first-class content (NFC, `dir="auto"`); migrations are forward-only; never write "compliant",
 "met", a readiness score or a predicted outcome.
+
+## Model failures (2026-10-15)
+
+A model call is cut off after `AI_CALL_TIMEOUT_MS` (default 120 000 ms) and, like "No output generated" (a model that cannot give structured answers, e.g. an OCR-only model), ends the run at once as failed with a plain reason; both used to be retried by the queue (4 attempts), which left the run looking stuck for many minutes. Other provider errors are still retried.

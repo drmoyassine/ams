@@ -303,6 +303,16 @@ describe('resume, cancel and the spend limit', () => {
     expect(sent).toHaveLength(0);
   }, 120000);
 
+  it('ends the run at once, with a plain reason, when the model returns nothing (retrying cannot help)', async () => {
+    const d = await upload('units-g.pdf', doc({ 1: 'Unit: Eta Unit (other)' }, 3));
+    setAiModelForTests(createFakeAiModel([new Error('No output generated.')]).model);
+    const run = await start([d.id]);
+    let threw = 0;
+    await drain({ retries: MAX_IMPORT_ATTEMPTS + 2, onError: () => { threw += 1; } });
+    expect(threw).toBe(0);
+    expect(await as('alo', (c) => getImportRun(c, run.id))).toMatchObject({ status: 'failed', error: expect.stringContaining('returned nothing') });
+  }, 120000);
+
   it('waits for the parser when a document is not read yet, then goes on', async () => {
     const d = await upload('units-f.pdf', doc({ 1: 'Unit: Delta Unit (other)' }, 2));
     setAiModelForTests(createFakeAiModel([testUnitsResponder()]).model);
