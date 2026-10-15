@@ -1,67 +1,76 @@
-# Quality Management — design draft (TASK-077)
+# Quality Management — Cycles and Reporting (TASK-077)
 
-Status: draft, in design with the owner (2026-10-15). Nothing here is built.
+Status: design, revised with the owner on 2026-10-15 (DEC-029). Nothing is built yet.
 
-## Owner's answers so far
+## Scope
 
-- Each unit or program runs its own rhythm; there is no shared institution year.
-- The review chain is configurable per cycle template.
-- Outcome assessment (PRD §13: outcomes, measures, targets, results) lives in Quality Management.
-- One shared action register for Quality Management and Accreditations (sources: self-evaluation, assessment, accreditor finding).
-- Cycle kinds: generic custom, annual program report, periodic program review, admin unit review, internal audit.
-- Cycles are defined at several levels: the whole IQF, a standard or sub-standard, and evidence collection. The same holds for external standards.
-- KPIs and measure values from BI: out of scope for now.
-- AI: draft narratives, suggest actions, summarise for leadership (AI proposes, humans approve).
+TASK-077 covers **cycles and reporting only**. A report is an outcome of a cycle, or a stage of one.
 
-## Core idea: one obligation scheduler for both menus
+Out of scope here, each to get its own task later if wanted: KPIs and measure values; outcome assessment (PRD §13); the
+shared action register; cadences on framework nodes and the scheduler; the academic calendar; evidence-collection
+cadences; AI help (drafting, suggesting, summarising).
 
-Time is attached to the framework, not to the menu. Any framework (IQF or external) can say how often something happens at any level, and one scheduler turns that into dated work for a subject (a unit, a program, the institution). Quality Management and Accreditations both read the same obligations; they differ only in whose framework and which cycle templates they use.
+## The model: a cycle is stages; a stage is inputs -> process -> outputs
 
-### Two kinds of time
+```
+Cycle  (subject, template, status, dates)
+ ├─ Stage 1  owner · start · end · status
+ │    inputs  ─▶  process  ─▶  outputs
+ ├─ Stage 2        ▲                 │
+ │    inputs ──────┘ (an output of an earlier stage)
+ └─ ...
+```
 
-1. **Review cadence** — how often a subject evaluates itself against a node of the framework (whole IQF every 5 years; Standard 3 every year). Set on any node; a node without one takes its nearest ancestor's (inheritance, overridable lower down).
-2. **Evidence cadence** — how often a piece of evidence must be collected or refreshed (course syllabi each term; graduate survey every year). Set on an *evidence expectation* hanging off a requirement. Independent of the review cadence: evidence is collected continuously; reviews read whatever is current.
+- **Cycle**: one run for one subject (the institution, a unit or a program), made from a **cycle template**. Statuses:
+  `draft` (being set up) -> `active` -> `completed`, or `cancelled` with a reason.
+- **Stage**: an ordered step with an **owner**, a **start date**, an **end date** and a status:
+  `not_started` -> `in_progress` -> `completed`, or `skipped` with a reason. A stage is completed when its required
+  outputs are final.
+- **Inputs -> process -> outputs**:
+  - The **process** is the stage's instructions: what to do, as text plus an optional checklist.
+  - An **output** is a named slot the stage must fill. Its kind is one of: `report` (from a report template),
+    `document` (an uploaded file), `approval` (a sign-off by a named person or role, with a comment), or `note` (short
+    text). Each slot is `missing` -> `draft` -> `final`.
+  - An **input** is a slot the stage reads. It points at an output of an earlier stage in the same cycle, at an output
+    of the subject's previous cycle of the same template, at an uploaded document, or at something the stage owner
+    picks (evidence, a document). A stage can start while inputs are missing; the screen says which are.
+- **A report is an output or an input.** Stage 2 writes "Self-evaluation report" (output); stage 3 reads it (input) and
+  produces "Review" (approval output); stage 4 reads both and produces "Final report". Last year's final report is an
+  input to this year's stage 1.
+- **Review is just stages.** A review chain is a run of stages whose output is an `approval`; returning work is
+  reopening the earlier stage. No separate review engine.
+- **Owners**: the template says who, as a role or an org-chart rule ("head of the unit", "head of the parent unit",
+  "QA office"); launching the cycle resolves it to a person, which can be changed per stage.
+- **Dates**: the template gives each stage an offset and a length from the cycle's start; launching turns them into
+  dates, editable per stage. Order comes from the inputs, not from the dates, so stages may overlap.
 
-### Objects (proposed)
+## Templates
 
-| Object | What it is |
-|---|---|
-| `cadence` | A rule: every N terms/months/years, anchored to a date or to the academic calendar, with a due window; or "on event" (new program, accreditor finding, change notice). |
-| `cadence_rule` on a framework node | The default cadence for a framework version, level by level (whole framework, standard, sub-standard, requirement). Versioned with the framework (like the lifecycle template); the AI compiler can propose it from phrases like "reviewed every five years". |
-| `evidence_expectation` | On a requirement: what evidence is expected, its cadence, who usually provides it (role or unit type), optional form. |
-| Applicability | Which subjects a cadence applies to (unit type, program level, a list of units), so graduate programs can be on 7 years and undergraduate on 5. |
-| Subject overlay | A unit's own exceptions (dates, a skipped year with a reason), outside the immutable framework version. |
-| `cycle_template` (Settings) | A kind of cycle: steps with due-date rules, scope (whole framework or chosen standards), review chain, report template. Kinds: annual program report, periodic program review, admin unit review, internal audit, custom. |
-| `quality_cycle` | One run for one subject, from a template: period, steps, status. Created when the scheduler says it is due (proposed to QA, or launched automatically if the template says so). |
-| Self-evaluation item | Per cycle × requirement in scope: narrative, evidence links, status through the review chain up to "Internally approved". Never "met"/"compliant". |
-| Collection task | Per evidence expectation × subject × period: who must provide what by when; reuses evidence requests. |
-| Action (shared) | Improvement action with source (self-evaluation, assessment result, accreditor finding, audit finding), owner, due date, follow-up. |
+- Cycle templates live in Settings -> Quality Management (new section). QA creates, edits and versions them; a running
+  cycle keeps the template version it started from.
+- Defaults are shipped for: annual program report, periodic program review, admin unit review, internal audit, and a
+  blank custom template. The institution's own templates can be imported through the Docs tab pattern later.
+- Report templates (sections, word limits, guidance) are shared with Accreditations: one report engine for both menus
+  (it is also M4's report work).
 
-### How IQF and external standards meet
+## Screens
 
-- The IQF↔external mappings already exist. When an external expectation maps to an IQF one with an equal or more frequent cadence, the scheduler does **not** create a second collection task: one collection serves both.
-- Accreditation maintenance (annual reports, follow-ups) keeps its lifecycle template; per-standard evidence cadences in external frameworks (e.g. continuous-improvement data each year) become collection tasks inside the engagement through the same scheduler.
+- **Quality Management** (menu): the list of cycles (filter by subject, template, status, due), "New cycle" (pick
+  subject and template, check owners and dates, launch), and a cycle page.
+- **Cycle page**: the stages as a timeline and a list; each stage shows owner, dates, status, inputs (with what is
+  missing), the process text and checklist, and the output slots with their state. Reports open in the report editor.
+- **My work**: the stages I own and the approvals waiting for me.
 
-## Screens (proposed)
+## Fit with what exists (additive)
 
-Overview (subjects, cycles due and running, overdue) · My work · Cycles (per subject) · Standards (IQF tree with each subject's latest review status) · Evidence collection (calendar of expectations) · Actions (shared register) · Assessment (outcomes, measures, results) · Reports.
+- New tables only: `cycle_template`, `cycle`, `cycle_stage`, `cycle_output` (slots with their content reference) and
+  `cycle_input` (links). Engagements and milestones are untouched.
+- Reuses: org chart and roles (owners), uploads and documents, evidence picker, Trash, Undo, audit, the Docs tab.
+- Accreditation milestones already have owner, due date and deliverable; they could later be described as stages too,
+  but that is not part of this task.
 
-## Decided (2026-10-15, DEC-029)
+## Open questions
 
-- Cadences live in the framework version (versioned, AI-proposable) plus a per-subject overlay for dated exceptions.
-- When a cycle falls due it is proposed and QA launches it; per-template automatic launch later.
-- An academic calendar (years and terms) in Settings.
-- Cadences can differ by unit type, program level or a list of subjects.
-
-- Review chain steps are org-chart based: "head of the unit", "head of the parent unit", "QA office", "Quality committee", resolved per subject from the org chart and roles.
-- A reviewer can comment and return, approve, approve with conditions (creating actions in the shared register), and review per item (one standard at a time) as well as the whole cycle. The last approval reads "Internally approved".
-- Report templates: defaults per cycle kind, and import from the institution's own templates through the Docs tab pattern.
-
-## Build order (proposed)
-
-1. **Foundations:** academic calendar (years, terms); cadence rules on framework nodes and evidence expectations, edited on the IQF and standards version pages and proposed by the AI compiler; applicability; subject overlays.
-2. **Cycles:** the scheduler (what falls due, per subject); cycle templates (defaults, import from documents); quality cycles proposed and launched by QA; self-evaluation items; the org-chart review chain with per-item review.
-3. **Evidence and actions:** collection tasks (reusing evidence requests), one collection serving mapped IQF and external expectations; the shared action register (engagement actions move into it).
-4. **Assessment:** outcomes, measures, targets, results (PRD §13), linked to requirements.
-5. **Reports and AI:** annual and periodic reports from templates; AI drafts narratives, suggests actions and summarises for leadership.
-6. **Accreditations on the scheduler:** external standards' cadences become collection tasks inside engagements; maintenance views read the same obligations.
+1. Who may create and launch cycles: QA only, or also a unit head for their own unit?
+2. Should "next cycle" be a button on a completed cycle (copy with new dates, carrying final reports as inputs)?
+3. Are inputs ever required to start a stage (a hard gate), or always just shown as missing?
