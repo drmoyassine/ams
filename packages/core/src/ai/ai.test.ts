@@ -30,6 +30,25 @@ describe('aiExtract', () => {
     expect(JSON.stringify(sent.prompt)).toContain('hello');
   });
 
+  it('asks once more for plain JSON when the model cannot give a structured answer, and checks it against the schema', async () => {
+    const fake = createFakeAiModel([new Error('No output generated.'), 'Here it is:\n```json\n{"items":["x"]}\n```']);
+    setAiModelForTests(fake.model);
+    const runtime = createAiRuntime(config);
+    const { data } = await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime }));
+    expect(data).toEqual({ items: ['x'] });
+    expect(fake.calls).toHaveLength(2);
+    expect(JSON.stringify(fake.calls[1])).toContain('JSON Schema');
+    expect(runtime.calls).toHaveLength(1); // one logged call
+  });
+
+  it('gives up with a plain reason when the plain JSON answer does not fit either', async () => {
+    setAiModelForTests(createFakeAiModel([new Error('No output generated.'), 'sorry, I cannot']).model);
+    const err = await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime(config) })).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiCallError);
+    expect((err as AiCallError).retryable).toBe(false);
+    expect((err as Error).message).toContain('returned nothing');
+  });
+
   it('logs each call as one JSON line, without the key', async () => {
     setAiModelForTests(createFakeAiModel([{ items: [] }]).model);
     await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime(config) }));

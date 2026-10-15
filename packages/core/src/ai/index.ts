@@ -1,7 +1,7 @@
 // The ONE import point for the AI SDK (DEC-012). Everything else calls aiExtract / aiOcr and never imports `ai`.
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { embedMany, generateText, isStepCount, Output, tool } from 'ai';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { aiEnvKey, aiKeyOptional, loadAiEnv } from '@ams/shared';
 import { AiBudget, estimateTokens } from './budget.js';
 import { AiCallError, AiNotConfiguredError, AiScopeError, BudgetExceeded } from './errors.js';
@@ -87,6 +87,17 @@ export function envAiConfig(): AiConfig {
 }
 
 const DEFAULT_MAX_OUTPUT = 16_000;
+/** The structured-output request produced nothing usable (as opposed to a network, key or time-out failure). */
+const structuredOutputFailed = (e: unknown) => e instanceof Error && e.name !== 'TimeoutError' && e.name !== 'AbortError'
+  && (/NoObjectGenerated|NoOutputGenerated|JSONParse|TypeValidation/i.test(e.name) || /No output generated|could not parse|No object generated|response_format|json_schema|structured output/i.test(e.message));
+/** The first JSON object in a model's text answer (tolerates a code fence or a sentence around it). */
+function parseJsonObject(text: string): unknown {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+  try { return JSON.parse(t); } catch { /* look for the object inside */ }
+  const a = t.indexOf('{'); const b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
+}
 /** One model call may take this long (AI_CALL_TIMEOUT_MS, default 120 s) before it is given up; a stalled provider must not hold a run. */
 const callTimeoutMs = () => { const n = Number(process.env.AI_CALL_TIMEOUT_MS); return Number.isFinite(n) && n >= 1000 ? n : 120_000; };
 const redact = (message: string, key: string) => (key ? message.split(key).join('[key]') : message);
@@ -152,11 +163,25 @@ export async function aiExtract<T>(p: AiExtractParams<T>): Promise<{ data: T; us
   const runtime = p.runtime ?? createAiRuntime(hasTestModel() ? { provider: 'test', model: 'test', apiKey: '' } : envAiConfig());
   const system = getPrompt(p.task, p.promptVersion);
   const { value, usage } = await tracked(runtime, { task: p.task, promptVersion: p.promptVersion }, estimateTokens(system + p.input), async (maxOutputTokens) => {
-    const r = await generateText({
-      model: createModel(runtime.config), system, prompt: p.input, temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
-      output: Output.object({ schema: p.schema }),
-    });
-    return { value: r.output as T, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+    try {
+      const r = await generateText({
+        model: createModel(runtime.config), system, prompt: p.input, temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
+        output: Output.object({ schema: p.schema }),
+      });
+      return { value: r.output as T, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+    } catch (e) {
+      if (!structuredOutputFailed(e)) throw e;
+      // Many models behind OpenRouter or a compatible server ignore or choke on the structured-output request. Ask once
+      // more for plain JSON described in the prompt, and check it against the same schema here.
+      const r = await generateText({
+        model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
+        system: `${system}\n\nAnswer with one JSON object only, no prose and no code fence, matching this JSON Schema:\n${JSON.stringify(z.toJSONSchema(p.schema))}`,
+        prompt: p.input,
+      });
+      const parsed = p.schema.safeParse(parseJsonObject(r.text));
+      if (!parsed.success) throw new Error(`No output generated (the model's plain JSON answer did not fit: ${parsed.error.issues[0]?.message ?? 'invalid'})`);
+      return { value: parsed.data, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+    }
   });
   return { data: value, usage };
 }
