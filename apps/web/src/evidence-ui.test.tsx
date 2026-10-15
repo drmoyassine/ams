@@ -327,3 +327,42 @@ describe('the evidence library', () => {
     expect(screen.queryByRole('list', { name: 'Evidence' })).toBeNull();
   });
 });
+
+// Last, so the extra links do not change what the tests above count.
+describe('linking several pieces of evidence', () => {
+  it('links several pieces of evidence to one standard at once, each with its reason (Same for all copies the first)', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    for (const t of ['Faculty handbook 2026', 'Faculty senate bylaws']) {
+      const ev = await a.evidence.create({ title: t, type: 'document' });
+      await a.evidence.upload(ev.id, new File([t], `${t}.pdf`, { type: 'application/pdf' }));
+    }
+    render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
+    const item = await screen.findByRole('region', { name: 'Standard 3.2' });
+    await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.2' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Link evidence' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('combobox', { name: 'Search evidence' }), 'Faculty');
+    await user.click(await within(dialog).findByRole('option', { name: /Faculty handbook 2026/ }));
+    await user.type(within(dialog).getByRole('combobox', { name: 'Add more evidence' }), 'Faculty');
+    await user.click(await within(dialog).findByRole('option', { name: /Faculty senate bylaws/ }));
+    expect(within(dialog).getAllByTestId('chosen-evidence')).toHaveLength(2);
+    const go = () => within(dialog).getByRole('button', { name: 'Link 2 pieces of evidence' }) as HTMLButtonElement;
+    await user.type(within(dialog).getByLabelText('Justification for Faculty handbook 2026'), 'Faculty governance rules');
+    expect(go().disabled).toBe(true); // every piece needs its reason
+    await user.click(within(dialog).getByRole('button', { name: 'Same for all' }));
+    expect((within(dialog).getByLabelText('Justification for Faculty senate bylaws') as HTMLTextAreaElement).value).toBe('Faculty governance rules');
+    await user.click(go());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => {
+      const texts = within(item).getAllByTestId('evidence-link').map((l) => l.textContent ?? '');
+      expect(texts.some((t) => t.includes('Faculty handbook 2026'))).toBe(true);
+      expect(texts.some((t) => t.includes('Faculty senate bylaws'))).toBe(true);
+    });
+    for (const t of ['Faculty handbook 2026', 'Faculty senate bylaws']) { // approved, so the library's "To review" filter stays as the later tests expect
+      const link = within(item).getAllByTestId('evidence-link').find((l) => l.textContent?.includes(t))!;
+      await user.click(within(link).getByRole('button', { name: 'Approve' }));
+      await waitFor(() => expect(within(item).getAllByTestId('evidence-link').find((l) => l.textContent?.includes(t))!.textContent).toContain('Approved'));
+    }
+  });
+});

@@ -62,28 +62,42 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, 
 }
 
 /**
- * Link evidence to something: search the repository; when it is not there, create it from the search. Once a piece of
- * evidence is chosen, say why it supports this (the justification, required).
+ * Link evidence to something: search the repository and pick one or more pieces (a standard is usually supported by
+ * several); when one is not there, create it from the search. Each chosen piece needs its justification (required);
+ * "Same for all" copies the first one to the rest. The links are made one after another; a failure stops there and says
+ * which were linked.
  */
 export function LinkEvidenceDialog({ api, title, onLink, onClose }: {
   api: EvidenceApi; title: string; onLink: (evidenceVersionId: string, justification: string) => Promise<unknown>; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
-  const [chosen, setChosen] = useState<EvidenceItem | null>(null);
+  const [chosen, setChosen] = useState<EvidenceItem[]>([]);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
-  const [justification, setJustification] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const list = useQuery({ queryKey: ['evidence', q], queryFn: () => api.list(q || undefined) });
-  const matches = (list.data ?? []).filter((e) => e.latest && e.status === 'active');
-  const showResults = focused && !chosen;
+  const picked = new Set(chosen.map((c) => c.id));
+  const matches = (list.data ?? []).filter((e) => e.latest && e.status === 'active' && !picked.has(e.id));
+  const showResults = focused;
+  const choose = (ev: EvidenceItem) => { setChosen((c) => (c.some((x) => x.id === ev.id) ? c : [...c, ev])); setQ(''); setFocused(false); };
+  const remove = (id: string) => { setChosen((c) => c.filter((x) => x.id !== id)); setReasons((r) => { const rest = { ...r }; delete rest[id]; return rest; }); };
+  const ready = chosen.length > 0 && chosen.every((c) => c.latest && (reasons[c.id] ?? '').trim());
+  const several = chosen.length > 1;
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!chosen?.latest || !justification.trim()) return;
+    if (!ready) return;
     setBusy(true); setError('');
-    try { await onLink(chosen.latest.id, justification.trim()); onClose(); } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+    const done: string[] = [];
+    try {
+      for (const c of chosen) { await onLink(c.latest!.id, reasons[c.id]!.trim()); done.push(c.id); }
+      onClose();
+    } catch (err) {
+      setChosen((cs) => cs.filter((c) => !done.includes(c.id)));
+      setError(done.length ? `${done.length} linked; the rest were not: ${(err as Error).message}` : (err as Error).message);
+    } finally { setBusy(false); }
   };
 
   return (
@@ -94,47 +108,54 @@ export function LinkEvidenceDialog({ api, title, onLink, onClose }: {
           <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
         </div>
         <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Link evidence">
-          {chosen ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm" data-testid="chosen-evidence">
-              <span className="min-w-0 break-words font-medium" dir="auto">{chosen.title}</span>
-              <span className="text-xs text-muted-foreground">v{chosen.latest?.versionNo}{chosen.periodLabel ? ` · ${chosen.periodLabel}` : ''}</span>
-              <Button type="button" variant="ghost" className="ms-auto px-2 py-1" onClick={() => { setChosen(null); setJustification(''); }}>Change</Button>
-            </div>
-          ) : (
-            <div className="relative" onFocus={() => setFocused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false); }}>
-              <Input role="combobox" aria-expanded={showResults} aria-controls="evidence-results" aria-label="Search evidence"
-                placeholder="Search evidence by title or tag" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-              {showResults && (
-                <ul id="evidence-results" role="listbox" aria-label="Matching evidence" className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
-                  {matches.map((ev) => (
-                    <li key={ev.id} role="option" aria-selected={false} tabIndex={-1} className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted"
-                      onMouseDown={(e) => e.preventDefault()} onClick={() => setChosen(ev)}>
-                      <span className="font-medium">{ev.title}</span> <span className="text-xs text-muted-foreground">v{ev.latest!.versionNo}{ev.periodLabel ? ` · ${ev.periodLabel}` : ''}</span>
-                    </li>
-                  ))}
-                  {list.data && matches.length === 0 && <li className="px-3 py-1.5 text-sm text-muted-foreground">{q ? `No evidence matches "${q}".` : 'The evidence repository is empty.'}</li>}
-                  <li role="option" aria-selected={false} tabIndex={-1} className="cursor-pointer border-t border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-                    onMouseDown={(e) => e.preventDefault()} onClick={() => setCreating(true)}>
-                    + Create new evidence{q ? ` "${q}"` : ''}
+          <div className="relative" onFocus={() => setFocused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false); }}>
+            <Input role="combobox" aria-expanded={showResults} aria-controls="evidence-results" aria-label={chosen.length ? 'Add more evidence' : 'Search evidence'}
+              placeholder={chosen.length ? 'Add more: search by title or tag' : 'Search evidence by title or tag'} value={q} onChange={(e) => setQ(e.target.value)} autoFocus={!chosen.length} />
+            {showResults && (
+              <ul id="evidence-results" role="listbox" aria-label="Matching evidence" className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
+                {matches.map((ev) => (
+                  <li key={ev.id} role="option" aria-selected={false} tabIndex={-1} className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted"
+                    onMouseDown={(e) => e.preventDefault()} onClick={() => choose(ev)}>
+                    <span className="font-medium" dir="auto">{ev.title}</span> <span className="text-xs text-muted-foreground">v{ev.latest!.versionNo}{ev.periodLabel ? ` · ${ev.periodLabel}` : ''}</span>
                   </li>
-                </ul>
-              )}
-            </div>
-          )}
-          {chosen && (
-            <label className="flex flex-col text-sm">Justification
-              <textarea aria-label="Justification" required rows={3} dir="auto" autoFocus className="rounded-md border border-border p-2 text-sm"
-                placeholder="Why this evidence supports it" value={justification} onChange={(e) => setJustification(e.target.value)} />
-            </label>
+                ))}
+                {list.data && matches.length === 0 && <li className="px-3 py-1.5 text-sm text-muted-foreground">{q ? `No evidence matches "${q}".` : 'The evidence repository is empty.'}</li>}
+                <li role="option" aria-selected={false} tabIndex={-1} className="cursor-pointer border-t border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => setCreating(true)}>
+                  + Create new evidence{q ? ` "${q}"` : ''}
+                </li>
+              </ul>
+            )}
+          </div>
+          {chosen.length > 0 && (
+            <ul className="space-y-3" aria-label="Chosen evidence">
+              {chosen.map((c, i) => (
+                <li key={c.id} className="space-y-1 rounded-md border border-border p-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="chosen-evidence">
+                    <span className="min-w-0 break-words font-medium" dir="auto">{c.title}</span>
+                    <span className="text-xs text-muted-foreground">v{c.latest?.versionNo}{c.periodLabel ? ` · ${c.periodLabel}` : ''}</span>
+                    <Button type="button" variant="ghost" className="ms-auto px-2 py-1" aria-label={several ? `Remove ${c.title}` : undefined} onClick={() => remove(c.id)}>{several ? 'Remove' : 'Change'}</Button>
+                  </div>
+                  <label className="flex flex-col text-sm">{several ? <span className="sr-only">Justification for {c.title}</span> : 'Justification'}
+                    <textarea aria-label={several ? `Justification for ${c.title}` : 'Justification'} required rows={several ? 2 : 3} dir="auto" autoFocus={i === chosen.length - 1}
+                      className="rounded-md border border-border p-2 text-sm" placeholder="Why this evidence supports it"
+                      value={reasons[c.id] ?? ''} onChange={(e) => setReasons((r) => ({ ...r, [c.id]: e.target.value }))} />
+                  </label>
+                  {several && i === 0 && (reasons[c.id] ?? '').trim() && (
+                    <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setReasons((r) => Object.fromEntries(chosen.map((x) => [x.id, (r[x.id] ?? '').trim() ? r[x.id]! : r[c.id]!])))}>Same for all</Button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy || !chosen || !justification.trim()}>{busy ? 'Linking…' : 'Link evidence'}</Button>
+            <Button type="submit" disabled={busy || !ready}>{busy ? 'Linking…' : several ? `Link ${chosen.length} pieces of evidence` : 'Link evidence'}</Button>
           </div>
         </form>
       </Modal>
-      {creating && <NewEvidenceDialog api={api} initialTitle={q} onClose={() => setCreating(false)} onCreated={(item) => { setCreating(false); setChosen(item); }} />}
+      {creating && <NewEvidenceDialog api={api} initialTitle={q} onClose={() => setCreating(false)} onCreated={(item) => { setCreating(false); choose(item); }} />}
     </>
   );
 }
