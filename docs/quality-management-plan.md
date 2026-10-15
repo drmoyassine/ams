@@ -93,6 +93,59 @@ files never go to the AI):
   missing), the process text and checklist, and the output slots with their state. Reports open in the report editor.
 - **My work**: the stages I own and the approvals waiting for me.
 
+## Worked examples the model must hold (owner, 2026-10-15)
+
+Accreditor timelines below come from PRD §5.2 (the accreditors' pages were not reachable from the build environment).
+All of them are **templates (data)**, never code (DEC-002).
+
+| Example | Anchor · subject | Shape |
+|---|---|---|
+| **ABET program accreditation** (Accreditations) | engagement · program | Readiness review (request Apr–15 Aug, report 1 Sep) -> Request for Evaluation (31 Jan) -> Self-study report (1 Jul) -> Visit (Sep–Dec) -> Draft statement + 30-day due-process response -> Final statement (by 31 Aug next year) -> **Maintenance** (interim report if IR/IV; changes reported) -> **Re-accreditation** (next general review, typically 6 years) |
+| **WSCUC institutional accreditation** (Accreditations) | engagement · institution | Eligibility (inquiry, alignment and financial review, decision within 60 business days, application) -> Self-study and Institutional Report -> Offsite review -> Visit -> Commission action, letter within 30 days -> **Maintenance** (Annual Report every year; progress reports, special visits) -> **Reaffirmation** (6/8/10 years per the action) |
+| **ISO certification of an admin unit** (Accreditations) | engagement · org unit (IT, Facilities) | Stage 1 and stage 2 audits -> certification -> yearly surveillance audits -> recertification every 3 years |
+| **IQF annual reporting** (Quality Management) | IQF · each program / unit | Collect -> self-evaluate -> review chain -> annual report; **every year**; optional extra cycles on a standard or sub-standard |
+| **Course assessment** (Quality Management) | a standard, sub-standard or evidence item · program | Collect course results -> analyse -> report -> close the loop; **every semester** |
+| **External standards mapped to the IQF** | the mapped requirement | follow the IQF's cycle by default; can be overridden at any level |
+
+### What the model needs for these (additions to the schema)
+
+1. **Recurrence.** Cycles repeat: every semester, every year, every N years, or "date set when the previous one ends" (an
+   accreditor's decision fixes the next review: 6/8/10 years). A cycle run carries a `period_label` ("Fall 2026",
+   "AY2026-27", "2026-2032").
+2. **Nesting.** A stage can run a **child cycle**: WSCUC's maintenance stage runs the Annual Report cycle every year
+   until the stage ends; ABET's maintenance runs an interim-report cycle only when the decision asks for one; ISO's
+   surveillance audits are yearly child cycles. Re-accreditation is the **next run** of the parent cycle.
+3. **Plans with inheritance.** A *cycle plan* attaches a template and a recurrence to an anchor ("the IQF: annual
+   report, every year, for every program"; "Standard 4: an extra cycle every semester"). Down the IQF tree a node uses
+   its own plan or its nearest ancestor's. An external requirement mapped to an IQF node uses that node's plan unless it
+   has its own; any level can **override** (own plan) or **opt out**.
+4. **Academic terms.** "Every semester" needs the institution's terms: a small list (name, start, end) in Settings.
+5. **Where they are managed.** Cycles anchored to an accreditation (engagement) live in **Accreditations**; all others in
+   **Quality Management**. Same engine, same screens, two menus.
+6. **Subjects.** Accreditations need an org unit as a subject too (ISO for IT or Facilities); today an engagement's
+   subject is the institution or a program.
+
+### Schema additions
+
+| Table / column | Notes |
+|---|---|
+| `cycle_plan` | anchor_kind, anchor_id; template_id; recurrence (`{ every: n, unit: 'term' \| 'month' \| 'year' }` or `{ after: 'previous_ends', setBy: 'decision' }`); first start date; applies_to (subject kinds, unit types, program levels, or a list); `mode`: `own` \| `opt_out` (inheriting is the absence of a plan); active |
+| `cycle.plan_id` | the plan that produced the run (null for one-off cycles) |
+| `cycle.parent_cycle_id`, `cycle.parent_stage_id` | nesting: the stage that runs this child cycle |
+| `cycle.period_label` | "Fall 2026", "AY2026-27" |
+| stage definition `child` | `{ templateKey, recurrence, until: 'stage_end' }` or `{ templateKey, when: 'output', output: 'decision' }` |
+| `academic_term` | name, name_ar, start_date, end_date (Settings) |
+| `engagement.subject_type` | add `org_unit` |
+
+The scheduler that reads plans and proposes the next runs is small: for each plan (and each subject it applies to), the
+next run is due when the previous run's period ends; QA launches it (proposed by default, per DEC-029).
+
+### Relation to today's Accreditation roadmap
+
+Engagements already have a lifecycle template with phases and milestones. To stay additive, the roadmap stays as it
+is in the first build; an engagement can additionally have cycles (maintenance annual reports, interim reports). A
+later step can express the lifecycle template itself as a cycle template, so both menus run on one engine.
+
 ## Schema (proposed)
 
 Five new tables plus a permission set. Every table has the usual `id`, timestamps, `created_by/updated_by`,

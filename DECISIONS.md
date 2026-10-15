@@ -1432,13 +1432,17 @@ decision: >-
   an org-chart rule and resolved to a person when the cycle is launched. 5. Cycle templates live in Settings, with
   defaults (annual program report, periodic program review, admin unit review, internal audit, custom); report
   templates are shared with Accreditations. 6. The design is additive: new tables, nothing in engagements changes. 7.
-  Deferred, each its own task if wanted: KPIs, outcome assessment, the shared action register, cadences and a
-  scheduler, the academic calendar, evidence-collection cadences and AI help. 8. Internal approval is never "met" or
+  Deferred, each its own task if wanted: KPIs, outcome assessment, the shared action register and AI help. 8. Internal approval is never "met" or
   "compliant" (DEC-005).
   9. A cycle can be built at any level: it has one anchor (institution, unit, program, IQF or external standard at any
   depth, requirement, evidence item, engagement) and optionally a subject; it can be started from the ⋯ menu of almost
   anything, with the templates that fit that anchor. 10. Cycles are AI-aware: the assistant reads them and may propose a
-  cycle as a change a person confirms (DEC-006, DEC-027).
+  cycle as a change a person confirms (DEC-006, DEC-027). 11. Cycles recur (every term, year or N years, or when the
+  previous one ends) and nest (a stage runs a child cycle, e.g. maintenance runs a yearly annual report); re-accreditation
+  is the next run. 12. A cycle plan attaches a template and recurrence to an anchor; IQF nodes inherit their nearest
+  ancestor's plan, external requirements mapped to the IQF follow the IQF's plan by default, and any level can
+  override or opt out. 13. Cycles anchored to an accreditation are managed in Accreditations, all others in Quality
+  Management; one engine. Accreditor cycles (ABET, WSCUC, ISO) are templates, never code (DEC-002).
 rationale: >-
   The owner asked for a simple, additive model that can describe any cycle and any report: stages with inputs,
   process and outputs cover review chains, reports and continuity between cycles without separate engines.
