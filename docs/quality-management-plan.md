@@ -116,7 +116,15 @@ Settings -> Internal Quality Framework stays the place where the framework itsel
 - Champions cascade top-down by default (a sub-standard's champion is its standard's) with optional overrides at any
   level and for any scoped item.
 
-### External standards inherit through mappings
+### External standards: the same menu, inherited through mappings
+
+- External standards, sub-standards and requirements get the **same ⋯ menu**: Link evidence, Assign scope, Assign
+  champion, Create cycle. It sits on the standards' tree in **Accreditations** (the engagement's standards), the
+  operational place for external standards; the version page in Settings stays for authoring.
+- What a node shows is inherited by default and labelled with where it comes from ("From IQF 4.2"); choosing an action
+  on an inherited value creates an override on that node, and "Back to inherited" removes it.
+- Evidence linked on the mapped IQF node already counts for the external requirement (collected once); "Link evidence"
+  here adds evidence for this requirement only.
 
 - An external requirement mapped to IQF nodes takes their scope and champion by default; it can override either.
 - Mapped to several IQF nodes: scope is the union of theirs; the champion is inherited only when they agree, otherwise
