@@ -93,6 +93,115 @@ files never go to the AI):
   missing), the process text and checklist, and the output slots with their state. Reports open in the report editor.
 - **My work**: the stages I own and the approvals waiting for me.
 
+## Schema (proposed)
+
+Five new tables plus a permission set. Every table has the usual `id`, timestamps, `created_by/updated_by`,
+`institution_id`, tenant RLS and the audit trigger. Forward-only migration; nothing existing changes.
+
+### `cycle_template` — a reusable shape (Settings -> Quality Management)
+
+| Column | Type | Notes |
+|---|---|---|
+| key | text | unique per institution, e.g. `annual_program_report` |
+| name, name_ar | text | |
+| description | text null | |
+| anchor_kinds | text[] | which anchors it fits (see `cycle.anchor_kind`); empty = any |
+| stages | jsonb | the stage definitions, validated by Zod (below) |
+| version | int | +1 on each publish; a cycle keeps the version it was launched from |
+| status | `draft` \| `published` \| `retired` | only published templates are offered |
+| origin | `default` \| `manual` \| `import` | shipped default, made by hand, or imported from a document |
+
+`stages` (one entry per stage, in order):
+
+```ts
+{
+  key: 'self_evaluation', name: 'Self-evaluation', nameAr?: string,
+  process: 'What to do…', checklist: ['…', '…'],
+  owner: { kind: 'role', role: 'lead' } | { kind: 'org', rule: 'head_of_subject' | 'head_of_parent' } | { kind: 'cycle_lead' },
+  startOffsetDays: 0, lengthDays: 30,
+  outputs: [{ key: 'ser', name: 'Self-evaluation report', kind: 'report' | 'document' | 'approval' | 'note',
+              required: true, reportTemplateKey?: string, approver?: <same shape as owner> }],
+  inputs:  [{ key: 'last_final', name: 'Last year’s final report',
+              from: { stage: 'final', output: 'final_report' }      // earlier stage, same cycle
+                  | { previousCycle: { stage: 'final', output: 'final_report' } }
+                  | { pick: 'document' | 'evidence' | 'requirement' | 'any' } }]
+}
+```
+
+### `cycle` — one run
+
+| Column | Type | Notes |
+|---|---|---|
+| title | text | defaults to template name + anchor + period |
+| template_id, template_version | uuid null, int null | null for a blank cycle |
+| anchor_kind | `institution` \| `org_unit` \| `program` \| `framework_version` \| `requirement` \| `evidence_item` \| `engagement` | what the cycle is about |
+| anchor_id | uuid | polymorphic, checked by the service (like `engagement.subject_id`) |
+| subject_kind, subject_id | `institution` \| `org_unit` \| `program`, uuid; both null | who does the work, when not the anchor itself |
+| lead_user_id | uuid | the cycle's lead; fallback owner |
+| status | `draft` \| `active` \| `completed` \| `cancelled` | |
+| cancel_reason | text null | required when cancelled |
+| start_date, end_date | date | end = last stage's end unless edited |
+| previous_cycle_id | uuid null | the subject's previous run of the same template (for `previousCycle` inputs) |
+| origin | `manual` \| `assistant` | `assistant` when made from a confirmed assistant proposal |
+
+### `cycle_stage` — a stage of a run
+
+| Column | Type | Notes |
+|---|---|---|
+| cycle_id | uuid | |
+| key, name, name_ar | text | from the template (or typed, for a blank cycle) |
+| process | text | |
+| checklist | jsonb | `[{ text, done, doneBy, doneAt }]` |
+| display_order | int | gap-free |
+| owner_user_id | uuid null | resolved at launch, editable |
+| start_date, end_date | date | from the offsets at launch, editable |
+| status | `not_started` \| `in_progress` \| `completed` \| `skipped` | completed only when every required output is `final` |
+| skip_reason | text null | required when skipped |
+| started_at, completed_at | timestamptz null | |
+
+### `cycle_output` — a slot the stage fills
+
+| Column | Type | Notes |
+|---|---|---|
+| stage_id | uuid | |
+| key, name | text | |
+| kind | `report` \| `document` \| `approval` \| `note` | |
+| required | bool | |
+| state | `missing` \| `draft` \| `final` | |
+| report_template_key, report_id | text null, uuid null | the report (shared report engine) |
+| file_key, file_name, file_mime, file_size | null | the uploaded document (object storage, like other uploads) |
+| note | text null | for `note` |
+| approver_user_id | uuid null | for `approval`: who must sign |
+| decision | `approved` \| `approved_with_conditions` \| `returned`, null | for `approval`; `returned` reopens the stage that produced the inputs |
+| decision_comment | text null | required for `returned` and `approved_with_conditions` |
+| finalised_by, finalised_at | uuid null, timestamptz null | |
+
+### `cycle_input` — what a stage reads
+
+| Column | Type | Notes |
+|---|---|---|
+| stage_id | uuid | |
+| key, name | text | |
+| source | `stage_output` \| `previous_cycle` \| `pick` | |
+| output_id | uuid null | the `cycle_output` it reads (this cycle's earlier stage, or the previous cycle's), set at launch |
+| ref_kind, ref_id | text null, uuid null | for `pick`: `document`, `evidence_item`, `requirement`, … |
+| required | bool | shown as missing when not satisfied; never blocks (parked Q3) |
+
+An input is *satisfied* when its `output_id` points at a `final` output, or its `pick` has a `ref_id`.
+
+### Permissions
+
+- `cycle:read` — everyone with read access.
+- `cycle:manage` — create, launch, edit dates and owners, cancel (admin, lead).
+- `cycle:work` — fill outputs on stages you own (any role); stage owners can always work on their own stage.
+- An `approval` output can be decided only by its `approver_user_id`.
+
+### Trash, Undo, audit
+
+- Deleting a draft cycle sends it to the Trash with its stages, outputs and inputs; active and completed cycles are
+  cancelled, not deleted.
+- Edits return Undo descriptors like the rest of the app; every change is audited.
+
 ## Fit with what exists (additive)
 
 - New tables only: `cycle_template`, `cycle` (with anchor kind + id and optional subject), `cycle_stage`, `cycle_output`
