@@ -53,8 +53,15 @@ Overview (subjects, cycles due and running, overdue) · My work · Cycles (per s
 - An academic calendar (years and terms) in Settings.
 - Cadences can differ by unit type, program level or a list of subjects.
 
-## Open questions
+- Review chain steps are org-chart based: "head of the unit", "head of the parent unit", "QA office", "Quality committee", resolved per subject from the org chart and roles.
+- A reviewer can comment and return, approve, approve with conditions (creating actions in the shared register), and review per item (one standard at a time) as well as the whole cycle. The last approval reads "Internally approved".
+- Report templates: defaults per cycle kind, and import from the institution's own templates through the Docs tab pattern.
 
-- Review chain steps: a fixed list of roles per step, or org-chart based (the unit's head, then its parent's head)?
-- What a reviewer can do: comment and return, approve, approve with conditions?
-- Report templates for cycle kinds: do you have the institution's current annual program report and program review templates to import?
+## Build order (proposed)
+
+1. **Foundations:** academic calendar (years, terms); cadence rules on framework nodes and evidence expectations, edited on the IQF and standards version pages and proposed by the AI compiler; applicability; subject overlays.
+2. **Cycles:** the scheduler (what falls due, per subject); cycle templates (defaults, import from documents); quality cycles proposed and launched by QA; self-evaluation items; the org-chart review chain with per-item review.
+3. **Evidence and actions:** collection tasks (reusing evidence requests), one collection serving mapped IQF and external expectations; the shared action register (engagement actions move into it).
+4. **Assessment:** outcomes, measures, targets, results (PRD §13), linked to requirements.
+5. **Reports and AI:** annual and periodic reports from templates; AI drafts narratives, suggests actions and summarises for leadership.
+6. **Accreditations on the scheduler:** external standards' cadences become collection tasks inside engagements; maintenance views read the same obligations.
