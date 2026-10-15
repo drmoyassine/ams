@@ -3228,16 +3228,16 @@ modified:
 
 Section E.3 and E.4 of docs/organization-plan.md. Connector interface with LDAP/LDAPS first; settings (server, bind account encrypted at rest, base DN, filters, attribute mapping); a scheduled job in the general worker service; diff before apply (or automatic apply); never deletes (Trash). Blocked on the owner: ask IT which protocols QuickLaunch exposes (SAML or OIDC for sign-in, SCIM, LDAP or an export for users and units) and request Active Directory access; a CSV import through the Docs pattern is the fallback.
 
-## TASK-077 — Quality Management: run the IQF through its lifecycle
+## TASK-077 — Quality Management: cycles and reporting (design)
 
 
 ---
 id: TASK-077
-title: Quality Management: run the IQF through its lifecycle
+title: 'Quality Management: cycles and reporting (design)'
 description: >-
-  A Quality Management menu item above Accreditations, where the Internal Quality Framework is operated through its own
-  lifecycle (design to be agreed with the owner)
-status: pending
+  The design of cycles and reporting for Quality Management and Accreditations, agreed with the owner; the build is
+  TASK-078 to TASK-085
+status: completed
 priority: P2
 last_updated: '2026-10-15'
 generated:
@@ -3248,6 +3248,9 @@ roadmap_item:
   name: Settings, internal framework and glossary
   url: /ROADMAP.md#ROADMAP-012
 related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
   - id: DEC-028
     name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
@@ -3255,6 +3258,279 @@ modified:
   by: agent/claude-code
   at: '2026-10-15T09:00:00.000Z'
 ---
-# TASK-077 — Quality Management: run the IQF through its lifecycle
+# TASK-077 — Quality Management: cycles and reporting (design)
 
-Owner (2026-10-15): add a Quality Management item above Accreditations (formerly Engagements, now focused on external accreditation lifecycle) to operationalize the IQF. Menu item, route `/quality-management` and a placeholder page are in; the lifecycle itself needs a design session with the owner (what a cycle is, owners, evidence, review, reporting) before building. The data model and routes keep the name `engagement`; only the label changed.
+Design agreed with the owner on 2026-10-15: docs/quality-management-plan.md and DEC-029. A cycle is ordered stages; each stage has inputs -> process -> outputs, a responsible unit, an owner and dates; reports are stage outputs or inputs; cycles can be built at any level, recur, nest and inherit down the IQF to mapped external standards. The menu item and placeholder page are in. Build: TASK-078 to TASK-085.
+
+## TASK-078 — Cycles: schema, permissions and core services
+
+---
+id: TASK-078
+title: 'Cycles: schema, permissions and core services'
+description: >-
+  The five cycle tables, cycle permissions, core services and API, with responsible unit and owner resolution, Trash,
+  Undo and audit
+status: pending
+priority: P1
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-077
+    name: 'Quality Management: cycles and reporting (design)'
+    url: /TASKS.md#TASK-077
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-078 — Cycles: schema, permissions and core services
+
+Plan: docs/quality-management-plan.md (Schema). Migration with `cycle_template`, `cycle`, `cycle_stage`, `cycle_output`, `cycle_input` (tenant RLS, audit, Trash kind `cycle`); permissions `cycle:read`, `cycle:manage`, `cycle:work`; Zod schema for the template's `stages`; core services: launch a cycle from a template (resolve responsible unit and owner per stage, dates from offsets, wire inputs to outputs), start/complete/skip stages (completed only when required outputs are final), fill outputs (document upload, note, approval with approve / approve with conditions / return, where return reopens the producing stage), cancel with a reason; anchors checked by the service; Undo descriptors; db, core and API tests. Report outputs wait for TASK-085.
+
+## TASK-079 — Cycle templates: Settings section, editor and shipped defaults
+
+---
+id: TASK-079
+title: 'Cycle templates: Settings section, editor and shipped defaults'
+description: >-
+  Settings -> Quality Management lists and edits cycle templates (stages, owners, dates, inputs, outputs, anchors they
+  fit) with versions and shipped defaults
+status: pending
+priority: P1
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-078
+    name: 'Cycles: schema, permissions and core services'
+    url: /TASKS.md#TASK-078
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-079 — Cycle templates: Settings section, editor and shipped defaults
+
+Plan: Templates. Draft -> published -> retired, version +1 on publish, running cycles keep their version. Defaults (data, never code, DEC-002): annual program report, periodic program review, admin unit review, internal audit, course assessment (semesterly), blank custom. Import of the institution's own templates through the Docs tab pattern comes later (TASK-075 engine).
+
+## TASK-080 — Quality Management screens: cycles list, new cycle, cycle page, My work
+
+---
+id: TASK-080
+title: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
+description: >-
+  The Quality Management menu becomes real: list and filters, launch a cycle, the cycle page with stages, inputs,
+  process and outputs, and My work
+status: pending
+priority: P1
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-079
+    name: 'Cycle templates: Settings section, editor and shipped defaults'
+    url: /TASKS.md#TASK-079
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-080 — Quality Management screens: cycles list, new cycle, cycle page, My work
+
+Plan: Screens. Replaces the placeholder at /quality-management. Cycle page: stages as a timeline and a list with responsible unit, owner, dates, status, inputs (missing ones flagged, never blocking), process text and checklist, output slots and their state; approvals decided by the named approver; Arabic dir=auto; responsive at 375/768/1280; "Internally approved", never "met"/"compliant" (DEC-005).
+
+## TASK-081 — Cycle recurrence, academic terms and plans with inheritance
+
+---
+id: TASK-081
+title: Cycle recurrence, academic terms and plans with inheritance
+description: >-
+  Cycles repeat (term, year, N years, after the previous one); academic terms in Settings; cycle plans on anchors
+  inherit down the IQF and to mapped external requirements, with override and opt-out; next runs proposed for QA to
+  launch
+status: pending
+priority: P2
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-080
+    name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
+    url: /TASKS.md#TASK-080
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-081 — Cycle recurrence, academic terms and plans with inheritance
+
+Plan: Worked examples, items 1, 3, 4. `cycle_plan`, `academic_term`, `cycle.plan_id`, `cycle.period_label`; inheritance: own plan or nearest ancestor's; an external requirement follows its mapped IQF node's plan unless it has its own; proposed runs listed for QA (auto-launch per template later, DEC-029).
+
+## TASK-082 — Nested cycles and cycles in Accreditations
+
+---
+id: TASK-082
+title: Nested cycles and cycles in Accreditations
+description: >-
+  A stage can run child cycles (yearly annual report during maintenance, interim report when the decision asks, ISO
+  surveillance); cycles anchored to an engagement appear in Accreditations; engagements can have an org unit as
+  subject
+status: pending
+priority: P2
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-081
+    name: Cycle recurrence, academic terms and plans with inheritance
+    url: /TASKS.md#TASK-081
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-082 — Nested cycles and cycles in Accreditations
+
+Plan: Worked examples, items 2, 5, 6. `cycle.parent_cycle_id`, `parent_stage_id`; stage definition `child`; re-accreditation as the next run; `engagement.subject_type` gains `org_unit`; example templates for ABET, WSCUC and ISO maintenance shipped as data. Today's roadmap (milestones) stays as it is.
+
+## TASK-083 — Start a cycle from the ⋯ menu, and Cycles panels
+
+---
+id: TASK-083
+title: Start a cycle from the ⋯ menu, and Cycles panels
+description: >-
+  "Start a cycle" in the ⋯ menu of units, programs, IQF and external standards at any level, requirements, evidence
+  items and engagements, with the templates that fit; each anchor shows its cycles
+status: pending
+priority: P2
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-080
+    name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
+    url: /TASKS.md#TASK-080
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-083 — Start a cycle from the ⋯ menu, and Cycles panels
+
+Plan: Cycles at any level.
+
+## TASK-084 — Assistant and cycles
+
+---
+id: TASK-084
+title: Assistant and cycles
+description: >-
+  The assistant reads cycles (what is late, what waits on me) and can propose a cycle as a change the person confirms
+status: pending
+priority: P3
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-083
+    name: Start a cycle from the ⋯ menu, and Cycles panels
+    url: /TASKS.md#TASK-083
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-084 — Assistant and cycles
+
+Plan: AI-aware. Read-only tools over cycles, stages, owners, dates, statuses and missing inputs; a `create_cycle` change operation through the existing confirmation flow (DEC-027); "Ask the assistant to draft it" in the Start-a-cycle dialog. Drafting report text and summaries stay deferred.
+
+## TASK-085 — Report outputs in cycles (shared report engine)
+
+---
+id: TASK-085
+title: Report outputs in cycles (shared report engine)
+description: >-
+  Report-kind outputs and inputs use the shared report engine (report templates, sections, approvals), the same one
+  Accreditations' M4 reports use
+status: pending
+priority: P2
+last_updated: '2026-10-15'
+generated:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-080
+    name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
+    url: /TASKS.md#TASK-080
+related_decisions:
+  - id: DEC-029
+    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    url: /DECISIONS.md#DEC-029
+modified:
+  by: agent/claude-code
+  at: '2026-10-15T12:00:00.000Z'
+---
+# TASK-085 — Report outputs in cycles (shared report engine)
+
+Plan: Templates (report templates shared with Accreditations). Waits on the M4 report engine breakdown (owner to plan M4 together); until then cycles use document and note outputs.

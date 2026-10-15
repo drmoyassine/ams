@@ -1,6 +1,19 @@
 # Quality Management — Cycles and Reporting (TASK-077)
 
-Status: design, revised with the owner on 2026-10-15 (DEC-029). Nothing is built yet.
+Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). Nothing is built yet.
+
+## Build tasks
+
+| Task | What | Needs |
+|---|---|---|
+| TASK-078 | Schema, permissions, core services and API | — |
+| TASK-079 | Cycle templates in Settings, editor, shipped defaults | 078 |
+| TASK-080 | Quality Management screens: list, new cycle, cycle page, My work | 079 |
+| TASK-081 | Recurrence, academic terms, plans with inheritance | 080 |
+| TASK-082 | Nested cycles; cycles in Accreditations; org-unit subjects | 081 |
+| TASK-083 | Start a cycle from the ⋯ menu; Cycles panels | 080 |
+| TASK-084 | Assistant reads and proposes cycles | 083 |
+| TASK-085 | Report outputs on the shared report engine | 080 + M4 report engine |
 
 ## Scope
 
