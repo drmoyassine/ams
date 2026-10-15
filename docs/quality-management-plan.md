@@ -46,6 +46,15 @@ Time is attached to the framework, not to the menu. Any framework (IQF or extern
 
 Overview (subjects, cycles due and running, overdue) · My work · Cycles (per subject) · Standards (IQF tree with each subject's latest review status) · Evidence collection (calendar of expectations) · Actions (shared register) · Assessment (outcomes, measures, results) · Reports.
 
+## Decided (2026-10-15, DEC-029)
+
+- Cadences live in the framework version (versioned, AI-proposable) plus a per-subject overlay for dated exceptions.
+- When a cycle falls due it is proposed and QA launches it; per-template automatic launch later.
+- An academic calendar (years and terms) in Settings.
+- Cadences can differ by unit type, program level or a list of subjects.
+
 ## Open questions
 
-See the conversation of 2026-10-15; answers are recorded here as they come.
+- Review chain steps: a fixed list of roles per step, or org-chart based (the unit's head, then its parent's head)?
+- What a reviewer can do: comment and return, approve, approve with conditions?
+- Report templates for cycle kinds: do you have the institution's current annual program report and program review templates to import?
