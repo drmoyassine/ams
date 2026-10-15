@@ -44,6 +44,38 @@ Cycle  (subject, template, status, dates)
 - **Dates**: the template gives each stage an offset and a length from the cycle's start; launching turns them into
   dates, editable per stage. Order comes from the inputs, not from the dates, so stages may overlap.
 
+## Cycles at any level
+
+A cycle is attached to an **anchor**: anything it is about. One mechanism, any level:
+
+| Anchor | Example cycle |
+|---|---|
+| Institution | Institutional quality review |
+| Unit or program (org chart, Programs) | Annual program report; admin unit review |
+| IQF, standard, sub-standard, item | Report on Standard 3 across programs |
+| External standard or requirement | Evidence round for a CFR before an interim report |
+| Evidence item | Collect and refresh one piece of evidence (e.g. syllabi each term) |
+| Accreditation (engagement) | A preparation cycle inside an engagement |
+
+- A cycle has one anchor (kind + id) and optionally a subject (the unit or program doing the work), so "Standard 3 for
+  the BSc in Nursing" is anchor = Standard 3, subject = the program.
+- **Start a cycle from the ⋯ menu** of almost anything: a unit, a program, a standard or requirement, an evidence item,
+  an engagement. The dialog offers the templates that fit that kind of anchor, plus "blank".
+- Each anchor shows its cycles (running and past) in a small "Cycles" panel, and the Quality Management menu lists all.
+- Templates say which anchor kinds they fit; a blank cycle fits anything.
+
+## AI-aware
+
+Cycles are data the assistant can read and act on, within the existing rules (AI proposes, a person confirms; evidence
+files never go to the AI):
+- The assistant's read-only tools include cycles, stages, owners, dates, statuses and which inputs are missing ("what is
+  late in my cycles?", "which stages wait on me?").
+- The assistant can propose a cycle (anchor, template or stages, owners, dates) as a change proposal the person
+  confirms, like its other edits; "set up an evidence round for Standard 2 for every program" becomes one confirmable
+  change.
+- The ⋯ menu's "Start a cycle" has "Ask the assistant to draft it" next to the templates.
+- Drafting report text and summarising stay deferred (see Scope).
+
 ## Templates
 
 - Cycle templates live in Settings -> Quality Management (new section). QA creates, edits and versions them; a running
@@ -63,14 +95,14 @@ Cycle  (subject, template, status, dates)
 
 ## Fit with what exists (additive)
 
-- New tables only: `cycle_template`, `cycle`, `cycle_stage`, `cycle_output` (slots with their content reference) and
-  `cycle_input` (links). Engagements and milestones are untouched.
+- New tables only: `cycle_template`, `cycle` (with anchor kind + id and optional subject), `cycle_stage`, `cycle_output`
+  (slots with their content reference) and `cycle_input` (links). Engagements and milestones are untouched.
 - Reuses: org chart and roles (owners), uploads and documents, evidence picker, Trash, Undo, audit, the Docs tab.
 - Accreditation milestones already have owner, due date and deliverable; they could later be described as stages too,
   but that is not part of this task.
 
-## Open questions
+## Parked (not in the current focus)
 
 1. Who may create and launch cycles: QA only, or also a unit head for their own unit?
-2. Should "next cycle" be a button on a completed cycle (copy with new dates, carrying final reports as inputs)?
-3. Are inputs ever required to start a stage (a hard gate), or always just shown as missing?
+2. A "next cycle" button on a completed cycle (copy with new dates, carrying final reports as inputs).
+3. Whether a missing input can block a stage from starting (a hard gate) or is only shown as missing.
