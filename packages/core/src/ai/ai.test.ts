@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  AiBudget, AiCallError, AiScopeError, BudgetExceeded, aiExtract, aiOcr, createAiRuntime, createFakeAiModel, getPrompt, runInAiScope, setAiModelForTests,
+  AiBudget, AiCallError, AiScopeError, BudgetExceeded, aiExtract, aiOcr, createAiRuntime, createFakeAiModel, fakeReasoning, getPrompt, runInAiScope, setAiModelForTests,
 } from './index.js';
 import { decryptSecret, encryptSecret } from './crypto.js';
 
@@ -69,6 +69,30 @@ describe('aiExtract', () => {
       if (before === undefined) delete process.env.AI_CALL_TIMEOUT_MS; else process.env.AI_CALL_TIMEOUT_MS = before;
     }
   }, 20000);
+
+  it('asks the model not to think before an extraction, in the ways compatible servers understand', async () => {
+    const fake = createFakeAiModel([{ items: [] }]);
+    setAiModelForTests(fake.model);
+    await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime({ ...config, provider: 'openai_compatible', baseUrl: 'https://llm.example.edu/v1' }) }));
+    const sent = fake.calls[0] as { reasoning?: string; providerOptions?: Record<string, Record<string, unknown>> };
+    expect(sent.reasoning).toBe('none');
+    expect(sent.providerOptions?.['openai-compatible']).toMatchObject({ thinking: { type: 'disabled' }, enable_thinking: false });
+  });
+
+  it('asks once more without those fields when a server refuses them', async () => {
+    const refused = Object.assign(new Error('Unrecognized request argument: thinking'), { statusCode: 400 });
+    const fake = createFakeAiModel([refused, { items: ['ok'] }]);
+    setAiModelForTests(fake.model);
+    const { data } = await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime({ ...config, provider: 'openai_compatible', baseUrl: 'https://llm.example.edu/v1' }) }));
+    expect(data).toEqual({ items: ['ok'] });
+    expect((fake.calls[1] as { providerOptions?: unknown }).providerOptions).toBeUndefined();
+  });
+
+  it('takes the answer from the reasoning when a thinking model leaves its reply empty', async () => {
+    setAiModelForTests(createFakeAiModel([fakeReasoning('Let me see. {"items":["from reasoning"]}')]).model);
+    const { data } = await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime(config) }));
+    expect(data).toEqual({ items: ['from reasoning'] });
+  });
 
   it('logs each call as one JSON line, without the key', async () => {
     setAiModelForTests(createFakeAiModel([{ items: [] }]).model);

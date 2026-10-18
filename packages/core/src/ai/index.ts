@@ -1,7 +1,8 @@
 // The ONE import point for the AI SDK (DEC-012). Everything else calls aiExtract / aiOcr and never imports `ai`.
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { embedMany, generateText, isStepCount, Output, streamText, tool } from 'ai';
+import { embedMany, generateText, isStepCount, Output, streamText, tool, type JSONValue } from 'ai';
 import { z } from 'zod';
+
 import { aiEnvKey, aiKeyOptional, loadAiEnv } from '@ams/shared';
 import { AiBudget, estimateTokens } from './budget.js';
 import { AiCallError, AiNotConfiguredError, AiScopeError, BudgetExceeded } from './errors.js';
@@ -12,7 +13,7 @@ export * from './budget.js';
 export * from './errors.js';
 export { setAiModelForTests, setEmbedderForTests, type AiConfig, type EmbedConfig } from './model.js';
 export { createFakeEmbedder } from './fake-embedder.js';
-export { createFakeAiModel, fakeToolCalls, type FakeAiModel, type FakeReply } from './fake-model.js';
+export { createFakeAiModel, fakeReasoning, fakeToolCalls, type FakeAiModel, type FakeReply } from './fake-model.js';
 export { getPrompt, PROMPTS } from './prompts/index.js';
 
 /** One logged call. Callers write `runtime.calls` into `job.result` (PRD 15.3). */
@@ -105,21 +106,59 @@ const callTimeoutMs = () => { const n = Number(process.env.AI_CALL_TIMEOUT_MS); 
 const SILENCE_MS = 90_000;
 const CEILING_MS = 20 * 60_000;
 
+/**
+ * Reading and extracting are not reasoning tasks: every such call asks the model not to "think" first. Thinking models
+ * (GLM, Qwen, DeepSeek, o-series, Gemini 2.5) otherwise spend minutes and the whole token allowance on reasoning and
+ * return an empty answer. The AI SDK's `reasoning: 'none'` covers the providers it knows; the extra body fields are the
+ * ways OpenAI-compatible servers spell it (OpenRouter, z.ai/GLM, Qwen/DashScope, vLLM). A server that refuses an unknown
+ * field gets the same call once more without them.
+ */
+function noThinking(config: AiConfig): { reasoning: 'none'; providerOptions?: Record<string, Record<string, JSONValue>> } {
+  if (config.provider === 'openrouter') return { reasoning: 'none', providerOptions: { openrouter: { reasoning: { enabled: false, exclude: true } } } };
+  if (config.provider === 'openai_compatible') {
+    return { reasoning: 'none', providerOptions: { 'openai-compatible': { thinking: { type: 'disabled' }, enable_thinking: false, chat_template_kwargs: { enable_thinking: false } } } };
+  }
+  return { reasoning: 'none' };
+}
+const refusedOption = (e: unknown) => {
+  const status = (e as { statusCode?: number })?.statusCode;
+  return (status === 400 || status === 422) && !/token|context|too long|maximum/i.test((e as Error).message ?? '');
+};
+
 /** One streamed model call; the first token must come within `callTimeoutMs()`, then no silence over SILENCE_MS. */
 async function streamed<T>(a: { config: AiConfig; system: string; prompt: string; maxOutputTokens: number; schema?: z.ZodType<T> }) {
+  try {
+    return await streamOnce(a, noThinking(a.config));
+  } catch (e) {
+    if (!refusedOption(e)) throw e;
+    return streamOnce(a, {}); // the server did not accept the "no thinking" fields: ask plainly
+  }
+}
+
+async function streamOnce<T>(a: { config: AiConfig; system: string; prompt: string; maxOutputTokens: number; schema?: z.ZodType<T> }, extra: { reasoning?: 'none'; providerOptions?: Record<string, Record<string, JSONValue>> }) {
   let failure: unknown;
   const r = streamText({
     model: createModel(a.config), system: a.system, prompt: a.prompt, temperature: 0, maxOutputTokens: a.maxOutputTokens, maxRetries: 1,
     timeout: { firstChunkMs: callTimeoutMs(), chunkMs: SILENCE_MS, totalMs: CEILING_MS },
+    ...extra,
     ...(a.schema ? { output: Output.object({ schema: a.schema }) } : {}),
     onError: ({ error }) => { failure ??= error; },
   });
   try {
     const text = await r.text;
-    const output = a.schema ? await r.output : undefined;
+    const reasoning = (await r.reasoningText) ?? '';
     const usage = await r.usage;
     if (failure) throw failure;
-    return { text, output, inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 };
+    let output: T | undefined;
+    if (a.schema) {
+      try { output = await r.output as T; } catch (e) {
+        // A model that wrote its answer into the reasoning and left the reply empty: take the JSON from there if it fits.
+        const fromReasoning = !text.trim() && reasoning ? a.schema.safeParse(parseJsonObject(reasoning)) : null;
+        if (!fromReasoning?.success) throw e;
+        output = fromReasoning.data;
+      }
+    }
+    return { text: text.trim() ? text : reasoning, output, inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 };
   } catch (e) {
     throw failure ?? e;
   }
@@ -226,11 +265,13 @@ export async function aiOcr(p: AiOcrParams): Promise<{ text: string; usage: AiUs
   const system = `${getPrompt('ocr', version)} Language hint: ${p.lang}.`;
   // An image costs roughly its pixel area / 750 tokens; the byte size is the only thing known here.
   const { value, usage } = await tracked(runtime, { task: 'ocr', promptVersion: version }, estimateTokens(system) + Math.ceil(p.image.byteLength / 100), async (maxOutputTokens) => {
-    const r = await generateText({
-      model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
+    const call = (extra: ReturnType<typeof noThinking> | Record<string, never>) => generateText({
+      model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()), ...extra,
       messages: [{ role: 'user', content: [{ type: 'text', text: system }, { type: 'file', data: p.image, mediaType: p.mime ?? 'image/png' }] }],
     });
-    return { value: r.text, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+    const r = await call(noThinking(runtime.config)).catch((e: unknown) => { if (refusedOption(e)) return call({}); throw e; });
+    const text = r.text.trim() ? r.text : (r.reasoningText ?? '');
+    return { value: text, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
   });
   return { text: value, usage };
 }

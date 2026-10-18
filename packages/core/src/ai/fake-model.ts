@@ -6,7 +6,10 @@ export interface FakeToolCalls {
   text?: string;
 }
 
-export type FakeReply = string | object | Error | FakeToolCalls | ((options: unknown) => string | object);
+export interface FakeReasoning { __fakeReasoning: string; text?: string }
+export type FakeReply = string | object | Error | FakeToolCalls | FakeReasoning | ((options: unknown) => string | object);
+/** A reply whose answer is only in the model's reasoning (a thinking model that leaves the reply empty). */
+export const fakeReasoning = (reasoning: string, text?: string): FakeReasoning => ({ __fakeReasoning: reasoning, ...(text ? { text } : {}) });
 
 export interface FakeAiModel {
   model: LanguageModel;
@@ -52,6 +55,15 @@ export function createFakeAiModel(replies: FakeReply[], usage: { inputTokens?: n
           warnings: [],
         };
       }
+      if (typeof reply === 'object' && reply !== null && '__fakeReasoning' in reply) {
+        const rr = reply as FakeReasoning;
+        return {
+          content: [{ type: 'reasoning', text: rr.__fakeReasoning }, ...(rr.text ? [{ type: 'text', text: rr.text }] : [])],
+          finishReason: { unified: 'stop', raw: 'stop' },
+          usage: { inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: output, text: output, reasoning: 0 } },
+          warnings: [],
+        };
+      }
       return {
         content: [{ type: 'text', text: typeof reply === 'string' ? reply : JSON.stringify(reply) }],
         finishReason: { unified: 'stop', raw: 'stop' },
@@ -63,9 +75,11 @@ export function createFakeAiModel(replies: FakeReply[], usage: { inputTokens?: n
     async doStream(options: unknown) {
       const r = await model.doGenerate(options) as { content: { type: string; text?: string }[]; finishReason: unknown; usage: unknown };
       const text = r.content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+      const reasoning = r.content.filter((c) => c.type === 'reasoning').map((c) => c.text ?? '').join('');
       const parts = [
         { type: 'stream-start', warnings: [] },
-        { type: 'text-start', id: 't1' }, { type: 'text-delta', id: 't1', delta: text }, { type: 'text-end', id: 't1' },
+        ...(reasoning ? [{ type: 'reasoning-start', id: 'r1' }, { type: 'reasoning-delta', id: 'r1', delta: reasoning }, { type: 'reasoning-end', id: 'r1' }] : []),
+        ...(text ? [{ type: 'text-start', id: 't1' }, { type: 'text-delta', id: 't1', delta: text }, { type: 'text-end', id: 't1' }] : []),
         { type: 'finish', finishReason: r.finishReason, usage: r.usage },
       ];
       return { stream: new ReadableStream({ start(c) { for (const p of parts) c.enqueue(p); c.close(); } }) };
