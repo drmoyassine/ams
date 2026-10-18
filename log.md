@@ -640,3 +640,16 @@ Owner answered the five questions (DEC-028): Organization has two tabs (Institut
 ## 2026-10-14 — Programs from documents (TASK-076)
 
 Programs registered as an import target on the shared engine; the Programs tab got a Docs tab. See docs/ai-import.md.
+
+## 2026-10-15 — Navigation; Quality Management designed (TASK-077, DEC-029)
+
+Quality Management menu item above Accreditations (Engagements relabelled; routes unchanged); app name removed from the top. Design of cycles and reporting agreed with the owner over several rounds: a cycle is ordered stages, each with inputs -> process -> outputs, a responsible unit, an owner and dates; reports are outputs or inputs; cycles at any level (anchors), recurring, nested, inherited down the IQF and to mapped external standards with overrides; the IQF ⋯ menu becomes Link evidence, Assign scope, Assign champion, Create cycle (external standards the same, inherited). Build broken into TASK-078 to TASK-086. Plan: docs/quality-management-plan.md.
+
+## 2026-10-15 to 2026-10-18 — AI on real models; editable org chart; import review
+
+- **Org chart from an image, first real runs.** The extract step had been set to the Reading model (an OCR-only model gave "No output generated"); it now uses the Analysis model. Slow free models and thinking models (GLM) failed silently for minutes: calls now stream with a start limit and a silence limit, a model that returns nothing or times out ends the run at once with the reason, a plain-JSON fallback is checked against the schema, and reading/extraction always ask for no thinking (task level), taking the JSON from the reasoning if the reply is empty. 86 units imported on the owner's chart.
+- **Learnings.** Thinking models spend the whole allowance reasoning on extraction and answer nothing; the AI SDK's `reasoning: 'none'` plus the usual compatible-server fields fixes it, with a plain retry for servers that refuse unknown fields. OpenAI refuses a 1x1-pixel test image. A PDF's text layer loses an org chart's lines (a one-step vision import was discussed and not built).
+- **Editable Chart view.** Move by drag or keyboard, rename in place, add a sub-unit, delete to the Trash, each with Undo; no new API.
+- **Link evidence** takes several pieces at once.
+- **Programs import review.** Nothing applied because the degree level was missing on all 21 rows and the enum refused a typed "Bachelor": degree level now accepts the usual spellings, fixed-list fields are a choice, units come from the org chart (new names allowed), "Set a field on N selected", prompt v2 reads a heading's degree level.
+- Tests: 1,588 tests, 175 database tests.

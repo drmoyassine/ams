@@ -1,6 +1,6 @@
-# Project status and what is left (2026-10-13)
+# Project status and what is left (2026-10-18)
 
-A snapshot of where the AMS stands against the PRD milestones (§18.4) and the features added along the way. Source of truth for each item is its roadmap item and tasks; this page is the reading view. Built and tested means the automated tests pass (1,314 tests, 141 database tests); "not yet used on real documents" means the owner has not run it on real accreditor files yet.
+A snapshot of where the AMS stands against the PRD milestones (§18.4) and the features added along the way. Source of truth for each item is its roadmap item and tasks; this page is the reading view. Built and tested means the automated tests pass (1,588 tests, 175 database tests); "not yet used on real documents" means the owner has not run it on real accreditor files yet.
 
 ## Built
 
@@ -48,13 +48,22 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 |---|---|---|
 | **Content translation** | On a version page (the IQF or an external standard) a content switcher shows English or the institution's secondary language; the translation is shown beside the English, English is the fallback. A Translate action runs a background job (batches, spend limit, progress, cancel, resume) that stores unreviewed AI translations of titles, statements and notes in their own table; people edit, mark reviewed and re-translate out-of-date ones in a review dialog; a changed English text marks its translation out of date. Translations of an external standard are labelled "Unofficial translation" and never replace or feed the official text; a published version can still be translated. Arabic shown right to left, checked at 375, 768 and 1280 px | TASK-071, DEC-028 |
 
+## Built since 2026-10-15
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Navigation** | Quality Management (placeholder page, design agreed) above Accreditations; Engagements is labelled Accreditations (routes and data keep the name `engagement`); the app name is gone from the top | TASK-077, DEC-029 |
+| **Link evidence** | Several pieces of evidence linked to one standard in one dialog, each with its justification ("Same for all") | — |
+| **AI calls that hold up on real models** | Extraction streams (must start within `AI_CALL_TIMEOUT_MS`, default 180 s, then may go on while it writes; stopped after 90 s of silence or 20 min); a model that returns nothing or times out ends the run at once with a plain reason instead of four silent retries; plain-JSON fallback checked against the schema when a model cannot give a structured answer; reading and extraction never ask the model to think (task level, no setting), with a plain retry for servers that refuse the fields and the answer taken from the reasoning when the reply is empty; "Test reading" sends a real picture | docs/ai-import.md |
+| **Import review** | Fields with a fixed list are a choice (degree level, unit type); units are offered from the org chart while a new name can still be typed; "Set a field … on N selected"; degree level accepts the usual spellings (Bachelor's, BSc, MBA, PhD); the Programs prompt (v2) reads a heading's degree level for the programs under it; the org chart import's extract step uses the Analysis model | TASK-073, TASK-076 |
+
 ## Left to build
 
 In the order I would do them.
 
 1. **Check what exists on real documents (needs the owner).** Redeploy, then the real run on the WSCUC, PUC and ABET files and tuning from the report: TASK-059 (production check of the services and the parser image) and TASK-056 (the PRD §19.2 acceptance test, seed-data replacement, embeddings decision).
 2. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice.
-3. **Organization, languages, org chart and document import (planned: docs/organization-plan.md, DEC-028).** the shared Docs tab, Documents area and import engine for every place the AI parses uploads into drafts (built, TASK-075; docs/ai-import.md); Programs from documents (TASK-076); a secondary language with UI and content switchers (TASK-070) and translation of the IQF and standards (TASK-071); the org chart builder is built (TASK-072); the org chart from an image is built (TASK-073) and from a directory (TASK-074, waiting on what QuickLaunch offers).
+3. **Quality Management: cycles and reporting (designed, DEC-029, docs/quality-management-plan.md).** TASK-078 schema and services, TASK-079 cycle templates, TASK-080 screens, TASK-086 IQF in operation (Link evidence, Assign scope, Assign champion, Create cycle; inherited by mapped external standards), TASK-081 recurrence and plans, TASK-082 nesting and cycles in Accreditations, TASK-083 Start a cycle from the ⋯ menu, TASK-084 assistant, TASK-085 report outputs (needs M4). Organization, languages, org chart and document import are built; directory sync (TASK-074) is parked until IT says what QuickLaunch offers.
 4. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
 5. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
 6. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.
@@ -67,6 +76,7 @@ In the order I would do them.
 - Run the real documents (TASK-056) and send the Report tab.
 - Land the Appendix D changes in the liteparse repository (TASK-058).
 - Test what was added since the last deploy: Trash, Undo/Redo, drag-and-drop, multi-select, the assistant (including a bulk edit with Do it, Undo and Redo), the PUC titles.
+- Try the editable org chart, the Programs import again (degree level from headings, unit choices), and Link evidence with several pieces.
 
 ## Known limits today
 
