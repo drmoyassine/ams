@@ -1,6 +1,6 @@
 // Settings -> Organization -> Institution -> Org chart (TASK-072): one set of units, two views. "Tree" is the editor (drag and
 // drop, multi-select, bulk delete to the Trash, keyboard); "Chart" draws the same units top-down with zoom, pan and collapse
-// and exports as an image, as SVG, or prints to one page. A unit opens in a drawer; "Unit types" configures the levels.
+// and exports as an image, as SVG, or prints to one page; editors also move, rename, add and delete units on the chart itself. A unit opens in a drawer; "Unit types" configures the levels.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ import { Card } from '../../../components/ui/card';
 import { useDocumentsApi, type DocumentsApi } from '../../../lib/documents-api';
 import type { SettingsApi } from '../../../lib/settings-api';
 import { downloadBlob, svgToPng } from './chart-export';
-import { OrgChartView, type ChartHandle } from './org-chart-view';
+import { OrgChartView, type ChartEditing, type ChartHandle } from './org-chart-view';
 import { ORG_CHART_KEY, OrgTreeView, unitItems } from './org-tree-view';
 import { UnitDrawer, type DrawerMode } from './unit-drawer';
 import { UnitTypesManager } from './unit-types-manager';
@@ -68,6 +68,11 @@ export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defa
   const flip = (set: ReadonlySet<string>, id: string, collapsed: boolean) => { const n = new Set(set); if (collapsed) n.add(id); else n.delete(id); return n; };
   const onTreeCollapse = useCallback((id: string, c: boolean) => setTreeCollapsed((s) => flip(s, id, c)), []);
   const onChartToggle = useCallback((id: string) => setChartCollapsed((s) => flip(s ?? new Set(), id, !(s ?? new Set()).has(id))), []);
+  // Editing on the chart (people who can edit the organization): the same calls as the tree and the drawer.
+  const chartEditing = useMemo<ChartEditing | null>(() => (canEdit ? {
+    api, onError: setError, onChanged: refresh,
+    onExpand: (id: string) => setChartCollapsed((s) => (s?.has(id) ? flip(s, id, false) : s)),
+  } : null), [canEdit, api, refresh]);
   const openUnit = useCallback((id: string) => { const u = units.find((x) => x.id === id); if (u) setDrawer({ kind: 'edit', unit: u }); }, [units]);
   const current = drawer?.kind === 'edit' ? (units.find((u) => u.id === drawer.unit.id) ?? drawer.unit) : null;
 
@@ -164,7 +169,8 @@ export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defa
         ) : (
           <>
             {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
-            <OrgChartView ref={chart} units={units} types={types} collapsed={chartCollapsed ?? new Set()} onToggle={onChartToggle} onOpen={openUnit} selectedId={current?.id ?? null} rtl={rtl} />
+            <OrgChartView ref={chart} units={units} types={types} collapsed={chartCollapsed ?? new Set()} onToggle={onChartToggle} onOpen={openUnit} selectedId={current?.id ?? null} rtl={rtl}
+              editing={chartEditing} />
           </>
         )}
       </div>

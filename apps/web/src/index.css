@@ -68,6 +68,11 @@ html[data-script^='cjk'] body { overflow-wrap: anywhere; line-break: strict; }
 .org-chart-print-sheet { display: none; }
 .org-chart-box:focus-visible > .org-chart-frame { stroke: #2563eb; stroke-width: 3; }
 .org-chart-box > g:focus-visible > .org-chart-toggle { stroke: #2563eb; stroke-width: 3; }
+/* The ＋ that adds a sub-unit shows on hover or focus of its box (always on touch screens, which have no hover). */
+.org-chart-add { opacity: 0; transition: opacity 120ms; }
+.org-chart-box:hover .org-chart-add, .org-chart-box:focus-within .org-chart-add { opacity: 1; }
+.org-chart-add:focus-visible > circle { stroke: #2563eb; stroke-width: 3; }
+@media (hover: none) { .org-chart-add { opacity: 1; } }
 @page org-chart { size: landscape; margin: 10mm; }
 @media print {
   body.org-chart-printing > *:not(.org-chart-print-sheet) { display: none !important; }

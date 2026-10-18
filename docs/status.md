@@ -28,6 +28,7 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 | Area | What works | Roadmap / tasks |
 |---|---|---|
 | **Org chart** | Institution -> Org chart has two views of the same units: Tree (drag and drop, keyboard drag, multi-select, bulk delete to the Trash with Undo and Redo) and Chart (automatic top-down layout, zoom, pan, collapse, mirrored for right-to-left, export as PNG or SVG, print to one page). Each unit has names in both languages, a type, a head (a person or a name), a description, a lock, a source (manual, image or directory) and its programs; a unit with programs cannot be deleted. Unit types are configurable per institution (add, rename, reorder, remove when unused). Smooth with 300 units | TASK-072, DEC-028 |
+| **Editing on the Chart (2026-10-18)** | Editors work on the chart itself: drag a box onto another to move it (drop target outlined; itself or its own sub-units refused with the reason; a locked unit is not moved from the chart; Space / arrows / Space from the keyboard), double-click or F2 to rename in place, ＋ on a box to add a sub-unit, Delete to send the focused box to the Trash; each with one Undo. Same services as the Tree; exports leave the edit chrome out; box drag at 16.7 ms frames with 300 units | TASK-072 |
 
 ## Built: org chart from an image (TASK-073)
 

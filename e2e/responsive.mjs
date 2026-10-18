@@ -474,6 +474,33 @@ function pagesFor(ids) {
     { name: 'org-chart-chart', path: '/settings/organization', action: async (page) => { await openChart(page); } },
     { name: 'org-chart-chart-expanded', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByRole('button', { name: 'Expand all' }).click(); await page.waitForTimeout(500); } },
     { name: 'org-chart-chart-zoomed', path: '/settings/organization', action: async (page) => { await openChart(page); for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Zoom in' }).click(); } },
+    // Editing on the chart: a focused box (its ＋ showing), the inline rename, the inline new sub-unit, and a drop target outlined.
+    { name: 'org-chart-chart-edit', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByRole('button', { name: /^College 1 of/ }).focus(); await page.getByTestId('chart-edit-help').waitFor(); } },
+    { name: 'org-chart-chart-rename', path: '/settings/organization', action: async (page) => {
+      await openChart(page);
+      await page.getByRole('button', { name: /^College 1 of/ }).focus();
+      await page.keyboard.press('F2');
+      await page.getByLabel(/^Rename College 1 of/).waitFor();
+    }, after: async (page) => { await page.keyboard.press('Escape'); } },
+    { name: 'org-chart-chart-rename-dblclick', path: '/settings/organization', action: async (page) => {
+      await openChart(page);
+      await page.getByRole('button', { name: /^Gulf University of Science/ }).dispatchEvent('dblclick'); // boxes at the fitted scale are too small for a real click
+      await page.getByLabel(/^Rename Gulf University/).waitFor();
+    }, after: async (page) => { await page.keyboard.press('Escape'); } },
+    { name: 'org-chart-chart-add-sub-unit', path: '/settings/organization', action: async (page) => {
+      await openChart(page);
+      await page.getByRole('button', { name: /^Add a unit under College 2 of/ }).dispatchEvent('click');
+      await page.getByLabel(/^Name of the new unit under College 2 of/).waitFor();
+    }, after: async (page) => { await page.keyboard.press('Escape'); } },
+    { name: 'org-chart-chart-drop-highlight', path: '/settings/organization', action: async (page) => {
+      await openChart(page);
+      await page.getByRole('button', { name: /^College 1 of/ }).focus();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowRight');
+      await page.getByTestId('chart-drop-target').waitFor();
+      await page.getByTestId('chart-drop-hint').waitFor();
+    }, after: async (page) => { await page.keyboard.press('Escape'); } },
     { name: 'org-chart-unit-drawer', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); await page.getByLabel('Open Gulf University of Science and Technology').click(); await page.getByRole('dialog').waitFor(); } },
     { name: 'org-chart-chart-box-drawer', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByTestId('chart-box').first().dispatchEvent('click'); await page.getByRole('dialog').waitFor(); } },
     { name: 'org-chart-unit-types', path: '/settings/organization', action: async (page) => { await page.getByRole('button', { name: 'Unit types' }).click(); await page.getByRole('dialog', { name: 'Unit types' }).waitFor(); } },
@@ -870,6 +897,47 @@ async function orgChartPerfCheck(page, app) {
   out['frame gap, worst'] = sorted[sorted.length - 1] ?? 0;
   await page.getByRole('button', { name: 'Fit', exact: true }).click();
 
+  // Editing: drag a box onto another with all 300 drawn (frame gaps while the dragged box follows the pointer and the drop
+  // target changes), the drop to its Undo toast, then Undo.
+  // The fitted 300-unit chart is wider than the screen (the fit has a smallest scale): take a lab and another lab's section
+  // that are both on screen.
+  const { from, to, labName, sectionName } = await page.evaluate(() => {
+    const vp = document.querySelector('[data-testid="chart-viewport"]').getBoundingClientRect();
+    const shown = [...document.querySelectorAll('[data-testid="chart-box"]')].map((el) => {
+      const r = el.querySelector('.org-chart-frame').getBoundingClientRect();
+      return { name: el.getAttribute('aria-label').split(',')[0], x: r.x + r.width / 2, y: r.y + r.height / 2, r };
+    }).filter((b) => b.r.left >= vp.left && b.r.right <= vp.right && b.r.top >= vp.top && b.r.bottom <= vp.bottom);
+    const lab = shown.find((b) => b.name.startsWith('Lab '));
+    const section = shown.find((b) => b.name.startsWith('Section ') && b.name.slice(8) !== lab?.name.slice(4));
+    return { from: lab && { x: lab.x, y: lab.y }, to: section && { x: section.x, y: section.y }, labName: lab?.name, sectionName: section?.name };
+  });
+  if (!from || !to) throw new Error('no lab and section on screen to drag between');
+  await page.evaluate(() => { window.__gaps = []; let last = performance.now(); const tick = (t) => { window.__gaps.push(t - last); last = t; window.__raf = requestAnimationFrame(tick); }; window.__raf = requestAnimationFrame(tick); });
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 60; i += 1) await page.mouse.move(from.x + ((to.x - from.x) * i) / 60, from.y + ((to.y - from.y) * i) / 60);
+  const dragGaps = await page.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__gaps; });
+  const dragSorted = [...dragGaps].sort((x, y) => x - y);
+  out['box drag: frames (count)'] = dragGaps.length;
+  out['box drag: frame gap, median'] = dragSorted[Math.floor(dragSorted.length / 2)] ?? 0;
+  out['box drag: frame gap, 95th percentile'] = dragSorted[Math.floor(dragSorted.length * 0.95)] ?? 0;
+  out['box drag: frame gap, worst'] = dragSorted[dragSorted.length - 1] ?? 0;
+  const outlined = await page.evaluate(() => ({
+    ok: document.querySelector('[data-testid="chart-drop-target"]')?.getAttribute('data-ok') ?? null,
+    hint: document.querySelector('[data-testid="chart-drop-hint"]')?.textContent ?? null,
+    live: document.querySelector('[data-testid="chart-live"]')?.textContent ?? null,
+  }));
+  if (outlined.ok !== 'true') throw new Error(`dragging a box onto another did not outline the drop target (hint: ${outlined.hint}; live: ${outlined.live}; from ${JSON.stringify(from)} to ${JSON.stringify(to)})`);
+  out['box drag: drop target outlined'] = true;
+  t0 = Date.now();
+  await page.mouse.up();
+  const movedToast = page.getByTestId('toast').filter({ hasText: `Moved ${labName} under ${sectionName}` });
+  await movedToast.waitFor({ timeout: 15000 });
+  out['box drop to Undo toast'] = Date.now() - t0;
+  await movedToast.getByRole('button', { name: 'Undo' }).click();
+  await page.getByTestId('toast').filter({ hasText: /^Undid/ }).first().waitFor({ timeout: 15000 }).catch(() => undefined);
+  await page.getByRole('button', { name: 'Fit', exact: true }).click();
+
   // Exports: the PNG and the SVG (non-empty, size and aspect as expected, Arabic text present).
   const download = async (name) => {
     const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name }).click()]);
@@ -925,7 +993,7 @@ async function orgChartPerfCheck(page, app) {
 
   console.log(`\nOrg chart with ${app.ids.orgUnits} units in Chromium (ms unless noted):`);
   for (const [k, v] of Object.entries(out)) console.log(`  ${k.padEnd(48)} ${typeof v === 'number' ? Math.round(v * 10) / 10 : v}`);
-  if (out['frame gap, worst'] > 3000 || out['select all 300'] > 3000 || out['Expand all (click to next paint)'] > 5000) throw new Error('the 300-unit org chart stalled for several seconds');
+  if (out['frame gap, worst'] > 3000 || out['box drag: frame gap, worst'] > 3000 || out['select all 300'] > 3000 || out['Expand all (click to next paint)'] > 5000) throw new Error('the 300-unit org chart stalled for several seconds');
 }
 
 async function main() {
@@ -985,6 +1053,9 @@ async function main() {
       }
       if (width === Math.max(...widths) && !onlyPages) {
         try { await perfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-600-rows', error: e.message.split('\n')[0] }); }
+      }
+      // `--pages=perf-org-chart-300` runs the org chart's 300-unit check on its own.
+      if (width === Math.max(...widths) && (!onlyPages || onlyPages.includes('perf-org-chart-300'))) {
         try { await orgChartPerfCheck(page, app); } catch (e) { results.push({ width, name: 'perf-org-chart-300', error: e.message.split('\n')[0] }); }
       }
       if (errors.length) console.warn(`page errors at ${width}px:\n  ${[...new Set(errors)].join('\n  ')}`);

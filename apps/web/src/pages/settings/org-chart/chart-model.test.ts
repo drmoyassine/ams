@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { MAX_CANVAS_AREA, MAX_CANVAS_SIDE, pngScale, serializeChartSvg } from './chart-export';
-import { boxModel, BOX_W, isRtlText } from './chart-model';
+import { boxAt, boxModel, BOX_W, chartDrop, defaultChildType, isRtlText, lockedReason } from './chart-model';
 
 describe('boxModel', () => {
   it('wraps long names, puts the Arabic name beneath, and grows the box with its text', () => {
@@ -58,5 +58,33 @@ describe('serializeChartSvg', () => {
     expect(out).not.toContain('tabindex');
     // The live chart is untouched.
     expect(document.querySelector('[data-view]')!.getAttribute('transform')).toBe('translate(5 5) scale(2)');
+  });
+});
+
+describe('editing on the chart', () => {
+  const units = [
+    { id: 'a', parentId: null, displayOrder: 0, nameEn: 'Arts' },
+    { id: 'a1', parentId: 'a', displayOrder: 0, nameEn: 'Dept1' },
+    { id: 's', parentId: null, displayOrder: 1, nameEn: 'Science' },
+  ];
+  it('finds the box under a point', () => {
+    const boxes = [{ id: 'a', x: 0, y: 0, w: 100, h: 50 }, { id: 's', x: 200, y: 0, w: 100, h: 50 }];
+    expect(boxAt(boxes, 10, 10)).toBe('a');
+    expect(boxAt(boxes, 250, 49)).toBe('s');
+    expect(boxAt(boxes, 150, 10)).toBeNull();
+  });
+  it('puts a dropped unit last under the box, and refuses itself or its own sub-units in words', () => {
+    expect(chartDrop(units, 's', 'a')).toEqual({ ok: true, text: 'Put Science under Arts.', moves: [{ id: 's', parentId: 'a', index: 1 }], noop: false });
+    expect(chartDrop(units, 'a', 'a1')).toMatchObject({ ok: false, text: 'Cannot drop here. A unit cannot be moved under itself or one of its own sub-items.' });
+    expect(chartDrop(units, 'a', 'a')).toMatchObject({ ok: false, text: 'Cannot drop here. Arts cannot be moved under itself.' });
+    expect(chartDrop(units, 'a1', 'a')).toMatchObject({ ok: true, noop: true, text: 'Dept1 is already under Arts.' });
+  });
+  it('says why a locked unit is not moved, and starts a sub-unit with its parent\'s type', () => {
+    expect(lockedReason({ nameEn: 'Arts', locked: true })).toMatch(/^Arts is locked/);
+    expect(lockedReason({ nameEn: 'Arts', locked: false })).toBeNull();
+    const types = [{ key: 'college' }, { key: 'department' }];
+    expect(defaultChildType('department', types)).toBe('department');
+    expect(defaultChildType('gone', types)).toBe('college');
+    expect(defaultChildType(null, [])).toBe('');
   });
 });

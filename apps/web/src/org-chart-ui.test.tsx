@@ -41,6 +41,22 @@ const exporters = (): ChartExporters => ({ png: vi.fn(async () => new Blob(['png
 const section = (who = 'admin', view: 'tree' | 'chart' = 'tree', ex: ChartExporters = exporters(), onOpenPrograms = () => undefined) =>
   <><OrgChartSection api={apiFor(who)} canEdit={who !== 'viewer'} onOpenPrograms={onOpenPrograms} exporters={ex} initialView={view} /><UndoToaster /></>;
 const live = () => screen.getByTestId('tree-live').textContent;
+const chartLive = () => screen.getByTestId('chart-live').textContent;
+const chartBox = (name: string) => screen.getAllByTestId('chart-box').find((b) => b.getAttribute('aria-label')!.startsWith(`${name},`)) as HTMLElement;
+/** The middle of a box in client coordinates (jsdom has no layout: the viewport is at 0,0 and the chart is not fitted, so 1:1). */
+const centre = (name: string): [number, number] => {
+  const [x, y] = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(chartBox(name).getAttribute('transform')!)!.slice(1).map(Number) as [number, number];
+  return [x + 104, y + 36];
+};
+const xy = (x: number, y: number) => ({ clientX: x, clientY: y });
+/** A pointer drag from the middle of a box to a point, in steps (and the release, unless `up` is false). */
+function dragBox(name: string, x: number, y: number, { up = true } = {}) {
+  const [x0, y0] = centre(name);
+  const vp = screen.getByTestId('chart-viewport');
+  fireEvent.pointerDown(chartBox(name), { pointerId: 1, button: 0, pointerType: 'mouse', ...xy(x0, y0) });
+  for (let i = 1; i <= 4; i += 1) fireEvent.pointerMove(vp, { pointerId: 1, pointerType: 'mouse', ...xy(x0 + ((x - x0) * i) / 4, y0 + ((y - y0) * i) / 4) });
+  if (up) fireEvent.pointerUp(vp, { pointerId: 1, pointerType: 'mouse', ...xy(x, y) });
+}
 const rowOf = async (name: string) => (await screen.findByLabelText(`Open ${name}`)).closest('[data-testid="org-unit"]') as HTMLElement;
 
 /** A shape string from the API: "Arts(Dept1,Dept2) Science Engineering" */
@@ -453,6 +469,199 @@ describe('Chart view', () => {
   });
 });
 
+describe('editing on the chart', () => {
+  const chartReady = async () => waitFor(async () => expect((await screen.findAllByTestId('chart-box')).length).toBe(6));
+
+  it('renames a box in place: a double-click opens the name field (not the drawer), Enter saves with Undo; F2 then Escape cancels', async () => {
+    const user = userEvent.setup();
+    render(wrap(section('admin', 'chart')));
+    await chartReady();
+    await user.dblClick(chartBox('Science'));
+    const field = await screen.findByLabelText('Rename Science') as HTMLInputElement;
+    expect(field.getAttribute('dir')).toBe('auto');
+    expect(field.value).toBe('Science');
+    expect(document.activeElement).toBe(field);
+    await user.clear(field);
+    await user.type(field, 'Natural Sciences{Enter}');
+    await waitFor(async () => expect(await shape()).toBe('Arts(Dept1,Dept2) Natural Sciences Engineering(Mech)'));
+    await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Natural Sciences,/));
+    expect(screen.queryByRole('dialog')).toBeNull(); // the clicks of the double-click did not open the drawer
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toMatch(/^Edited ScienceUndo/);
+    await user.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect(await shape()).toBe(START));
+    await waitFor(() => expect(chartBox('Science')).toBeTruthy());
+
+    // F2 opens the same field; Escape leaves the name as it was and goes back to the box.
+    chartBox('Engineering').focus();
+    await user.keyboard('{F2}');
+    const f2 = await screen.findByLabelText('Rename Engineering') as HTMLInputElement;
+    await user.type(f2, ' and Design');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByLabelText('Rename Engineering')).toBeNull();
+    expect(document.activeElement).toBe(chartBox('Engineering'));
+    expect(await shape()).toBe(START);
+    // A click still opens the unit's drawer.
+    await user.click(chartBox('Engineering'));
+    expect(((await screen.findByLabelText('Unit name (English)')) as HTMLInputElement).value).toBe('Engineering');
+  });
+
+  it('adds a sub-unit from the ＋ of a box: the parent\'s type, appears in the chart and takes the focus; Undo takes it away', async () => {
+    const user = userEvent.setup();
+    render(wrap(section('admin', 'chart')));
+    await chartReady();
+    expect(screen.getAllByTestId('chart-add')).toHaveLength(6);
+    await user.click(screen.getByRole('button', { name: 'Add a unit under Science' }));
+    const field = await screen.findByLabelText('Name of the new unit under Science') as HTMLInputElement;
+    expect(field.getAttribute('dir')).toBe('auto');
+    expect(screen.getByTestId('chart-add-field').textContent).toMatch(/College · Enter saves, Escape cancels/);
+    await user.type(field, 'Physics{Enter}');
+    await waitFor(async () => expect(await shape()).toBe('Arts(Dept1,Dept2) Science(Physics) Engineering(Mech)'));
+    await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Physics, College/));
+    const { units } = await apiFor('admin').orgChart();
+    expect(units.find((u) => u.nameEn === 'Physics')).toMatchObject({ type: 'college', parentId: ids.sci });
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toMatch(/^Added PhysicsUndo/);
+    await user.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect(await shape()).toBe(START));
+    // Escape (or an empty name) adds nothing.
+    await user.click(screen.getByRole('button', { name: 'Add a unit under Arts' }));
+    await user.type(await screen.findByLabelText('Name of the new unit under Arts'), 'Nothing');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByLabelText('Name of the new unit under Arts')).toBeNull();
+    expect(await shape()).toBe(START);
+  });
+
+  it('sends the focused box to the Trash with Delete after the server\'s question, with Undo; programs refuse it with their names', async () => {
+    const user = userEvent.setup();
+    render(wrap(section('admin', 'chart')));
+    await chartReady();
+    chartBox('Science').focus();
+    await user.keyboard('{Delete}');
+    let dialog = await screen.findByRole('dialog', { name: 'Delete Science?' });
+    expect(dialog.textContent).toMatch(/Science.*Trash for 30 days/);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(await shape()).toBe(START);
+    chartBox('Science').focus();
+    await user.keyboard('{Backspace}');
+    dialog = await screen.findByRole('dialog', { name: 'Delete Science?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(async () => expect(await shape()).toBe('Arts(Dept1,Dept2) Engineering(Mech)'));
+    await waitFor(() => expect(screen.getAllByTestId('chart-box')).toHaveLength(5));
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toMatch(/^Deleted ScienceUndo/);
+    await user.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect(await shape()).toBe(START));
+
+    // Engineering has a program in Mech: refused with the program named, no question, nothing changes.
+    await waitFor(() => expect(screen.getAllByTestId('chart-box')).toHaveLength(6));
+    chartBox('Engineering').focus();
+    await user.keyboard('{Delete}');
+    expect((await screen.findByRole('alert')).textContent).toMatch(/BS Mechanical \(in Mech\).*Move or reassign it to another unit first/);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await shape()).toBe(START);
+  });
+
+  it('moves a box with the keyboard: Space picks it up, the arrows choose the unit in words, Space drops; one Undo; a locked unit says why', async () => {
+    const user = userEvent.setup();
+    render(wrap(section('admin', 'chart')));
+    await chartReady();
+    chartBox('Science').focus();
+    await user.keyboard(' ');
+    expect(chartLive()).toMatch(/^Picked up Science\. Use the arrow keys/);
+    await user.keyboard('{ArrowRight}');
+    expect(chartLive()).toBe('Put Science under Dept1. (2 of 5)');
+    await user.keyboard('{ArrowLeft}');
+    expect(chartLive()).toBe('Put Science under Arts. (1 of 5)');
+    expect(screen.getByTestId('chart-drop-target').getAttribute('data-target')).toBe(ids.arts);
+    expect(screen.getByTestId('chart-drop-target').getAttribute('data-ok')).toBe('true');
+    await user.keyboard(' ');
+    await waitFor(async () => expect(await shape()).toBe('Arts(Dept1,Dept2,Science) Engineering(Mech)'));
+    expect(screen.queryByTestId('chart-drag')).toBeNull();
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toMatch(/^Moved Science under ArtsUndo/);
+    await user.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect(await shape()).toBe(START));
+
+    // Escape puts it down where it was.
+    await waitFor(() => expect(chartBox('Science')).toBeTruthy());
+    chartBox('Science').focus();
+    await user.keyboard(' ');
+    await user.keyboard('{ArrowRight}');
+    await user.keyboard('{Escape}');
+    expect(chartLive()).toMatch(/^Move cancelled\. Science stayed where it was\./);
+    expect(screen.queryByTestId('chart-drag')).toBeNull();
+
+    // Arts is locked: it is not picked up, and the reason is shown.
+    chartBox('Arts').focus();
+    await user.keyboard(' ');
+    expect((await screen.findByRole('alert')).textContent).toBe('Arts is locked, so it cannot be moved from the chart. Unlock it in its details first.');
+    expect(screen.queryByTestId('chart-drag')).toBeNull();
+    expect(await shape()).toBe(START);
+  });
+
+  it('drags a box onto another with the pointer: the target is outlined, its own sub-unit is refused in words, empty canvas cancels', async () => {
+    render(wrap(section('admin', 'chart')));
+    await chartReady();
+    // Engineering over its own Mech: outlined as refused, with the reason; dropped there, nothing moves.
+    dragBox('Engineering', ...centre('Mech'), { up: false });
+    const target = screen.getByTestId('chart-drop-target');
+    expect(target.getAttribute('data-ok')).toBe('false');
+    expect(target.getAttribute('data-target')).toBe(ids.mech);
+    expect(screen.getByTestId('chart-drop-hint').textContent).toBe('Cannot drop here. A unit cannot be moved under itself or one of its own sub-items.');
+    fireEvent.pointerUp(screen.getByTestId('chart-viewport'), { pointerId: 1, ...xy(...centre('Mech')) });
+    expect((await screen.findByRole('alert')).textContent).toBe('A unit cannot be moved under itself or one of its own sub-items.');
+    expect(screen.queryByTestId('chart-drag')).toBeNull();
+    expect(await shape()).toBe(START);
+
+    // Onto itself: refused too.
+    dragBox('Science', ...centre('Science').map((v) => v + 8) as [number, number], { up: false });
+    expect(screen.getByTestId('chart-drop-hint').textContent).toBe('Cannot drop here. Science cannot be moved under itself.');
+    fireEvent.pointerUp(screen.getByTestId('chart-viewport'), { pointerId: 1 });
+
+    // Onto empty canvas: cancelled.
+    dragBox('Science', -2000, -2000);
+    fireEvent.click(chartBox('Science')); // the click that ends a drag does not open the drawer
+    expect(chartLive()).toMatch(/^Move cancelled\. Science stayed where it was\./);
+    expect(await shape()).toBe(START);
+    await new Promise((r) => setTimeout(r, 350));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Onto Engineering: moved under it, with one Undo, and the zoom and pan are kept.
+    const transform = screen.getByTestId('chart-viewport').querySelector('[data-view]')!.getAttribute('transform');
+    dragBox('Science', ...centre('Engineering'));
+    await waitFor(async () => expect(await shape()).toBe('Arts(Dept1,Dept2) Engineering(Mech,Science)'));
+    expect(screen.getByTestId('chart-viewport').querySelector('[data-view]')!.getAttribute('transform')).toBe(transform);
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toMatch(/^Moved Science under EngineeringUndo/);
+    fireEvent.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect(await shape()).toBe(START));
+
+    // A locked box is not picked up: the reason is shown and nothing moves.
+    dragBox('Arts', ...centre('Science'));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/^Arts is locked/);
+    expect(await shape()).toBe(START);
+  });
+
+  it('leaves the edit chrome out of the exported SVG', async () => {
+    const user = userEvent.setup();
+    const ex = exporters();
+    render(wrap(section('admin', 'chart', ex)));
+    await chartReady();
+    dragBox('Science', ...centre('Engineering'), { up: false });
+    expect(screen.getByTestId('chart-drop-target')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Export as SVG' }));
+    await waitFor(() => expect(ex.save).toHaveBeenCalledTimes(1));
+    const svg = await ((ex.save as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Blob).text();
+    expect(svg).toContain('Science');
+    expect(svg).not.toContain('Add a unit under');
+    expect(svg).not.toContain('chart-drop-target');
+    expect(svg).not.toContain('chart-drag');
+    fireEvent.pointerCancel(screen.getByTestId('chart-viewport'), { pointerId: 1 });
+    expect(await shape()).toBe(START);
+  });
+});
+
 describe('read-only role', () => {
   it('sees both views, no handles, boxes or checkboxes to edit with, and a read-only drawer', async () => {
     const user = userEvent.setup();
@@ -473,5 +682,29 @@ describe('read-only role', () => {
     await user.click(screen.getByRole('button', { name: 'Chart' }));
     await waitFor(async () => expect((await screen.findAllByTestId('chart-box')).length).toBe(6));
     expect(screen.getByRole('button', { name: 'Export as image' })).toBeTruthy();
+    // The chart is read-only: no ＋, no edit help; a double-click opens the unit (no name field), Delete does nothing, Space opens.
+    expect(screen.queryAllByTestId('chart-add')).toHaveLength(0);
+    expect(screen.queryByLabelText(/^Add a unit under /)).toBeNull();
+    expect(screen.queryByTestId('chart-edit-help')).toBeNull();
+    expect(screen.getByTestId('chart-viewport').getAttribute('data-editable')).toBe('false');
+    await user.dblClick(chartBox('Science'));
+    expect(screen.queryByLabelText(/^Rename /)).toBeNull();
+    const d2 = await screen.findByRole('dialog');
+    await user.click(within(d2).getAllByRole('button', { name: 'Close' })[0]!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    chartBox('Science').focus();
+    await user.keyboard('{Delete}');
+    await user.keyboard('{F2}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByLabelText(/^Rename /)).toBeNull();
+    // A pointer drag on a box pans the chart; nothing is picked up.
+    const vp = screen.getByTestId('chart-viewport');
+    const before = vp.querySelector('[data-view]')!.getAttribute('transform');
+    dragBox('Science', 300, 300);
+    expect(screen.queryByTestId('chart-drag')).toBeNull();
+    expect(vp.querySelector('[data-view]')!.getAttribute('transform')).not.toBe(before);
+    await user.keyboard(' ');
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(await shape()).toBe(START);
   });
 });

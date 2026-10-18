@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-18 — Org chart: edit on the Chart view (owner request, TASK-072 follow-up)
+
+Decisions: DEC-026, DEC-028. No new business rules, no migration, no new API.
+- **What:** people with `org:write` edit the Chart view directly. Drag a box onto another to move it under that unit (target outlined green, or red with the reason for itself or its own sub-units; empty canvas cancels); keyboard path: Space on a focused box picks it up, arrows choose the unit in words, Space drops, Escape cancels. Double-click or F2 renames the English name in a field over the box (`dir="auto"`, Enter saves, Escape cancels; Arabic stays in the drawer). The ＋ on a box (hover or focus; always on touch) adds a sub-unit with its parent's type, which appears expanded and focused. Delete / Backspace on the focused box goes through the drawer's question and the Trash (programs attached: refused with names). Every change is one Undo toast from the server's `X-Undo`. Viewers see the chart as before.
+- **How:** the same calls as the Tree and drawer (`move-many` through `orgTreeAdapter`'s optimistic update, `createOrgUnit`, `updateOrgUnit`, `previewDelete` + delete). Where a unit may go is `resolveDrop` (pure helpers `chartDrop`, `boxAt`, `lockedReason`, `defaultChildType` in `chart-model.ts`). The drag chrome is an overlay outside the memoised boxes, marked `data-export-skip`; the name fields are HTML over the SVG, so exports never show them. Zoom and pan are kept across the re-layout.
+- **Choices to note:** a click on a box waits 250 ms before opening the drawer (editors only) so a double-click can rename; a locked unit is not moved from the chart (the reason is shown), although the Tree still moves it — the owner asked for the chart rule; say if the Tree should match.
+- Learnings: a word selected in the SVG (a double-click selects it) starts Chromium's own drag on the next press and cancels the pointer drag with `pointercancel`; the viewport is `select-none` and refuses `dragstart`. The fitted 300-unit chart is wider than the screen (the fit has a smallest scale), so the e2e drag picks two boxes that are on screen.
+- Performance (Chromium, 300 units): box drag at a steady 16.7 ms frame gap (worst 16.8), drop to Undo toast 62 ms; zoom and pan unchanged (16.7 ms).
+- Tests: `apps/web/src/org-chart-ui.test.tsx` (inline rename, add sub-unit, Delete with Undo and the programs refusal, keyboard move and the locked refusal, pointer drag with the descendant refusal and empty-canvas cancel, export without the edit chrome, read-only chart), `chart-model.test.ts`; `e2e/responsive.mjs` has chart edit, rename (F2 and double-click), add sub-unit and drop highlight states, the box-drag numbers in the 300-unit run, and `--pages=perf-org-chart-300` to run that check alone.
+
 ## 2026-10-14 — IQF and standards in the secondary language (TASK-071)
 
 Decisions: DEC-028, DEC-021, DEC-006. ROADMAP-012. Section D of docs/organization-plan.md.
