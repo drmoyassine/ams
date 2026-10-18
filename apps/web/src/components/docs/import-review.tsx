@@ -30,9 +30,19 @@ function columnsOf(list: ImportProposal[]): string[] {
 }
 
 /** One editable cell. Text keeps its own direction (dir="auto"); a change is saved when the cell loses focus. */
-function ValueCell({ label, value, disabled, onSave }: { label: string; value: unknown; disabled: boolean; onSave: (v: Cell) => void }) {
+function ValueCell({ label, value, disabled, options, onSave }: { label: string; value: unknown; disabled: boolean; options?: string[]; onSave: (v: Cell) => void }) {
   const [draft, setDraft] = useState<string>(isCell(value) ? String(value ?? '') : JSON.stringify(value));
   useEffect(() => { setDraft(isCell(value) ? String(value ?? '') : JSON.stringify(value)); }, [value]);
+  if (options && (value === null || value === undefined || typeof value === 'string')) {
+    // A field with a fixed list of values: a choice, so nothing typed can fail to fit.
+    return (
+      <select aria-label={label} value={value ?? ''} disabled={disabled} onChange={(e) => onSave(e.target.value === '' ? null : e.target.value)}
+        className="w-full min-w-28 rounded border border-border bg-background px-2 py-1 text-sm disabled:border-transparent disabled:bg-transparent">
+        <option value="">—</option>
+        {options.map((o) => <option key={o} value={o}>{humanize(o)}</option>)}
+      </select>
+    );
+  }
   if (typeof value === 'boolean') {
     return <input type="checkbox" aria-label={label} checked={value} disabled={disabled} onChange={(e) => onSave(e.target.checked)} />;
   }
@@ -67,6 +77,9 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
   const [busy, setBusy] = useState(false);
   const list = q.data?.proposals ?? [];
   const cols = useMemo(() => columnsOf(list), [list]);
+  const options = q.data?.fieldOptions ?? {};
+  const [bulkField, setBulkField] = useState('');
+  const [bulkValue, setBulkValue] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: key });
   // An Undo or Redo from the toast or the keyboard changes what is applied: look again.
   useEffect(() => onUndone(() => { void qc.invalidateQueries({ queryKey: key }); }), [qc, runId]);
@@ -87,6 +100,23 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
     try { await api.editProposal(p.id, { ...asRecord(p.effective), [k]: v }); } catch (e) {
       if (e instanceof ApiError) setError(`${humanize(k)}: ${e.issues.length ? e.issues.map((i) => i.message).join('; ') : e.message}`); else throw e;
     }
+    await refresh();
+  };
+  /** Sets one field to one value on every selected proposal (e.g. the degree level of the 21 programs of one heading). */
+  const setForSelected = async (ids: string[]) => {
+    if (!bulkField || !ids.length) return;
+    setError(''); setBusy(true);
+    const v: Cell = bulkValue.trim() === '' ? null : bulkValue;
+    const failed: string[] = [];
+    for (const id of ids) {
+      const p = list.find((x) => x.id === id);
+      if (!p || p.status === 'applied') continue;
+      try { await api.editProposal(p.id, { ...asRecord(p.effective), [bulkField]: v }); } catch (e) {
+        if (e instanceof ApiError) failed.push(`${p.label}: ${e.issues.length ? e.issues.map((i) => i.message).join('; ') : e.message}`); else { setBusy(false); throw e; }
+      }
+    }
+    setBusy(false);
+    if (failed.length) setError(`${humanize(bulkField)} was not set on ${failed.length}: ${failed.slice(0, 3).join(' · ')}${failed.length > 3 ? ' …' : ''}`);
     await refresh();
   };
   const apply = async () => {
@@ -147,6 +177,20 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                 <Button type="button" variant="outline" disabled={!pickable.length} onClick={() => void decide(pickable, 'accept')}>Accept selected</Button>
                 <Button type="button" variant="outline" disabled={!pickable.length} onClick={() => void decide(pickable, 'skip')}>Skip selected</Button>
                 <Button type="button" variant="ghost" disabled={!noFlags.length} onClick={() => void decide(noFlags, 'accept')}>Accept all without a flag ({noFlags.length})</Button>
+                <span className="flex flex-wrap items-center gap-1" role="group" aria-label="Set a value on the selected">
+                  <select aria-label="Field to set" value={bulkField} onChange={(e) => { setBulkField(e.target.value); setBulkValue(''); }}
+                    className="rounded border border-border bg-background px-2 py-1 text-sm">
+                    <option value="">Set a field…</option>
+                    {cols.filter((k) => list.some((p) => isCell(asRecord(p.effective)[k]) && typeof asRecord(p.effective)[k] !== 'boolean')).map((k) => <option key={k} value={k}>{humanize(k)}</option>)}
+                  </select>
+                  {bulkField && (options[bulkField]
+                    ? <select aria-label={`Value for ${humanize(bulkField)}`} value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded border border-border bg-background px-2 py-1 text-sm">
+                        <option value="">—</option>
+                        {options[bulkField]!.map((o) => <option key={o} value={o}>{humanize(o)}</option>)}
+                      </select>
+                    : <input aria-label={`Value for ${humanize(bulkField)}`} dir="auto" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-40 rounded border border-border bg-background px-2 py-1 text-sm" />)}
+                  {bulkField && <Button type="button" variant="outline" disabled={!pickable.length || busy} onClick={() => void setForSelected(pickable)}>Set on {pickable.length} selected</Button>}
+                </span>
                 <Button type="button" className="ms-auto" disabled={!ready.length || busy} onClick={() => void apply()}>Apply {ready.length}</Button>
               </div>
             )}
@@ -181,7 +225,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                           </div>
                         </td>
                         {cols.map((k) => (
-                          <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} onSave={(v) => void save(p, k, v)} /></td>
+                          <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} {...(options[k] ? { options: options[k] } : {})} onSave={(v) => void save(p, k, v)} /></td>
                         ))}
                         <td className="p-2">
                           <button type="button" className="text-start text-xs underline" aria-label={`Show the source of ${p.label}`} onClick={() => setSelected(p.id)}>

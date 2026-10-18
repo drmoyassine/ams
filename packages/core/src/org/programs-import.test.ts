@@ -16,7 +16,8 @@ import type { TargetScope } from '../documents/targets.js';
 import { findImportTarget } from '../documents/targets.js';
 import { listPrograms, updateProgram } from './programs.js';
 import { listOrgUnits } from './units.js';
-import { PROGRAMS_TARGET_KIND, programsTarget, ProgramImportItemSchema, type ProgramImportItem } from './programs-import.js';
+import { normalizeDegreeLevel, PROGRAMS_TARGET_KIND, programsTarget, ProgramImportItemSchema, type ProgramImportItem } from './programs-import.js';
+import { fieldOptionsOf } from '../documents/proposals.js';
 
 let w: World;
 const sent: (JobEnvelope & { type: JobType })[] = [];
@@ -62,6 +63,16 @@ beforeAll(async () => {
 afterEach(() => setAiModelForTests(null));
 afterAll(async () => { await w.close(); });
 
+describe('the degree level', () => {
+  it('takes the usual ways of writing it, in any case, and offers the fixed list to the review', () => {
+    expect(['Bachelor', "Bachelor's", 'BSc', 'B.A.', 'undergraduate', 'MBA', 'Master', 'M.Sc.', 'PhD', 'Doctoral', 'Associate Degree', 'Diploma', 'Certificate', ''].map(normalizeDegreeLevel))
+      .toEqual(['bachelor', 'bachelor', 'bachelor', 'bachelor', 'bachelor', 'master', 'master', 'master', 'doctorate', 'doctorate', 'associate', 'diploma', 'certificate', null]);
+    expect(ProgramImportItemSchema.parse({ nameEn: 'Graphic Design', degreeLevel: 'Bachelor' }).degreeLevel).toBe('bachelor');
+    expect(ProgramImportItemSchema.safeParse({ nameEn: 'Graphic Design', degreeLevel: 'bootcamp' }).success).toBe(false);
+    expect(fieldOptionsOf(ProgramImportItemSchema).degreeLevel).toEqual(['associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate']);
+  });
+});
+
 describe('the target', () => {
   it('is registered for the programs scope with a versioned prompt and a schema', async () => {
     expect(findImportTarget(PROGRAMS_TARGET_KIND)).toBe(programsTarget);
@@ -98,7 +109,7 @@ describe('a run end to end', () => {
     const run = await as('alo', (c) => startImport(c, { scopeKind: 'programs', scopeId: null, targetKind: 'programs', documentIds: [d.id] }));
     runId = run.id;
     await drain();
-    expect((await q(`select prompt_version, status from import_run where id = $1`, [runId]))[0]).toEqual({ prompt_version: 'v1', status: 'succeeded' });
+    expect((await q(`select prompt_version, status from import_run where id = $1`, [runId]))[0]).toEqual({ prompt_version: 'v2', status: 'succeeded' });
     const list = (await as('alo', (c) => listImportProposals(c, runId))).proposals;
     expect(list.map((p) => [p.label, p.quoteVerified])).toEqual([['BSc Nursing', true], ['MSc Data Science', true], ['Diploma in Welding', true]]);
     expect(list[2]!.flags).toEqual(['No degree level was found.', 'No owning unit was found.']);

@@ -134,11 +134,16 @@ describe('Programs -> Docs', () => {
     // A cell for every field, so the missing degree level can be filled in right there; flags say what is missing.
     const short = rows.find((r) => within(r).queryByLabelText('Name en of Short Course') ?? within(r).queryByDisplayValue('Short Course'))!;
     expect(short.textContent).toMatch(/No degree level was found/);
-    const level = within(short).getByLabelText(/^Degree level of /) as HTMLInputElement;
-    expect(level.getAttribute('dir')).toBe('auto');
-    await user.type(level, 'diploma');
-    await user.tab();
+    // Degree level has a fixed list, so it is a choice: nothing typed can fail to fit. Set it on the selected rows at once.
+    const level = within(short).getByLabelText(/^Degree level of /) as HTMLSelectElement;
+    expect(level.tagName).toBe('SELECT');
+    expect([...level.options].map((o) => o.value)).toEqual(['', 'associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate']);
+    await user.click(within(short).getByRole('checkbox', { name: /^Select / }));
+    await user.selectOptions(within(review).getByLabelText('Field to set'), 'degreeLevel');
+    await user.selectOptions(within(review).getByLabelText('Value for Degree level'), 'diploma');
+    await user.click(within(review).getByRole('button', { name: 'Set on 1 selected' }));
     await waitFor(() => expect(within(short).getByText('Edited')).toBeTruthy());
+    expect((within(short).getByLabelText(/^Degree level of /) as HTMLSelectElement).value).toBe('diploma');
     await user.click(within(review).getByRole('button', { name: /^Accept all without a flag/ }));
     await user.click(await within(review).findByRole('button', { name: /^Apply \d+$/ }));
     const confirmation = await screen.findByRole('dialog');

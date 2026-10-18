@@ -16,10 +16,29 @@ import { listOrgUnitTypes } from './unit-types.js';
 // Every field is present in a stored proposal (null when the document does not state it), so the review shows a cell for each to fill in.
 const opt = <T extends z.ZodType>(t: T) => t.nullish().default(null);
 
+/**
+ * The degree level as the AMS stores it, from however a person or the model wrote it: any case, and the usual words and
+ * abbreviations (Bachelor's, BSc, B.A., MBA, PhD, …). Anything else is left as written so the schema can say it does not fit.
+ */
+const DEGREE_WORDS: [RegExp, (typeof DEGREE_LEVELS)[number]][] = [
+  [/^(associate|associates|associate'?s|a\.?a\.?|a\.?s\.?)( degree)?$/i, 'associate'],
+  [/^(bachelor|bachelors|bachelor'?s|undergraduate|b\.?\s?sc\.?|b\.?\s?a\.?|b\.?\s?s\.?|b\.?\s?eng\.?|b\.?\s?ed\.?|bba|llb)( degree)?$/i, 'bachelor'],
+  [/^(master|masters|master'?s|m\.?\s?sc\.?|m\.?\s?a\.?|m\.?\s?s\.?|m\.?\s?eng\.?|m\.?\s?ed\.?|mba|llm|graduate)( degree)?$/i, 'master'],
+  [/^(doctorate|doctoral|doctor|ph\.?\s?d\.?|d\.?\s?phil\.?|ed\.?\s?d\.?)( degree)?$/i, 'doctorate'],
+  [/^(diploma|higher diploma|postgraduate diploma|pg diploma)$/i, 'diploma'],
+  [/^(certificate|graduate certificate|postgraduate certificate)$/i, 'certificate'],
+];
+export function normalizeDegreeLevel(v: unknown): unknown {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t) return null;
+  return DEGREE_WORDS.find(([re]) => re.test(t))?.[1] ?? t;
+}
+
 export const ProgramImportItemSchema = z.object({
   nameEn: z.string().trim().min(1),
   nameAr: opt(z.string().trim()),
-  degreeLevel: opt(z.enum(DEGREE_LEVELS)),
+  degreeLevel: z.preprocess(normalizeDegreeLevel, z.enum(DEGREE_LEVELS).nullish()).default(null),
   discipline: opt(z.string().trim()),
   /** The owning unit as the document names it; matched to the org chart, or proposed as a new unit. */
   unitName: opt(z.string().trim()),
@@ -49,7 +68,7 @@ export const programsTarget: ImportTarget<ProgramImportItem> = {
   kind: PROGRAMS_TARGET_KIND, label: 'Programs', itemsLabel: 'programs', scopeKinds: ['programs'],
   description: 'Reads the programs named in a catalogue or a program list: names in English and Arabic, degree level, owning unit and what else the document states.',
   schema: ProgramImportItemSchema,
-  promptTask: 'import_programs', promptVersion: 'v1',
+  promptTask: 'import_programs', promptVersion: 'v2',
   buildPrompt: (w) => [
     'Find the academic programs named in these pages.',
     `Document: ${w.documentName}. Language: ${w.language}. This window: pages ${w.firstPage} to ${w.lastPage}.`,

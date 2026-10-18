@@ -186,7 +186,11 @@ export const ImportProposalSchema = z.object({
 });
 export type ImportProposal = z.infer<typeof ImportProposalSchema>;
 
-export const ImportProposalListSchema = z.object({ run: ImportRunSchema, proposals: z.array(ImportProposalSchema) });
+export const ImportProposalListSchema = z.object({
+  run: ImportRunSchema, proposals: z.array(ImportProposalSchema),
+  /** The values a field may take, for the fields that have a fixed list (the review shows a choice instead of free text). */
+  fieldOptions: z.record(z.string(), z.array(z.string())).default({}),
+});
 export type ImportProposalList = z.infer<typeof ImportProposalListSchema>;
 
 export const StartImportSchema = z.object({

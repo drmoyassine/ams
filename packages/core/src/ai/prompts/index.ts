@@ -8,6 +8,7 @@ import { extractV1 } from './extract.v1.js';
 import { importExtractV1 } from './import-extract.v1.js';
 import { importOrgChartV1 } from './import-org-chart.v1.js';
 import { importProgramsV1 } from './import-programs.v1.js';
+import { importProgramsV2 } from './import-programs.v2.js';
 import { lifecycleV1 } from './lifecycle.v1.js';
 import { mapV1 } from './map.v1.js';
 import { newiqfV1 } from './newiqf.v1.js';
@@ -36,7 +37,7 @@ export const PROMPTS = {
   // Document import (TASK-075): the general rules for any target; a target's own instructions travel in the message.
   import_extract: { v1: importExtractV1 },
   // Document import for Programs (TASK-076): the general rules plus what a program is.
-  import_programs: { v1: importProgramsV1 },
+  import_programs: { v1: importProgramsV1, v2: importProgramsV2 },
   // Document import for the org chart (TASK-073): units, their parents and heads from a picture or a PDF page.
   import_org_chart: { v1: importOrgChartV1 },
   // Step D: narrow questions about a few pages when the checks found a gap.

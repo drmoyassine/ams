@@ -4,6 +4,7 @@
 // and answers with ONE undo descriptor, so Undo and Redo work like an assistant change set. The AI never writes the real records
 // and never overwrites what a person edited (AI proposes, humans publish, DEC-006).
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { appUser, importApply, importDocument, importProposal, sourceDocument } from '@ams/db';
 import {
   APPLIABLE_PROPOSAL_STATUSES, plural, type DecideProposals, type ImportApplyPreview, type ImportApplyResult, type ImportProposal, type ImportProposalList,
@@ -60,7 +61,27 @@ export async function listImportProposals(ctx: Ctx, runId: string): Promise<Impo
   const run = await loadRunForRead(ctx, runId);
   const rows = await ctx.tx.select().from(importProposal).where(and(eq(importProposal.runId, runId), eq(importProposal.candidate, false))).orderBy(asc(importProposal.seq));
   const names = await documentNames(ctx, [...new Set(rows.map((r) => r.documentId).filter((x): x is string => !!x))]);
-  return { run: (await toRunDtos(ctx, [run]))[0]!, proposals: rows.map((r) => toProposalDto(r, names)) };
+  const target = findImportTarget(run.targetKind);
+  return { run: (await toRunDtos(ctx, [run]))[0]!, proposals: rows.map((r) => toProposalDto(r, names)), fieldOptions: target ? fieldOptionsOf(target.schema) : {} };
+}
+
+/** The fields of a target's item that take one of a fixed list of values (an enum, possibly optional), with that list. */
+export function fieldOptionsOf(schema: z.ZodType): Record<string, string[]> {
+  let json: Record<string, unknown>;
+  try { json = z.toJSONSchema(schema, { io: 'output', unrepresentable: 'any' }) as Record<string, unknown>; } catch { return {}; }
+  const props = (json.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const enumOf = (p: Record<string, unknown> | undefined): string[] | null => {
+    if (!p) return null;
+    if (Array.isArray(p.enum)) return p.enum.filter((v): v is string => typeof v === 'string');
+    for (const k of ['anyOf', 'oneOf']) {
+      const alts = p[k];
+      if (Array.isArray(alts)) for (const a of alts) { const e = enumOf(a as Record<string, unknown>); if (e?.length) return e; }
+    }
+    return null;
+  };
+  const out: Record<string, string[]> = {};
+  for (const [k, p] of Object.entries(props)) { const e = enumOf(p); if (e?.length) out[k] = e; }
+  return out;
 }
 
 async function loadProposal(ctx: Ctx, id: string) {
