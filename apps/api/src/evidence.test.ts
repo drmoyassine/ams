@@ -81,4 +81,25 @@ describe('evidence API', () => {
     expect(ok.body).toMatchObject({ versionNo: 1, rowCount: 2 });
     expect((await call('viewer', 'GET', `/api/evidence-versions/${ok.body.id}/data`)).body.rows).toEqual([{ n: 12 }, { n: 1200 }]);
   });
+  it('links evidence to a requirement of an external standard and reports what each requirement holds', async () => {
+    const acc = await one(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'Invented Council', 'IC', 'institutional') returning id`, [ids.inst]);
+    const fw = await one(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'Standards', 'institution') returning id`, [ids.inst, acc]);
+    const ver = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'E1') returning id`, [ids.inst, fw]);
+    const req = await one(`insert into requirement (institution_id, framework_version_id, code, level_label, title) values ($1, $2, '1.2', 'Criterion', 'Faculty') returning id`, [ids.inst, ver]);
+    const item = await call('lead', 'POST', '/api/evidence', { title: 'Faculty list', type: 'document', url: 'https://intranet.example.edu/faculty' });
+    const version = (await call('lead', 'GET', `/api/evidence/${item.body.id}`)).body.versions[0].id as string;
+
+    expect((await call('viewer', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'x' })).status).toBe(403);
+    const made = await call('lead', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'Lists every faculty member' });
+    expect(made.status).toBe(201);
+    expect(made.body.target).toMatchObject({ kind: 'external', code: '1.2', title: 'Faculty', frameworkLabel: 'IC' });
+    expect((await call('lead', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'again' })).status).toBe(409);
+    expect((await call('viewer', 'GET', `/api/requirements/${req}/evidence-links`)).body).toHaveLength(1);
+
+    const ctx = await call('viewer', 'GET', `/api/framework-versions/${ver}/requirement-context`);
+    expect(ctx.status).toBe(200);
+    expect(ctx.body.byCode['1.2']).toMatchObject({ mappings: [], inheritedCount: 0, directCount: 1, direct: [{ title: 'Faculty list', versionNo: 1, reviewStatus: 'proposed' }] });
+    expect((await call(null, 'GET', `/api/framework-versions/${ver}/requirement-context`)).status).toBe(401);
+    expect((await call('nobody', 'GET', `/api/framework-versions/${ver}/requirement-context`)).status).toBe(403);
+  });
 });

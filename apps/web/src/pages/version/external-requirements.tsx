@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Me } from '@ams/shared';
-import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
+import { AccordionCard, Shaded } from '../../components/accordion';
 import { AiMarker, QuoteNotFoundBadge } from '../../components/badges';
 import { BottomSheet } from '../../components/bottom-sheet';
 import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
+import { EvidenceLinkList } from '../../components/evidence-links';
+import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
+import { RequirementsLayout } from '../../components/requirements-layout';
+import { ReviewBadge } from '../../components/badges';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
 import { usePublishScreen } from '../../lib/assistant-screen';
-import { distinctTitle } from '../../lib/format';
+import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
+import { distinctTitle, requirementLabel } from '../../lib/format';
 import type { FrameworkApi, MergeResult, Requirement, SplitResult, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
 import { confirmAndDelete } from '../../lib/delete-requirements';
 import { LOOK_HINT, LOOK_KINDS, LOOK_LABEL, lookCounts, lookItems, nextLookItem, visibleRequirements, type LookKind } from './needs-look';
 import { AddNote, NotePanel } from './requirements-tab';
+import { MapToIqfDialog, RELATIONS } from './map-to-iqf-dialog';
+import { EvidenceSummary, RequirementHover, useRequirementContexts } from './requirement-hover';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
 import { SourceViewer, useWide, type Citation } from './source-viewer';
 import { WrittenByAssistant } from '../../components/assistant/written-marker';
@@ -101,6 +108,10 @@ interface NodeProps {
   /** Why an item needs a look, by requirement or note id; the requirements to show while a filter is on (null: all). */
   look: Map<string, LookKind[]>; visible: Set<string> | null;
   onMerge: (r: Requirement) => void; onSplit: (r: Requirement) => void; onMove: (r: Requirement) => void;
+  /** Map to IQF and Link evidence work on published versions too: both live outside the frozen version. */
+  onMap: (r: Requirement) => void; onLinkEvidence: (r: Requirement) => void;
+  /** The page's one batched answer: per requirement code, its mapped IQF items and evidence (the hover card and the card's body). */
+  evidence: EvidenceApi; contexts: ReturnType<typeof useRequirementContexts>;
 }
 
 /**
@@ -113,6 +124,13 @@ function NodeBody({ p, showSource }: { p: NodeProps; showSource: () => void }) {
   const detail = useQuery({ queryKey: ['requirement', r.id], queryFn: () => api.requirement(r.id) });
   const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id), enabled: editable });
   const invalidate = async () => { await qc.invalidateQueries({ queryKey: ['requirement', r.id] }); await p.invalidateTree(); };
+  const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => p.evidence.internalLinks(r.id) });
+  const [linkError, setLinkError] = useState('');
+  const ctx = p.contexts.data?.byCode[r.code];
+  const refreshLinks = () => {
+    void qc.invalidateQueries({ queryKey: ['internal-evidence', r.id] });
+    void qc.invalidateQueries({ queryKey: ['requirement-context', version.id] });
+  };
   return (
     <>
         <div className="space-y-1" data-testid="requirement-detail">
@@ -143,6 +161,28 @@ function NodeBody({ p, showSource }: { p: NodeProps; showSource: () => void }) {
           </ul>
           {editable && <AddNote api={api} requirementId={r.id} docs={docs.data ?? []} invalidate={invalidate} setError={p.setError} />}
         </div>
+        <div className="space-y-1" data-testid="requirement-iqf">
+          <Shaded>Mapped to IQF</Shaded>
+          {!ctx || ctx.mappings.length === 0
+            ? <p className="text-sm text-muted-foreground">Not mapped to your quality framework yet.</p>
+            : (
+              <ul className="space-y-1 text-sm" aria-label="Mapped IQF items">
+                {ctx.mappings.map((m) => (
+                  <li key={m.id} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 break-words"><ContentText>{requirementLabel(m.internalCode, m.internalTitle ?? '')}</ContentText></span>
+                    <span className="text-xs text-muted-foreground">{RELATIONS[m.relation]}</span>
+                    <ReviewBadge status={m.reviewStatus} />
+                  </li>
+                ))}
+              </ul>
+            )}
+        </div>
+        <div className="space-y-1" data-testid="requirement-evidence">
+          <Shaded>Evidence</Shaded>
+          {linkError && <p role="alert" className="text-sm text-red-700">{linkError}</p>}
+          <EvidenceLinkList links={links.data ?? []} api={p.evidence} canReview={can(p.me, 'evidence:review')} canRemove={can(p.me, 'evidence:write')} onChange={refreshLinks} setError={setLinkError} />
+          {ctx && ctx.inheritedCount > 0 && <EvidenceSummary ctx={ctx} showDirect={false} />}
+        </div>
     </>
   );
 }
@@ -163,6 +203,8 @@ function Node(p: NodeProps) {
   const menu = [
     ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
     ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
+    ...(can(p.me, 'framework:write') ? [{ label: 'Map to IQF…', onSelect: () => p.onMap(r) }] : []),
+    ...(can(p.me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLinkEvidence(r) }] : []),
     ...(editable ? [
       { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
       { label: 'Split', onSelect: () => p.onSplit(r) },
@@ -183,12 +225,7 @@ function Node(p: NodeProps) {
           {r.sourceQuote && !r.quoteVerified && <QuoteNotFoundBadge />}
           {reasons.map((k) => <span key={k} title={LOOK_HINT[k]} data-testid="look-reason" className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{LOOK_LABEL[k]}</span>)}
         </span>}
-        hover={(
-          <HoverCard>
-            <p className="font-semibold"><ContentText>{nameOf(r)}</ContentText></p>
-            <p className="mt-1 line-clamp-4 text-muted-foreground"><ContentText>{r.officialText || 'No description.'}</ContentText></p>
-          </HoverCard>
-        )}>
+        hover={<RequirementHover r={r} name={nameOf(r)} contexts={p.contexts} />}>
         <NodeBody p={p} showSource={showSource} />
       </AccordionCard>
       </TreeRow>
@@ -206,23 +243,27 @@ function Node(p: NodeProps) {
  * tag, items indented under their parent, a ⋯ menu to add, edit, merge, split, move or delete (while the version is a draft),
  * and "+ Requirement" opening a dialog. Lines are not approved one by one: publishing the version is the review (DEC-022), so
  * the cards show provenance (AI, source page and quote, a quote not found) but no review status. Notes (guidance, expectations)
- * sit inside each card. Evidence is not linked here: it is linked once to the internal standards these map onto.
+ * sit inside each card. Evidence is linked once to the internal standards these map onto ("Map to IQF…" from the ⋯ menu) and counts for
+ the requirement through approved mappings; "Link evidence" adds evidence for this requirement only, at the library level (by code,
+ so it carries over to new versions). Both work on a published version too: they live outside the frozen version.
  *
  * Split view (PRD 15.1 step 6): selecting a requirement or note shows where it comes from, the stored page text of its source
  * with the cited quote highlighted: beside the list on wide screens (each scrolls on its own), in a bottom sheet opened from
  * the card's Source button on small ones. "Needs a look" chips filter the list to what a person should check first.
  */
-export function ExternalRequirements({ api, version, me, focusId, onOpenSource }: {
-  api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null;
+export function ExternalRequirements({ api, version, me, focusId, onOpenSource, evidence: evidenceOverride }: {
+  api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null; evidence?: EvidenceApi;
   /** Opens a source page in the Docs tab. */ onOpenSource?: (documentId: string, page: number) => void;
 }) {
   const qc = useQueryClient();
   const wide = useWide();
+  const evidence = useEvidenceApi(evidenceOverride);
+  const contexts = useRequirementContexts(evidence, version.id);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
-  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'merge' | 'split' | 'move'; item: Requirement } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'merge' | 'split' | 'move' | 'map' | 'link'; item: Requirement } | null>(null);
   const [selected, setSelected] = useState<Selection>(null);
   usePublishScreen('selected-card', selected ? { selectedIds: [selected.requirementId] } : null);
   const [sheet, setSheet] = useState(false);
@@ -387,6 +428,9 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
     onMerge: (item: Requirement) => { setError(''); setDialog({ kind: 'merge', item }); },
     onSplit: (item: Requirement) => { setError(''); setDialog({ kind: 'split', item }); },
     onMove: (item: Requirement) => { setError(''); setDialog({ kind: 'move', item }); },
+    onMap: (item: Requirement) => { setError(''); setDialog({ kind: 'map', item }); },
+    onLinkEvidence: (item: Requirement) => { setError(''); setDialog({ kind: 'link', item }); },
+    evidence, contexts,
   };
   const shown = tops.filter((r) => !visible || visible.has(r.id));
   const flagged = items.length;
@@ -445,12 +489,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
       )}
       <BulkBar rows={all} />
       {tree.data && all.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
-      {wide ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,22rem)] items-start gap-4">
-          <div className="max-h-[calc(100dvh-15rem)] min-w-0 overflow-y-auto pe-2" data-testid="requirement-list">{list}</div>
-          <aside aria-label="Source viewer" className="sticky top-2 max-h-[calc(100dvh-15rem)] min-w-0 overflow-y-auto rounded-lg border border-border p-3" data-testid="source-panel">{viewer}</aside>
-        </div>
-      ) : list}
+      <RequirementsLayout wide={wide} list={list} aside={viewer} asideLabel="Source viewer" asideTestId="source-panel" />
       {!wide && sheet && selected && (
         <BottomSheet labelledBy="source-sheet-title" onClose={() => setSheet(false)}>
           <div className="mb-3 flex items-start justify-between gap-2">
@@ -465,6 +504,23 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource }
       {dialog?.kind === 'merge' && <MergeDialog api={api} item={dialog.item} rows={all} error={error} onClose={close} onMerge={(into, mine) => saveMerge(dialog.item, into, mine)} />}
       {dialog?.kind === 'split' && <SplitDialog item={dialog.item} error={error} onClose={close} onSplit={(v) => saveSplit(dialog.item, v)} />}
       {dialog?.kind === 'move' && <MoveDialog item={dialog.item} rows={all} error={error} onClose={close} onMove={(parent) => saveMove(dialog.item, parent)} />}
+      {dialog?.kind === 'map' && (
+        <MapToIqfDialog api={api} version={version} requirement={dialog.item} onClose={close} onSaved={() => {
+          setNotice(`Mapping of ${tagOf(dialog.item)} proposed. A reviewer approves it before the evidence on the IQF item counts here.`);
+          return Promise.all(['mappings', 'requirement-context', 'iqf-proposals'].map((k) => qc.invalidateQueries({ queryKey: [k, version.id] })));
+        }} />
+      )}
+      {dialog?.kind === 'link' && (
+        <LinkEvidenceDialog api={evidence} title={`${tagOf(dialog.item)} · ${dialog.item.title}`} onClose={close}
+          onLink={async (evidenceVersionId, rationale) => {
+            const id = dialog.item.id;
+            await evidence.linkLibrary(id, { evidenceVersionId, rationale });
+            setOpen((s) => new Set([...s, id]));
+            await qc.invalidateQueries({ queryKey: ['internal-evidence', id] });
+            await qc.invalidateQueries({ queryKey: ['requirement-context', version.id] });
+            await qc.invalidateQueries({ queryKey: ['evidence'] });
+          }} />
+      )}
     </div>
     </TreeProvider>
   );

@@ -1,7 +1,7 @@
 import type {
   CreateFormRequest, DataForm, DataResponse, PublicForm, SubmitResponse,
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
-  CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, ReviewLink, UpdateEvidence,
+  CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, RequirementContexts, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
@@ -28,6 +28,10 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     fileUrl: (versionId: string) => `/api/evidence-versions/${versionId}/file`,
 
     internalLinks: (requirementId: string) => api.api.requirements[':id']['evidence-links'].$get({ param: { id: requirementId } }).then((r) => unwrap<EvidenceLink[]>(r)),
+    /** Evidence linked straight to a requirement of any standard (an external one too); it carries over to new versions of that standard. */
+    linkLibrary: (requirementId: string, json: LinkEvidence) => api.api.requirements[':id']['evidence-links'].$post({ param: { id: requirementId }, json }).then((r) => unwrap<EvidenceLink>(r)),
+    /** For a whole version in one request: per requirement code, its mapped IQF items and the evidence inherited and linked directly (the hover card). */
+    requirementContext: (versionId: string) => api.api['framework-versions'][':id']['requirement-context'].$get({ param: { id: versionId } }).then((r) => unwrap<RequirementContexts>(r)),
     linkInternal: (requirementId: string, json: LinkEvidence) => api.api.requirements[':id']['evidence-links'].$post({ param: { id: requirementId }, json }).then((r) => unwrap<EvidenceLink>(r)),
     requirementLinks: (erId: string) => api.api['engagement-requirements'][':id']['evidence-links'].$get({ param: { id: erId } }).then((r) => unwrap<EvidenceLink[]>(r)),
     linkRequirement: (erId: string, json: LinkEvidence) => api.api['engagement-requirements'][':id']['evidence-links'].$post({ param: { id: erId }, json }).then((r) => unwrap<EvidenceLink>(r)),

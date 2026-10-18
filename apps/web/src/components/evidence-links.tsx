@@ -4,6 +4,14 @@ import { ContentText } from './content-text';
 import { Button } from './ui/button';
 import { useTranslation } from '../i18n';
 
+/** What a link points at, in words: "Internal 1.2 · Title", "IC 1.2 (external) · Title" or "Engagement · code". */
+export function targetText(t: EvidenceLink['target']): string {
+  const title = t.title ? ` · ${t.title}` : '';
+  if (t.kind === 'internal') return `Internal ${t.code}${title}`;
+  if (t.kind === 'external') return `${t.frameworkLabel ? `${t.frameworkLabel} ` : ''}${t.code} (external)${title}`;
+  return `${t.engagementTitle ?? ''} · ${t.code}`;
+}
+
 const REVIEW_CLS = { proposed: 'bg-muted text-muted-foreground', approved: 'bg-emerald-50 text-emerald-900', rejected: 'bg-red-50 text-red-900' } as const;
 
 /** Evidence links with their reason, review state and the flags the PRD asks for (newer version, stale). */
@@ -20,7 +28,7 @@ export function EvidenceLinkList({ links, api, canReview, canRemove, onChange, s
         <li key={l.id} className="rounded-md border border-border p-2 text-sm" data-testid="evidence-link">
           <div className="flex flex-wrap items-center gap-2">
             {showTarget
-              ? <span className="font-medium"><ContentText>{l.target.kind === 'internal' ? `Internal ${l.target.code}${l.target.title ? ` · ${l.target.title}` : ''}` : `${l.target.engagementTitle ?? ''} · ${l.target.code}`}</ContentText></span>
+              ? <span className="font-medium"><ContentText>{targetText(l.target)}</ContentText></span>
               : <a className="font-medium underline" href={api.fileUrl(l.evidenceVersionId)} target="_blank" rel="noreferrer"><ContentText>{l.evidenceTitle}</ContentText></a>}
             <span className="text-xs text-muted-foreground">v{l.versionNo}{l.periodLabel ? ` · ${l.periodLabel}` : ''}</span>
             <span className={`rounded px-1.5 text-xs ${REVIEW_CLS[l.reviewStatus]}`}>{reviewLabel[l.reviewStatus]}</span>

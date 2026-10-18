@@ -238,7 +238,7 @@ describe('version page', () => {
     const card = await screen.findByRole('region', { name: 'Measure 1-1' });
     expect(within(card).queryByTestId('review')).toBeNull(); // the seed-style auto-approved data shows no label
     await user.click(within(card).getByRole('button', { name: 'Actions for Measure 1-1' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add measure', 'Edit', 'Merge into another requirement', 'Split', 'Move to…', 'Delete']); // no Approve / Reject
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add measure', 'Edit', 'Map to IQF…', 'Link evidence', 'Merge into another requirement', 'Split', 'Move to…', 'Delete']); // no Approve / Reject
     await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     const title = within(dialog).getByLabelText('Title');
@@ -372,7 +372,10 @@ describe('version page', () => {
 
     await user.click(within(await screen.findByRole('region', { name: 'Standard 1' })).getByRole('button', { name: /^Standard 1/ }));
     await screen.findByTestId('requirement-detail');
-    expect(screen.queryByRole('button', { name: /^Actions for/ })).toBeNull();
+    // A published version is fixed: only what lives outside it (mapping to the IQF, linking evidence) is still offered.
+    await user.click(screen.getAllByRole('button', { name: /^Actions for/ })[0]!);
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Map to IQF…', 'Link evidence']);
+    await user.keyboard('{Escape}');
     expect(screen.queryByRole('button', { name: '+ Requirement' })).toBeNull();
     expect(screen.queryByRole('form', { name: 'Add note' })).toBeNull();
     await user.click(screen.getByRole('tab', { name: 'Settings' }));

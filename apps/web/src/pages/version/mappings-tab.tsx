@@ -15,6 +15,29 @@ import { Suggestions } from './suggestions';
 const RELATION = { covers: 'Covers', partly_covers: 'Partly covers', related: 'Related' } as const;
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 
+/** The mapping's commentary (its rationale): shown, and for an editor changed in place. Saving returns the mapping to review. */
+function Commentary({ m, canWrite, onSave }: { m: Mapping; canWrite: boolean; onSave: (rationale: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <form className="mt-1 space-y-2" aria-label={`Commentary on ${m.internalCode}`}
+        onSubmit={(e) => { e.preventDefault(); onSave(String(new FormData(e.currentTarget).get('commentary')).trim()); setEditing(false); }}>
+        <textarea name="commentary" aria-label={`Commentary for ${m.internalCode}`} rows={3} dir="auto" defaultValue={m.rationale ?? ''} autoFocus className="w-full rounded-md border border-border p-2 text-sm" />
+        <div className="flex gap-2">
+          <Button type="submit">Save commentary</Button>
+          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+        </div>
+      </form>
+    );
+  }
+  return (
+    <>
+      {m.rationale && <p className="mt-1 text-muted-foreground"><ContentText>{m.rationale}</ContentText></p>}
+      {canWrite && <Button type="button" variant="ghost" className="mt-1 px-2 py-1" aria-label={`Edit commentary on ${m.internalCode}`} onClick={() => setEditing(true)}>{m.rationale ? 'Edit commentary' : 'Add commentary'}</Button>}
+    </>
+  );
+}
+
 /**
  * How this standard's requirements are answered by the institution's own quality framework. A mapping is owned by the
  * institution and carries over to new versions of the standard; it says how much an item answers, never "equivalent".
@@ -97,7 +120,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
                     {m.origin === 'ai' && m.reviewStatus === 'pending' && <span className="text-xs text-muted-foreground">Suggested link</span>}
                     {m.stale && <span className="text-xs text-amber-800">not in the published IQF or this version</span>}
                   </div>
-                  {m.rationale && <p className="mt-1 text-muted-foreground"><ContentText>{m.rationale}</ContentText></p>}
+                  <Commentary m={m} canWrite={canWrite} onSave={(rationale) => act(() => api.updateMapping(m.id, { rationale }))} />
                   <div className="mt-2 flex flex-wrap gap-2">
                     {canReview && m.reviewStatus !== 'approved' && <Button type="button" onClick={() => act(() => api.reviewMapping(m.id, 'approved'))}>Approve</Button>}
                     {canReview && m.reviewStatus === 'pending' && <Button type="button" variant="ghost" onClick={() => act(() => api.reviewMapping(m.id, 'rejected'))}>Reject</Button>}
@@ -116,7 +139,7 @@ export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: 
                   <select name="relation" aria-label="Relation" className={select} defaultValue="covers">
                     {Object.entries(RELATION).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
-                  <Input name="rationale" aria-label="Why" placeholder="Why (optional)" dir="auto" className="min-w-0 flex-1 basis-40" />
+                  <Input name="rationale" aria-label="Commentary" placeholder="Commentary (optional)" dir="auto" className="min-w-0 flex-1 basis-40" />
                 </div>
                 <Button type="submit">Propose mapping</Button>
               </form>

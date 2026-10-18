@@ -29,10 +29,15 @@ export const EvidenceItemSchema = z.object({
 });
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 
-/** What a link points at: a requirement of an engagement, or an item of the institution's own framework. */
+/**
+ * What a link points at: a requirement of an engagement, an item of the institution's own framework, or a requirement of an
+ * external standard linked directly at the library level (by code, so it carries across versions of the standard).
+ * `frameworkLabel` names the standard for an external target (the accreditor's short name).
+ */
 export const LinkTargetSchema = z.object({
-  kind: z.enum(['engagement', 'internal']), code: z.string(), title: z.string().nullable(),
+  kind: z.enum(['engagement', 'internal', 'external']), code: z.string(), title: z.string().nullable(),
   engagementRequirementId: z.string().nullable(), engagementId: z.string().nullable(), engagementTitle: z.string().nullable(),
+  frameworkLabel: z.string().nullable().optional(),
 });
 export const EvidenceLinkSchema = z.object({
   id: z.string(), evidenceItemId: z.string(), evidenceTitle: z.string(), evidenceVersionId: z.string(), versionNo: z.number(),
@@ -53,6 +58,28 @@ export const EvidenceSuggestionSchema = z.object({
   internalCode: z.string(), internalTitle: z.string().nullable(), relation: z.enum(['covers', 'partly_covers', 'related']), internalRationale: z.string(),
 });
 export type EvidenceSuggestion = z.infer<typeof EvidenceSuggestionSchema>;
+
+/**
+ * What a requirement of an external standard holds, for the hover card: the IQF items it is mapped to, the evidence those
+ * items hold (inherited through approved mappings) and the evidence linked to the requirement itself. Short lists with the
+ * full counts; one answer for the whole version, keyed by the requirement's code.
+ */
+export const RequirementContextEvidenceSchema = z.object({
+  evidenceItemId: z.string(), title: z.string(), versionNo: z.number(), periodLabel: z.string().nullable(),
+});
+export const RequirementContextSchema = z.object({
+  mappings: z.array(z.object({
+    id: z.string(), internalCode: z.string(), internalTitle: z.string().nullable(), relation: z.enum(['covers', 'partly_covers', 'related']),
+    reviewStatus: z.enum(['pending', 'approved', 'rejected']),
+  })),
+  inherited: z.array(RequirementContextEvidenceSchema.extend({ internalCode: z.string() })),
+  inheritedCount: z.number(),
+  direct: z.array(RequirementContextEvidenceSchema.extend({ reviewStatus: z.enum(['proposed', 'approved', 'rejected']) })),
+  directCount: z.number(),
+});
+export type RequirementContext = z.infer<typeof RequirementContextSchema>;
+export const RequirementContextsSchema = z.object({ byCode: z.record(z.string(), RequirementContextSchema) });
+export type RequirementContexts = z.infer<typeof RequirementContextsSchema>;
 
 export const CreateEvidenceSchema = z.object({
   title: z.string().trim().min(1), description: z.string().trim().optional(), type: z.enum(EVIDENCE_TYPES), subtype: z.string().trim().min(1).optional(),

@@ -3,19 +3,20 @@
 // offered it as a suggestion; linking it to the requirement is still a decision with its own reason and review.
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
-  appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
+  accreditor, appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
   CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ReviewLinkSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
   type CreateEvidence, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
-  type LinkEvidence, type ReviewLink, type UpdateEvidence,
+  type LinkEvidence, type RequirementContext, type RequirementContexts, type ReviewLink, type UpdateEvidence,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
-import { assertHuman, getRequirement, isInternalVersion } from '../framework/common.js';
+import { assertHuman, getRequirement, getVersion, require_ } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
-import { assertPermitted } from '../permissions.js';
+import { assertPermitted, isPermitted } from '../permissions.js';
+import { reportUndo } from '../trash/store.js';
 import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
 
@@ -234,7 +235,13 @@ async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]>
     .innerJoin(requirement, eq(requirement.id, engagementRequirement.requirementId)).innerJoin(engagement, eq(engagement.id, engagementRequirement.engagementId))
     .where(inArray(engagementRequirement.id, erIds)) : [];
   const erById = new Map(ers.map((x) => [x.er.id, x]));
-  const internalTitles = await internalTitlesByCode(ctx);
+  // Library-level targets: the institution's own framework, or any other standard (by framework and code).
+  const targetFrameworks = new Map<string, { internal: boolean; label: string; titles: Map<string, string> }>();
+  for (const id of new Set(rows.filter((r) => r.internalFrameworkId).map((r) => r.internalFrameworkId!))) {
+    const [fw] = await ctx.tx.select({ internal: framework.internal, short: accreditor.shortName }).from(framework)
+      .innerJoin(accreditor, eq(accreditor.id, framework.accreditorId)).where(eq(framework.id, id));
+    targetFrameworks.set(id, { internal: fw?.internal ?? true, label: fw?.short ?? '', titles: await titlesByCode(ctx, id) });
+  }
   const userIds = [...new Set(rows.flatMap((r) => [r.linkedBy, r.reviewedBy]).filter((x): x is string => !!x))];
   const names = new Map((userIds.length ? await ctx.tx.select({ id: appUser.id, name: appUser.fullName }).from(appUser).where(inArray(appUser.id, userIds)) : []).map((u) => [u.id, u.name]));
   return rows.map((r) => {
@@ -248,7 +255,13 @@ async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]>
       stale: !!er && year !== null && year < er.e.reviewYear - STALE_AFTER_YEARS,
       target: er
         ? { kind: 'engagement' as const, code: er.req.code, title: er.req.title, engagementRequirementId: er.er.id, engagementId: er.e.id, engagementTitle: er.e.title }
-        : { kind: 'internal' as const, code: r.internalCode!, title: internalTitles.get(r.internalCode!) ?? null, engagementRequirementId: null, engagementId: null, engagementTitle: null },
+        : (() => {
+          const fw = targetFrameworks.get(r.internalFrameworkId!);
+          return {
+            kind: fw?.internal === false ? ('external' as const) : ('internal' as const), code: r.internalCode!, title: fw?.titles.get(r.internalCode!) ?? null,
+            engagementRequirementId: null, engagementId: null, engagementTitle: null, ...(fw?.internal === false ? { frameworkLabel: fw.label } : {}),
+          };
+        })(),
       rationale: r.rationale, reviewStatus: r.reviewStatus, reviewComment: r.reviewComment,
       linkedByName: r.linkedBy ? names.get(r.linkedBy) ?? null : null, reviewedByName: r.reviewedBy ? names.get(r.reviewedBy) ?? null : null,
       createdAt: r.createdAt.toISOString(),
@@ -256,14 +269,18 @@ async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]>
   });
 }
 
-/** Titles of the internal framework's items by code, from its newest published version (else its newest version). */
-export async function internalTitlesByCode(ctx: Ctx) {
-  const [fw] = await ctx.tx.select({ id: framework.id }).from(framework).where(eq(framework.internal, true));
-  if (!fw) return new Map<string, string>();
-  const versions = await ctx.tx.select().from(frameworkVersion).where(eq(frameworkVersion.frameworkId, fw.id)).orderBy(desc(frameworkVersion.createdAt));
+/** Titles of a framework's requirements by code, from its newest published version (else its newest version). */
+async function titlesByCode(ctx: Ctx, frameworkId: string) {
+  const versions = await ctx.tx.select().from(frameworkVersion).where(eq(frameworkVersion.frameworkId, frameworkId)).orderBy(desc(frameworkVersion.createdAt));
   const v = versions.find((x) => x.status === 'published') ?? versions[0];
   if (!v) return new Map<string, string>();
   return new Map((await ctx.tx.select({ code: requirement.code, title: requirement.title }).from(requirement).where(eq(requirement.frameworkVersionId, v.id))).map((r) => [r.code, r.title]));
+}
+
+/** Titles of the internal framework's items by code, from its newest published version (else its newest version). */
+export async function internalTitlesByCode(ctx: Ctx) {
+  const [fw] = await ctx.tx.select({ id: framework.id }).from(framework).where(eq(framework.internal, true));
+  return fw ? titlesByCode(ctx, fw.id) : new Map<string, string>();
 }
 
 export async function newLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferInsert, 'institutionId'>) {
@@ -271,20 +288,27 @@ export async function newLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferI
   return (await describeLinks(ctx, [row!]))[0]!;
 }
 
-/** Attaches evidence to an item of the internal framework (keyed by its code, so it carries over to new versions). */
-export async function linkToInternal(ctx: Ctx, internalRequirementId: string, input: LinkEvidence): Promise<EvidenceLink> {
+/**
+ * Attaches evidence to a requirement of any standard, the institution's own framework or an external one, keyed by the
+ * framework and the requirement's code so the link carries over to new versions of that standard. It lives outside the
+ * frozen version tables, so a published version can be linked too. It starts as proposed; evidence review approves it.
+ */
+export async function linkToRequirement(ctx: Ctx, requirementId: string, input: LinkEvidence): Promise<EvidenceLink> {
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
   const d = LinkEvidenceSchema.parse(input);
-  const req = await getRequirement(ctx, internalRequirementId);
-  if (!(await isInternalVersion(ctx, req.frameworkVersionId))) throw new ValidationError('evidence is attached to items of the internal quality framework');
+  const req = await getRequirement(ctx, requirementId);
   const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, req.frameworkVersionId));
   await getVersionRow(ctx, d.evidenceVersionId);
   const [dup] = await ctx.tx.select({ id: evidenceLink.id }).from(evidenceLink).where(and(
     eq(evidenceLink.evidenceVersionId, d.evidenceVersionId), eq(evidenceLink.internalFrameworkId, v!.frameworkId), eq(evidenceLink.internalCode, req.code)));
   if (dup) throw new ConflictError('this evidence version is already attached here');
-  return newLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: v!.frameworkId, internalCode: req.code, rationale: d.rationale });
+  const link = await newLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: v!.frameworkId, internalCode: req.code, rationale: d.rationale });
+  reportUndo(ctx, { label: `Linked ${link.evidenceTitle} to ${req.code}`, method: 'DELETE', path: `/api/evidence-links/${link.id}` });
+  return link;
 }
+/** The original name: the internal framework was the only target at first. */
+export const linkToInternal = linkToRequirement;
 
 async function engagementOf(ctx: Ctx, engagementRequirementId: string) {
   const [row] = await ctx.tx.select({ er: engagementRequirement, e: engagement }).from(engagementRequirement)
@@ -343,7 +367,7 @@ export async function removeLink(ctx: Ctx, id: string): Promise<void> {
   const [d] = await describeLinks(ctx, [link]);
   const [raw] = await readRows(ctx, 'evidence_link', [id]);
   // The link goes to the Trash (restorable for 30 days); the evidence itself is never deleted.
-  await trashEvidenceLink(ctx, raw!, { text: d ? `${d.evidenceTitle} → ${d.target.code}` : 'Evidence link', place: d?.target.engagementTitle ?? 'Internal quality framework' });
+  await trashEvidenceLink(ctx, raw!, { text: d ? `${d.evidenceTitle} → ${d.target.code}` : 'Evidence link', place: d?.target.engagementTitle ?? (d?.target.kind === 'external' ? d.target.frameworkLabel ?? 'Standard' : 'Internal quality framework') });
 }
 
 export async function linksForEngagementRequirement(ctx: Ctx, engagementRequirementId: string): Promise<EvidenceLink[]> {
@@ -353,6 +377,7 @@ export async function linksForEngagementRequirement(ctx: Ctx, engagementRequirem
   return describeLinks(ctx, rows);
 }
 
+/** Evidence linked directly to a requirement of any standard (by its framework and code). */
 export async function linksForInternal(ctx: Ctx, internalRequirementId: string): Promise<EvidenceLink[]> {
   await assertPermitted(ctx, 'evidence:read', any);
   const req = await getRequirement(ctx, internalRequirementId);
@@ -394,4 +419,68 @@ export async function suggestionsFor(ctx: Ctx, engagementRequirementId: string):
     });
   }
   return out.sort((a, b) => a.internalCode.localeCompare(b.internalCode) || a.title.localeCompare(b.title));
+}
+
+const CONTEXT_LIST = 5;
+
+/**
+ * What every requirement of an external standard holds, in one answer for the whole version (the hover card reads it once
+ * rather than asking per row): the IQF items it is mapped to (proposed or approved), the evidence linked on those items
+ * through APPROVED mappings (inherited, collected once), and the evidence linked to the requirement itself. Keyed by the
+ * requirement's code. The effective evidence of a requirement is the direct links plus the inherited ones. Evidence parts
+ * are left empty for a caller who cannot read evidence.
+ */
+export async function requirementContexts(ctx: Ctx, versionId: string): Promise<RequirementContexts> {
+  await require_(ctx, 'framework:read');
+  const v = await getVersion(ctx, versionId);
+  const codes = (await ctx.tx.select({ code: requirement.code }).from(requirement).where(eq(requirement.frameworkVersionId, versionId))).map((r) => r.code);
+  const byCode: Record<string, RequirementContext> = {};
+  for (const code of codes) byCode[code] = { mappings: [], inherited: [], inheritedCount: 0, direct: [], directCount: 0 };
+  const maps = (await ctx.tx.select().from(requirementMapping).where(eq(requirementMapping.frameworkId, v.frameworkId)))
+    .filter((m) => m.reviewStatus !== 'rejected' && byCode[m.externalCode]);
+  const titles = new Map<string, Map<string, string>>();
+  for (const id of new Set(maps.map((m) => m.internalFrameworkId))) titles.set(id, await titlesByCode(ctx, id));
+  for (const m of maps.sort((a, b) => a.internalCode.localeCompare(b.internalCode, undefined, { numeric: true }))) {
+    byCode[m.externalCode]!.mappings.push({
+      id: m.id, internalCode: m.internalCode, internalTitle: titles.get(m.internalFrameworkId)?.get(m.internalCode) ?? null, relation: m.relation, reviewStatus: m.reviewStatus,
+    });
+  }
+  if (!(await isPermitted(ctx.tx, 'evidence:read', any))) return { byCode };
+
+  const direct = await ctx.tx.select({ l: evidenceLink, v: evidenceVersion, i: evidenceItem }).from(evidenceLink)
+    .innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId)).innerJoin(evidenceItem, eq(evidenceItem.id, evidenceVersion.evidenceItemId))
+    .where(and(eq(evidenceLink.internalFrameworkId, v.frameworkId), isNull(evidenceLink.engagementRequirementId), sql`${evidenceLink.reviewStatus} <> 'rejected'`));
+  const directVersions = new Map<string, Set<string>>();
+  for (const { l, v: ver, i } of direct.sort((a, b) => b.l.createdAt.getTime() - a.l.createdAt.getTime())) {
+    const ctxOf = byCode[l.internalCode!];
+    if (!ctxOf) continue;
+    ctxOf.directCount += 1;
+    if (ctxOf.direct.length < CONTEXT_LIST) ctxOf.direct.push({ evidenceItemId: i.id, title: i.title, versionNo: ver.versionNo, periodLabel: i.periodLabel, reviewStatus: l.reviewStatus });
+    if (!directVersions.has(l.internalCode!)) directVersions.set(l.internalCode!, new Set());
+    directVersions.get(l.internalCode!)!.add(ver.id);
+  }
+
+  const approved = maps.filter((m) => m.reviewStatus === 'approved');
+  if (!approved.length) return { byCode };
+  const onItems = await ctx.tx.select({ l: evidenceLink, v: evidenceVersion, i: evidenceItem }).from(evidenceLink)
+    .innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId)).innerJoin(evidenceItem, eq(evidenceItem.id, evidenceVersion.evidenceItemId))
+    .where(and(eq(evidenceLink.reviewStatus, 'approved'), isNull(evidenceLink.engagementRequirementId),
+      inArray(evidenceLink.internalFrameworkId, [...new Set(approved.map((m) => m.internalFrameworkId))]),
+      inArray(evidenceLink.internalCode, [...new Set(approved.map((m) => m.internalCode))])));
+  for (const code of codes) {
+    const seen = new Set(directVersions.get(code) ?? []);
+    const mine = approved.filter((m) => m.externalCode === code);
+    const found: (RequirementContext['inherited'][number])[] = [];
+    for (const m of mine) {
+      for (const { l, v: ver, i } of onItems) {
+        if (l.internalFrameworkId !== m.internalFrameworkId || l.internalCode !== m.internalCode || i.status === 'archived' || seen.has(ver.id)) continue;
+        seen.add(ver.id);
+        found.push({ evidenceItemId: i.id, title: i.title, versionNo: ver.versionNo, periodLabel: i.periodLabel, internalCode: m.internalCode });
+      }
+    }
+    found.sort((a, b) => a.internalCode.localeCompare(b.internalCode, undefined, { numeric: true }) || a.title.localeCompare(b.title));
+    byCode[code]!.inheritedCount = found.length;
+    byCode[code]!.inherited = found.slice(0, CONTEXT_LIST);
+  }
+  return { byCode };
 }

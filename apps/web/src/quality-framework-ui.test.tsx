@@ -163,7 +163,7 @@ describe('mappings tab', () => {
     await waitFor(() => expect([...(item as HTMLSelectElement).options].some((o) => o.textContent?.includes('Course review'))).toBe(true));
     await user.selectOptions(item, [...(item as HTMLSelectElement).options].find((o) => o.textContent?.includes('Course review'))!.value);
     await user.selectOptions(screen.getByLabelText('Relation'), 'partly_covers');
-    await user.type(screen.getByLabelText('Why'), 'Annual course review');
+    await user.type(screen.getByLabelText('Commentary'), 'Annual course review');
     await user.click(screen.getByRole('button', { name: 'Propose mapping' }));
 
     const row = await screen.findByTestId('mapping');

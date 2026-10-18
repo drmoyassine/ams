@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-19 — External requirements: Map to IQF, Link evidence, hover card, one layout (owner request)
+
+Decisions: DEC-016 (mappings and evidence belong to the institution, keyed by code), DEC-005 (no "compliant"/"met"), DEC-006 (proposed, then reviewed). No new decision.
+- **Evidence link target:** `evidence_link (internal_framework_id, internal_code)` may now name any framework's requirement code (migration 0058 drops the "internal framework only" insert rule from `evidence_link_rules()`; the immutability of a link's evidence and target stays). Service `linkToRequirement` (alias `linkToInternal`), same routes (`/api/requirements/{id}/evidence-links`); the link DTO's target has kind `external` plus `frameworkLabel` (the accreditor's short name). It works on a published version because links live outside the frozen tables; it starts as proposed and `evidence:review` approves it; Undo = delete (Trash).
+- **Batched read:** `requirementContexts()` / `GET /api/framework-versions/{id}/requirement-context` (requires `framework:read`; the evidence parts are empty without `evidence:read`). Inherited evidence counts only through APPROVED mappings and APPROVED links on the IQF item, archived items left out, a piece also linked directly is shown once (as direct). Rejected mappings are not listed.
+- **UI:** `MapToIqfDialog`, `RequirementHover`, `RequirementsLayout`; the ⋯ menu shows Map to IQF… to `framework:write` and Link evidence to `evidence:write` on any state of the version. The card opens on keyboard focus as well as hover (not on the focus that a click gives).
+- **Layout reading:** the owner described the IQF page as tree-left with a "Select a requirement…" panel; in the code only the external page had a side panel (the source viewer, wide screens only) and the IQF page was cards only. Both now use `RequirementsLayout`; the IQF gets a panel for the selected standard ("Select a standard…"). Say if the IQF should not have one.
+- Tests: core (external link, contexts, pending/rejected mappings, Trash), api, db (`evidence-link-targets.test.ts`), web `external-iqf-ui.test.tsx` (menu, dialog with Arabic search, hover card and one request, Loading…, keyboard focus, link evidence, commentary edit, layout class parity), `e2e/responsive.mjs` states `version-external-menu`, `version-map-iqf-dialog`, `version-link-evidence-dialog`, `version-hover-card(-focus)`, `iqf-detail-panel`.
+
 ## 2026-10-18 — Org chart: edit on the Chart view (owner request, TASK-072 follow-up)
 
 Decisions: DEC-026, DEC-028. No new business rules, no migration, no new API.

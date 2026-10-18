@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
-  linkToInternal, listEvidence, MAX_UPLOAD_BYTES, readVersionFile, removeLink, reviewLink, suggestionsFor, updateEvidence, ValidationError,
+  linkToRequirement, listEvidence, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, reviewLink, suggestionsFor, updateEvidence, ValidationError,
 } from '@ams/core';
 import {
   CreateEvidenceSchema, EvidenceDetailSchema, EvidenceItemSchema, EvidenceLinkSchema, EvidenceSuggestionSchema, EvidenceVersionSchema,
-  LinkEvidenceSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
+  LinkEvidenceSchema, RequirementContextsSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -79,14 +79,21 @@ export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/requirements/{id}/evidence-links', access: requires('evidence:read'), tags: tag,
       request: { params: idParam },
-      responses: { 200: { description: 'Evidence attached to an item of the internal framework', ...json(z.array(EvidenceLinkSchema)) }, ...errors },
+      responses: { 200: { description: 'Evidence linked directly to a requirement of any standard (by its framework and code, so it carries over to new versions)', ...json(z.array(EvidenceLinkSchema)) }, ...errors },
     }), async (c) => c.json(toDto(z.array(EvidenceLinkSchema), await linksForInternal(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/requirements/{id}/evidence-links', access: requires('evidence:write'), tags: tag,
       request: { params: idParam, body: { required: true, ...json(LinkEvidenceSchema) } },
       responses: { 201: { description: 'Attached, for review', ...json(EvidenceLinkSchema) }, ...errors },
-    }), async (c) => c.json(toDto(EvidenceLinkSchema, await linkToInternal(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+    }), async (c) => c.json(toDto(EvidenceLinkSchema, await linkToRequirement(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/requirement-context', access: requires('framework:read'), tags: tag,
+      description: 'For every requirement of a standard version: the quality framework items it is mapped to, the evidence inherited through approved mappings and the evidence linked to it directly. Read-only; the evidence parts are empty without evidence:read.',
+      request: { params: idParam },
+      responses: { 200: { description: 'Mappings and evidence by requirement code', ...json(RequirementContextsSchema) }, ...errors },
+    }), async (c) => c.json(toDto(RequirementContextsSchema, await requirementContexts(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/engagement-requirements/{id}/evidence-links', access: requires('evidence:read'), tags: tag,

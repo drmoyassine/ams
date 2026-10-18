@@ -10,8 +10,8 @@ import { publishVersion, submitForReview } from '../framework/versions.js';
 import { createMapping, reviewMapping } from '../mapping/mapping.js';
 import { saveDatasetRows, saveDatasetSpec } from './dataset.js';
 import {
-  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal,
-  listEvidence, readVersionFile, removeLink, reviewLink, suggestionsFor, updateEvidence,
+  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal, linkToRequirement,
+  listEvidence, readVersionFile, removeLink, requirementContexts, reviewLink, suggestionsFor, updateEvidence,
 } from './evidence.js';
 import { setDataFormOpen, submitDataResponse } from './forms.js';
 import { cancelEvidenceRequest, createFormRequests } from './requests.js';
@@ -38,7 +38,7 @@ beforeAll(async () => {
   const pick = async (who: string, eng: string) => (await w.as(who, (c) => listEngagementRequirements(c, eng))).items.find((i) => i.applicable)!;
   const abetItem = await pick('coord', ids.abetEng);
   const wscucItem = await pick('alo', ids.wscucEng);
-  ids.abetER = abetItem.id; ids.wscucER = wscucItem.id;
+  ids.abetER = abetItem.id; ids.wscucER = wscucItem.id; ids.abetReq = abetItem.requirementId;
 
   // Both requirements are mapped (and the mappings approved) onto "Assessment of learning".
   for (const [version, item] of [[w.ids.abet!, abetItem], [w.ids.wscuc!, wscucItem]] as const) {
@@ -190,5 +190,65 @@ describe('what the repository list shows', () => {
     await w.as('contrib', (c) => saveDatasetRows(c, empty.id, { rows: [{ program: 'BS Mechanical' }] }));
     await expect(w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'document' }))).rejects.toThrow('this data has saved data or form responses; it cannot become a document');
     await expect(w.as('contrib', (c) => updateEvidence(c, ids.data!, { type: 'document' }))).rejects.toThrow(ConflictError); // a response, no data yet
+  });
+});
+
+describe('evidence linked directly to a requirement of an external standard', () => {
+  it('links by framework and code, for review, described as external; the same piece twice is refused', async () => {
+    const item = await w.as('contrib', (c) => createEvidence(c, { title: 'Laboratory safety audit', type: 'document', periodLabel: 'AY2025-26' }));
+    const v = await w.as('contrib', (c) => addFileVersion(c, item.id, { fileName: 'audit.pdf', mime: 'application/pdf', bytes: bytes('audit') }));
+    ids.auditV = v.id;
+    await expect(w.as('outsider', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: v.id, rationale: 'x' }))).rejects.toThrow(ForbiddenError);
+    await expect(w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: v.id, rationale: ' ' }))).rejects.toThrow();
+    const link = await w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: v.id, rationale: 'The audit covers this criterion' }));
+    ids.extLink = link.id;
+    expect(link).toMatchObject({ reviewStatus: 'proposed', target: { kind: 'external', frameworkLabel: expect.any(String), title: expect.any(String) } });
+    await expect(w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: v.id, rationale: 'again' }))).rejects.toThrow(ConflictError);
+    // Stored at the library level (framework and code), so a new version of the standard finds it.
+    const row = (await w.db.su.query(`select l.internal_code, f.internal from evidence_link l join framework f on f.id = l.internal_framework_id where l.id = $1`, [link.id])).rows[0];
+    expect(row).toMatchObject({ internal: false });
+    expect((await w.as('contrib', (c) => linksForInternal(c, ids.abetReq!))).map((l) => l.id)).toEqual([link.id]);
+    expect((await w.as('alo', (c) => getEvidence(c, item.id))).links.map((l) => l.target.kind)).toEqual(['external']);
+    // Only the evidence reviewers approve it; the target and the evidence of a link cannot change.
+    await expect(w.as('contrib', (c) => reviewLink(c, link.id, { decision: 'approved' }))).rejects.toThrow(ForbiddenError);
+    await expect(w.db.su.query(`update evidence_link set internal_code = 'x' where id = $1`, [link.id])).rejects.toThrow(/cannot change/);
+  });
+
+  it('reports, per requirement code, the mapped IQF items and the evidence inherited through approved mappings and linked directly', async () => {
+    const code = (await w.as('alo', (c) => listRequirements(c, w.ids.abet!))).find((r) => r.id === ids.abetReq)!.code;
+    const ctx1 = (await w.as('coord', (c) => requirementContexts(c, w.ids.abet!))).byCode[code]!;
+    expect(ctx1.mappings).toEqual([expect.objectContaining({ internalTitle: 'Assessment of learning', relation: 'covers', reviewStatus: 'approved' })]);
+    expect(ctx1.inherited).toEqual([expect.objectContaining({ title: 'Course review minutes', internalCode: ctx1.mappings[0]!.internalCode })]);
+    expect(ctx1).toMatchObject({ inheritedCount: 1, directCount: 1, direct: [expect.objectContaining({ title: 'Laboratory safety audit', reviewStatus: 'proposed' })] });
+    // Linked directly as well, the same piece is counted once (as direct), not inherited twice.
+    await w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: ids.v1!, rationale: 'Also linked on this requirement itself' }));
+    const ctx2 = (await w.as('coord', (c) => requirementContexts(c, w.ids.abet!))).byCode[code]!;
+    expect(ctx2).toMatchObject({ inheritedCount: 0, directCount: 2 });
+    // Another standard's requirements have none of this.
+    const wscuc = (await w.as('alo', (c) => requirementContexts(c, w.ids.wscuc!))).byCode;
+    expect(Object.values(wscuc).flatMap((x) => x.direct)).toEqual([]);
+    await expect(w.as('outsider', (c) => requirementContexts(c, w.ids.abet!))).rejects.toThrow(ForbiddenError);
+  });
+
+  it('a pending mapping is listed but passes no evidence on; a rejected one is not listed', async () => {
+    const reqs = await w.as('alo', (c) => listRequirements(c, w.ids.abet!));
+    const other = reqs.find((r) => r.isAssessable && r.id !== ids.abetReq)!;
+    const m = await w.as('alo', (c) => createMapping(c, w.ids.abet!, { externalRequirementId: other.id, internalRequirementId: ids.assessment!, relation: 'related', rationale: 'Because' }));
+    let got = (await w.as('alo', (c) => requirementContexts(c, w.ids.abet!))).byCode[other.code]!;
+    expect(got.mappings).toEqual([expect.objectContaining({ reviewStatus: 'pending', relation: 'related' })]);
+    expect(got.inheritedCount).toBe(0);
+    await w.as('admin', (c) => reviewMapping(c, m.id, 'approved'));
+    got = (await w.as('alo', (c) => requirementContexts(c, w.ids.abet!))).byCode[other.code]!;
+    expect(got.inheritedCount).toBe(1);
+    await w.as('admin', (c) => reviewMapping(c, m.id, 'rejected'));
+    expect((await w.as('alo', (c) => requirementContexts(c, w.ids.abet!))).byCode[other.code]!.mappings).toEqual([]);
+  });
+
+  it('removes a proposed direct link to the Trash and brings it back', async () => {
+    await w.as('contrib', (c) => removeLink(c, ids.extLink!));
+    const bin = (await w.as('contrib', (c) => listTrash(c, { kind: 'evidence_link' }))).groups[0]!;
+    expect(bin.kinds).toEqual(['evidence_link']);
+    await w.as('contrib', (c) => restoreTrash(c, { groupId: bin.groupId }));
+    expect((await w.as('contrib', (c) => linksForInternal(c, ids.abetReq!))).map((l) => l.id)).toContain(ids.extLink);
   });
 });

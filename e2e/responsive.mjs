@@ -670,6 +670,35 @@ function pagesFor(ids) {
     { name: 'settings-assistant-memory-shared', path: '/settings/assistant-memory', action: async (page) => { await clickTab('Shared')(page); await page.getByTestId('memory-row').first().waitFor(); } },
     { name: 'settings-assistant-memory-add', path: '/settings/assistant-memory', action: async (page) => { await page.getByRole('button', { name: 'Add memory' }).click(); await page.getByRole('dialog', { name: 'Add memory' }).waitFor(); } },
     { name: 'settings-ai-assistant', path: '/settings/ai', action: async (page) => { await clickTab('Models')(page); await page.getByRole('region', { name: 'Assistant model' }).scrollIntoViewIfNeeded(); } },
+    // Standards in operation: the ⋯ menu of an external requirement (Map to IQF…, Link evidence), the map dialog with a pick, the link dialog,
+    // the hover card (mapped IQF items and evidence) and the IQF page's own detail panel beside its tree.
+    { name: 'version-external-menu', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.getByRole('button', { name: /^Actions for / }).first().click();
+      await page.getByRole('menuitem', { name: 'Map to IQF…' }).waitFor();
+    } },
+    { name: 'version-map-iqf-dialog', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await menuItem('Map to IQF…')(page);
+      const dialog = page.getByRole('dialog', { name: /^Map to IQF/ });
+      await dialog.waitFor();
+      await dialog.getByRole('checkbox').first().check();
+      await dialog.getByTestId('chosen-iqf').first().waitFor();
+    } },
+    { name: 'version-link-evidence-dialog', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await menuItem('Link evidence')(page);
+      await page.getByRole('dialog', { name: /^Link evidence/ }).waitFor();
+    } },
+    { name: 'version-hover-card', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.locator('button[data-tree-focus]').first().hover();
+      await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
+    } },
+    { name: 'version-hover-card-focus', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.locator('button[data-tree-focus]').first().focus();
+      await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
+    } },
+    { name: 'iqf-detail-panel', path: '/settings/quality-framework', action: async (page) => {
+      await page.getByTestId('iqf-standard').first().getByRole('button', { name: /^Standard / }).first().click();
+      await page.getByText('Description').first().waitFor();
+    } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }

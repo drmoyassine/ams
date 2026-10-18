@@ -13,6 +13,7 @@ import { Input } from '../components/ui/input';
 import { confirmAndDeleteAll } from '../lib/delete-requirements';
 import { ApiError, type FrameworkApi, type Issue, type Version } from '../lib/framework-api';
 import { type GlossaryApi } from '../lib/glossary-api';
+import type { EvidenceApi } from '../lib/evidence-api';
 import { registerAssistantNav, usePublishScreen } from '../lib/assistant-screen';
 import { can, useApi, useMe } from '../lib/me';
 import { ExternalRequirements } from './version/external-requirements';
@@ -65,8 +66,8 @@ function NewVersionDialog({ from, error, onCreate, onClose }: { from: Version; e
  * One version of a standard. The header names the standard and its accreditor, picks the version, and carries the one
  * action the version's state calls for (submit, publish, start a new version); the rest sits in its ⋯ menu.
  */
-export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, initialFocusRequirement, initialFocusPage, onLocation }: {
-  versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab;
+export function VersionPage({ versionId, api: apiProp, glossary, evidence, onOpenVersion, initialTab = 'requirements', initialSection, initialRunId, initialFocusRequirement, initialFocusPage, onLocation }: {
+  versionId: string; api?: FrameworkApi; glossary?: GlossaryApi; evidence?: EvidenceApi; onOpenVersion?: (id: string) => void; initialTab?: VersionTab;
   /** A section of Settings. 'sources' is the old address of the Docs tab and opens it. */ initialSection?: SettingsSection | 'sources';
   /** The analysis run the Report tab opens on (the address's ?run=). */ initialRunId?: string;
   /** A requirement's card to open (the address's ?req=, from a link in the assistant). */ initialFocusRequirement?: string;
@@ -229,7 +230,7 @@ export function VersionPage({ versionId, api: apiProp, glossary, onOpenVersion, 
       <VersionTranslations api={api} version={version}>
       {(internal || tab === 'requirements') && <TranslationBar api={api} version={version} />}
       <div role="tabpanel">
-        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} />)}
+        {(internal || tab === 'requirements') && (internal ? <RequirementsTab api={api} version={version} me={m} {...(evidence ? { evidence } : {})} /> : <ExternalRequirements api={api} version={version} me={m} focusId={focusRequirement} onOpenSource={openSource} {...(evidence ? { evidence } : {})} />)}
         {!internal && tab === 'mappings' && <MappingsTab api={api} version={version} me={m} />}
         {!internal && tab === 'report' && <ReportTab api={api} versionId={version.id} runId={runId} onSelectRun={selectRun} nav={reportNav} title={`${f?.name ?? 'Standard'} ${versionLabel(version.edition)}`} />}
         {!internal && tab === 'docs' && <VersionDocs api={api} version={version} me={m} {...(focusPage ? { focusPage } : {})} onShowRequirement={showRequirement} onShowReport={(id) => { setRunId(id); setTab('report', id); }} />}

@@ -125,6 +125,9 @@ Settings -> Internal Quality Framework stays the place where the framework itsel
   on an inherited value creates an override on that node, and "Back to inherited" removes it.
 - Evidence linked on the mapped IQF node already counts for the external requirement (collected once); "Link evidence"
   here adds evidence for this requirement only.
+  Such a link targets the requirement by framework and code at the library level (`evidence_link.internal_framework_id` +
+  `internal_code`, migration 0058; any framework, not only the IQF), so it carries over to new versions of the standard. The
+  effective evidence of an external requirement is its direct links plus what its approved mappings inherit.
 
 - An external requirement mapped to IQF nodes takes their scope and champion by default; it can override either.
 - Mapped to several IQF nodes: scope is the union of theirs; the champion is inherited only when they agree, otherwise
