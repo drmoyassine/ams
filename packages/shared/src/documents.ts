@@ -190,6 +190,8 @@ export const ImportProposalListSchema = z.object({
   run: ImportRunSchema, proposals: z.array(ImportProposalSchema),
   /** The values a field may take, for the fields that have a fixed list (the review shows a choice instead of free text). */
   fieldOptions: z.record(z.string(), z.array(z.string())).default({}),
+  /** Values offered for a field while another can still be typed (e.g. the existing units of the org chart). */
+  fieldSuggestions: z.record(z.string(), z.array(z.string())).default({}),
 });
 export type ImportProposalList = z.infer<typeof ImportProposalListSchema>;
 

@@ -73,6 +73,12 @@ export interface ImportTarget<T = unknown> {
    * runs in the worker with read-only intent. Flags are shown to the person, never silent.
    */
   validate?(item: T, scope: TargetScope, ctx: Ctx): Promise<string[]> | string[];
+  /**
+   * Choices the review offers for some fields, read as the person: `options` are the only values allowed (a choice), `suggestions`
+   * are offered while a new value can still be typed (e.g. the org chart's units, where an unknown unit is proposed as new).
+   * Fields with a fixed enum in the schema get their options without this.
+   */
+  fieldChoices?(ctx: Ctx, scope: TargetScope): Promise<{ options?: Record<string, string[]>; suggestions?: Record<string, string[]> }>;
   /** A short name for the table row, the toast and the report ("BSc Nursing"). */
   proposalLabel(item: T): string;
   /** Items with the same key found in overlapping windows are one item. Return null to never merge an item. Default: the normalised JSON. */

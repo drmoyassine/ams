@@ -30,7 +30,7 @@ function columnsOf(list: ImportProposal[]): string[] {
 }
 
 /** One editable cell. Text keeps its own direction (dir="auto"); a change is saved when the cell loses focus. */
-function ValueCell({ label, value, disabled, options, onSave }: { label: string; value: unknown; disabled: boolean; options?: string[]; onSave: (v: Cell) => void }) {
+function ValueCell({ label, value, disabled, options, listId, onSave }: { label: string; value: unknown; disabled: boolean; options?: string[]; listId?: string; onSave: (v: Cell) => void }) {
   const [draft, setDraft] = useState<string>(isCell(value) ? String(value ?? '') : JSON.stringify(value));
   useEffect(() => { setDraft(isCell(value) ? String(value ?? '') : JSON.stringify(value)); }, [value]);
   if (options && (value === null || value === undefined || typeof value === 'string')) {
@@ -53,7 +53,7 @@ function ValueCell({ label, value, disabled, options, onSave }: { label: string;
     onSave(draft.trim() === '' && (value === null || value === undefined) ? null : draft);
   };
   return (
-    <input aria-label={label} dir="auto" value={draft} disabled={disabled} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+    <input aria-label={label} dir="auto" value={draft} disabled={disabled} list={listId} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
       className="w-full min-w-28 rounded border border-border bg-background px-2 py-1 text-sm disabled:border-transparent disabled:bg-transparent" />
   );
@@ -78,6 +78,17 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
   const list = q.data?.proposals ?? [];
   const cols = useMemo(() => columnsOf(list), [list]);
   const options = q.data?.fieldOptions ?? {};
+  // Fields with suggestions (the org chart's units) offer them, plus what the other rows already say, while a new value can be typed.
+  const suggestions = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const [k, base] of Object.entries(q.data?.fieldSuggestions ?? {})) {
+      const seen = new Set(base);
+      for (const p of list) { const v = asRecord(p.effective)[k]; if (typeof v === 'string' && v.trim()) seen.add(v.trim()); }
+      out[k] = [...seen].sort((a, b) => a.localeCompare(b));
+    }
+    return out;
+  }, [q.data, list]);
+  const listIdOf = (k: string) => (suggestions[k] ? `import-${runId}-${k}` : undefined);
   const [bulkField, setBulkField] = useState('');
   const [bulkValue, setBulkValue] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: key });
@@ -147,6 +158,9 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
 
   return (
     <section aria-label="Review proposals" className="space-y-3">
+      {Object.entries(suggestions).map(([k, vals]) => (
+        <datalist key={k} id={listIdOf(k)}>{vals.map((v) => <option key={v} value={v} />)}</datalist>
+      ))}
       <div className="flex flex-wrap items-center gap-2">
         {onBack && <Button type="button" variant="ghost" onClick={onBack}>← Back to documents</Button>}
         {q.data && <><h2 className="text-lg font-semibold">{q.data.run.targetLabel}: review</h2><RunChip status={q.data.run.status} /><span className="text-xs text-muted-foreground">{spendText(q.data.run.usage)}</span></>}
@@ -188,7 +202,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                         <option value="">—</option>
                         {options[bulkField]!.map((o) => <option key={o} value={o}>{humanize(o)}</option>)}
                       </select>
-                    : <input aria-label={`Value for ${humanize(bulkField)}`} dir="auto" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-40 rounded border border-border bg-background px-2 py-1 text-sm" />)}
+                    : <input aria-label={`Value for ${humanize(bulkField)}`} dir="auto" list={listIdOf(bulkField)} value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-40 rounded border border-border bg-background px-2 py-1 text-sm" />)}
                   {bulkField && <Button type="button" variant="outline" disabled={!pickable.length || busy} onClick={() => void setForSelected(pickable)}>Set on {pickable.length} selected</Button>}
                 </span>
                 <Button type="button" className="ms-auto" disabled={!ready.length || busy} onClick={() => void apply()}>Apply {ready.length}</Button>
@@ -225,7 +239,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                           </div>
                         </td>
                         {cols.map((k) => (
-                          <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} {...(options[k] ? { options: options[k] } : {})} onSave={(v) => void save(p, k, v)} /></td>
+                          <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} {...(options[k] ? { options: options[k] } : {})} {...(listIdOf(k) ? { listId: listIdOf(k)! } : {})} onSave={(v) => void save(p, k, v)} /></td>
                         ))}
                         <td className="p-2">
                           <button type="button" className="text-start text-xs underline" aria-label={`Show the source of ${p.label}`} onClick={() => setSelected(p.id)}>

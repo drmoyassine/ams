@@ -80,6 +80,15 @@ export const programsTarget: ImportTarget<ProgramImportItem> = {
     if (!item.unitName) why.push('No owning unit was found.');
     return why;
   },
+  // The review offers the institution's unit types as a choice, and the org chart's units by name (a new name is still allowed:
+  // it is proposed as a new unit on apply).
+  async fieldChoices(ctx) {
+    const [types, units] = await Promise.all([listOrgUnitTypes(ctx), listOrgUnits(ctx)]);
+    return {
+      options: { unitType: types.map((t) => t.key) },
+      suggestions: { unitName: units.filter((u) => u.active).map((u) => u.nameEn).sort((a, b) => a.localeCompare(b)) },
+    };
+  },
   proposalLabel: (item) => item.nameEn,
   dedupeKey: (item) => keyOf(item.nameEn, item.degreeLevel),
 

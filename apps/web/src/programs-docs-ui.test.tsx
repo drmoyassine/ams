@@ -138,6 +138,11 @@ describe('Programs -> Docs', () => {
     const level = within(short).getByLabelText(/^Degree level of /) as HTMLSelectElement;
     expect(level.tagName).toBe('SELECT');
     expect([...level.options].map((o) => o.value)).toEqual(['', 'associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate']);
+    // The owning unit is offered from the org chart (a new name can still be typed); the unit type is the institution's list.
+    const unit = within(short).getByLabelText(/^Unit name of /) as HTMLInputElement;
+    const listId = unit.getAttribute('list')!;
+    expect([...document.getElementById(listId)!.querySelectorAll('option')].map((o) => o.getAttribute('value'))).toContain('Engineering');
+    expect((within(short).getByLabelText(/^Unit type of /) as HTMLElement).tagName).toBe('SELECT');
     await user.click(within(short).getByRole('checkbox', { name: /^Select / }));
     await user.selectOptions(within(review).getByLabelText('Field to set'), 'degreeLevel');
     await user.selectOptions(within(review).getByLabelText('Value for Degree level'), 'diploma');

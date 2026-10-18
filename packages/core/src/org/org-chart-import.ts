@@ -72,6 +72,14 @@ export const orgChartTarget: ImportTarget<OrgChartImportItem> = {
     if (item.boxText && /\[illegible\]/i.test(item.boxText)) why.push('Part of this box could not be read.');
     return why;
   },
+  // The unit types are a choice; a parent can be an existing unit of the chart or another box of the same picture.
+  async fieldChoices(ctx) {
+    const [types, units] = await Promise.all([listOrgUnitTypes(ctx), listOrgUnits(ctx)]);
+    return {
+      options: { type: types.map((t) => t.key) },
+      suggestions: { parentName: units.filter((u) => u.active).map((u) => u.nameEn).sort((a, b) => a.localeCompare(b)) },
+    };
+  },
   proposalLabel: (item) => item.nameEn,
   // The same name under the same parent in two windows is one unit.
   dedupeKey: (item) => `${fold(item.nameEn)}|${fold(item.parentName)}`,

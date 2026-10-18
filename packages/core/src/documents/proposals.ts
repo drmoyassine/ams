@@ -62,7 +62,12 @@ export async function listImportProposals(ctx: Ctx, runId: string): Promise<Impo
   const rows = await ctx.tx.select().from(importProposal).where(and(eq(importProposal.runId, runId), eq(importProposal.candidate, false))).orderBy(asc(importProposal.seq));
   const names = await documentNames(ctx, [...new Set(rows.map((r) => r.documentId).filter((x): x is string => !!x))]);
   const target = findImportTarget(run.targetKind);
-  return { run: (await toRunDtos(ctx, [run]))[0]!, proposals: rows.map((r) => toProposalDto(r, names)), fieldOptions: target ? fieldOptionsOf(target.schema) : {} };
+  const choices = target?.fieldChoices ? await target.fieldChoices(ctx, await scopeFor(ctx, run)) : {};
+  return {
+    run: (await toRunDtos(ctx, [run]))[0]!, proposals: rows.map((r) => toProposalDto(r, names)),
+    fieldOptions: { ...(target ? fieldOptionsOf(target.schema) : {}), ...(choices.options ?? {}) },
+    fieldSuggestions: choices.suggestions ?? {},
+  };
 }
 
 /** The fields of a target's item that take one of a fixed list of values (an enum, possibly optional), with that list. */
