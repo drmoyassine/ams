@@ -220,6 +220,6 @@ records and never approves); Arabic is first-class content (NFC, `dir="auto"`); 
 
 ## Model failures (2026-10-15)
 
-A model call is cut off after `AI_CALL_TIMEOUT_MS` (default 120 000 ms) and, like "No output generated" (a model that cannot give structured answers, e.g. an OCR-only model), ends the run at once as failed with a plain reason; both used to be retried by the queue (4 attempts), which left the run looking stuck for many minutes. Other provider errors are still retried.
+Extraction calls stream: the model must start within `AI_CALL_TIMEOUT_MS` (default 180 000 ms) and is then allowed to go on as long as text keeps coming (stopped after 90 s of silence, or at 20 minutes), so a long answer such as a large org chart is not cut off. A call that times out and, like "No output generated" (a model that cannot give structured answers, e.g. an OCR-only model), ends the run at once as failed with a plain reason; both used to be retried by the queue (4 attempts), which left the run looking stuck for many minutes. Other provider errors are still retried.
 
 A model that ignores or cannot follow the structured-output request is asked once more for plain JSON described in the prompt, and the answer is checked against the same schema; only when that fails too does the run stop with "returned nothing". Slow free models can be given more time with `AI_CALL_TIMEOUT_MS` on the agent service (e.g. 300000).

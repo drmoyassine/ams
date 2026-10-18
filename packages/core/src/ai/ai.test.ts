@@ -49,6 +49,27 @@ describe('aiExtract', () => {
     expect((err as Error).message).toContain('returned nothing');
   });
 
+  it('stops a model that never starts answering, with a plain reason, and does not retry', async () => {
+    const silent = {
+      specificationVersion: 'v4', provider: 'fake', modelId: 'silent', supportedUrls: {},
+      async doGenerate() { throw new Error('not used'); },
+      async doStream({ abortSignal }: { abortSignal?: AbortSignal }) {
+        return { stream: new ReadableStream({ start(c) { abortSignal?.addEventListener('abort', () => c.error(abortSignal.reason)); } }) };
+      },
+    };
+    setAiModelForTests(silent as never);
+    const before = process.env.AI_CALL_TIMEOUT_MS;
+    process.env.AI_CALL_TIMEOUT_MS = '1000';
+    try {
+      const err = await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime(config) })).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AiCallError);
+      expect((err as AiCallError).retryable).toBe(false);
+      expect((err as Error).message).toContain('did not answer in time');
+    } finally {
+      if (before === undefined) delete process.env.AI_CALL_TIMEOUT_MS; else process.env.AI_CALL_TIMEOUT_MS = before;
+    }
+  }, 20000);
+
   it('logs each call as one JSON line, without the key', async () => {
     setAiModelForTests(createFakeAiModel([{ items: [] }]).model);
     await inJob(() => aiExtract({ task: 'connection_test', promptVersion: 'v1', input: 'x', schema, runtime: createAiRuntime(config) }));

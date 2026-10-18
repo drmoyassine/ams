@@ -1,6 +1,6 @@
 // The ONE import point for the AI SDK (DEC-012). Everything else calls aiExtract / aiOcr and never imports `ai`.
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { embedMany, generateText, isStepCount, Output, tool } from 'ai';
+import { embedMany, generateText, isStepCount, Output, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { aiEnvKey, aiKeyOptional, loadAiEnv } from '@ams/shared';
 import { AiBudget, estimateTokens } from './budget.js';
@@ -99,7 +99,31 @@ function parseJsonObject(text: string): unknown {
   try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
 }
 /** One model call may take this long (AI_CALL_TIMEOUT_MS, default 120 s) before it is given up; a stalled provider must not hold a run. */
-const callTimeoutMs = () => { const n = Number(process.env.AI_CALL_TIMEOUT_MS); return Number.isFinite(n) && n >= 1000 ? n : 120_000; };
+const callTimeoutMs = () => { const n = Number(process.env.AI_CALL_TIMEOUT_MS); return Number.isFinite(n) && n >= 1000 ? n : 180_000; };
+/** An extraction streams: once the model has started, it may go on as long as text keeps coming (a big org chart is a long
+ * answer); it is stopped when it falls silent for this long, or at the overall ceiling. */
+const SILENCE_MS = 90_000;
+const CEILING_MS = 20 * 60_000;
+
+/** One streamed model call; the first token must come within `callTimeoutMs()`, then no silence over SILENCE_MS. */
+async function streamed<T>(a: { config: AiConfig; system: string; prompt: string; maxOutputTokens: number; schema?: z.ZodType<T> }) {
+  let failure: unknown;
+  const r = streamText({
+    model: createModel(a.config), system: a.system, prompt: a.prompt, temperature: 0, maxOutputTokens: a.maxOutputTokens, maxRetries: 1,
+    timeout: { firstChunkMs: callTimeoutMs(), chunkMs: SILENCE_MS, totalMs: CEILING_MS },
+    ...(a.schema ? { output: Output.object({ schema: a.schema }) } : {}),
+    onError: ({ error }) => { failure ??= error; },
+  });
+  try {
+    const text = await r.text;
+    const output = a.schema ? await r.output : undefined;
+    const usage = await r.usage;
+    if (failure) throw failure;
+    return { text, output, inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 };
+  } catch (e) {
+    throw failure ?? e;
+  }
+}
 const redact = (message: string, key: string) => (key ? message.split(key).join('[key]') : message);
 
 /** Checks the budget, calls, and logs the outcome (to `runtime.calls` and as one JSON line) whether or not it worked. */
@@ -138,7 +162,7 @@ async function tracked<T>(
     finish();
     if (e instanceof BudgetExceeded) throw e;
     if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-      throw new AiCallError(`The model did not answer within ${Math.round(callTimeoutMs() / 1000)} seconds (${config.model}). Choose a faster model in Settings -> AI.`, false);
+      throw new AiCallError(`The model did not answer in time (${config.model}): nothing within ${Math.round(callTimeoutMs() / 1000)} seconds, or it fell silent for ${SILENCE_MS / 1000}. Choose a faster model in Settings -> AI.`, false);
     }
     if (/No output generated/i.test(raw)) {
       throw new AiCallError(`The model (${config.model}) returned nothing. It may not support structured answers: choose another model in Settings -> AI.`, false);
@@ -164,23 +188,19 @@ export async function aiExtract<T>(p: AiExtractParams<T>): Promise<{ data: T; us
   const system = getPrompt(p.task, p.promptVersion);
   const { value, usage } = await tracked(runtime, { task: p.task, promptVersion: p.promptVersion }, estimateTokens(system + p.input), async (maxOutputTokens) => {
     try {
-      const r = await generateText({
-        model: createModel(runtime.config), system, prompt: p.input, temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
-        output: Output.object({ schema: p.schema }),
-      });
-      return { value: r.output as T, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+      const r = await streamed<T>({ config: runtime.config, system, prompt: p.input, maxOutputTokens, schema: p.schema });
+      return { value: r.output as T, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
     } catch (e) {
       if (!structuredOutputFailed(e)) throw e;
       // Many models behind OpenRouter or a compatible server ignore or choke on the structured-output request. Ask once
       // more for plain JSON described in the prompt, and check it against the same schema here.
-      const r = await generateText({
-        model: createModel(runtime.config), temperature: 0, maxOutputTokens, maxRetries: 1, abortSignal: AbortSignal.timeout(callTimeoutMs()),
+      const r = await streamed<never>({
+        config: runtime.config, maxOutputTokens, prompt: p.input,
         system: `${system}\n\nAnswer with one JSON object only, no prose and no code fence, matching this JSON Schema:\n${JSON.stringify(z.toJSONSchema(p.schema))}`,
-        prompt: p.input,
       });
       const parsed = p.schema.safeParse(parseJsonObject(r.text));
       if (!parsed.success) throw new Error(`No output generated (the model's plain JSON answer did not fit: ${parsed.error.issues[0]?.message ?? 'invalid'})`);
-      return { value: parsed.data, inputTokens: r.usage.inputTokens ?? 0, outputTokens: r.usage.outputTokens ?? 0 };
+      return { value: parsed.data, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
     }
   });
   return { data: value, usage };

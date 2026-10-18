@@ -59,7 +59,17 @@ export function createFakeAiModel(replies: FakeReply[], usage: { inputTokens?: n
         warnings: [],
       };
     },
-    async doStream() { throw new Error('the fake model does not stream'); },
+    // Streaming answers the same replies as one text chunk (tool calls are only used by the non-streaming assistant loop).
+    async doStream(options: unknown) {
+      const r = await model.doGenerate(options) as { content: { type: string; text?: string }[]; finishReason: unknown; usage: unknown };
+      const text = r.content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+      const parts = [
+        { type: 'stream-start', warnings: [] },
+        { type: 'text-start', id: 't1' }, { type: 'text-delta', id: 't1', delta: text }, { type: 'text-end', id: 't1' },
+        { type: 'finish', finishReason: r.finishReason, usage: r.usage },
+      ];
+      return { stream: new ReadableStream({ start(c) { for (const p of parts) c.enqueue(p); c.close(); } }) };
+    },
   };
   return { model: model as unknown as LanguageModel, calls };
 }
