@@ -321,6 +321,59 @@ async function seedDemo(db, base) {
     const audit = all.find((t) => t.key === 'internal_audit');
     await call('POST', `/api/cycle-templates/${audit.id}/retire`);
   } catch (e) { warn('cycle templates', e); }
+  // TASK-080: cycles for Quality Management -> Cycles, the cycle page and My work. The admin heads the college, so the head-of-unit rules
+  // resolve to the admin (and the stages and the approval wait for them); the QA stage's role rule finds nobody, so it is flagged.
+  //   active: collect and self-evaluation done, the head's review in progress (an approval waiting for the admin), a long period label
+  //   late:   a started collect whose end date has long passed, with picked inputs still to fill
+  //   draft:  the periodic review, launched but not started, owners to choose
+  //   blank:  a hand-built draft with Arabic names; cancelled: a cancelled one with a long reason
+  try {
+    await q(`update org_unit set head_user_id = $1 where id = $2`, [admin, unit]);
+    const templates = await call('GET', '/api/cycle-templates');
+    const annualTpl = templates.find((t) => t.key === 'annual_program_report');
+    const periodicTpl = templates.find((t) => t.key === 'periodic_program_review');
+    const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const stageOf = (cy, key) => cy.stages.find((s) => s.key === key);
+    const outputOf = (cy, stage, key) => stageOf(cy, stage).outputs.find((o) => o.key === key);
+
+    let active = await call('POST', '/api/cycles', { templateId: annualTpl.id, anchorKind: 'program', anchorId: program, startDate: day(-40), leadUserId: admin,
+      periodLabel: 'AY2026-27', title: 'AY2026-27 annual report of the BS Mechanical Engineering program, with a rather long title that has to wrap on a phone' });
+    active = await call('POST', `/api/cycles/${active.id}/activate`);
+    const done = async (cy, stage, key, note) => {
+      cy = await call('POST', `/api/cycle-stages/${stageOf(cy, stage).id}/start`);
+      if (note) { cy = await call('PUT', `/api/cycle-outputs/${outputOf(cy, stage, key).id}/note`, { note }); }
+      cy = await call('POST', `/api/cycle-outputs/${outputOf(cy, stage, key).id}/finalize`);
+      return call('POST', `/api/cycle-stages/${stageOf(cy, stage).id}/complete`);
+    };
+    active = await done(active, 'collect', 'collection_summary', 'Enrolment grew by 4%; results are steady. المقررات الأساسية مكتملة وأدلتها مرفقة.');
+    active = await done(active, 'self_evaluation', 'self_evaluation_report');
+    active = await call('POST', `/api/cycle-stages/${stageOf(active, 'unit_review').id}/start`);
+    ids.cyActive = active.id;
+    ids.cyApprovalStage = stageOf(active, 'unit_review').id;
+    ids.cyFinalStage = stageOf(active, 'final').id;
+
+    let late = await call('POST', '/api/cycles', { templateId: annualTpl.id, anchorKind: 'program', anchorId: program, startDate: day(-120), leadUserId: admin, periodLabel: 'AY2025-26' });
+    late = await call('POST', `/api/cycles/${late.id}/activate`);
+    late = await call('POST', `/api/cycle-stages/${stageOf(late, 'collect').id}/start`);
+    ids.cyLate = late.id;
+    ids.cyLateStage = stageOf(late, 'collect').id;
+
+    const draft = await call('POST', '/api/cycles', { templateId: periodicTpl.id, anchorKind: 'program', anchorId: program, startDate: day(30), leadUserId: admin, periodLabel: '2026-2032' });
+    ids.cyDraft = draft.id;
+
+    let blank = await call('POST', '/api/cycles', { anchorKind: 'org_unit', anchorId: unit, startDate: day(10), leadUserId: admin, title: 'مراجعة سنوية لكلية الهندسة والعلوم التطبيقية مع عنوان طويل جدا يجب أن يلتف على الشاشة الصغيرة' });
+    blank = await call('POST', `/api/cycles/${blank.id}/stages`, { name: 'جمع البيانات', nameAr: 'جمع البيانات', process: 'اجمع أرقام التسجيل ونتائج الطلبة وأرفق الأدلة.', checklist: ['مراجعة تقرير العام الماضي', 'إرفاق الأدلة'], ownerUserId: admin });
+    blank = await call('POST', `/api/cycle-stages/${blank.stages[0].id}/outputs`, { name: 'ملخص ما تم جمعه', kind: 'note' });
+    blank = await call('POST', `/api/cycles/${blank.id}/stages`, { name: 'Review and sign-off with a long English name that has to wrap on a phone', ownerUserId: admin });
+    blank = await call('POST', `/api/cycle-stages/${blank.stages[1].id}/outputs`, { name: 'Sign-off', kind: 'approval', approverUserId: admin });
+    blank = await call('POST', `/api/cycle-stages/${blank.stages[1].id}/inputs`, { name: 'Summary', fromOutputId: blank.stages[0].outputs[0].id });
+    ids.cyBlank = blank.id;
+
+    let cancelled = await call('POST', '/api/cycles', { templateId: annualTpl.id, anchorKind: 'program', anchorId: program, startDate: day(-200), leadUserId: admin, periodLabel: 'AY2024-25' });
+    cancelled = await call('POST', `/api/cycles/${cancelled.id}/activate`);
+    cancelled = await call('POST', `/api/cycles/${cancelled.id}/cancel`, { reason: 'The program was merged into the institutional review, so a separate annual report is no longer needed. تم دمج البرنامج في المراجعة المؤسسية.' });
+    ids.cyCancelled = cancelled.id;
+  } catch (e) { warn('cycles', e); }
   // The in-app assistant (DEC-027): AI switched on so the panel's composer is live, one saved conversation with steps, links and a
   // pending "Remember this?" card, and a few memory notes (long and Arabic) for the memory page.
   try {
@@ -748,6 +801,53 @@ function pagesFor(ids) {
       await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
     } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
+    // TASK-080: Quality Management -> Cycles (the list, a filter, the launch dialog and its review of who is responsible), the cycle page
+    // (several stages, an approval for the admin to decide, an edit dialog, a picker, a draft with unresolved owners, a hand-built draft with
+    // Arabic names, a cancelled cycle) and My work.
+    { name: 'qm-cycles', path: '/quality-management?tab=cycles', action: async (page) => { await page.getByTestId('cycle-row').first().waitFor(); } },
+    { name: 'qm-cycles-filtered', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByTestId('cycle-row').first().waitFor();
+      await page.getByLabel('Status', { exact: true }).selectOption('draft');
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="cycle-row"]')].every((r) => r.getAttribute('data-status') === 'draft'));
+    } },
+    { name: 'qm-cycles-new-dialog', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByRole('button', { name: 'New cycle' }).click();
+      await page.getByRole('dialog', { name: 'New cycle' }).waitFor();
+    } },
+    { name: 'qm-cycles-new-review', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByRole('button', { name: 'New cycle' }).click();
+      const dialog = page.getByRole('dialog', { name: 'New cycle' });
+      await dialog.waitFor();
+      await dialog.getByLabel('What the cycle is about').selectOption('program');
+      await dialog.getByLabel('Which one').selectOption({ index: 1 });
+      await dialog.getByRole('option', { name: 'Periodic program review' }).waitFor({ state: 'attached' });
+      await dialog.getByLabel('Template').selectOption({ label: 'Periodic program review' });
+      await dialog.getByRole('button', { name: 'Create cycle' }).click();
+      await page.getByTestId('launch-review').waitFor();
+    } },
+    ids.cyActive && { name: 'qm-cycle-page', path: `/quality-management/cycles/${ids.cyActive}`, action: async (page) => { await page.getByTestId('stage-card').first().waitFor(); } },
+    ids.cyActive && { name: 'qm-cycle-page-approval', path: `/quality-management/cycles/${ids.cyActive}?stage=${ids.cyApprovalStage}`, action: async (page) => { await page.getByTestId('decision-panel').waitFor(); } },
+    ids.cyActive && { name: 'qm-cycle-page-edit-stage', path: `/quality-management/cycles/${ids.cyActive}?stage=${ids.cyFinalStage}`, action: async (page) => {
+      await page.getByRole('button', { name: 'Edit Final report' }).click();
+      await page.getByRole('dialog', { name: 'Edit Final report' }).waitFor();
+    } },
+    ids.cyLate && { name: 'qm-cycle-page-late-pick', path: `/quality-management/cycles/${ids.cyLate}?stage=${ids.cyLateStage}`, action: async (page) => {
+      await page.getByTestId('stage-late').first().waitFor();
+      await page.getByRole('button', { name: 'Pick for Evidence for the period' }).click();
+      await page.getByRole('dialog', { name: 'Choose for Evidence for the period' }).waitFor();
+    } },
+    ids.cyLate && { name: 'qm-cycle-page-complete-explained', path: `/quality-management/cycles/${ids.cyLate}?stage=${ids.cyLateStage}`, action: async (page) => {
+      await page.getByRole('button', { name: 'Complete Collect' }).click();
+      await page.getByTestId('complete-explain').waitFor();
+    } },
+    ids.cyDraft && { name: 'qm-cycle-page-draft', path: `/quality-management/cycles/${ids.cyDraft}`, action: async (page) => { await page.getByTestId('draft-note').waitFor(); await page.getByTestId('unresolved-note').waitFor(); } },
+    ids.cyBlank && { name: 'qm-cycle-page-blank-arabic', path: `/quality-management/cycles/${ids.cyBlank}`, action: async (page) => { await page.getByTestId('stage-card').first().waitFor(); } },
+    ids.cyBlank && { name: 'qm-cycle-page-add-stage', path: `/quality-management/cycles/${ids.cyBlank}`, action: async (page) => {
+      await page.getByRole('button', { name: 'Add a stage' }).click();
+      await page.getByRole('dialog', { name: 'Add a stage' }).waitFor();
+    } },
+    ids.cyCancelled && { name: 'qm-cycle-page-cancelled', path: `/quality-management/cycles/${ids.cyCancelled}`, action: async (page) => { await page.getByTestId('cancel-reason').waitFor(); } },
+    { name: 'qm-my-work', path: '/quality-management?tab=my-work', action: async (page) => { await page.getByTestId('my-stage').first().waitFor(); await page.getByTestId('my-approval').first().waitFor(); } },
     // TASK-086: Quality Management -> Standards (the IQF tree in operation) with the menu Link evidence · Assign scope · Assign champion ·
     // Create cycle, the three dialogs, the hover card with scope and champion, the same menu on an external standard, and Settings ->
     // Organization -> Institution -> Scope levels.
@@ -779,8 +879,7 @@ function pagesFor(ids) {
       await menuItem('Create cycle')(page);
       const dialog = page.getByRole('dialog', { name: /^Create cycle/ });
       await dialog.waitFor();
-      // With or without published templates (other states may have installed the defaults): the form is there.
-      await dialog.getByRole('form', { name: /^Create cycle/ }).waitFor();
+      await dialog.getByLabel('Template').waitFor();
     } },
     { name: 'quality-management-hover-card', path: '/quality-management', action: async (page) => {
       await page.locator('button[data-tree-focus]').first().hover();
@@ -848,7 +947,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

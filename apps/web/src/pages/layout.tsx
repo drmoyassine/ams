@@ -11,9 +11,11 @@ import { useTranslation } from '../i18n';
 import { authClient } from '../lib/auth';
 import { LanguageMenu, LanguageSync } from '../lib/language';
 import type { AssistantApi } from '../lib/assistant-api';
+import type { CyclesApi } from '../lib/cycles-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
+import { useMyWork } from './cycles/my-work';
 
 const navLink = 'rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium';
 
@@ -27,6 +29,15 @@ export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; 
   return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
 }
 
+/** "My work (N)": the stages I own and the approvals waiting for me in running cycles; shown only while there are some. */
+export function MyWorkLink({ enabled, api }: { enabled: boolean; api?: CyclesApi }) {
+  const { t } = useTranslation();
+  const mine = useMyWork(api ? { cycles: api } : {}, enabled);
+  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0);
+  if (!enabled || count === 0) return null;
+  return <Link to="/quality-management" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
+}
+
 /** Focusable elements inside the drawer, for keeping Tab inside it while it is open. */
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -35,7 +46,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * slide-in drawer. Settings is for everyone who can read the organization (the pages are read-only for people who cannot
  * edit, and each action is still checked); the institution's logo, when it has one, stands in for its name.
  */
-export function AppLayout({ api: override, evidence, assistant }: { api?: SettingsApi; evidence?: EvidenceApi; assistant?: AssistantApi }) {
+export function AppLayout({ api: override, evidence, assistant, cycles }: { api?: SettingsApi; evidence?: EvidenceApi; assistant?: AssistantApi; cycles?: CyclesApi }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const api = useSettingsApi(override);
@@ -100,6 +111,7 @@ export function AppLayout({ api: override, evidence, assistant }: { api?: Settin
             {n.label}
           </Link>
         ))}
+        <MyWorkLink enabled={can(me.data, 'cycle:read')} {...(cycles ? { api: cycles } : {})} />
         <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
       </nav>
       {canSettings && (

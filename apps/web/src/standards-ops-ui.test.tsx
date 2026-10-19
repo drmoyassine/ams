@@ -103,7 +103,7 @@ describe('Quality Management -> Standards', () => {
   it('has a Standards tab with the institution\'s standards, full width, and no side panel', async () => {
     render(wrap(qm('lead')));
     expect(await screen.findByRole('heading', { name: 'Quality Management' })).toBeTruthy();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards']);   // the Cycles tab joins with TASK-080
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'My work']);
     expect(screen.getByRole('tab', { name: 'Standards' }).getAttribute('aria-selected')).toBe('true');
     const list = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(list.textContent).toContain('Assessment of learning'));
@@ -347,7 +347,7 @@ describe('Create cycle', () => {
     expect(within(dialog).getAllByRole('option', { name: 'No template (empty cycle)' })).toHaveLength(1);
   });
 
-  it('creates a draft cycle anchored on the standard from a published template, then links to Quality Management', async () => {
+  it('creates a draft cycle anchored on the standard from a published template, shows who is responsible for each stage, then links to the cycle page', async () => {
     const user = userEvent.setup();
     const a = apis('lead');
     const tpl = await a.cycles.createTemplate({
@@ -375,12 +375,14 @@ describe('Create cycle', () => {
     await user.type(within(dialog).getByLabelText('Start date'), '2026-11-01');
     await user.selectOptions(within(dialog).getByLabelText('Cycle lead'), ids.admin!);
     await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
-    const done = await within(dialog).findByTestId('cycle-confirmation');
+    const done = await within(dialog).findByTestId('launch-review');
     expect(done.textContent).toMatch(/Evidence round.*was created as a draft/);
-    expect(within(done).getByRole('link', { name: 'Open Quality Management' }).getAttribute('href')).toBe('/quality-management');
+    // Who is responsible for each stage is shown before the cycle starts.
+    expect(within(done).getAllByTestId('launch-stage')).toHaveLength(1);
 
     const cycles = await a.cycles.list({});
     expect(cycles).toHaveLength(1);
+    expect(within(done).getByRole('link', { name: 'Open the cycle' }).getAttribute('href')).toBe(`/quality-management/cycles/${cycles[0]!.id}`);
     expect(cycles[0]).toMatchObject({ anchorKind: 'requirement', subjectKind: 'program', subjectId: ids.nursing, status: 'draft', startDate: '2026-11-01', leadUserId: ids.admin });
     expect(cycles[0]!.anchorName).toContain(code('Assessment of learning'));
   });

@@ -460,6 +460,15 @@ describe('editing, listing and my work', () => {
     expect((await as('viewer', (c) => listCycles(c, { unitId: ids.qa! }))).length).toBeGreaterThanOrEqual(2);
     expect((await as('viewer', (c) => listCycles(c, { templateId: ids.tpl!, q: 'ay2027' }))).map((x) => x.id)).toEqual([ids.c2]);
     expect(await as('viewer', (c) => listCycles(c, { subjectKind: 'org_unit' }))).toEqual([]);
+    expect((await as('viewer', (c) => listCycles(c, { aboutId: ids.prog! }))).map((x) => x.periodLabel).sort()).toEqual(['AY2026-27', 'AY2027-28']);   // anchor, subject or unit
+    expect((await as('viewer', (c) => listCycles(c, { aboutId: ids.dept! }))).length).toBeGreaterThanOrEqual(2);
+    // The next stage (first one not done, with its owner) and the due filters come with every row; a draft is never late.
+    const rows = await as('viewer', (c) => listCycles(c, { templateId: ids.tpl! }));
+    const next = rows.find((x) => x.id === ids.c2)!;
+    expect(next.nextStage).toMatchObject({ name: expect.any(String), status: expect.stringMatching(/not_started|in_progress/) });
+    expect(rows.find((x) => x.id === ids.c1)!.nextStage).toBeNull();
+    expect(rows.filter((x) => x.status === 'draft').every((x) => !x.late && !x.dueSoon)).toBe(true);
+    expect(await as('viewer', (c) => listCycles(c, { due: 'late' }))).toEqual([]);
     await expect(as('otherAdmin', (c) => getCycle(c, ids.c1!), 'other')).rejects.toThrow(NotFoundError);
     expect(await as('otherAdmin', (c) => listCycles(c), 'other')).toEqual([]);
     expect(await as('otherAdmin', (c) => listTemplates(c), 'other')).toEqual([]);
@@ -475,6 +484,10 @@ describe('editing, listing and my work', () => {
     const lateOne = await as('lead', (c) => updateStage(c, stageOf(c2, 'collect').id, { startDate: '2026-01-01', endDate: '2026-01-31' }));
     expect(stageOf(lateOne, 'collect').late).toBe(true);
     expect((await as('ownerOnly', (c) => getMyWork(c))).stages[0]).toMatchObject({ late: true, endDate: '2026-01-31' });
+    // The list says so too: the cycle is late, its next stage is the late one, and the "late" filter finds it (and "soon" does not).
+    const lateRow = (await as('viewer', (c) => listCycles(c, { due: 'late' }))).find((x) => x.id === ids.c2)!;
+    expect(lateRow).toMatchObject({ late: true, status: 'active', nextStage: { name: 'Collect', late: true, endDate: '2026-01-31' } });
+    expect((await as('viewer', (c) => listCycles(c, { due: 'soon' }))).map((x) => x.id)).not.toContain(ids.c2);
     expect(mine.approvals).toEqual([]);
     // The stage owner starts; the QA stage starts; the named approver then sees the approval waiting.
     await as('ownerOnly', (c) => startStage(c, stageOf(c2, 'collect').id));

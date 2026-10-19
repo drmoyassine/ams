@@ -19,6 +19,10 @@ export const CONVERTED_UI = [
   'apps/web/src/components/assistant/launcher.tsx', 'apps/web/src/components/assistant/panel.tsx',
   'apps/web/src/pages/settings/quality-management/templates-page.tsx', 'apps/web/src/pages/settings/quality-management/template-editor.tsx',
   'apps/web/src/pages/settings/quality-management/stage-card.tsx', 'apps/web/src/pages/settings/quality-management/stage-timeline.tsx',
+  'apps/web/src/components/cycles/launch-cycle-dialog.tsx', 'apps/web/src/components/cycles/labels.tsx', 'apps/web/src/components/standard-ops/create-cycle-dialog.tsx',
+  'apps/web/src/pages/quality-management.tsx', 'apps/web/src/pages/cycles/cycles-tab.tsx', 'apps/web/src/pages/cycles/my-work.tsx', 'apps/web/src/pages/cycles/cycle-page.tsx',
+  'apps/web/src/pages/cycles/stage-card.tsx', 'apps/web/src/pages/cycles/cycle-timeline.tsx', 'apps/web/src/pages/cycles/output-slot.tsx', 'apps/web/src/pages/cycles/input-row.tsx',
+  'apps/web/src/pages/cycles/dialogs.tsx', 'apps/web/src/pages/cycles/draft-dialogs.tsx',
 ];
 
 export default tseslint.config(

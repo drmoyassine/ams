@@ -5,13 +5,13 @@ import {
   appUser, cycle, cycleInput, cycleOutput, cycleStage, cycleTemplate, evidenceItem, importDocument, orgUnit, program, requirement,
 } from '@ams/db';
 import {
-  CYCLE_DECISION_LABELS, type CycleAnchorKind, type CycleDetail, type CycleFilter, type CycleInput, type CycleOutput, type CycleStage, type CycleSummary,
+  CYCLE_DECISION_LABELS, CYCLE_DUE_SOON_DAYS, type CycleAnchorKind, type CycleDetail, type CycleFilter, type CycleInput, type CycleOutput, type CycleStage, type CycleSummary,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { NotFoundError } from '../ctx.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { uuids } from '../trash/rows.js';
-import { dayOf, loadCycle, mayManage, type CycleRow, type InputRow, type OutputRow, type StageRow } from './common.js';
+import { addDays, dayOf, loadCycle, mayManage, type CycleRow, type InputRow, type OutputRow, type StageRow } from './common.js';
 
 const uniq = <T>(xs: (T | null | undefined)[]): T[] => [...new Set(xs.filter((x): x is T => x != null))];
 
@@ -62,7 +62,9 @@ const aKey = (kind: string, id: string) => `${kind}:${id}`;
 export async function summariesOf(ctx: Ctx, rows: CycleRow[]): Promise<CycleSummary[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
-  const [units, users, templates, anchors, stats] = await Promise.all([
+  const today = dayOf();
+  const soonBy = addDays(today, CYCLE_DUE_SOON_DAYS);
+  const [units, users, templates, anchors, stats, nexts] = await Promise.all([
     unitNames(ctx, uniq(rows.map((r) => r.responsibleUnitId))),
     userNames(ctx, uniq(rows.map((r) => r.leadUserId))),
     (async () => {
@@ -78,7 +80,17 @@ export async function summariesOf(ctx: Ctx, rows: CycleRow[]): Promise<CycleSumm
              (count(*) filter (where s.owner_unresolved or s.unit_unresolved)
               + (select count(*) from cycle_output o where o.stage_id in (select id from cycle_stage where cycle_id = s.cycle_id) and o.approver_unresolved))::int as unresolved
       from cycle_stage s where s.cycle_id = any(${uuids(ids)}) group by s.cycle_id`),
+    // The first stage not yet done of each cycle, with its owner; and whether any open stage is late or due soon.
+    ctx.tx.execute<{ cycle_id: string; id: string; name: string; status: CycleStage['status']; owner_name: string | null; owner_unresolved: boolean; end_date: string | null; late: boolean; any_late: boolean; any_soon: boolean }>(sql`
+      select distinct on (s.cycle_id) s.cycle_id, s.id, s.name, s.status, u.full_name as owner_name, s.owner_unresolved, s.end_date::text as end_date,
+             (s.end_date is not null and s.end_date < ${today}::date) as late,
+             bool_or(s.end_date is not null and s.end_date < ${today}::date) over (partition by s.cycle_id) as any_late,
+             bool_or(s.end_date is not null and s.end_date >= ${today}::date and s.end_date <= ${soonBy}::date) over (partition by s.cycle_id) as any_soon
+      from cycle_stage s left join app_user u on u.id = s.owner_user_id
+      where s.cycle_id = any(${uuids(ids)}) and s.status in ('not_started', 'in_progress')
+      order by s.cycle_id, s.display_order, s.created_at`),
   ]);
+  const next = new Map(nexts.rows.map((r) => [r.cycle_id, r] as const));
   const st = new Map(stats.rows.map((r) => [r.cycle_id, r] as const));
   return rows.map((r) => ({
     id: r.id, title: r.title, templateId: r.templateId, templateName: r.templateId ? (templates.get(r.templateId) ?? null) : null, templateVersion: r.templateVersion,
@@ -89,6 +101,10 @@ export async function summariesOf(ctx: Ctx, rows: CycleRow[]): Promise<CycleSumm
     status: r.status, cancelReason: r.cancelReason, startDate: r.startDate, endDate: r.endDate, periodLabel: r.periodLabel,
     previousCycleId: r.previousCycleId, parentCycleId: r.parentCycleId, parentStageId: r.parentStageId, origin: r.origin,
     stageCount: st.get(r.id)?.stages ?? 0, stagesDone: st.get(r.id)?.done ?? 0, unresolvedCount: st.get(r.id)?.unresolved ?? 0,
+    nextStage: r.status !== 'cancelled' && next.get(r.id)
+      ? { id: next.get(r.id)!.id, name: next.get(r.id)!.name, status: next.get(r.id)!.status, ownerName: next.get(r.id)!.owner_name, ownerUnresolved: next.get(r.id)!.owner_unresolved, endDate: next.get(r.id)!.end_date, late: r.status === 'active' && next.get(r.id)!.late }
+      : null,
+    late: r.status === 'active' && !!next.get(r.id)?.any_late, dueSoon: r.status === 'active' && !!next.get(r.id)?.any_soon,
     createdAt: r.createdAt.toISOString(),
   }));
 }
@@ -102,9 +118,15 @@ export async function listCycles(ctx: Ctx, filter: CycleFilter = {}): Promise<Cy
   if (filter.subjectKind) where.push(eq(cycle.subjectKind, filter.subjectKind));
   if (filter.subjectId) where.push(eq(cycle.subjectId, filter.subjectId));
   if (filter.unitId) where.push(or(eq(cycle.responsibleUnitId, filter.unitId), sql`exists (select 1 from cycle_stage s where s.cycle_id = ${cycle.id} and s.responsible_unit_id = ${filter.unitId}::uuid)`));
+  if (filter.aboutId) where.push(or(eq(cycle.anchorId, filter.aboutId), eq(cycle.subjectId, filter.aboutId), eq(cycle.responsibleUnitId, filter.aboutId)));
   if (filter.status) where.push(eq(cycle.status, filter.status));
   if (filter.templateId) where.push(eq(cycle.templateId, filter.templateId));
   if (filter.ownerId) where.push(or(eq(cycle.leadUserId, filter.ownerId), sql`exists (select 1 from cycle_stage s where s.cycle_id = ${cycle.id} and s.owner_user_id = ${filter.ownerId}::uuid)`));
+  if (filter.due) {
+    const today = dayOf();
+    const range = filter.due === 'late' ? sql`s.end_date < ${today}::date` : sql`s.end_date >= ${today}::date and s.end_date <= ${addDays(today, CYCLE_DUE_SOON_DAYS)}::date`;
+    where.push(eq(cycle.status, 'active'), sql`exists (select 1 from cycle_stage s where s.cycle_id = ${cycle.id} and s.status in ('not_started', 'in_progress') and ${range})`);
+  }
   const q = filter.q?.trim();
   if (q) where.push(ilike(cycle.title, `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`));
   const rows = await ctx.tx.select().from(cycle).where(and(...where)).orderBy(desc(cycle.startDate), desc(cycle.createdAt), asc(cycle.id));

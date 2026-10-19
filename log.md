@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-19 — Quality Management screens: cycles, cycle page, My work (TASK-080)
+
+Decisions: DEC-029, DEC-005 (approvals read "Internally approved", "Internally approved with conditions", "Returned for changes"), DEC-002 (nothing accreditor-specific). No new decision, no migration.
+- **One launch dialog:** `components/cycles/launch-cycle-dialog.tsx` serves "New cycle" and the ⋯ menu; `create-cycle-dialog.tsx` is now a thin wrapper that fixes the anchor to the standard. The API has no dry run, so "show what the rules resolved before it starts" is step 2 of the dialog, after the DRAFT exists: stage unit, owner and approver are editable there (each change is its own request with an Undo toast), then "Start the cycle". Closing after step 1 leaves a draft on purpose.
+- **API gaps filled in the list only:** `CycleSummary.nextStage/late/dueSoon` and the filters `due` (late, or ending within 14 days) and `aboutId` (anchor, subject or responsible unit). The page reads a cycle with one request and every mutation answers with the whole cycle, so the page puts the answer in the query cache (`['cycle', id]`) instead of refetching.
+- **UI rules:** a missing input is shown, never blocking; Complete explains which required outputs are not final instead of sending a request that would be refused; a completed or skipped stage folds away (its header keeps status, dates and the skip reason); only `canDecide` shows the approval buttons; viewers get `ReadOnlyNote`. `?stage=<id>` (My work links) opens and scrolls to a stage. The list keeps its rows while a filter loads. Dates are calendar days formatted in UTC so no time zone shifts them.
+- **Menu:** "My work (N)" next to "My requests", only while N > 0 (`AppLayout` takes an optional `cycles` client for tests).
+- **Not done:** reports open in the report editor (TASK-085); cycles anchored to an evidence item, engagement or framework version are not offered in "New cycle" (the ⋯ menus of those come with TASK-083); no drag to reorder the stages of a draft.
+- Tests: web `cycles-ui.test.tsx` and `standards-ops-ui.test.tsx`, core `cycles.test.ts`; responsive pages `qm-cycles*`, `qm-cycle-page*`, `qm-my-work` and their Arabic runs.
+
 ## 2026-10-19 — Cycle templates in Settings: list, editor, shipped defaults (TASK-079)
 
 Decisions: DEC-029, DEC-002 (defaults are data), DEC-005 (approvals are "Internally approved"). No new decision, no migration.

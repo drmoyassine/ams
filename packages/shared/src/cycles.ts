@@ -15,6 +15,11 @@ export const CYCLE_SUBJECT_KINDS = ['institution', 'org_unit', 'program'] as con
 export type CycleSubjectKind = (typeof CYCLE_SUBJECT_KINDS)[number];
 export const CYCLE_STATUSES = ['draft', 'active', 'completed', 'cancelled'] as const;
 export type CycleStatus = (typeof CYCLE_STATUSES)[number];
+/** The "due" filter of the cycle list. */
+export const CYCLE_DUE_FILTERS = ['late', 'soon'] as const;
+export type CycleDueFilter = (typeof CYCLE_DUE_FILTERS)[number];
+/** How many days ahead "due soon" looks. */
+export const CYCLE_DUE_SOON_DAYS = 14;
 export const CYCLE_ORIGINS = ['manual', 'assistant'] as const;
 export const CYCLE_STAGE_STATUSES = ['not_started', 'in_progress', 'completed', 'skipped'] as const;
 export type CycleStageStatus = (typeof CYCLE_STAGE_STATUSES)[number];
@@ -281,6 +286,15 @@ export const CycleSummarySchema = z.object({
   stageCount: z.number(), stagesDone: z.number(),
   /** Stages whose owner (or unit) the template's rules could not resolve: they need choosing before the cycle starts. */
   unresolvedCount: z.number(),
+  /** The first stage not yet done (a draft's first one too); null once every stage is done or the cycle is cancelled. */
+  nextStage: z.object({
+    id: z.string(), name: z.string(), status: z.enum(CYCLE_STAGE_STATUSES), ownerName: z.string().nullable(), ownerUnresolved: z.boolean(),
+    endDate: z.string().nullable(), late: z.boolean(),
+  }).nullable(),
+  /** A running cycle with an open stage past its end date (on the server's date). */
+  late: z.boolean(),
+  /** A running cycle with an open stage that ends within the next 14 days. */
+  dueSoon: z.boolean(),
   createdAt: z.string(),
 });
 export type CycleSummary = z.infer<typeof CycleSummarySchema>;
@@ -321,8 +335,12 @@ export const CycleFilterSchema = z.object({
   anchorKind: z.enum(CYCLE_ANCHOR_KINDS).optional(), anchorId: z.uuid().optional(),
   subjectKind: z.enum(CYCLE_SUBJECT_KINDS).optional(), subjectId: z.uuid().optional(),
   unitId: z.uuid().optional(), status: z.enum(CYCLE_STATUSES).optional(),
+  /** A unit or program the cycle is about or run by: its anchor, its subject or its responsible unit. */
+  aboutId: z.uuid().optional(),
   /** A person who leads the cycle or owns one of its stages. */
   ownerId: z.uuid().optional(), templateId: z.uuid().optional(), q: z.string().optional(),
+  /** Running cycles with an open stage past its end date (`late`) or ending within the next 14 days (`soon`). */
+  due: z.enum(CYCLE_DUE_FILTERS).optional(),
 });
 export type CycleFilter = z.infer<typeof CycleFilterSchema>;
 

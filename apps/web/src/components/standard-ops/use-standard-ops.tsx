@@ -5,17 +5,15 @@
 import { useState, type ReactNode } from 'react';
 import type { Me } from '@ams/shared';
 import { useTranslation } from '../../i18n';
-import type { CyclesApi } from '../../lib/cycles-api';
+import type { CycleApis } from '../cycles/directory';
 import { can } from '../../lib/me';
-import type { ScopeApi } from '../../lib/scope-api';
-import type { SettingsApi } from '../../lib/settings-api';
 import type { Requirement, Version } from '../../lib/framework-api';
 import { ChampionDialog } from './champion-dialog';
 import { CreateCycleDialog } from './create-cycle-dialog';
 import { ScopeDialog, type OpsTarget } from './scope-dialog';
 import type { NodeAssignment } from '@ams/shared';
 
-export interface OpsApis { scope?: ScopeApi; cycles?: CyclesApi; settings?: SettingsApi }
+export type OpsApis = CycleApis;
 export type MenuItem = { label: string; onSelect: () => void };
 
 /**
@@ -44,7 +42,7 @@ export function useStandardOps({ me, version, assignmentOf, tagOf, apis = {} }: 
     const assignment = assignmentOf(r.code);
     dialogs = open.kind === 'scope' ? <ScopeDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} onClose={close} />
       : open.kind === 'champion' ? <ChampionDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} {...(apis.settings ? { settings: apis.settings } : {})} onClose={close} />
-        : <CreateCycleDialog target={{ ...target, anchorId: r.id }} me={me} assignment={assignment} {...(apis.cycles ? { api: apis.cycles } : {})} {...(apis.scope ? { scope: apis.scope } : {})} {...(apis.settings ? { settings: apis.settings } : {})} onClose={close} />;
+        : <CreateCycleDialog target={{ ...target, anchorId: r.id }} me={me} assignment={assignment} apis={apis} onClose={close} />;
   }
   return { items, dialogs };
 }

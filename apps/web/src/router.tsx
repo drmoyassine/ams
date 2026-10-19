@@ -6,7 +6,8 @@ import { defaultSettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
-import { QualityManagementPage } from './pages/quality-management';
+import { QualityManagementPage, QM_TABS, type QmTab } from './pages/quality-management';
+import { CyclePage } from './pages/cycles/cycle-page';
 import { AppLayout } from './pages/layout';
 import { EvidencePage } from './pages/evidence';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
@@ -123,7 +124,27 @@ function VersionRoute() {
   };
   return <VersionPage key={versionId} versionId={versionId} onLocation={onLocation} {...(tab ? { initialTab: tab } : {})} {...(section ? { initialSection: section } : {})} {...(run ? { initialRunId: run } : {})} {...(req ? { initialFocusRequirement: req } : {})} {...(doc && page ? { initialFocusPage: { documentId: doc, page } } : {})} />;
 }
-const qualityManagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/quality-management', component: () => <QualityManagementPage /> });
+// Quality Management: ?tab=standards|cycles|my-work (the address follows the tab, replacing the entry), and one cycle's own page, which
+// ?stage=<id> opens on one stage (the links of My work).
+const qualityManagementRoute = createRoute({
+  getParentRoute: () => appRoute, path: '/quality-management', component: () => <QualityManagementRoute />,
+  validateSearch: (s: Record<string, unknown>): { tab?: QmTab } => (QM_TABS.some((x) => x.id === s.tab) ? { tab: s.tab as QmTab } : {}),
+});
+function QualityManagementRoute() {
+  const { tab } = qualityManagementRoute.useSearch();
+  const navigate = qualityManagementRoute.useNavigate();
+  return <QualityManagementPage tab={tab ?? 'standards'} onTab={(next) => { void navigate({ search: next === 'standards' ? {} : { tab: next }, replace: true }); }} />;
+}
+const cycleRoute = createRoute({
+  getParentRoute: () => appRoute, path: '/quality-management/cycles/$id', component: () => <CycleRoute />,
+  validateSearch: (s: Record<string, unknown>): { stage?: string } => (typeof s.stage === 'string' && /^[0-9a-f-]{36}$/i.test(s.stage) ? { stage: s.stage } : {}),
+});
+function CycleRoute() {
+  const { id } = cycleRoute.useParams();
+  const { stage } = cycleRoute.useSearch();
+  const navigate = cycleRoute.useNavigate();
+  return <CyclePage key={id} id={id} stageId={stage} onBack={() => { void navigate({ to: '/quality-management', search: { tab: 'cycles' } }); }} />;
+}
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
 const engagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/$id', component: () => <EngagementRoute /> });
@@ -135,7 +156,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
