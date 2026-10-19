@@ -5,13 +5,17 @@ import { AccordionCard, HoverCard, Shaded } from '../../components/accordion';
 import { ContentText } from '../../components/content-text';
 import { BulkBar, RowGutter, TreeProvider, TreeRow, TreeToolbar, useRowFocus } from '../../components/tree/tree';
 import { EvidenceLinkList } from '../../components/evidence-links';
-import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
+import { RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
+import { AssignmentLines } from '../../components/standard-ops/assignment-summary';
+import { useStandardOps, type MenuItem, type OpsApis } from '../../components/standard-ops/use-standard-ops';
 import { RequirementsLayout } from '../../components/requirements-layout';
 import { useConfirm } from '../../components/confirm-dialog';
+import { useRequirementContexts } from '../version/requirement-hover';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import type { NodeAssignment } from '@ams/shared';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import type { FrameworkApi, Requirement, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
@@ -69,8 +73,8 @@ function ItemDialog({ editing, parent, code, error, onSave, onClose }: {
   );
 }
 
-/** Shown on hover: title, description and linked evidence, without opening the card. */
-function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }) {
+/** Shown on hover: title, description, linked evidence, scope and champion (with where they come from), without opening the card. */
+function HoverDetails({ r, evidence, assignment }: { r: Requirement; evidence: EvidenceApi; assignment: NodeAssignment | undefined }) {
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id) });
   return (
     <HoverCard>
@@ -80,6 +84,7 @@ function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }
       {links.data === undefined ? <p className="text-xs text-muted-foreground">…</p> : links.data.length === 0
         ? <p className="text-xs text-muted-foreground">None yet.</p>
         : <ul className="list-disc ps-4 text-xs">{links.data.map((l) => <li key={l.id}><ContentText>{l.evidenceTitle}</ContentText> <span className="text-muted-foreground">({l.reviewStatus})</span></li>)}</ul>}
+      <AssignmentLines assignment={assignment} internal />
     </HoverCard>
   );
 }
@@ -87,7 +92,9 @@ function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }
 interface ItemProps {
   api: FrameworkApi; evidence: EvidenceApi; r: Requirement; all: Requirement[]; me: Me | undefined; editable: boolean;
   open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
-  onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void; onRequest: (r: Requirement) => void;
+  onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
+  /** Assign scope, Assign champion, Create cycle (those the person may use), and what this item's hover card shows of them. */
+  opsItems: (r: Requirement) => MenuItem[]; assignment: NodeAssignment | undefined;
 }
 
 /** One standard or sub-standard as a full-width accordion card: opening it shows its description and linked evidence. */
@@ -101,8 +108,10 @@ function Item(p: ItemProps) {
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
   const requests = useQuery({ queryKey: ['internal-requests', r.id], queryFn: () => evidence.internalRequests(r.id), enabled: isOpen });
   const [linkError, setLinkError] = useState('');
+  // Link evidence · Assign scope · Assign champion · Create cycle, then the authoring items. Evidence is requested through a cycle.
   const menu = [
-    ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }, { label: 'Request evidence', onSelect: () => p.onRequest(r) }] : []),
+    ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }] : []),
+    ...p.opsItems(r),
     ...(editable && !r.parentId ? [{ label: 'Add sub-standard', onSelect: () => p.onAddChild(r) }] : []),
     ...(editable ? [{ label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
     ...(editable ? [{ label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${tag(r)}?`)) }] : []),
@@ -112,7 +121,7 @@ function Item(p: ItemProps) {
       gutter={<RowGutter id={r.id} />} toggleProps={focus}
       open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tag(r)}`} menu={menu}
       meta={children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} {r.parentId ? 'item' : 'sub-standard'}{children.length === 1 ? '' : 's'}</span> : undefined}
-      hover={<HoverDetails r={r} evidence={evidence} />}>
+      hover={<HoverDetails r={r} evidence={evidence} assignment={p.assignment} />}>
       <div className="space-y-1">
         <Shaded>Description</Shaded>
         {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description yet.</p>}
@@ -136,22 +145,32 @@ function Item(p: ItemProps) {
 
 /**
  * The internal framework's requirements: standards and their sub-standards as full-width accordions, each with a
- * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu links or requests
- * evidence, adds a sub-standard, edits or deletes it.
+ * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu is Link evidence,
+ * Assign scope, Assign champion, Create cycle (TASK-086), then adds a sub-standard, edits or deletes it. Evidence is requested
+ * through a cycle, so the menu has no "Request evidence". `operational` is the Quality Management view: the same menu and cards,
+ * without the authoring (edit, add, delete, move), which stays in Settings -> Internal Quality Framework.
  */
-export function IqfRequirements({ api, version, me, evidence: evidenceOverride }: { api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi }) {
+export function IqfRequirements({ api, version, me, evidence: evidenceOverride, operational = false, apis }: {
+  api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi; operational?: boolean; apis?: OpsApis;
+}) {
   const evidence = useEvidenceApi(evidenceOverride);
+  const contexts = useRequirementContexts(evidence, version.id);
+  const assignmentOf = useCallback((code: string): NodeAssignment | undefined => {
+    const c = contexts.data?.byCode[code];
+    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion } : undefined;
+  }, [contexts.data]);
+  const ops = useStandardOps({ me, version, assignmentOf, tagOf: tag, ...(apis ? { apis } : {}) });
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
-  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | { kind: 'request'; item: Requirement } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | null>(null);
   const rowsQuery = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(() => qc.invalidateQueries({ queryKey: ['requirements', version.id] })); };
   const can_ = can(me, 'framework:write');
-  const editable = version.status === 'draft' && can_;
+  const editable = !operational && version.status === 'draft' && can_;
   const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
   const standards = all.filter((r) => !r.parentId);
   // Rows on screen: everything except what sits under a collapsed branch.
@@ -176,7 +195,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
     onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }),
     onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
     onLink: (item: Requirement) => setDialog({ kind: 'link', item }),
-    onRequest: (item: Requirement) => setDialog({ kind: 'request', item }),
+    opsItems: ops.items,
   };
   /** Saves through the API; on success opens what was saved (and its standard) and closes the dialog. */
   const saveItem = async (save: () => Promise<Requirement>) => {
@@ -192,7 +211,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
     const kids = all.some((c) => c.parentId === r.id) && !collapsed.has(r.id);
     return (
       <div role="listitem" key={r.id} className="space-y-2">
-        <TreeRow id={r.id}><Item {...itemProps} r={r} /></TreeRow>
+        <TreeRow id={r.id}><Item {...itemProps} r={r} assignment={assignmentOf(r.code)} /></TreeRow>
         {kids && (
           <div role="list" aria-label={`Sub-standards of ${tag(r)}`} className="ms-8 space-y-2 border-s-2 border-border ps-3">{branch(r.id)}</div>
         )}
@@ -207,11 +226,11 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">{standards.length} standard{standards.length === 1 ? '' : 's'}</span>
           {standards.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
-          <TreeToolbar />
+          {!operational && <TreeToolbar />}
           {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Standard</Button>}
         </div>
-        {!editable && standards.length > 0 && version.status !== 'draft' && <p className="text-xs text-muted-foreground">{reason}</p>}
-        <BulkBar rows={all} />
+        {!operational && !editable && standards.length > 0 && version.status !== 'draft' && <p className="text-xs text-muted-foreground">{reason}</p>}
+        {!operational && <BulkBar rows={all} />}
         {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice && (
           <p className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900" data-testid="tree-notice">
@@ -230,15 +249,6 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
         <ItemDialog editing={dialog.item} parent={null} code={dialog.item.code} error={error} onClose={close}
           onSave={({ code, title, description }) => saveItem(() => api.editQualityItem(dialog.item.id, { code, title, description }))} />
       )}
-      {dialog?.kind === 'request' && (
-        <RequestEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} requirementId={dialog.item.id} onClose={close}
-          onDone={() => {
-            const id = dialog.item.id;
-            setOpen((s) => new Set([...s, id]));
-            void qc.invalidateQueries({ queryKey: ['internal-requests', id] });
-            void qc.invalidateQueries({ queryKey: ['evidence-requests'] });
-          }} />
-      )}
       {dialog?.kind === 'link' && (
         <LinkEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} onClose={close}
           onLink={async (evidenceVersionId, rationale) => {
@@ -249,6 +259,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
             await qc.invalidateQueries({ queryKey: ['evidence'] });
           }} />
       )}
+      {ops.dialogs}
     </TreeProvider>
   );
 }

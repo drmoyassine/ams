@@ -23,6 +23,15 @@ Decisions: DEC-029, DEC-002 (defaults are data), DEC-005 (approvals are "Interna
 - **Not done:** drag to reorder stages (up/down buttons only), importing the institution's own templates (TASK-075 engine, later), editing `child` (nesting, TASK-082: preserved, not shown).
 - Tests: shared `cycle-defaults.test.ts`, core `cycles/defaults.test.ts`, api `cycles.test.ts`, web `quality-management-ui.test.tsx` and `editor-model.test.ts`; responsive pages `settings-quality-management*`, `qm-template-*` (375/768/1280, no overflow).
 
+## 2026-10-19 — Standards in operation: scope, champion, Create cycle (TASK-086)
+
+Decisions: DEC-029 (the model), DEC-002 (nothing accreditor-specific: inheritance is by tree and mapping), DEC-005 (a scope is where a standard applies, a champion who answers for it; no "met"), DEC-006 (the worker role cannot write these tables). No new decision; the choices below are inside the plan.
+- **Data:** migration 0061 (`scope_level`, `requirement_scope`, `requirement_champion`), keyed by framework + code like mappings, so they sit outside the frozen tables and carry to new versions without copying. If the number collides on merge the lead renumbers.
+- **Resolution order (external requirement):** own, else the union of its APPROVED mappings' IQF nodes, else its parent's. The mapping beats the parent. A champion is taken from mapped nodes only when every one of them has the same one; if they differ or only some have one the answer is "needs one" (never guessed), and a child below such a node still needs one. Proposed mappings pass nothing.
+- **Scope with no list:** Institution, Course and custom levels hold no items (empty = all); a trigger refuses a list there. Course is a placeholder level. A deleted unit or program drops out of a shown list.
+- **UI:** the operations live in Quality Management -> Standards (the IQF tree reused, `operational` hides the authoring); Settings -> IQF shows the same menu items plus authoring. The hover cards read the version's one batched requirement-context (now with scope and champion). Create cycle needs a unit or program (the cycle's unit comes from it) and links to /quality-management until TASK-080.
+- **Undo:** setting, changing and clearing are undoable; removing several champions at once is not. Program lists follow RLS, so a program-scoped person sees fewer programs in the pickers.
+
 ## 2026-10-19 — Quality Management cycles: schema, services and API (TASK-078, no UI)
 
 Decisions: DEC-029 (the model), DEC-005 (approval is "Internally approved", never "met"/"compliant"), DEC-006 (nothing here is AI; the worker role cannot write), DEC-002 (accreditor cycles are template data). No new decision; the choices below are inside the plan.

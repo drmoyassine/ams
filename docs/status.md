@@ -16,6 +16,12 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 | **In-app assistant, phase 1** | A bubble and panel on every screen, kept conversations, read-only answers about standards with links, scoped memory (personal and shared) that you confirm and manage in Settings | TASK-064, TASK-066, DEC-027 |
 | **In-app assistant, phase 2: bulk edits** | The assistant proposes a change to a draft (rule recipes such as the PUC title fix, re-code, re-parent, delete by filter, bulk assessable; text rewrites the model writes), says in the chat what it will do with the count and examples, and the person presses Do it / Change it / Cancel. A one-time token tied to that exact change set is the only way to apply it; it runs as the person in one transaction, as ONE undoable group (Undo and Redo, deletes to the Trash); texts the assistant wrote are marked until kept or reverted; `pnpm assistant:eval` checks 40 sample instructions | TASK-067, DEC-027 |
 
+## Built: Standards in operation: scope, champion, Create cycle (TASK-086)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Scope and champion** | Quality Management has a Standards tab with the institution's standards; the ⋯ menu of an IQF standard, sub-standard or item, and of any external requirement, is Link evidence, Assign scope, Assign champion, Create cycle (Request evidence left the IQF menu: evidence is requested through cycles). A scope is a level (Institution, Unit, Program, Course placeholder, or a custom one from Settings -> Organization -> Institution -> Scope levels) and optionally a list of units or programs; a champion is overall or per scoped item. Both cascade down the standard and, for an external requirement, through its approved mappings (scopes united; the champion only when the mapped items agree, otherwise "Needs a champion"); each value shows where it comes from ("Own", "From Standard 4", "From IQF 4.2"), an override can be set at any level and "Back to inherited" removes it. They live outside the frozen versions, so they change on published versions and carry to new ones. Hover cards show scope and champion. Create cycle starts a draft cycle anchored on the standard from a published template (or empty). The cycle list and page are TASK-080 | ROADMAP-013, TASK-086, DEC-029 |
+
 ## Built: Quality Management cycles, data and API (TASK-078; screens are TASK-080)
 
 | Area | What works | Roadmap / tasks |

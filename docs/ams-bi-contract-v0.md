@@ -66,6 +66,7 @@ A request for evidence on an IQF item, sent to a person or an email address (one
 a form. The answer becomes evidence with a proposed link.
 
 ### 3.6 Evidence need **[planned]** (the "evidence definition" side, new)
+What exists since TASK-086: `scope_level`, `requirement_scope` and `requirement_champion` (framework + code; scope = level plus optional units or programs, champion overall or per item), with effective values resolved down the tree and through approved mappings (the version's requirement-context carries own, effective and inherited, with the source). Evidence needs themselves and cycle linkage are still planned.
 What the AMS expects to be produced, before anything exists. Built from TASK-086 and the cycles (TASK-078 to TASK-081):
 - `id`, `requirementRef` (framework + code, so it covers IQF items and external requirements), `evidenceItemId` or a
   description when the item does not exist yet, `kind` (`document` | `dataset`), `datasetSpec` (for datasets),

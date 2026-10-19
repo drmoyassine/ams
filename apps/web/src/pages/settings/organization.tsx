@@ -6,6 +6,7 @@ import { OrgChartSection } from './org-chart/org-chart-section';
 import { useTranslation } from '../../i18n';
 import { LanguagesSection } from './languages-section';
 import { ProgramsSettingsPage } from './programs';
+import { ScopeLevelsSection } from './scope-levels-section';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -170,6 +171,7 @@ export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?:
             <LogoCard api={api} canEdit={can(me.data, 'institution:write')} />
             <LanguagesSection api={api} canEdit={can(me.data, 'institution:write')} />
             <OrgChartSection api={api} canEdit={can(me.data, 'org:write')} onOpenPrograms={() => choose('programs')} />
+            <ScopeLevelsSection api={api} canEdit={can(me.data, 'org:write')} />
           </>
         ) : <ProgramsSettingsPage api={api} />}
       </div>

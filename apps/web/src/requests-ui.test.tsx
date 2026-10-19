@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-// Evidence requests in the SPA against the real API (DEC-018): ask from a standard's ⋯ menu; an AMS user supplies the
+// Evidence requests in the SPA against the real API (DEC-018): the request dialog (evidence is asked for through a cycle or from
+// the Evidence page, no longer from a standard's ⋯ menu, TASK-086); an AMS user supplies the
 // file from Requests; someone without an account gets a one-time link that opens a page with only that request.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
@@ -17,6 +18,7 @@ import { glossaryApi } from './lib/glossary-api';
 import { settingsApi } from './lib/settings-api';
 import { AppLayout } from './pages/layout';
 import { RequestsPage } from './pages/requests';
+import { RequestEvidenceDialog } from './components/evidence-requests';
 import { RespondPage } from './pages/respond';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
 
@@ -59,10 +61,11 @@ afterAll(async () => { await pool.end(); await db.close(); });
 async function requestFrom(email: string, what: string) {
   const user = userEvent.setup();
   const a = apis('admin');
-  render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
+  const qv = (await a.framework.qualityFramework()).versions[0]!.id;
+  const std = (await a.framework.requirements(qv)).find((r) => r.code === '3.2')!;
+  // The standard's ⋯ menu no longer offers "Request evidence" (TASK-086); the dialog is still used by the Evidence page and by cycles.
+  render(wrap(<><QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} /><RequestEvidenceDialog api={a.evidence} title="Standard 3.2 · Assessment of learning" requirementId={std.id} onClose={() => undefined} onDone={() => undefined} /></>));
   const item = await screen.findByRole('region', { name: 'Standard 3.2' });
-  await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.2' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Request evidence' }));
   const dialog = await screen.findByRole('dialog');
   await user.type(within(dialog).getByLabelText('What is needed'), what);
   await user.type(within(dialog).getByLabelText('Ask (email)'), email);
@@ -77,6 +80,7 @@ describe('evidence requests', () => {
     expect(await within(dialog).findByText(/It is in their requests in the AMS/)).toBeTruthy();
     expect(within(dialog).queryByTestId('response-link')).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await user.click(within(item).getByRole('button', { name: /^Standard 3\.2\s*Assessment/ }));
     expect((await within(item).findByTestId('evidence-request')).textContent).toContain('Requested');
     cleanup();
 

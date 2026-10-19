@@ -19,6 +19,7 @@ import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { settingsRoutes } from './routes/settings.js';
 import { cycleRoutes } from './routes/cycles.js';
+import { scopeRoutes } from './routes/scope.js';
 import { orgChartRoutes } from './routes/org-chart.js';
 import { templateRoutes } from './routes/templates.js';
 import { trashRoutes } from './routes/trash.js';
@@ -99,6 +100,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
 
     // Quality Management cycles (DEC-029).
     .route('/', cycleRoutes(registry, deps, options))
+    .route('/', scopeRoutes(registry, deps, options))
 
     // The in-app assistant (DEC-027).
     .route('/', assistantRoutes(registry, deps, options));

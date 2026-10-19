@@ -414,6 +414,13 @@
       "when": 1791990000000,
       "tag": "0059_cycles",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1792010000000,
+      "tag": "0061_scope_champion",
+      "breakpoints": true
     }
   ]
 }

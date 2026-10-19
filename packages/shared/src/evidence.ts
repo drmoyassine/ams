@@ -1,6 +1,7 @@
 // Evidence (PRD 6.5, 9): items owned by the institution, versions that are never changed, links with a reason.
 import { z } from 'zod';
 import { DataColumnSchema } from './dataset.js';
+import { NodeChampionSchema, NodeScopeSchema } from './scope.js';
 
 /** A document (a file people read) or data (figures the system reads). Kinds within each come later as sub-types. */
 export const EVIDENCE_TYPES = ['document', 'data'] as const;
@@ -76,6 +77,9 @@ export const RequirementContextSchema = z.object({
   inheritedCount: z.number(),
   direct: z.array(RequirementContextEvidenceSchema.extend({ reviewStatus: z.enum(['proposed', 'approved', 'rejected']) })),
   directCount: z.number(),
+  /** What the requirement is assigned to and who answers for it, with where each comes from (TASK-086). Same answer, so the hover card needs no second request. */
+  scope: NodeScopeSchema.optional(),
+  champion: NodeChampionSchema.optional(),
 });
 export type RequirementContext = z.infer<typeof RequirementContextSchema>;
 export const RequirementContextsSchema = z.object({ byCode: z.record(z.string(), RequirementContextSchema) });

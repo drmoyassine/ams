@@ -83,7 +83,7 @@ describe('Organization: two tabs, deep-linkable', () => {
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });
     await within(panel).findByRole('heading', { name: 'Org chart' });
-    expect(within(panel).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Languages', 'Org chart']);
+    expect(within(panel).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Languages', 'Org chart', 'Scope levels']);
     expect(router.state.location.pathname).toBe('/settings/organization');
   });
 
@@ -270,7 +270,7 @@ describe('Settings for every role', () => {
     await screen.findByLabelText('Org chart');
     expect(screen.queryByLabelText(/^Add a unit under /)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add unit' })).toBeNull();
-    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(4)); // details, logo, languages, org chart
+    await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(5)); // details, logo, languages, org chart, scope levels
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
     await screen.findByText('BS Physics');
     expect(screen.queryByRole('button', { name: 'Add program' })).toBeNull();

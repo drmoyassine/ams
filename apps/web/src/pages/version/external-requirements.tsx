@@ -26,6 +26,8 @@ import { AddNote, NotePanel } from './requirements-tab';
 import { MapToIqfDialog, RELATIONS } from './map-to-iqf-dialog';
 import { EvidenceSummary, RequirementHover, useRequirementContexts } from './requirement-hover';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
+import { useStandardOps, type MenuItem, type OpsApis } from '../../components/standard-ops/use-standard-ops';
+import type { NodeAssignment } from '@ams/shared';
 import { SourceViewer, type Citation } from './source-viewer';
 import { WrittenByAssistant } from '../../components/assistant/written-marker';
 import { TranslationBlock, useShownText } from './translations';
@@ -110,6 +112,8 @@ interface NodeProps {
   onMerge: (r: Requirement) => void; onSplit: (r: Requirement) => void; onMove: (r: Requirement) => void;
   /** Map to IQF and Link evidence work on published versions too: both live outside the frozen version. */
   onMap: (r: Requirement) => void; onLinkEvidence: (r: Requirement) => void;
+  /** Assign scope, Assign champion, Create cycle: those the person may use (the menu is Link evidence, then these, then the rest). */
+  opsItems: (r: Requirement) => MenuItem[];
   /** The page's one batched answer: per requirement code, its mapped IQF items and evidence (the hover card and the card's body). */
   evidence: EvidenceApi; contexts: ReturnType<typeof useRequirementContexts>;
 }
@@ -200,11 +204,13 @@ function Node(p: NodeProps) {
   const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
   const shownTitle = useShownText(r.id, 'title', r.title);
   const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
+  // Link evidence · Assign scope · Assign champion · Create cycle, then the authoring items (TASK-086).
   const menu = [
+    ...(can(p.me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLinkEvidence(r) }] : []),
+    ...p.opsItems(r),
     ...(r.sourceDocumentId ? [{ label: 'Show source', onSelect: showSource }] : []),
     ...(editable ? [{ label: childLevel ? `Add ${childLevel.toLowerCase()}` : 'Add item', onSelect: () => p.onAddChild(r) }, { label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
     ...(can(p.me, 'framework:write') ? [{ label: 'Map to IQF…', onSelect: () => p.onMap(r) }] : []),
-    ...(can(p.me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLinkEvidence(r) }] : []),
     ...(editable ? [
       { label: 'Merge into another requirement', onSelect: () => p.onMerge(r) },
       { label: 'Split', onSelect: () => p.onSplit(r) },
@@ -251,13 +257,18 @@ function Node(p: NodeProps) {
  * with the cited quote highlighted: beside the list on wide screens (each scrolls on its own), in a bottom sheet opened from
  * the card's Source button on small ones. "Needs a look" chips filter the list to what a person should check first.
  */
-export function ExternalRequirements({ api, version, me, focusId, onOpenSource, evidence: evidenceOverride }: {
-  api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null; evidence?: EvidenceApi;
+export function ExternalRequirements({ api, version, me, focusId, onOpenSource, evidence: evidenceOverride, apis }: {
+  api: FrameworkApi; version: Version; me: Me | undefined; /** A card to open and scroll to (a gap's link). */ focusId?: string | null; evidence?: EvidenceApi; apis?: OpsApis;
   /** Opens a source page in the Docs tab. */ onOpenSource?: (documentId: string, page: number) => void;
 }) {
   const qc = useQueryClient();
   const evidence = useEvidenceApi(evidenceOverride);
   const contexts = useRequirementContexts(evidence, version.id);
+  const assignmentOf = useCallback((code: string): NodeAssignment | undefined => {
+    const c = contexts.data?.byCode[code];
+    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion } : undefined;
+  }, [contexts.data]);
+  const ops = useStandardOps({ me, version, assignmentOf, tagOf, ...(apis ? { apis } : {}) });
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -429,7 +440,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
     onMove: (item: Requirement) => { setError(''); setDialog({ kind: 'move', item }); },
     onMap: (item: Requirement) => { setError(''); setDialog({ kind: 'map', item }); },
     onLinkEvidence: (item: Requirement) => { setError(''); setDialog({ kind: 'link', item }); },
-    evidence, contexts,
+    evidence, contexts, opsItems: ops.items,
   };
   const shown = tops.filter((r) => !visible || visible.has(r.id));
   const flagged = items.length;
@@ -498,6 +509,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
           {viewer}
         </BottomSheet>
       )}
+      {ops.dialogs}
       {dialog?.kind === 'add' && <RequirementDialog editing={null} parent={dialog.parent} levels={levels} rows={all} error={error} onClose={close} onSave={saveNew} />}
       {dialog?.kind === 'edit' && <RequirementDialog editing={dialog.item} parent={null} levels={levels} rows={all} error={error} onClose={close} onSave={(v) => saveEdit(dialog.item, v)} />}
       {dialog?.kind === 'merge' && <MergeDialog api={api} item={dialog.item} rows={all} error={error} onClose={close} onMerge={(into, mine) => saveMerge(dialog.item, into, mine)} />}

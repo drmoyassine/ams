@@ -6,6 +6,7 @@ import { ContentText } from '../../components/content-text';
 import type { EvidenceApi } from '../../lib/evidence-api';
 import { requirementLabel } from '../../lib/format';
 import type { Requirement } from '../../lib/framework-api';
+import { AssignmentLines } from '../../components/standard-ops/assignment-summary';
 import { RELATIONS } from './map-to-iqf-dialog';
 
 /** What every requirement of a version holds (mapped IQF items, inherited and direct evidence), asked once for the whole page. */
@@ -70,6 +71,7 @@ export function RequirementHover({ r, name, contexts }: { r: Requirement; name: 
             </ul>
           )}
           <EvidenceSummary ctx={ctx} />
+          {ctx.scope && ctx.champion && <AssignmentLines assignment={{ scope: ctx.scope, champion: ctx.champion }} internal={false} />}
         </>
       )}
     </HoverCard>

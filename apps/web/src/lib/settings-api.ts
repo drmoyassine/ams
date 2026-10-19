@@ -1,4 +1,4 @@
-import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, CreateOrgUnit, CreateOrgUnitType, CreateProgram, DeletePreview, DeleteResult, I18nBundle, Institution, LanguageState, LanguagesSettings, Me, MoveManyInput, OrgChart, OrgUnit, OrgUnitType, Program, PublicBranding, PublicI18n, SaveUiTranslation, TranslationRun, UiTranslationPage, UpdateAiAccount, UpdateAiSetting, UpdateInstitution, UpdateOrgUnit, UpdateOrgUnitType, UpdateProgram, UserSummary } from '@ams/shared';
+import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, CreateOrgUnit, CreateOrgUnitType, CreateProgram, CreateScopeLevel, ScopeLevel, UpdateScopeLevel, DeletePreview, DeleteResult, I18nBundle, Institution, LanguageState, LanguagesSettings, Me, MoveManyInput, OrgChart, OrgUnit, OrgUnitType, Program, PublicBranding, PublicI18n, SaveUiTranslation, TranslationRun, UiTranslationPage, UpdateAiAccount, UpdateAiSetting, UpdateInstitution, UpdateOrgUnit, UpdateOrgUnitType, UpdateProgram, UserSummary } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
@@ -58,6 +58,11 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     updateOrgUnitType: (id: string, json: UpdateOrgUnitType) => api.api['org-unit-types'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<OrgUnitType>(r)),
     reorderOrgUnitTypes: (ids: string[]) => api.api['org-unit-types'].reorder.$post({ json: { ids } }).then((r) => unwrap<OrgUnitType[]>(r)),
     removeOrgUnitType: (id: string) => api.api['org-unit-types'][':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
+    // Scope levels (TASK-086): where a standard can apply. Added, renamed, reordered and deactivated here; never deleted.
+    scopeLevels: () => api.api['scope-levels'].$get().then((r) => unwrap<ScopeLevel[]>(r)),
+    createScopeLevel: (json: CreateScopeLevel) => api.api['scope-levels'].$post({ json }).then((r) => unwrap<ScopeLevel>(r)),
+    updateScopeLevel: (id: string, json: UpdateScopeLevel) => api.api['scope-levels'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<ScopeLevel>(r)),
+    reorderScopeLevels: (ids: string[]) => api.api['scope-levels'].reorder.$post({ json: { ids } }).then((r) => unwrap<ScopeLevel[]>(r)),
     /** People of the institution (to pick a head). */
     people: () => api.api.users.$get().then((r) => unwrap<UserSummary[]>(r)),
     programs: () => api.api.programs.$get().then((r) => unwrap<Program[]>(r)),

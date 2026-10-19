@@ -779,7 +779,60 @@ export const requirementMapping = pgTable('requirement_mapping', {
   oneOf('requirement_mapping_review_status_check', t.reviewStatus, REVIEW_STATUSES),
 ]);
 
-export const IQF_PROPOSAL_STATUSES = ['pending', 'accepted', 'dismissed', 'superseded'] as const;
+const SCOPE_LEVEL_KINDS = ['institution', 'org_unit', 'program', 'course', 'custom'] as const;
+/**
+ * The levels a standard's scope can be at (TASK-086): Institution, Unit, Program and Course to start with (seeded per
+ * institution), plus custom ones. Settings -> Organization -> Institution. Levels are deactivated, never deleted, so a scope
+ * that names one keeps its meaning. `kind` says which list the items come from (units, programs; the rest have none yet).
+ */
+export const scopeLevel = pgTable('scope_level', {
+  ...base(), ...tenant(),
+  key: text('key').notNull(),
+  labelEn: text('label_en').notNull(),
+  labelAr: text('label_ar'),
+  kind: text('kind', { enum: SCOPE_LEVEL_KINDS }).notNull(),
+  displayOrder: integer('display_order').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+}, (t) => [
+  uniqueIndex('scope_level_key_idx').on(t.institutionId, t.key),
+  check('scope_level_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+  oneOf('scope_level_kind_check', t.kind, SCOPE_LEVEL_KINDS),
+]);
+
+/**
+ * Where a requirement applies (TASK-086): a level and, optionally, the items at that level (empty = all of them). Named by
+ * framework and code like a mapping, outside the frozen version tables, so it can change on a published version and carries
+ * over to the next one. A requirement without a row inherits (see packages/core/src/scope).
+ */
+export const requirementScope = pgTable('requirement_scope', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  levelKey: text('level_key').notNull(),
+  /** Units or programs, by the level's kind; a trigger checks them. No foreign key: a deleted unit leaves its id, which is ignored when read. */
+  itemIds: uuid('item_ids').array().notNull().default(sql`'{}'::uuid[]`),
+}, (t) => [
+  uniqueIndex('requirement_scope_unique_idx').on(t.institutionId, t.frameworkId, t.code),
+  foreignKey({ columns: [t.institutionId, t.levelKey], foreignColumns: [scopeLevel.institutionId, scopeLevel.key], name: 'requirement_scope_level_fk' }),
+]);
+
+/** Who answers for a requirement (TASK-086): overall (no scope item) or for one scoped unit or program. Same keying as requirement_scope. */
+export const requirementChampion = pgTable('requirement_champion', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  scopeItemKind: text('scope_item_kind', { enum: ['org_unit', 'program'] }),
+  scopeItemId: uuid('scope_item_id'),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+}, (t) => [
+  uniqueIndex('requirement_champion_unique_idx').on(t.institutionId, t.frameworkId, t.code, sql`coalesce(${t.scopeItemKind}, '')`, sql`coalesce(${t.scopeItemId}, '00000000-0000-0000-0000-000000000000'::uuid)`),
+  index('requirement_champion_framework_idx').on(t.frameworkId, t.code),
+  index('requirement_champion_user_idx').on(t.userId),
+  check('requirement_champion_item_kind_check', sql`${t.scopeItemKind} is null or ${t.scopeItemKind} in ('org_unit', 'program')`),
+  check('requirement_champion_item_check', sql`(${t.scopeItemKind} is null) = (${t.scopeItemId} is null)`),
+]);
+
+export const IQF_PROPOSAL_STATUSES =['pending', 'accepted', 'dismissed', 'superseded'] as const;
 /**
  * A NEW item of the institution's quality framework (IQF) the analysis suggests because nothing in it fits some external
  * requirements (step E, DEC-021/022/023). Only a proposal: nothing is in the IQF until a person accepts it, which creates

@@ -276,6 +276,15 @@ async function seedDemo(db, base) {
     const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
     await call('POST', `/api/requirements/${items[0].id}/evidence-requests`, { title: 'Exit survey results for the spring cohort', assigneeEmail: 'institutional.research@partner.example.edu', message: 'Please upload the latest results.' });
   } catch (e) { warn('evidence request', e); }
+  // Scope and champion (TASK-086): a scope and a champion on the first standard, so the hover card and the dialogs have content.
+  try {
+    const qf = await call('GET', '/api/quality-framework');
+    const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
+    const [prog] = await q(`select id from program order by name_en limit 1`);
+    await call('PUT', '/api/requirement-scope', { frameworkId: qf.framework.id, code: items[0].code, levelKey: 'program', itemIds: prog ? [prog.id] : [] });
+    const me = await call('GET', '/api/me');
+    await call('PUT', '/api/requirement-champion', { frameworkId: qf.framework.id, code: items[0].code, userId: me.userId });
+  } catch (e) { warn('scope and champion', e); }
   // Things in the Trash (DEC-026): a source document, an Arabic standard with a sub-item and a note, and the last quality-framework standard with its sub-standards.
   try {
     if (ids.draftId) {
@@ -739,6 +748,55 @@ function pagesFor(ids) {
       await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
     } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
+    // TASK-086: Quality Management -> Standards (the IQF tree in operation) with the menu Link evidence · Assign scope · Assign champion ·
+    // Create cycle, the three dialogs, the hover card with scope and champion, the same menu on an external standard, and Settings ->
+    // Organization -> Institution -> Scope levels.
+    { name: 'quality-management', path: '/quality-management', action: async (page) => { await page.getByRole('list', { name: 'Standards', exact: true }).first().waitFor(); } },
+    { name: 'quality-management-menu', path: '/quality-management', action: async (page) => {
+      await page.getByRole('button', { name: /^Actions for / }).first().click();
+      await page.getByRole('menuitem', { name: 'Create cycle' }).waitFor();
+    } },
+    { name: 'quality-management-scope-dialog', path: '/quality-management', action: async (page) => {
+      await menuItem('Assign scope')(page);
+      const dialog = page.getByRole('dialog', { name: /^Assign scope/ });
+      await dialog.waitFor();
+      await dialog.getByTestId('scope-current').waitFor();
+      await dialog.getByRole('radio', { name: 'Only these' }).waitFor();
+    } },
+    { name: 'quality-management-scope-dialog-list', path: '/quality-management', action: async (page) => {
+      await menuItem('Assign scope')(page);
+      const dialog = page.getByRole('dialog', { name: /^Assign scope/ });
+      await dialog.getByRole('radio', { name: 'Only these' }).click();
+      await dialog.getByRole('list', { name: 'Choose from' }).waitFor();
+    } },
+    { name: 'quality-management-champion-dialog', path: '/quality-management', action: async (page) => {
+      await menuItem('Assign champion')(page);
+      const dialog = page.getByRole('dialog', { name: /^Assign champion/ });
+      await dialog.waitFor();
+      await dialog.getByTestId('champion-current').waitFor();
+    } },
+    { name: 'quality-management-create-cycle-dialog', path: '/quality-management', action: async (page) => {
+      await menuItem('Create cycle')(page);
+      const dialog = page.getByRole('dialog', { name: /^Create cycle/ });
+      await dialog.waitFor();
+      await dialog.getByTestId('no-templates').waitFor();
+    } },
+    { name: 'quality-management-hover-card', path: '/quality-management', action: async (page) => {
+      await page.locator('button[data-tree-focus]').first().hover();
+      await page.getByRole('tooltip').getByText('Champion', { exact: true }).waitFor();
+    } },
+    { name: 'version-external-ops-menu', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await page.getByRole('button', { name: /^Actions for / }).first().click();
+      await page.getByRole('menuitem', { name: 'Assign champion' }).waitFor();
+    } },
+    { name: 'version-external-scope-dialog', path: `/settings/versions/${ids.versionId}`, action: async (page) => {
+      await menuItem('Assign scope')(page);
+      await page.getByRole('dialog', { name: /^Assign scope/ }).waitFor();
+    } },
+    { name: 'settings-organization-scope-levels', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('list', { name: 'Scope levels' }).waitFor();
+      await page.getByRole('list', { name: 'Scope levels' }).scrollIntoViewIfNeeded();
+    } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
 
