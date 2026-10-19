@@ -733,4 +733,4 @@ related_tasks:
 
 The operating side of the Internal Quality Framework, next to Accreditations (external). One engine: a cycle is ordered stages, each with inputs, process, outputs, a responsible unit, an owner and dates; reports are stage outputs or inputs. Cycles can be built at any level (institution, unit, program, a standard or sub-standard, a requirement, an evidence item, an accreditation), recur (term, year, N years, after the previous one), nest (maintenance runs a yearly annual report), and are inherited down the IQF and to mapped external standards with overrides. The IQF gets its operating menu: Link evidence, Assign scope, Assign champion, Create cycle; external standards get the same, inherited through their mappings. Design: docs/quality-management-plan.md, DEC-029. Shares the report engine with Accreditations (M4, ROADMAP-005).
 
-Status (2026-10-19): designed and broken into tasks (TASK-077 done; TASK-078 to TASK-086 to build). Not started.
+Status (2026-10-19): designed and broken into tasks (TASK-077 done). TASK-078 built: the cycle data model, services and API (no screens). TASK-079 to TASK-086 to build.

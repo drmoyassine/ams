@@ -12,6 +12,7 @@ import { guardIntegrity } from '../framework/errors.js';
 export const TRASH_TABLES = [
   'org_unit', 'framework', 'framework_version', 'analysis_dismissal', 'source_document', 'source_page', 'analysis_run', 'requirement', 'requirement_note', 'report_template',
   'extraction_item', 'iqf_item_proposal', 'requirement_mapping', 'glossary_alias', 'evidence_link', 'milestone', 'import_document', 'import_page',
+  'cycle', 'cycle_stage', 'cycle_output', 'cycle_input',
 ] as const;
 export type TrashTable = (typeof TRASH_TABLES)[number];
 export type Row = Record<string, unknown>;

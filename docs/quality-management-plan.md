@@ -1,6 +1,6 @@
 # Quality Management — Cycles and Reporting (TASK-077)
 
-Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). Nothing is built yet.
+Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078 is built (schema, permissions, services, API and typed web client; migration 0059); the screens and the rest are not.
 
 ## Build tasks
 

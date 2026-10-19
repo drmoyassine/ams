@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import {
   AI_PROVIDERS, ANALYSIS_STAGES, IMPORT_APPLY_STATES, IMPORT_PROPOSAL_STATUSES, IMPORT_READ_STATUSES, IMPORT_RUN_STATUSES, IMPORT_SCOPE_KINDS, IMPORT_STAGES, type ImportProgress, type ImportUsage, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
   MILESTONE_TYPES, ORG_UNIT_SOURCES, PHASE_TYPES, ROLES,
+  CYCLE_ANCHOR_KINDS, CYCLE_DECISIONS, CYCLE_INPUT_SOURCES, CYCLE_ORIGINS, CYCLE_OUTPUT_KINDS, CYCLE_OUTPUT_STATES, CYCLE_PICK_KINDS, CYCLE_REF_KINDS,
+  CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -960,7 +962,7 @@ export const datasetResponse = pgTable('dataset_response', {
 // ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
 
 export const TRASH_KIND_VALUES = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit', 'cycle',
 ] as const;
 /**
  * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are
@@ -1265,4 +1267,180 @@ export const importApply = pgTable('import_apply', {
   index('import_apply_run_idx').on(t.runId, t.appliedAt),
   oneOf('import_apply_state_check', t.state, IMPORT_APPLY_STATES),
   check('import_apply_counts_check', sql`jsonb_typeof(${t.counts}) = 'object'`),
+]);
+
+// ---- Quality Management cycles (DEC-029, TASK-078, docs/quality-management-plan.md; migration 0059) ---------------------------
+// A cycle is ordered stages; a stage is inputs -> process -> outputs. Statuses, who may decide an approval and when a stage
+// may complete are enforced by triggers (migration 0059). Only the application role writes these tables; the worker may
+// read them. Draft cycles are deleted to the Trash (kind `cycle`); active and completed ones are cancelled.
+
+const quoted = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(', '));
+
+/** A reusable shape (Settings -> Quality Management). `stages` is validated by the service with the shared Zod schema. */
+export const cycleTemplate = pgTable('cycle_template', {
+  ...base(), ...tenant(),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  nameAr: text('name_ar'),
+  description: text('description'),
+  /** Which anchor kinds it fits; empty = any. */
+  anchorKinds: text('anchor_kinds').array().notNull().default(sql`'{}'::text[]`),
+  stages: jsonb('stages').notNull().default(sql`'[]'::jsonb`),
+  /** 0 until first published; +1 on each publish. */
+  version: integer('version').notNull().default(0),
+  status: text('status', { enum: CYCLE_TEMPLATE_STATUSES }).notNull().default('draft'),
+  origin: text('origin', { enum: CYCLE_TEMPLATE_ORIGINS }).notNull().default('manual'),
+}, (t) => [
+  uniqueIndex('cycle_template_key_idx').on(t.institutionId, t.key),
+  check('cycle_template_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+  oneOf('cycle_template_status_check', t.status, CYCLE_TEMPLATE_STATUSES),
+  oneOf('cycle_template_origin_check', t.origin, CYCLE_TEMPLATE_ORIGINS),
+  check('cycle_template_stages_check', sql`jsonb_typeof(${t.stages}) = 'array'`),
+  check('cycle_template_anchor_kinds_check', sql`${t.anchorKinds} <@ array[${quoted(CYCLE_ANCHOR_KINDS)}]::text[]`),
+  check('cycle_template_version_check', sql`${t.version} >= 0 and (${t.status} = 'draft' or ${t.version} >= 1)`),
+]);
+
+export const cycle = pgTable('cycle', {
+  ...base(), ...tenant(),
+  title: text('title').notNull(),
+  templateId: uuid('template_id').references(() => cycleTemplate.id),
+  templateVersion: integer('template_version'),
+  /** What the cycle is about. `anchorId` is polymorphic (no foreign key): the service checks it per kind. */
+  anchorKind: text('anchor_kind', { enum: CYCLE_ANCHOR_KINDS }).notNull(),
+  anchorId: uuid('anchor_id').notNull(),
+  /** Who does the work, when not the anchor itself; both null or both set. */
+  subjectKind: text('subject_kind', { enum: CYCLE_SUBJECT_KINDS }),
+  subjectId: uuid('subject_id'),
+  responsibleUnitId: uuid('responsible_unit_id').notNull().references(() => orgUnit.id),
+  /** The cycle's owner (a person). */
+  leadUserId: uuid('lead_user_id').notNull().references(() => appUser.id),
+  status: text('status', { enum: CYCLE_STATUSES }).notNull().default('draft'),
+  cancelReason: text('cancel_reason'),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date'),
+  /** The subject's previous run of the same template: what `previous_cycle` inputs read. */
+  previousCycleId: uuid('previous_cycle_id').references((): AnyPgColumn => cycle.id),
+  periodLabel: text('period_label'),
+  /** Nesting (TASK-082): the stage that runs this cycle as a child. Null for now. */
+  parentCycleId: uuid('parent_cycle_id').references((): AnyPgColumn => cycle.id),
+  parentStageId: uuid('parent_stage_id').references((): AnyPgColumn => cycleStage.id),
+  origin: text('origin', { enum: CYCLE_ORIGINS }).notNull().default('manual'),
+}, (t) => [
+  index('cycle_anchor_idx').on(t.institutionId, t.anchorKind, t.anchorId),
+  index('cycle_subject_idx').on(t.institutionId, t.subjectKind, t.subjectId),
+  index('cycle_unit_idx').on(t.responsibleUnitId),
+  index('cycle_lead_idx').on(t.leadUserId),
+  index('cycle_template_idx').on(t.templateId),
+  oneOf('cycle_anchor_kind_check', t.anchorKind, CYCLE_ANCHOR_KINDS),
+  check('cycle_subject_kind_check', sql`${t.subjectKind} is null or ${t.subjectKind} in (${quoted(CYCLE_SUBJECT_KINDS)})`),
+  check('cycle_subject_pair_check', sql`(${t.subjectKind} is null) = (${t.subjectId} is null)`),
+  oneOf('cycle_status_check', t.status, CYCLE_STATUSES),
+  oneOf('cycle_origin_check', t.origin, CYCLE_ORIGINS),
+  check('cycle_cancel_reason_check', sql`${t.status} <> 'cancelled' or length(trim(coalesce(${t.cancelReason}, ''))) > 0`),
+  check('cycle_dates_check', sql`${t.endDate} is null or ${t.endDate} >= ${t.startDate}`),
+  check('cycle_template_pair_check', sql`(${t.templateId} is null) = (${t.templateVersion} is null)`),
+  check('cycle_previous_self_check', sql`${t.previousCycleId} is distinct from ${t.id}`),
+]);
+
+export const cycleStage = pgTable('cycle_stage', {
+  ...base(), ...tenant(),
+  cycleId: uuid('cycle_id').notNull().references(() => cycle.id),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  nameAr: text('name_ar'),
+  process: text('process').notNull().default(''),
+  /** `[{ text, done, doneBy, doneAt }]` */
+  checklist: jsonb('checklist').notNull().default(sql`'[]'::jsonb`),
+  displayOrder: integer('display_order').notNull().default(0),
+  responsibleUnitId: uuid('responsible_unit_id').notNull().references(() => orgUnit.id),
+  /** The template's unit rule found no unit, so the stage took the cycle's; a person chooses. */
+  unitUnresolved: boolean('unit_unresolved').notNull().default(false),
+  ownerUserId: uuid('owner_user_id').references(() => appUser.id),
+  /** The template's owner rule found nobody (or several): never guessed; a person chooses. */
+  ownerUnresolved: boolean('owner_unresolved').notNull().default(false),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
+  status: text('status', { enum: CYCLE_STAGE_STATUSES }).notNull().default('not_started'),
+  skipReason: text('skip_reason'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+}, (t) => [
+  uniqueIndex('cycle_stage_key_idx').on(t.cycleId, t.key),
+  index('cycle_stage_order_idx').on(t.cycleId, t.displayOrder),
+  index('cycle_stage_owner_idx').on(t.ownerUserId),
+  index('cycle_stage_unit_idx').on(t.responsibleUnitId),
+  oneOf('cycle_stage_status_check', t.status, CYCLE_STAGE_STATUSES),
+  check('cycle_stage_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+  check('cycle_stage_skip_reason_check', sql`${t.status} <> 'skipped' or length(trim(coalesce(${t.skipReason}, ''))) > 0`),
+  check('cycle_stage_dates_check', sql`${t.startDate} is null or ${t.endDate} is null or ${t.endDate} >= ${t.startDate}`),
+  check('cycle_stage_checklist_check', sql`jsonb_typeof(${t.checklist}) = 'array'`),
+]);
+
+export const cycleOutput = pgTable('cycle_output', {
+  ...base(), ...tenant(),
+  stageId: uuid('stage_id').notNull().references(() => cycleStage.id),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  kind: text('kind', { enum: CYCLE_OUTPUT_KINDS }).notNull(),
+  required: boolean('required').notNull().default(true),
+  /** Position within the stage, 0, 1, 2 ... (the order of the template). */
+  displayOrder: integer('display_order').notNull().default(0),
+  state: text('state', { enum: CYCLE_OUTPUT_STATES }).notNull().default('missing'),
+  /** The report (shared report engine, TASK-085). Null until that exists: a report output is "pending". */
+  reportTemplateKey: text('report_template_key'),
+  reportId: uuid('report_id'),
+  fileKey: text('file_key'),
+  fileName: text('file_name'),
+  fileMime: text('file_mime'),
+  fileSize: integer('file_size'),
+  note: text('note'),
+  approverUserId: uuid('approver_user_id').references(() => appUser.id),
+  /** The output's approver rule found nobody (or several); a person chooses. */
+  approverUnresolved: boolean('approver_unresolved').notNull().default(false),
+  decision: text('decision', { enum: CYCLE_DECISIONS }),
+  decisionComment: text('decision_comment'),
+  finalisedBy: uuid('finalised_by').references(() => appUser.id),
+  finalisedAt: timestamp('finalised_at', { withTimezone: true }),
+}, (t) => [
+  uniqueIndex('cycle_output_key_idx').on(t.stageId, t.key),
+  index('cycle_output_approver_idx').on(t.approverUserId),
+  oneOf('cycle_output_kind_check', t.kind, CYCLE_OUTPUT_KINDS),
+  oneOf('cycle_output_state_check', t.state, CYCLE_OUTPUT_STATES),
+  check('cycle_output_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+  check('cycle_output_decision_check', sql`${t.decision} is null or ${t.decision} in (${quoted(CYCLE_DECISIONS)})`),
+  check('cycle_output_decision_kind_check', sql`(${t.decision} is null and ${t.decisionComment} is null) or ${t.kind} = 'approval'`),
+  check('cycle_output_approver_kind_check', sql`(${t.approverUserId} is null and not ${t.approverUnresolved}) or ${t.kind} = 'approval'`),
+  check('cycle_output_comment_check', sql`${t.decision} is null or ${t.decision} = 'approved' or length(trim(coalesce(${t.decisionComment}, ''))) > 0`),
+  check('cycle_output_file_kind_check', sql`${t.fileKey} is null or ${t.kind} = 'document'`),
+  check('cycle_output_note_kind_check', sql`${t.note} is null or ${t.kind} = 'note'`),
+  check('cycle_output_report_kind_check', sql`(${t.reportTemplateKey} is null and ${t.reportId} is null) or ${t.kind} = 'report'`),
+  check('cycle_output_final_check', sql`${t.state} <> 'final' or case ${t.kind}
+    when 'document' then ${t.fileKey} is not null
+    when 'note' then length(trim(coalesce(${t.note}, ''))) > 0
+    when 'approval' then ${t.decision} in ('approved', 'approved_with_conditions')
+    else true end`),
+]);
+
+export const cycleInput = pgTable('cycle_input', {
+  ...base(), ...tenant(),
+  stageId: uuid('stage_id').notNull().references(() => cycleStage.id),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  source: text('source', { enum: CYCLE_INPUT_SOURCES }).notNull(),
+  /** The output it reads: this cycle's earlier stage, or the previous cycle's. Null for a pick (or a missing previous one). */
+  outputId: uuid('output_id').references(() => cycleOutput.id),
+  /** For a pick: what the template wants picked, and what was picked. */
+  pickKind: text('pick_kind', { enum: CYCLE_PICK_KINDS }),
+  refKind: text('ref_kind', { enum: CYCLE_REF_KINDS }),
+  refId: uuid('ref_id'),
+  required: boolean('required').notNull().default(true),
+  /** Position within the stage, 0, 1, 2 ... (the order of the template). */
+  displayOrder: integer('display_order').notNull().default(0),
+}, (t) => [
+  uniqueIndex('cycle_input_key_idx').on(t.stageId, t.key),
+  index('cycle_input_output_idx').on(t.outputId),
+  oneOf('cycle_input_source_check', t.source, CYCLE_INPUT_SOURCES),
+  check('cycle_input_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
+  check('cycle_input_pick_check', sql`(${t.source} = 'pick' and ${t.outputId} is null) or (${t.source} <> 'pick' and ${t.refKind} is null and ${t.refId} is null and ${t.pickKind} is null)`),
+  check('cycle_input_ref_pair_check', sql`(${t.refKind} is null) = (${t.refId} is null)`),
 ]);

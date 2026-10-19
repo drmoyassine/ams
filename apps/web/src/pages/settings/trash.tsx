@@ -23,6 +23,9 @@ export function countWords(counts: Record<string, number>): string {
   add('pages', 'page');
   add('notes', 'note');
   add('mappings', 'link to other standards', 'links to other standards');
+  add('stages', 'stage');
+  add('outputs', 'output');
+  add('inputs', 'input');
   return parts.join(', ');
 }
 

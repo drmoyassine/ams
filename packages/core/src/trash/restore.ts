@@ -16,6 +16,7 @@ import { assertPermitted } from '../permissions.js';
 import { require_ } from '../framework/common.js';
 import { assertCanWrite } from '../documents/scopes.js';
 import { restoreOrgUnits } from '../org/unit-trash.js';
+import { restoreCycle } from '../cycles/trash.js';
 import { relabelByDepth } from '../framework/requirements.js';
 import { existing, idsOf, insertRows, texts, TRASH_TABLES, uuids, type Row, type TrashPayload, type Tables } from './rows.js';
 
@@ -370,6 +371,14 @@ async function restoreOrgUnitItem(ctx: Ctx, item: ItemRow, payload: TrashPayload
   return out;
 }
 
+/** A draft cycle with its stages, outputs and inputs (the rules are in cycles/trash.ts). */
+async function restoreCycleItem(ctx: Ctx, payload: TrashPayload): Promise<Outcome> {
+  const r = await restoreCycle(ctx, payload);
+  const out = blank();
+  out.restored = r.restored;
+  return out;
+}
+
 // ---- Entry points ---------------------------------------------------------------------------------------------------
 
 /** Restores one Trash row (the caller marks it restored). */
@@ -388,11 +397,12 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
     case 'evidence_link': return restoreEvidenceLink(ctx, payload);
     case 'milestone': return restoreMilestone(ctx, payload);
     case 'org_unit': return restoreOrgUnitItem(ctx, item, payload, opts);
+    case 'cycle': return restoreCycleItem(ctx, payload);
   }
 }
 
 /** The kinds in the order a group is restored: what others hang from first. */
-export const RESTORE_ORDER = ['org_unit', 'framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document'] as const;
+export const RESTORE_ORDER = ['org_unit', 'framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document', 'cycle'] as const;
 
 export function mergeOutcomes(parts: Outcome[]): Pick<RestoreResult, 'restored' | 'dropped' | 'renamed' | 'placedUnder'> & { notes: string[] } {
   const o = blank();

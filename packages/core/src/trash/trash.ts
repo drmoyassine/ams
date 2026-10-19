@@ -21,7 +21,7 @@ type ItemRow = typeof trashItem.$inferSelect;
 export const KIND_PERMISSION: Record<TrashKind, Permission> = {
   requirement: 'framework:write', note: 'framework:write', source_document: 'framework:write', source_page: 'framework:write', report_template: 'framework:write',
   framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
-  org_unit: 'org:write',
+  org_unit: 'org:write', cycle: 'cycle:manage',
 };
 
 async function allowedKinds(ctx: Ctx): Promise<TrashKind[]> {
@@ -176,6 +176,15 @@ function describe(payload: TrashPayload): Described[] {
       for (const c of (uKids.get(str(u.id)) ?? []).sort((a, b) => Number(a.display_order) - Number(b.display_order))) walkUnit(c, d + 1);
     };
     for (const u of units.filter((x) => !uById.has(str(x.parent_id)))) walkUnit(u, 0);
+  }
+  // A cycle: its stages in order, each followed by its outputs and inputs.
+  for (const c of t.cycle ?? []) {
+    out.push({ table: 'cycle', id: str(c.id), label: str(c.title), depth: 0 });
+    for (const s of [...(t.cycle_stage ?? [])].sort((a, b) => Number(a.display_order) - Number(b.display_order))) {
+      out.push({ table: 'cycle_stage', id: str(s.id), label: str(s.name), depth: 1 });
+      for (const o of (t.cycle_output ?? []).filter((x) => str(x.stage_id) === str(s.id))) out.push({ table: 'cycle_output', id: str(o.id), label: `Output: ${str(o.name)}`, depth: 2 });
+      for (const i of (t.cycle_input ?? []).filter((x) => str(x.stage_id) === str(s.id))) out.push({ table: 'cycle_input', id: str(i.id), label: `Input: ${str(i.name)}`, depth: 2 });
+    }
   }
   return out;
 }

@@ -37,6 +37,7 @@ Every way a person can delete something today, and whether it goes through the T
 | An evidence link | `removeLink` | Yes, kind `evidence_link` | The link only; the evidence itself is never deleted. |
 | A milestone the lead added | `deleteMilestone` | Yes, kind `milestone` | |
 | An org unit with its sub-units (tree or chart, bulk or from the unit's drawer) | `deleteOrgUnits`, `POST /api/org-units/delete`, `DELETE /api/org-units/{id}` | Yes, kind `org_unit` | One Trash item per top-level unit: the unit and every unit under it as stored (names, type, head, lock, source, order), the unit types they use, and which evidence items named a deleted unit as owner. **Refused while programs are attached** to the unit or any sub-unit: the 409 lists them (`details.code = 'has_programs'`) and says to move or reassign them first. Evidence owned by a deleted unit loses its owner (a foreign key would stop the delete) and gets it back on restore. Role assignments scoped to the unit are left alone (no foreign key); they cover nothing while it is gone. |
+| A draft cycle (Quality Management) | `deleteCycle`, `DELETE /api/cycles/{id}` | Yes, kind `cycle` | One Trash item: the cycle with its stages, outputs and inputs as stored (same ids, so the wiring between stages comes back intact). **Only a draft is deleted**: a cycle that has started or finished is cancelled (with a reason), never deleted, because other cycles may build on it and its history must stay; a draft that another cycle builds on is refused. Restore needs `cycle:manage` for the cycle's responsible unit and stops, with the reason, if a unit it names or its template is gone. |
 
 ### Deliberately not covered
 
@@ -84,10 +85,11 @@ Every way a person can delete something today, and whether it goes through the T
 7. **Merge.** Restoring a merged-away requirement moves its sub-items and notes back from the target and restores the
    target's earlier wording (`revertMerge`, on by default; only what is still where the merge left it moves).
 7b. **Org units.** A unit whose parent is gone is the same choice as a requirement (409 `parent_missing`; `placeParentId` any unit, or `atTopLevel`); names may repeat, so nothing is renamed; a unit type removed meanwhile is added back from the snapshot; the unit returns to its old place among its siblings (or last when placed elsewhere) and the lists are renumbered gap-free; units deleted together come back in tree order. Needs `org:write` where it goes.
+7c. **Cycles.** A draft cycle comes back whole with its stages, outputs and inputs (`restoreCycle`); a responsible unit (of the cycle or of a stage) or a template that no longer exists stops the restore with that reason (restore the unit from the Trash first). A unit that is the responsible unit of any cycle or stage cannot be deleted at all (409 `has_cycles`, listing them).
 8. **Notes, pages, templates, versions, standards, links, milestones** each check what they hang from (the requirement, the
    document, the standard, the engagement is active) and for a clash (page number, template key, edition), with a message.
 9. **Permissions.** Restoring needs the permission that deleting needed (`framework:write` for the library, `evidence:write`
-   for evidence links, `engagement:manage` for milestones). A person sees the Trash items of the kinds they may delete, plus
+   for evidence links, `engagement:manage` for milestones, `cycle:manage` for cycles). A person sees the Trash items of the kinds they may delete, plus
    anything they deleted themselves; an administrator holds every permission and so sees all. "Delete forever" and "Empty
    trash" need the same.
 

@@ -14,6 +14,18 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-19 — Quality Management cycles: schema, services and API (TASK-078, no UI)
+
+Decisions: DEC-029 (the model), DEC-005 (approval is "Internally approved", never "met"/"compliant"), DEC-006 (nothing here is AI; the worker role cannot write), DEC-002 (accreditor cycles are template data). No new decision; the choices below are inside the plan.
+- **Data:** migration 0059 (`cycle_template`, `cycle`, `cycle_stage`, `cycle_output`, `cycle_input`) with the snapshot of the whole current schema (0055-0058 had none). Beyond the plan's columns: `cycle_stage.unit_unresolved` / `owner_unresolved` and `cycle_output.approver_unresolved` (the "never guess" flags) and `cycle_input.pick_kind` (what a pick may be filled with). Triggers carry the rules (see ARCHITECTURE.md); the worker role is granted SELECT only.
+- **Lifecycle:** `launchCycle` makes a DRAFT (stages copied from the template, rules resolved, inputs wired); `activateCycle` starts it; `revert-to-draft` is allowed while no stage has started (the Undo of starting). A cycle completes by itself with its last stage and runs again if a stage is reopened. A draft is deleted to the Trash; anything else is cancelled with a reason (not undone).
+- **Templates:** edited only as drafts; `revise` turns a published/retired one back into a draft; publish checks everything and bumps the version (a draft may be saved unfinished, only the shape is checked on save). Managed with `cycle:manage` at the institution (they are institution-wide settings).
+- **Who can work:** `cycle:work` or `cycle:manage` for the stage's unit, or being the stage owner; the named approver alone decides an approval (any role, nobody else, also enforced by a trigger). Routes that a plain viewer may legitimately use (own stage, own approval) declare `cycle:read` and the service decides.
+- **Approval:** `returned` reopens the stage that produced the outputs the review stage reads (nearest earlier one) and puts those outputs back to draft; the approval stays undecided for the next review. Decisions and cancellations carry no Undo; every other mutation does.
+- **Rules that resolve:** unit = the subject's unit / its parent / the one unit of a type (several: the one the subject sits in or under, else unresolved) / the cycle's; person = head of the unit / of its parent / the one holder of a role at the nearest level / the cycle lead. A rule that cannot tell leaves the field empty and flagged. The previous cycle is the subject's latest active or completed run of the same template.
+- **Not done here (own tasks):** screens (TASK-080), the template editor and shipped defaults (TASK-079), recurrence/plans/terms (TASK-081), nesting and the Accreditations side (TASK-082), assistant (TASK-084), report engine for `report` outputs (TASK-085: a report slot says "report pending" and may be marked final by hand), the IQF operations (TASK-086). Replacing or removing an uploaded file is not undoable (the old file is deleted).
+- Tests: db `cycles.test.ts` (tenant isolation, worker read-only, every guard), core `cycles/cycles.test.ts` (templates, rule resolution including unresolved, wiring, previous-cycle inputs, stage/approval rules, returned-reopens, permissions, Undo, Trash, tenants), api `cycles.test.ts`, shared `cycles.test.ts`, web `lib/cycles-api.test.ts`.
+
 ## 2026-10-19 — External requirements: Map to IQF, Link evidence, hover card, one layout (owner request)
 
 Decisions: DEC-016 (mappings and evidence belong to the institution, keyed by code), DEC-005 (no "compliant"/"met"), DEC-006 (proposed, then reviewed). No new decision.

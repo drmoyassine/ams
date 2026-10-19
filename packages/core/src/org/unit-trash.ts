@@ -69,6 +69,18 @@ async function planDelete(ctx: Ctx, rawIds: string[]): Promise<Plan> {
       { code: 'has_programs', programs: programs.map((p) => ({ id: p.id, nameEn: p.name_en, unitId: p.unit_id, unitName: p.unit_name })) },
     );
   }
+  // A unit that is the responsible unit of a cycle (or of one of its stages) is not deleted: the cycle would lose its unit.
+  const cycles = (await ctx.tx.execute<{ title: string; unit_name: string }>(sql`
+    select distinct c.title, u.name_en as unit_name from cycle c join org_unit u on u.id = c.responsible_unit_id where c.responsible_unit_id = any(${uuids(everyId)})
+    union select distinct c.title, u.name_en from cycle_stage s join cycle c on c.id = s.cycle_id join org_unit u on u.id = s.responsible_unit_id
+    where s.responsible_unit_id = any(${uuids(everyId)}) order by 1`)).rows;
+  if (cycles.length) {
+    const subject = roots.length === 1 ? roots[0]!.name : plural(roots.length, 'unit');
+    throw new ConflictError(
+      `Cannot delete ${subject}: ${plural(cycles.length, 'cycle')} ${cycles.length === 1 ? 'is' : 'are'} the responsibility of it or its sub-units: ${short(cycles.map((c) => `${c.title} (${c.unit_name})`))}. Change the responsible unit of ${cycles.length === 1 ? 'that cycle' : 'those cycles'}, or delete ${cycles.length === 1 ? 'it' : 'them'}, first.`,
+      { code: 'has_cycles', cycles: cycles.map((c) => c.title) },
+    );
+  }
   return { roots, subUnits: roots.reduce((n, r) => n + r.ids.length - 1, 0) };
 }
 

@@ -48,6 +48,7 @@ export function redeleteDescriptor(items: RestoredItem[], opts: { revertMerge?: 
     case 'mapping': { const id = first(p, 'requirement_mapping'); return id ? d('DELETE', `/api/mappings/${id}`) : null; }
     case 'evidence_link': { const id = first(p, 'evidence_link'); return id ? d('DELETE', `/api/evidence-links/${id}`) : null; }
     case 'milestone': { const id = first(p, 'milestone'); return id ? d('DELETE', `/api/milestones/${id}`) : null; }
+    case 'cycle': { const id = str(root.cycleId); return id ? d('DELETE', `/api/cycles/${id}`) : null; }
     default: return null;
   }
 }
