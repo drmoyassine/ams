@@ -292,6 +292,26 @@ async function seedDemo(db, base) {
     if (lastTop) await call('DELETE', `/api/requirements/${lastTop.id}`);
     // A standard to delete with the question and the Undo toast on the draft's page (it is restored again afterwards).
   } catch (e) { warn('trash', e); }
+  // TASK-079: cycle templates for Settings -> Quality Management: the shipped defaults, a draft with five stages (long and Arabic names, so
+  // headers and fields wrap), a draft saved with a mistake (a stage that reads one below it), and a retired one.
+  try {
+    await call('POST', '/api/cycle-templates/install-defaults');
+    const all = await call('GET', '/api/cycle-templates');
+    const annual = all.find((t) => t.key === 'annual_program_report');
+    ids.qmPublished = annual.id;
+    const longAr = 'التقرير السنوي لبرنامج الهندسة الميكانيكية في كلية الهندسة والعلوم التطبيقية مع اسم طويل جدا يجب أن يلتف على الشاشة الصغيرة';
+    const drafted = await call('POST', '/api/cycle-templates', {
+      key: 'annual_long', name: 'Annual program report for the College of Engineering and Applied Sciences, with a rather long name that has to wrap', nameAr: longAr,
+      description: 'A copy of the shipped template with long names, to check that every header and field wraps on a phone.', anchorKinds: annual.anchorKinds,
+      stages: annual.stages.map((s) => ({ ...s, name: `${s.name} (with a longer name that has to wrap on a narrow phone screen)`, nameAr: `${s.nameAr} ${longAr.slice(0, 40)}` })),
+    });
+    ids.qmDraft = drafted.id;
+    const s = annual.stages;
+    const broken = await call('POST', '/api/cycle-templates', { key: 'annual_broken', name: 'Annual report saved with a mistake', nameAr: 'تقرير سنوي محفوظ مع خطأ', anchorKinds: ['program'], stages: [s[0], s[1], s[2], s[4], s[3]] });
+    ids.qmBroken = broken.id;
+    const audit = all.find((t) => t.key === 'internal_audit');
+    await call('POST', `/api/cycle-templates/${audit.id}/retire`);
+  } catch (e) { warn('cycle templates', e); }
   // The in-app assistant (DEC-027): AI switched on so the panel's composer is live, one saved conversation with steps, links and a
   // pending "Remember this?" card, and a few memory notes (long and Arabic) for the memory page.
   try {
@@ -524,6 +544,29 @@ function pagesFor(ids) {
     { name: 'settings-ai-accounts', path: '/settings/ai', action: clickTab('Accounts') },
     { name: 'settings-ai-add-account', path: '/settings/ai', action: async (page) => { await clickTab('Accounts')(page); await page.getByRole('button', { name: 'Add account' }).first().click(); } },
     { name: 'settings-ai-limits', path: '/settings/ai', action: clickTab('Limits') },
+    // TASK-079: cycle templates (Settings -> Quality Management): the list, the new-template dialog, the editor with several stages open, a draft
+    // saved with a mistake (the check says what is wrong), the refused Publish, and a published template read-only.
+    { name: 'settings-quality-management', path: '/settings/quality-management', action: async (page) => { await page.getByTestId('template-row').first().waitFor(); } },
+    { name: 'settings-quality-management-new', path: '/settings/quality-management', action: async (page) => { await page.getByRole('button', { name: 'New template' }).click(); await page.getByRole('dialog', { name: 'New template' }).waitFor(); } },
+    ids.qmDraft && { name: 'qm-template-editor', path: `/settings/quality-management/${ids.qmDraft}`, action: async (page) => {
+      await page.getByTestId('stage').first().waitFor();
+      await page.getByRole('button', { name: 'Expand all' }).click();
+      await page.getByLabel('Stage 5: name (English)').waitFor();
+    } },
+    ids.qmBroken && { name: 'qm-template-editor-error', path: `/settings/quality-management/${ids.qmBroken}`, action: async (page) => {
+      await page.getByTestId('check-summary').waitFor();
+      await page.getByTestId('stage-issues').first().waitFor();
+      await page.getByRole('button', { name: /^4\. / }).click();
+      await page.getByTestId('stage-problems').waitFor();
+    } },
+    ids.qmBroken && { name: 'qm-template-editor-publish-refused', path: `/settings/quality-management/${ids.qmBroken}`, action: async (page) => {
+      await page.getByRole('button', { name: 'Publish' }).click();
+      await page.getByRole('alert').waitFor();
+    } },
+    ids.qmPublished && { name: 'qm-template-readonly', path: `/settings/quality-management/${ids.qmPublished}`, action: async (page) => {
+      await page.getByRole('button', { name: 'Revise to edit' }).waitFor();
+      await page.getByLabel('Stage 5: name (English)').waitFor();
+    } },
     { name: 'version-requirements', path: `/settings/versions/${ids.versionId}`, action: expandFirst },
     { name: 'version-settings', path: `/settings/versions/${ids.versionId}?tab=settings` },
     // TASK-075: the version's Docs tab (the old Sources section), its import dialog, a finished import's review and report, and Settings -> Documents.
@@ -746,7 +789,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

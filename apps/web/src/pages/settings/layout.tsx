@@ -33,6 +33,7 @@ export function SettingsLayout({ api = defaultSettingsApi, trashApi = defaultTra
     { to: '/settings/organization', label: t('settings.organization'), hint: t('settings.organization.hint') },
     { to: '/settings/quality-framework', label: t('settings.iqf'), hint: t('settings.iqf.hint') },
     { to: '/settings/external-standards', label: t('settings.external'), hint: t('settings.external.hint') },
+    ...(can(me.data, 'org:read') ? [{ to: '/settings/quality-management', label: t('settings.qm'), hint: t('settings.qm.hint') }] : []),
     ...(can(me.data, 'org:read') ? [{ to: '/settings/documents', label: 'Documents', hint: 'Every uploaded document you can see, and where it is used' }] : []),
     ...(canTrash ? [{ to: '/settings/trash', label: t('settings.trash'), hint: t('settings.trash.hint') }] : []),
     ...(can(me.data, 'org:read') ? [{ to: '/settings/assistant-memory', label: t('settings.memory'), hint: t('settings.memory.hint') }] : []),

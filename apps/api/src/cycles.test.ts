@@ -193,4 +193,22 @@ describe('cycles API', () => {
     expect((await app.request(`/api/cycles/${ids.cycle}`, { headers: h })).status).toBe(404);
     expect((await app.request(`/api/cycle-templates/${ids.tpl}`, { headers: h })).status).toBe(404);
   });
+  it('installs the default templates (manage only), repeatably, and the copy of a default can be revised and published', async () => {
+    expect((await call(null, 'POST', '/api/cycle-templates/install-defaults')).status).toBe(401);
+    for (const who of ['viewer', 'contributor']) expect((await call(who, 'POST', '/api/cycle-templates/install-defaults')).status, who).toBe(403);
+    const first = await call('lead', 'POST', '/api/cycle-templates/install-defaults');
+    expect(first.status).toBe(200);
+    expect(first.body.installed).toEqual(['annual_program_report', 'periodic_program_review', 'admin_unit_review', 'internal_audit', 'course_assessment', 'custom']);
+    expect(first.body.existing).toEqual([]);
+    const again = await call('lead', 'POST', '/api/cycle-templates/install-defaults');
+    expect(again.body).toEqual({ installed: [], existing: first.body.installed });
+    const list = await call('viewer', 'GET', '/api/cycle-templates?status=published');
+    const annual = list.body.find((t: { key: string }) => t.key === 'annual_program_report');
+    expect(annual).toMatchObject({ origin: 'default', version: 1, status: 'published', name: 'Annual program report', nameAr: 'التقرير السنوي للبرنامج' });
+    expect(annual.stages).toHaveLength(5);
+    // The route validates what a default holds the way it validates any template.
+    expect((await call('viewer', 'POST', '/api/cycle-templates/validate', { stages: annual.stages })).body).toEqual({ ok: true, issues: [] });
+    expect((await call('lead', 'POST', `/api/cycle-templates/${annual.id}/revise`)).body.status).toBe('draft');
+    expect((await call('lead', 'POST', `/api/cycle-templates/${annual.id}/publish`)).body).toMatchObject({ status: 'published', version: 2 });
+  });
 });

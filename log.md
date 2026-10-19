@@ -14,6 +14,15 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-19 — Cycle templates in Settings: list, editor, shipped defaults (TASK-079)
+
+Decisions: DEC-029, DEC-002 (defaults are data), DEC-005 (approvals are "Internally approved"). No new decision, no migration.
+- **Screens:** Settings -> Quality Management (`/settings/quality-management`, and `/settings/quality-management/$templateId` for the editor). Read-only for everyone with `org:read`; `cycle:manage` edits. Duplicate is a client-side `createTemplate` (key `<key>_copy`); delete of a never-published draft and the other changes answer with X-Undo like the rest of the app.
+- **Editor model:** `editor-model.ts` keeps an unfinished copy of the stages; inputs point at outputs by an editor id, so moving stages never breaks them; stage and output keys are made from the name on first save and fixed afterwards (cycles and `previousCycle` inputs refer to them). Only a missing name or number stops a save (the stored Zod shape needs them); everything else saves, and Publish lists what to fix. `validateTemplateStages` runs in the browser and its issues are rewritten in plain words by stage name (`labels.ts`). A missing approver rule on an approval is a note, not a blocker (the launcher may choose one). Removing an output turns the inputs that read it into "something the stage owner picks".
+- **Defaults:** `packages/shared/src/cycle-defaults.ts` (data), `installDefaultTemplates(ctx)` in core: idempotent by key, PUBLISHED version 1, origin `default`, never overwrites or restores a template that exists in any status; `POST /api/cycle-templates/install-defaults`. No Undo for the install (published templates cannot be deleted; retire instead).
+- **Not done:** drag to reorder stages (up/down buttons only), importing the institution's own templates (TASK-075 engine, later), editing `child` (nesting, TASK-082: preserved, not shown).
+- Tests: shared `cycle-defaults.test.ts`, core `cycles/defaults.test.ts`, api `cycles.test.ts`, web `quality-management-ui.test.tsx` and `editor-model.test.ts`; responsive pages `settings-quality-management*`, `qm-template-*` (375/768/1280, no overflow).
+
 ## 2026-10-19 — Quality Management cycles: schema, services and API (TASK-078, no UI)
 
 Decisions: DEC-029 (the model), DEC-005 (approval is "Internally approved", never "met"/"compliant"), DEC-006 (nothing here is AI; the worker role cannot write), DEC-002 (accreditor cycles are template data). No new decision; the choices below are inside the plan.

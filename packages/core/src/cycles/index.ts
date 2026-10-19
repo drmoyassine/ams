@@ -1,6 +1,7 @@
 export {
   createTemplate, deleteTemplate, getTemplate, listTemplates, publishTemplate, reinstateTemplate, retireTemplate, reviseTemplate, updateTemplate, validateTemplate,
 } from './templates.js';
+export { installDefaultTemplates } from './defaults.js';
 export { launchCycle } from './launch.js';
 export { activateCycle, cancelCycle, revertCycleToDraft, updateCycle } from './cycles.js';
 export { getCycle, listCycles, listStageInputs } from './read.js';

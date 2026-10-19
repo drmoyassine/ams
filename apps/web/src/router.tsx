@@ -22,6 +22,8 @@ import { AiSettingsPage } from './pages/settings/ai';
 import { AssistantMemoryPage } from './pages/settings/assistant-memory';
 import { TrashPage } from './pages/settings/trash';
 import { DocumentsPage } from './pages/settings/documents';
+import { QualityManagementSettingsPage } from './pages/settings/quality-management/templates-page';
+import { TemplateEditorPage } from './pages/settings/quality-management/template-editor';
 import { VersionPage } from './pages/version';
 
 export const queryClient = new QueryClient();
@@ -77,6 +79,18 @@ const aiSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path:
 // What the assistant remembers (DEC-027): anyone who can use the assistant sees their own and the shared notes they may read.
 const assistantMemoryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/assistant-memory', component: () => <AssistantMemoryPage /> });
 const frameworksRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/external-standards', component: () => <FrameworksPage /> });
+// Cycle templates (DEC-029, TASK-079): the list, and one template's editor (read-only for people who cannot manage cycles).
+const qmSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-management', component: () => <QmSettingsRoute /> });
+function QmSettingsRoute() {
+  const navigate = qmSettingsRoute.useNavigate();
+  return <QualityManagementSettingsPage onOpen={(id) => { void navigate({ to: '/settings/quality-management/$templateId', params: { templateId: id } }); }} />;
+}
+const qmTemplateRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-management/$templateId', component: () => <QmTemplateRoute /> });
+function QmTemplateRoute() {
+  const { templateId } = qmTemplateRoute.useParams();
+  const navigate = qmTemplateRoute.useNavigate();
+  return <TemplateEditorPage key={templateId} templateId={templateId} onBack={() => { void navigate({ to: '/settings/quality-management' }); }} />;
+}
 const versionRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/versions/$versionId', component: () => <VersionRoute />,
   // ?tab=settings&section=details opens a version on its settings (the card's "Edit details").
@@ -121,7 +135,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

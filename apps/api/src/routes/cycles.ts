@@ -6,13 +6,13 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   activateCycle, addInput, addOutput, addStage, cancelCycle, completeStage, createTemplate, decideApproval, deleteCycle, deleteInput, deleteOutput, deleteStage, deleteTemplate,
-  finalizeOutput, getCycle, getMyWork, listStageInputs, getTemplate, launchCycle, listCycles, listTemplates, MAX_UPLOAD_BYTES, publishTemplate, readOutputFile, reinstateTemplate, removeOutputFile,
+  finalizeOutput, getCycle, getMyWork, installDefaultTemplates, listStageInputs, getTemplate, launchCycle, listCycles, listTemplates, MAX_UPLOAD_BYTES, publishTemplate, readOutputFile, reinstateTemplate, removeOutputFile,
   reopenOutput, reopenStage, resetStage, retireTemplate, reviseTemplate, revertCycleToDraft, setInputPick, setOutputNote, skipStage, startStage, toggleChecklist, updateCycle,
   updateOutput, updateStage, updateTemplate, uploadOutputFile, validateTemplate, ValidationError,
 } from '@ams/core';
 import {
   AddInputSchema, AddOutputSchema, AddStageSchema, CancelCycleSchema, ChecklistToggleSchema, CreateCycleTemplateSchema, CycleDetailSchema, CycleFilterSchema, CycleInputSchema, CycleSummarySchema,
-  CycleTemplateSchema, CYCLE_TEMPLATE_STATUSES, CYCLE_ANCHOR_KINDS, DecideSchema, DeleteResultSchema, LaunchCycleSchema, MyWorkSchema, SetNoteSchema, SetPickSchema, SkipStageSchema,
+  CycleTemplateSchema, CYCLE_TEMPLATE_STATUSES, CYCLE_ANCHOR_KINDS, DecideSchema, DeleteResultSchema, InstallDefaultsResultSchema, LaunchCycleSchema, MyWorkSchema, SetNoteSchema, SetPickSchema, SkipStageSchema,
   TemplateValidationSchema, UpdateCycleSchema, UpdateCycleTemplateSchema, UpdateOutputSchema, UpdateStageSchema, ValidateTemplateSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -41,6 +41,12 @@ export function cycleRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
       request: { body: { required: true, ...json(ValidateTemplateSchema) } },
       responses: { 200: { description: 'Every problem found', ...json(TemplateValidationSchema) }, ...errors },
     }), async (c) => c.json(await validateTemplate(c.get('ctx'), c.req.valid('json')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/cycle-templates/install-defaults', access: manage, tags: tag,
+      description: 'Adds the shipped default templates (annual program report, periodic program review, administrative unit review, internal audit, course assessment, custom) as published templates, only the ones whose key is absent. Safe to repeat: existing templates are never changed.',
+      responses: { 200: { description: 'The keys added now and the ones already there', ...json(InstallDefaultsResultSchema) }, ...errors },
+    }), async (c) => c.json(await installDefaultTemplates(c.get('ctx')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/cycle-templates', access: manage, tags: tag,

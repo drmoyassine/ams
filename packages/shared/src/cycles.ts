@@ -211,6 +211,9 @@ export type UpdateCycleTemplate = z.infer<typeof UpdateCycleTemplateSchema>;
 export const ValidateTemplateSchema = z.object({ stages: TemplateStagesSchema }).strict();
 export const TemplateValidationSchema = z.object({ ok: z.boolean(), issues: z.array(z.object({ path: z.string(), message: z.string() })) });
 export type TemplateValidation = z.infer<typeof TemplateValidationSchema>;
+/** What installing the shipped default templates did: the keys written now, and the ones that were already there (left alone). */
+export const InstallDefaultsResultSchema = z.object({ installed: z.array(z.string()), existing: z.array(z.string()) });
+export type InstallDefaultsResult = z.infer<typeof InstallDefaultsResultSchema>;
 
 // ---- Cycles --------------------------------------------------------------------------------------------------------------
 

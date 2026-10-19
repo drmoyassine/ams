@@ -23,7 +23,7 @@ const toDto = (r: TemplateRow, cycleCount: number): CycleTemplate => ({
 });
 
 /** Templates are institution-wide settings: managed with cycle:manage held for the whole institution. */
-const assertManageTemplates = (ctx: Ctx) => assertPermitted(ctx, 'cycle:manage', { type: 'institution' });
+export const assertManageTemplates =(ctx: Ctx) => assertPermitted(ctx, 'cycle:manage', { type: 'institution' });
 
 async function loadRow(ctx: Ctx, id: string): Promise<TemplateRow> {
   const [row] = await ctx.tx.select().from(cycleTemplate).where(eq(cycleTemplate.id, id));
@@ -36,7 +36,7 @@ async function countOf(ctx: Ctx, id: string): Promise<number> {
 }
 
 /** Normalises the text of stage definitions (NFC, trimmed) so Arabic compares and sorts the same everywhere. */
-function normalise(stages: StageDef[]): StageDef[] {
+export function normalise(stages: StageDef[]): StageDef[] {
   return stages.map((s) => ({
     ...s, name: nfc(s.name), ...(s.nameAr ? { nameAr: nfc(s.nameAr) } : {}), process: s.process.normalize('NFC'), checklist: s.checklist.map(nfc),
     outputs: s.outputs.map((o) => ({ ...o, name: nfc(o.name), ...(o.nameAr ? { nameAr: nfc(o.nameAr) } : {}) })),

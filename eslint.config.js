@@ -17,6 +17,8 @@ export const CONVERTED_UI = [
   'apps/web/src/components/term-mode.tsx', 'apps/web/src/components/json-editor.tsx', 'apps/web/src/components/data-grid.tsx',
   'apps/web/src/components/evidence-links.tsx', 'apps/web/src/components/badges.tsx',
   'apps/web/src/components/assistant/launcher.tsx', 'apps/web/src/components/assistant/panel.tsx',
+  'apps/web/src/pages/settings/quality-management/templates-page.tsx', 'apps/web/src/pages/settings/quality-management/template-editor.tsx',
+  'apps/web/src/pages/settings/quality-management/stage-card.tsx', 'apps/web/src/pages/settings/quality-management/stage-timeline.tsx',
 ];
 
 export default tseslint.config(

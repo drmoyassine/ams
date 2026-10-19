@@ -1,6 +1,6 @@
 import type {
   AddInput, AddOutput, AddStage, CreateCycleTemplate, CycleAnchorKind, CycleDetail, CycleFilter, CycleInput, CycleSummary, CycleTemplate, CycleTemplateStatus, Decide,
-  DeleteResult, LaunchCycle, MyWork, SetPick, TemplateValidation, UpdateCycle, UpdateCycleTemplate, UpdateOutput, UpdateStage,
+  DeleteResult, InstallDefaultsResult, LaunchCycle, MyWork, SetPick, TemplateValidation, UpdateCycle, UpdateCycleTemplate, UpdateOutput, UpdateStage,
 } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
@@ -27,6 +27,8 @@ export function cyclesApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) 
     retireTemplate: (id: string) => tpl.retire.$post({ param: { id } }).then((r) => unwrap<CycleTemplate>(r)),
     reinstateTemplate: (id: string) => tpl.reinstate.$post({ param: { id } }).then((r) => unwrap<CycleTemplate>(r)),
     reviseTemplate: (id: string) => tpl.revise.$post({ param: { id } }).then((r) => unwrap<CycleTemplate>(r)),
+    /** Adds the shipped default templates that are absent (published, origin "default"); safe to repeat. */
+    installDefaultTemplates: () => api.api['cycle-templates']['install-defaults'].$post().then((r) => unwrap<InstallDefaultsResult>(r)),
 
     // ---- Cycles ----
     list: (filter: CycleFilter = {}) => api.api.cycles.$get({ query: clean(filter) as never }).then((r) => unwrap<CycleSummary[]>(r)),

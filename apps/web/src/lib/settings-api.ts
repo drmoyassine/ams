@@ -53,6 +53,7 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     moveOrgUnits: (json: MoveManyInput) => api.api['org-units']['move-many'].$post({ json }).then((r) => unwrap<{ moved: number; changed: number; unchanged: boolean }>(r)),
     previewDeleteOrgUnits: (ids: string[]) => api.api['org-units']['delete-preview'].$post({ json: { ids } }).then((r) => unwrap<DeletePreview>(r)),
     deleteOrgUnits: (ids: string[]) => api.api['org-units'].delete.$post({ json: { ids } }).then((r) => unwrap<DeleteResult>(r)),
+    orgUnitTypes: () => api.api['org-unit-types'].$get().then((r) => unwrap<OrgUnitType[]>(r)),
     createOrgUnitType: (json: CreateOrgUnitType) => api.api['org-unit-types'].$post({ json }).then((r) => unwrap<OrgUnitType>(r)),
     updateOrgUnitType: (id: string, json: UpdateOrgUnitType) => api.api['org-unit-types'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<OrgUnitType>(r)),
     reorderOrgUnitTypes: (ids: string[]) => api.api['org-unit-types'].reorder.$post({ json: { ids } }).then((r) => unwrap<OrgUnitType[]>(r)),

@@ -1,6 +1,6 @@
 # Quality Management — Cycles and Reporting (TASK-077)
 
-Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078 is built (schema, permissions, services, API and typed web client; migration 0059); the screens and the rest are not.
+Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078 is built (schema, permissions, services, API and typed web client; migration 0059) and TASK-079 (Settings -> Quality Management: template list, editor, six shipped defaults); the cycle screens and the rest are not.
 
 ## Build tasks
 
