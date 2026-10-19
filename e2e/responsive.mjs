@@ -779,7 +779,8 @@ function pagesFor(ids) {
       await menuItem('Create cycle')(page);
       const dialog = page.getByRole('dialog', { name: /^Create cycle/ });
       await dialog.waitFor();
-      await dialog.getByTestId('no-templates').waitFor();
+      // With or without published templates (other states may have installed the defaults): the form is there.
+      await dialog.getByRole('form', { name: /^Create cycle/ }).waitFor();
     } },
     { name: 'quality-management-hover-card', path: '/quality-management', action: async (page) => {
       await page.locator('button[data-tree-focus]').first().hover();
