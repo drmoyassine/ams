@@ -26,7 +26,7 @@ import { AddNote, NotePanel } from './requirements-tab';
 import { MapToIqfDialog, RELATIONS } from './map-to-iqf-dialog';
 import { EvidenceSummary, RequirementHover, useRequirementContexts } from './requirement-hover';
 import { MergeDialog, MoveDialog, SplitDialog, nameOf, tagOf } from './review-dialogs';
-import { SourceViewer, useWide, type Citation } from './source-viewer';
+import { SourceViewer, type Citation } from './source-viewer';
 import { WrittenByAssistant } from '../../components/assistant/written-marker';
 import { TranslationBlock, useShownText } from './translations';
 
@@ -256,7 +256,6 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
   /** Opens a source page in the Docs tab. */ onOpenSource?: (documentId: string, page: number) => void;
 }) {
   const qc = useQueryClient();
-  const wide = useWide();
   const evidence = useEvidenceApi(evidenceOverride);
   const contexts = useRequirementContexts(evidence, version.id);
   const [error, setError] = useState('');
@@ -290,7 +289,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
   const tops = kids.get(null) ?? [];
   const setCollapsed = useCallback((id: string, c: boolean) => setCollapsedSet((s) => { const n = new Set(s); if (c) n.add(id); else n.delete(id); return n; }), []);
   const levels = (version.levelLabels as string[] | undefined) ?? [];
-  const select = (s: NonNullable<Selection>, withSheet = false) => { setSelected(s); if (withSheet && !wide) setSheet(true); };
+  const select = (s: NonNullable<Selection>, withSheet = false) => { setSelected(s); if (withSheet) setSheet(true); };
   const toggle = (id: string) => {
     const opening = !open.has(id);
     setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -489,8 +488,8 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
       )}
       <BulkBar rows={all} />
       {tree.data && all.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
-      <RequirementsLayout wide={wide} list={list} aside={viewer} asideLabel="Source viewer" asideTestId="source-panel" />
-      {!wide && sheet && selected && (
+      <RequirementsLayout list={list} />
+      {sheet && selected && (
         <BottomSheet labelledBy="source-sheet-title" onClose={() => setSheet(false)}>
           <div className="mb-3 flex items-start justify-between gap-2">
             <h2 id="source-sheet-title" className="min-w-0 pt-1 text-lg font-semibold break-words">Where this comes from</h2>

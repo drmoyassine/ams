@@ -695,10 +695,6 @@ function pagesFor(ids) {
       await page.locator('button[data-tree-focus]').first().focus();
       await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
     } },
-    { name: 'iqf-detail-panel', path: '/settings/quality-framework', action: async (page) => {
-      await page.getByTestId('iqf-standard').first().getByRole('button', { name: /^Standard / }).first().click();
-      await page.getByText('Description').first().waitFor();
-    } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }

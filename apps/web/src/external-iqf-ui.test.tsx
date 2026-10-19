@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, MemoryStore, seedFrameworks } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
-import { SPLIT_ASIDE_CLASS, SPLIT_CLASS, SPLIT_LIST_CLASS } from './components/requirements-layout';
+import { LAYOUT_CLASS } from './components/requirements-layout';
 import { targetText } from './components/evidence-links';
 import { createApi } from './lib/api';
 import { evidenceApi, type EvidenceApi } from './lib/evidence-api';
@@ -275,34 +275,20 @@ describe('the Mappings tab', () => {
 });
 
 describe('layout', () => {
-  it('gives the external standard and the IQF the same container, tree and detail panel classes, with "Select…" in the panel', async () => {
+  it('gives the external standard and the IQF the same full-width container, and no side panel on either', async () => {
     screenIs(true);
     const ext = render(wrap(version('lead')));
     const extLayout = await ext.findByTestId('requirements-layout');
-    expect(extLayout.className).toBe(SPLIT_CLASS);
-    expect(within(extLayout).getByTestId('requirement-list').className).toBe(SPLIT_LIST_CLASS);
-    expect(within(extLayout).getByTestId('source-panel').className).toBe(SPLIT_ASIDE_CLASS);
-    expect(within(extLayout).getByTestId('source-panel').textContent).toMatch(/^Select a requirement/);
+    expect(extLayout.className).toBe(LAYOUT_CLASS);
+    expect(screen.queryByTestId('source-panel')).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
     ext.unmount();
 
     const a = apis('lead');
     const iqf = render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     const iqfLayout = await iqf.findByTestId('requirements-layout');
-    expect(iqfLayout.className).toBe(SPLIT_CLASS);
-    expect(within(iqfLayout).getByTestId('requirement-list').className).toBe(SPLIT_LIST_CLASS);
-    expect(within(iqfLayout).getByTestId('detail-panel').className).toBe(SPLIT_ASIDE_CLASS);
-    expect(within(iqfLayout).getByTestId('detail-panel').textContent).toMatch(/^Select a standard/);
-    // Opening a standard shows its description in the panel, as opening a requirement shows its source.
-    const user = userEvent.setup();
-    await user.click(await within(iqfLayout).findByRole('button', { name: /Standard 1\.0\s*Mission and governance/ }));
-    expect((await within(iqfLayout).findByTestId('iqf-detail')).textContent).toContain('Mission and governance');
-  });
-
-  it('keeps one column on a narrow screen for both', async () => {
-    screenIs(false);
-    const ext = render(wrap(version('lead')));
-    await screen.findByRole('list', { name: 'Requirements' });
-    expect(screen.queryByTestId('requirements-layout')).toBeNull();
-    ext.unmount();
+    expect(iqfLayout.className).toBe(LAYOUT_CLASS);
+    expect(screen.queryByTestId('detail-panel')).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
   });
 });

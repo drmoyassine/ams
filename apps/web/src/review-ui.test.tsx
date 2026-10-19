@@ -238,36 +238,42 @@ describe('Create from files', () => {
   });
 });
 
-describe('split view on the Requirements tab', () => {
-  it('beside the list on a wide screen: selecting a requirement shows its page with the quote highlighted (Arabic with marks), and another requirement updates it', async () => {
+describe('the source of a requirement', () => {
+  // There is no side panel (owner, 2026-10-19): the source opens in a sheet from the card's Source button or the menu.
+  const showSource = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    const card = await openCard(user, name);
+    await user.click(within(card).getByRole('button', { name: `Show the source of ${name}` }));
+    return { card, sheet: await screen.findByRole('dialog', { name: 'Where this comes from' }) };
+  };
+
+  it('selecting a requirement shows its page with the quote highlighted (Arabic with marks) in a sheet, and another requirement updates it; there is no side panel', async () => {
     screenIs(true);
     const s = await seed('w', '2040');
     const user = userEvent.setup();
     render(wrap(versionPage(s.v)));
-    const panel = await screen.findByTestId('source-panel');
-    expect(panel.textContent).toMatch(/Select a requirement or a note/);
-    await openCard(user, 'w1');
+    await screen.findByRole('list', { name: 'Requirements' });
+    expect(screen.queryByTestId('source-panel')).toBeNull();
+    const { sheet: panel } = await showSource(user, 'w1');
     await waitFor(() => expect(within(panel).getByTestId('source-highlight').textContent).toBe(ARABIC_PHRASE));
     expect(within(panel).getByTestId('source-document').textContent).toBe('Handbook');
     expect(within(panel).getByRole('status', { name: 'Page' }).textContent).toBe('Page 1 (1 of 3 stored)');
     expect(within(panel).getByTestId('source-page-text').getAttribute('dir')).toBe('auto');
     expect(within(panel).getByTestId('source-page-text').textContent).toBe(AR_PAGE); // the page as stored, nothing rewritten
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    await openCard(user, 'w1.1');
-    await waitFor(() => expect(within(panel).getByTestId('source-highlight').textContent).toBe('must publish its mission statement'));
-    expect(within(panel).getByRole('status', { name: 'Page' }).textContent).toBe('Page 2 (2 of 3 stored)');
-    // The list and the viewer are separate scroll areas.
-    expect(screen.getByTestId('requirement-list').className).toMatch(/overflow-y-auto/);
-    expect(panel.className).toMatch(/overflow-y-auto/);
+    const { sheet: second } = await showSource(user, 'w1.1');
+    await waitFor(() => expect(within(second).getByTestId('source-highlight').textContent).toBe('must publish its mission statement'));
+    expect(within(second).getByRole('status', { name: 'Page' }).textContent).toBe('Page 2 (2 of 3 stored)');
 
     // Previous and next page: the quote is only marked on the page it is on.
-    await user.click(within(panel).getByRole('button', { name: 'Next page' }));
-    await waitFor(() => expect(within(panel).getByRole('status', { name: 'Page' }).textContent).toMatch(/^Page 3/));
-    expect(within(panel).queryByTestId('source-highlight')).toBeNull();
-    expect((await within(panel).findByTestId('quote-missing')).textContent).toMatch(/not found on this page/);
-    expect((within(panel).getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(within(panel).getByRole('button', { name: 'Back to the cited page (2)' }));
-    await waitFor(() => expect(within(panel).getByTestId('source-highlight')).toBeTruthy());
+    await user.click(within(second).getByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(within(second).getByRole('status', { name: 'Page' }).textContent).toMatch(/^Page 3/));
+    expect(within(second).queryByTestId('source-highlight')).toBeNull();
+    expect((await within(second).findByTestId('quote-missing')).textContent).toMatch(/not found on this page/);
+    expect((within(second).getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(second).getByRole('button', { name: 'Back to the cited page (2)' }));
+    await waitFor(() => expect(within(second).getByTestId('source-highlight')).toBeTruthy());
   });
 
   it('says when the quote is not found and shows the page without a highlight; a note has its own source, and one item can cite several', async () => {
@@ -275,36 +281,40 @@ describe('split view on the Requirements tab', () => {
     const s = await seed('x', '2041');
     const user = userEvent.setup();
     render(wrap(versionPage(s.v)));
-    const panel = await screen.findByTestId('source-panel');
-    await openCard(user, 'x2');
+    const { sheet: panel } = await showSource(user, 'x2');
     const missing = await within(panel).findByTestId('quote-missing');
     expect(missing.textContent).toMatch(/The quote was not found on this page, so nothing is highlighted/);
     expect(within(panel).queryByTestId('source-highlight')).toBeNull();
     expect(within(panel).getByTestId('source-page-text').textContent).toBe(AR_PAGE);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     // x1.1 cites page 2 and has a note citing page 2 as well: a picker between the two appears.
-    const c = await openCard(user, 'x1.1');
-    await waitFor(() => expect(within(panel).getByRole('group', { name: 'Sources this item cites' })).toBeTruthy());
-    const picks = within(within(panel).getByRole('group', { name: 'Sources this item cites' })).getAllByRole('button');
+    const { card: c, sheet: second } = await showSource(user, 'x1.1');
+    await waitFor(() => expect(within(second).getByRole('group', { name: 'Sources this item cites' })).toBeTruthy());
+    const picks = within(within(second).getByRole('group', { name: 'Sources this item cites' })).getAllByRole('button');
     expect(picks.map((b) => b.textContent)).toEqual([expect.stringContaining('x1.1 · Handbook, page 2'), expect.stringContaining('Review the statement every year')]);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // Selecting the note from the card makes its quote the highlight.
     const note = (await within(c).findAllByTestId('note')).find((n) => n.textContent?.includes('Review the statement'))!;
     await user.click(within(note).getByRole('button', { name: 'Show the source of this note' }));
-    await waitFor(() => expect(within(panel).getByTestId('source-highlight').textContent).toBe('review the statement every year'));
-    expect(panel.textContent).toContain('(note)');
+    const noteSheet = await screen.findByRole('dialog', { name: 'Where this comes from' });
+    await waitFor(() => expect(within(noteSheet).getByTestId('source-highlight').textContent).toBe('review the statement every year'));
+    expect(noteSheet.textContent).toContain('(note)');
+    await user.keyboard('{Escape}');
     // The note that cites nothing offers no Source button.
     const plain = (await within(c).findAllByTestId('note')).find((n) => n.textContent?.includes('student survey'))!;
     expect(within(plain).queryByRole('button', { name: 'Show the source of this note' })).toBeNull();
   });
 
-  it('opens the page in the Docs tab from the viewer', async () => {
+  it('opens the page in the Docs tab from the sheet', async () => {
     screenIs(true);
     const s = await seed('y', '2042');
     const user = userEvent.setup();
     render(wrap(versionPage(s.v)));
-    const panel = await screen.findByTestId('source-panel');
-    await openCard(user, 'y1');
-    await user.click(await within(panel).findByRole('button', { name: 'Open in Docs' }));
+    const { sheet } = await showSource(user, 'y1');
+    await user.click(await within(sheet).findByRole('button', { name: 'Open in Docs' }));
     const sources = await screen.findByRole('region', { name: 'Docs' });
     const handbook = await within(sources).findByRole('region', { name: 'Handbook' });
     expect(await within(handbook).findByRole('tab', { name: '1', selected: true })).toBeTruthy();

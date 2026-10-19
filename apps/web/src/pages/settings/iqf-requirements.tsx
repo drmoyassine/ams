@@ -8,7 +8,6 @@ import { EvidenceLinkList } from '../../components/evidence-links';
 import { RequestEvidenceDialog, RequestList } from '../../components/evidence-requests';
 import { LinkEvidenceDialog } from '../../components/link-evidence-dialog';
 import { RequirementsLayout } from '../../components/requirements-layout';
-import { useWide } from '../version/source-viewer';
 import { useConfirm } from '../../components/confirm-dialog';
 import { Dialog } from '../../components/dialog';
 import { Button } from '../../components/ui/button';
@@ -85,27 +84,6 @@ function HoverDetails({ r, evidence }: { r: Requirement; evidence: EvidenceApi }
   );
 }
 
-/** The detail panel beside the tree on wide screens: the selected standard's description and its linked evidence. */
-function IqfDetail({ r, evidence }: { r: Requirement | undefined; evidence: EvidenceApi }) {
-  const links = useQuery({ queryKey: ['internal-evidence', r?.id], queryFn: () => evidence.internalLinks(r!.id), enabled: !!r });
-  if (!r) return <p className="text-sm text-muted-foreground">Select a standard to see its description and its evidence.</p>;
-  return (
-    <div className="space-y-3" data-testid="iqf-detail">
-      <h3 className="font-semibold"><ContentText>{`${tag(r)} · ${r.title}`}</ContentText></h3>
-      <div className="space-y-1">
-        <Shaded>Description</Shaded>
-        {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description yet.</p>}
-      </div>
-      <div className="space-y-1">
-        <Shaded>Linked evidence</Shaded>
-        {links.data === undefined ? <p className="text-sm text-muted-foreground">Loading…</p> : links.data.length === 0
-          ? <p className="text-sm text-muted-foreground">None yet.</p>
-          : <ul className="list-disc ps-4 text-sm">{links.data.map((l) => <li key={l.id}><ContentText>{l.evidenceTitle}</ContentText> <span className="text-xs text-muted-foreground">v{l.versionNo}{l.periodLabel ? ` · ${l.periodLabel}` : ''} ({l.reviewStatus})</span></li>)}</ul>}
-      </div>
-    </div>
-  );
-}
-
 interface ItemProps {
   api: FrameworkApi; evidence: EvidenceApi; r: Requirement; all: Requirement[]; me: Me | undefined; editable: boolean;
   open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
@@ -166,8 +144,6 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const wide = useWide();
-  const [selected, setSelected] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | { kind: 'request'; item: Requirement } | null>(null);
@@ -192,7 +168,6 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
   const reason = !can_ ? 'You need permission to edit the framework to select or move standards.'
     : `This version is ${version.status === 'in_review' ? 'in review' : version.status} and fixed. Start a new version to select, move or delete standards.`;
   const toggle = (id: string) => {
-    if (!open.has(id)) setSelected(id); // the panel beside the list follows the card you open
     setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
   const close = () => { setDialog(null); setError(''); };
@@ -245,8 +220,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride }
           </p>
         )}
         {rowsQuery.data && standards.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
-        <RequirementsLayout wide={wide} asideLabel="Standard details" asideTestId="detail-panel" aside={<IqfDetail r={all.find((x) => x.id === selected)} evidence={evidence} />}
-          list={<div className="space-y-2" aria-label="Standards" role="list">{branch(null)}</div>} />
+        <RequirementsLayout list={<div className="space-y-2" aria-label="Standards" role="list">{branch(null)}</div>} />
       </div>
       {dialog?.kind === 'add' && (
         <ItemDialog editing={null} parent={dialog.parent} code={nextCode(all, dialog.parent)} error={error} onClose={close}
