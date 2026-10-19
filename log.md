@@ -662,3 +662,7 @@ Quality Management menu item above Accreditations (Engagements relabelled; route
 - **Link evidence** takes several pieces at once.
 - **Programs import review.** Nothing applied because the degree level was missing on all 21 rows and the enum refused a typed "Bachelor": degree level now accepts the usual spellings, fixed-list fields are a choice, units come from the org chart (new names allowed), "Set a field on N selected", prompt v2 reads a heading's degree level.
 - Tests: 1,588 tests, 175 database tests.
+
+## 2026-10-19 — Plan review
+
+Status and the plan reviewed. ROADMAP-013 (Quality Management: cycles and reporting) added and TASK-077 to TASK-086 moved under it; TASK-064 closed (assistant phases 1 and 2 are built). External standards got Map to IQF, direct evidence links, the hover card and the same layout as the IQF, without side panels. Order ahead: real-document checks (owner), Quality Management core, M4 report engine, cycles further, M5/M6 on the cycle engine (to decide), liteparse, P1 features.

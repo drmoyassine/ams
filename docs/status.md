@@ -1,6 +1,6 @@
-# Project status and what is left (2026-10-18)
+# Project status and what is left (2026-10-19)
 
-A snapshot of where the AMS stands against the PRD milestones (§18.4) and the features added along the way. Source of truth for each item is its roadmap item and tasks; this page is the reading view. Built and tested means the automated tests pass (1,588 tests, 175 database tests); "not yet used on real documents" means the owner has not run it on real accreditor files yet.
+A snapshot of where the AMS stands against the PRD milestones (§18.4) and the features added along the way. Source of truth for each item is its roadmap item and tasks; this page is the reading view. Built and tested means the automated tests pass (1,604 tests, 178 database tests); "not yet used on real documents" means the owner has not run it on real accreditor files yet.
 
 ## Built
 
@@ -67,16 +67,18 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 
 ## Left to build
 
-In the order I would do them.
+Reviewed 2026-10-19. In the order I would do them, with what each depends on.
 
-1. **Check what exists on real documents (needs the owner).** Redeploy, then the real run on the WSCUC, PUC and ABET files and tuning from the report: TASK-059 (production check of the services and the parser image) and TASK-056 (the PRD §19.2 acceptance test, seed-data replacement, embeddings decision).
-2. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice.
-3. **Quality Management: cycles and reporting (designed, DEC-029, docs/quality-management-plan.md).** TASK-078 schema and services, TASK-079 cycle templates, TASK-080 screens, TASK-086 IQF in operation (Link evidence, Assign scope, Assign champion, Create cycle; inherited by mapped external standards), TASK-081 recurrence and plans, TASK-082 nesting and cycles in Accreditations, TASK-083 Start a cycle from the ⋯ menu, TASK-084 assistant, TASK-085 report outputs (needs M4). Organization, languages, org chart and document import are built; directory sync (TASK-074) is parked until IT says what QuickLaunch offers.
-4. **M4 Reports and submissions (ROADMAP-005; not yet broken into tasks).** Template to report, the seven block types, approvals and attestation, snapshots that cannot be edited, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index (worded as internal, never "compliant"). Needs the `export` background job, which has no handler yet. It also completes M3's last test (one dataset fills two reports; a re-upload leaves the submitted snapshot unchanged).
-5. **M5 Accreditor responses (ROADMAP-006).** Log a response, reply milestones, items and triage, revise-and-resubmit rounds, carry-forward.
-6. **M6 Decisions and maintenance (ROADMAP-007).** Decision as a response, official status record, follow-up and recurring milestones, start the next cycle.
-7. **P1 features.** M8 assessment cycle, self-rating, notifications, external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011).
-8. **Smaller follow-ups.** Assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog outside the compiler (TASK-061): reporting frequency, BI connector, emailing links over SMTP.
+1. **Check what exists on real documents (needs the owner).** Redeploy, then TASK-059 (production check of the three services and the parser image) and TASK-056 (the real run on the WSCUC, PUC and ABET files, tuning from the report). This is the biggest unknown: the compiler, the imports (org chart, programs) and the AI settings have been tested with fake models and a few real runs, not on the real documents. Nothing downstream should be built on guesses about them.
+2. **Quality Management core (ROADMAP-013, DEC-029, docs/quality-management-plan.md).** TASK-078 schema, permissions and services; TASK-079 cycle templates in Settings; TASK-080 the screens (list, new cycle, cycle page, My work); TASK-086 the IQF in operation (Link evidence, Assign scope, Assign champion, Create cycle, inherited by mapped external standards). Built in that order; 078 first, 086 can run beside 079. Output: a unit can run an annual program report cycle end to end with documents, notes and approvals.
+3. **M4 Reports and submissions (ROADMAP-005; to be broken into tasks together with the owner).** The report engine is shared: Accreditations' reports (template to report, seven block types, approvals and attestation, snapshots, DOCX/PDF/XLSX/ZIP export, compliance-style matrix and evidence index worded as internal) and the cycles' report outputs (TASK-085) are the same engine. Do the breakdown before TASK-085, and before M5.
+4. **Cycles go further (ROADMAP-013).** TASK-081 recurrence, academic terms and plans with inheritance; TASK-083 Start a cycle from the ⋯ menu and Cycles panels; TASK-082 nested cycles, cycles in Accreditations and org-unit subjects (ISO); TASK-085 report outputs (after M4); TASK-084 the assistant reads and proposes cycles.
+5. **M5 Accreditor responses and M6 Decisions and maintenance (ROADMAP-006, ROADMAP-007).** Log a response, items and triage, revise-and-resubmit rounds; decision, official status, follow-up and recurring milestones, start the next cycle. Open question for the owner before breaking these down: maintenance (annual reports, interim reports, re-accreditation) is what the cycle engine does (nested and recurring cycles). Proposal: keep the roadmap and milestones as the accreditor lifecycle, and build M5 and M6 on the cycle engine (responses as a cycle template, maintenance as nested recurring cycles) instead of a second engine. To decide when M4 is broken down.
+6. **liteparse (ROADMAP-008, TASK-058).** The Appendix D changes in your repository; then drop the temporary fallback and LibreOffice. Reminder set for 4 Nov.
+7. **P1 features.** M8: the assessment cycle (outcomes, measures, results; parked out of Quality Management for now), self-rating, notifications, external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011). Notifications become more useful once cycles exist (a stage owner is told when a stage starts or is late): consider moving them up after item 2.
+8. **Smaller follow-ups.** Assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog outside the compiler (TASK-061): reporting frequency, BI connector, emailing links over SMTP. Directory sync (TASK-074) is parked until IT says what QuickLaunch offers. Not built from earlier discussions: a one-step vision import for org charts (the two-step path now works on real models), a Mermaid export of the org chart, turning job titles in an imported chart into unit heads.
+
+Risks: (a) the AI features depend on which models an institution connects: slow or non-JSON models were the main source of trouble this week, so TASK-056 should be run with the model you will actually use; (b) cycles, M4 and M5/M6 overlap, so the order above (decide the shared report engine before building cycle reports) matters; (c) the library screens are now rich (menus, hover cards, mappings), so screen changes need the responsive run and Arabic checks each time.
 
 ## Waiting on the owner
 

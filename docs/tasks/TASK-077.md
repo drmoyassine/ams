@@ -11,9 +11,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T09:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 related_decisions:
   - id: DEC-029
     name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'

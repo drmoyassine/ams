@@ -2683,7 +2683,7 @@ title: In-app assistant for bulk edits (plan)
 description: >-
   Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, confirms them in the chat and applies them as
   one undoable action; nothing built yet
-status: in-progress
+status: completed
 priority: P2
 last_updated: '2026-10-12'
 generated:
@@ -3244,9 +3244,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T09:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 related_decisions:
   - id: DEC-029
     name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
@@ -3277,9 +3277,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-077
     name: 'Quality Management: cycles and reporting (design)'
@@ -3311,9 +3311,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-078
     name: 'Cycles: schema, permissions and core services'
@@ -3345,9 +3345,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-079
     name: 'Cycle templates: Settings section, editor and shipped defaults'
@@ -3380,9 +3380,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-080
     name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
@@ -3415,9 +3415,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-081
     name: Cycle recurrence, academic terms and plans with inheritance
@@ -3449,9 +3449,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-080
     name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
@@ -3482,9 +3482,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-083
     name: Start a cycle from the ⋯ menu, and Cycles panels
@@ -3516,9 +3516,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-080
     name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
@@ -3550,9 +3550,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-078
     name: 'Cycles: schema, permissions and core services'

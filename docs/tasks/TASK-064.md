@@ -4,7 +4,7 @@ title: In-app assistant for bulk edits (plan)
 description: >-
   Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, confirms them in the chat and applies them as
   one undoable action; nothing built yet
-status: in-progress
+status: completed
 priority: P2
 last_updated: '2026-10-12'
 generated:

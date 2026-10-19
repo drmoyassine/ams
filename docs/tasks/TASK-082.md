@@ -12,9 +12,9 @@ generated:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
 depends_on:
   - id: TASK-081
     name: Cycle recurrence, academic terms and plans with inheritance
