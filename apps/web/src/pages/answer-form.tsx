@@ -3,7 +3,7 @@ import { DataFormView } from '../components/data-form';
 import { Card } from '../components/ui/card';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 
-/** A data item's form for a signed-in person (DEC-020). */
+/** A dataset's form for a signed-in person (DEC-020). */
 export function AnswerFormPage({ itemId, api: override }: { itemId: string; api?: EvidenceApi }) {
   const api = useEvidenceApi(override);
   const form = useQuery({ queryKey: ['form-questions', itemId], queryFn: () => api.formQuestions(itemId), retry: false });

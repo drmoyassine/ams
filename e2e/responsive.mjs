@@ -259,10 +259,10 @@ async function seedDemo(db, base) {
     ids.engagementId = eng.engagement.id;
   } catch (e) { warn('engagement', e); }
   try {
-    const doc = await call('POST', '/api/evidence', { title: 'Strategic plan 2025–2030 and annual institutional effectiveness report', type: 'document', periodLabel: 'AY2025-26', description: 'The board-approved strategic plan with its key performance indicators.' });
+    const doc = await call('POST', '/api/evidence', { title: 'Strategic plan 2025–2030 and annual institutional effectiveness report', type: 'document', periodLabel: 'AY2025-26', definition: 'The board-approved strategic plan with its key performance indicators.' });
     await call('POST', `/api/evidence/${doc.id}/files?fileName=${encodeURIComponent('strategic-plan-2025-2030-board-approved-final-version.pdf')}`, new TextEncoder().encode('%PDF-1.4 plan'), { 'content-type': 'application/pdf' });
     await call('POST', '/api/evidence', { title: 'الخطة الاستراتيجية للجامعة', type: 'document', url: 'https://intranet.example.edu/very/long/path/to/the/strategic-plan/document/in/arabic.pdf' });
-    const data = await call('POST', '/api/evidence', { title: 'Enrolment headcount by program', type: 'data' });
+    const data = await call('POST', '/api/evidence', { title: 'Enrolment headcount by program', type: 'dataset', definition: 'Headcount of enrolled students by program and academic year, counted at the census date.' });
     await call('PUT', `/api/evidence/${data.id}/data-definition`, { columns: [
       { key: 'program', label: 'Program', type: 'text', required: true }, { key: 'year', label: 'Academic year', type: 'text', required: true },
       { key: 'n', label: 'Headcount', type: 'integer', required: true },
@@ -270,6 +270,17 @@ async function seedDemo(db, base) {
     await call('POST', `/api/evidence/${data.id}/data`, { rows: [
       { program: 'BS Mechanical Engineering', year: '2024-25', n: '412' }, { program: 'BS Civil Engineering', year: '2024-25', n: '1,204' },
     ] });
+    // One item per collection method, with a schedule (DEC-031): the chips on the closed card and the Collection section of the open one.
+    const at = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    ids.evRequest = 'External examiner reports from every partner institution, collected after each academic year (a long title that has to wrap on a phone)';
+    await call('POST', '/api/evidence', { title: ids.evRequest, type: 'document', definition: 'The signed report of each external examiner.', method: 'request',
+      methodConfig: { assigneeEmail: 'examiners@partner.example.edu', note: 'Please send the signed PDF of each report.' }, schedule: { every: 'year', startDate: at(-100), dueAfterDays: 45, timezone: 'Asia/Dubai' } });
+    ids.evBi = 'Graduate employment outcomes six months after graduation, by program';
+    await call('POST', '/api/evidence', { title: ids.evBi, type: 'dataset', definition: 'Where graduates are, six months after they graduate.', method: 'bi',
+      methodConfig: { endpointKey: 'warehouse-main', query: { metric: 'graduate_outcomes', dimensions: ['program', 'cohort_year'] }, period: 'year', timeoutSeconds: 120 },
+      schedule: { every: 'semester', startDate: at(-200), dueAfterDays: 30, timezone: 'Asia/Dubai' } });
+    ids.evForm = 'Employer feedback on graduates';
+    await call('POST', '/api/evidence', { title: ids.evForm, type: 'dataset', definition: 'How employers rate our graduates.', method: 'form', schedule: { every: 'quarter', startDate: at(-40), dueAfterDays: 14, timezone: 'UTC' } });
   } catch (e) { warn('evidence', e); }
   try {
     const qf = await call('GET', '/api/quality-framework');
@@ -413,7 +424,7 @@ async function seedDemo(db, base) {
     const templates = await call('GET', '/api/cycle-templates');
     const tpl = (key) => templates.find((t) => t.key === key).id;
     const evidenceItem = async (title) => {
-      const e = await call('POST', '/api/evidence', { title, type: 'document', description: 'Collected on a regular basis by the owner of this evidence.' });
+      const e = await call('POST', '/api/evidence', { title, type: 'document', definition: 'Collected on a regular basis by the owner of this evidence.' });
       await q(`update evidence_item set owner_unit_id = $1, owner_user_id = $2 where id = $3`, [unit, admin, e.id]);
       return e;
     };
@@ -863,7 +874,7 @@ function pagesFor(ids) {
       await page.getByRole('tooltip').getByText('Mapped to IQF').waitFor();
     } },
     ids.draftId && { name: 'version-split-dialog', path: `/settings/versions/${ids.draftId}`, action: async (page) => { await menuItem('Split')(page); await page.getByRole('dialog').waitFor(); } },
-    // TASK-080: Quality Management -> Cycles (the list, a filter, the launch dialog and its review of who is responsible), the cycle page
+    // TASK-080: Quality Management -> Cycles (the list, a filter, the review of who is responsible after launching a run), the cycle page
     // (several stages, an approval for the admin to decide, an edit dialog, a picker, a draft with unresolved owners, a hand-built draft with
     // Arabic names, a cancelled cycle) and My work.
     { name: 'qm-cycles', path: '/quality-management?tab=cycles', action: async (page) => { await page.getByTestId('cycle-row').first().waitFor(); } },
@@ -872,17 +883,12 @@ function pagesFor(ids) {
       await page.getByLabel('Status', { exact: true }).selectOption('draft');
       await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="cycle-row"]')].every((r) => r.getAttribute('data-status') === 'draft'));
     } },
-    { name: 'qm-cycles-new-dialog', path: '/quality-management?tab=cycles', action: async (page) => {
-      await page.getByRole('button', { name: 'New cycle' }).click();
-      await page.getByRole('dialog', { name: 'New cycle' }).waitFor();
-    } },
-    { name: 'qm-cycles-new-review', path: '/quality-management?tab=cycles', action: async (page) => {
-      await page.getByRole('button', { name: 'New cycle' }).click();
-      const dialog = page.getByRole('dialog', { name: 'New cycle' });
+    // DEC-031: there is no "New cycle" any more (evidence is collected by its schedule); a run an existing plan proposes is reviewed from Due to launch.
+    { name: 'qm-cycles-due-review', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByTestId('due-run').first().waitFor();
+      await page.locator('[data-testid="due-run"] button:not([disabled])', { hasText: 'Review and launch' }).last().click();
+      const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
       await dialog.waitFor();
-      await dialog.getByRole('option', { name: 'Evidence collection' }).waitFor({ state: 'attached' });
-      await dialog.getByLabel('Template').selectOption({ label: 'Evidence collection' });
-      await dialog.getByLabel('Evidence item').selectOption({ index: 1 });
       await dialog.getByRole('button', { name: 'Create cycle' }).click();
       await page.getByTestId('launch-review').waitFor();
     } },
@@ -995,7 +1001,7 @@ function pagesFor(ids) {
       await page.getByRole('list', { name: 'Scope levels' }).scrollIntoViewIfNeeded();
     } },
     // TASK-081: Settings -> Organization -> Academic calendar; Quality Management -> Cycles -> Due to launch (the list, the launch dialog with a
-    // proposed run, Skip this period); Quality Management -> Plans (the list, New plan).
+    // proposed run, Skip this period); Quality Management -> Plans (the list).
     { name: 'settings-organization-academic-calendar', path: '/settings/organization', action: async (page) => {
       await page.getByRole('list', { name: 'Terms' }).waitFor();
       await page.getByRole('list', { name: 'Terms' }).scrollIntoViewIfNeeded();
@@ -1017,46 +1023,64 @@ function pagesFor(ids) {
       await page.getByRole('dialog', { name: /^Skip / }).waitFor();
     } },
     { name: 'qm-plans', path: '/quality-management?tab=plans', action: async (page) => { await page.getByTestId('plan-row').first().waitFor(); } },
-    { name: 'qm-plans-new-dialog', path: '/quality-management?tab=plans', action: async (page) => {
-      await page.getByRole('button', { name: 'New plan' }).click();
-      const dialog = page.getByRole('dialog', { name: /^Collect this regularly/ });
+    // TASK-089 (DEC-031): the evidence item form (title, type, definition, collection method with its settings, schedule, owner) for each method,
+    // the chips on the closed cards (method, schedule, next due), the Collection section of an open card, and Edit details.
+    { name: 'evidence-new-dialog', path: '/evidence', action: async (page) => {
+      await page.getByRole('button', { name: '+ Evidence' }).click();
+      await page.getByRole('dialog', { name: 'New evidence' }).waitFor();
+    } },
+    { name: 'evidence-new-dialog-request-schedule', path: '/evidence', action: async (page) => {
+      await page.getByRole('button', { name: '+ Evidence' }).click();
+      const dialog = page.getByRole('dialog', { name: 'New evidence' });
       await dialog.waitFor();
-      await dialog.getByTestId('plan-anchor-pick').waitFor();
+      await dialog.getByLabel('Collection method').selectOption('request');
+      await dialog.getByLabel('Repeats').selectOption('month');
+      await dialog.getByLabel('Time zone').waitFor();
+      await dialog.getByLabel('Note').scrollIntoViewIfNeeded();
     } },
-    // TASK-087: the Cycle section of an evidence item's card (the plan, the open cycle, the actions), the plan dialog and the one-off start,
-    // and an item with no plan yet.
-    ids.evidenceTitle && { name: 'evidence-card-cycle-section', path: '/evidence', action: async (page) => {
-      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
-      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
-      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
-      await card.getByTestId('evidence-plan').waitFor();
-      await card.getByTestId('evidence-open-cycle').waitFor();
-      await card.getByTestId('evidence-cycle').scrollIntoViewIfNeeded();
-    } },
-    ids.evidenceTitle && { name: 'evidence-cycle-plan-dialog', path: '/evidence', action: async (page) => {
-      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
-      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
-      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
-      await card.getByRole('button', { name: 'Change the plan' }).click();
-      const dialog = page.getByRole('dialog', { name: /^Collect this regularly/ });
+    { name: 'evidence-new-dialog-bi', path: '/evidence', action: async (page) => {
+      await page.getByRole('button', { name: '+ Evidence' }).click();
+      const dialog = page.getByRole('dialog', { name: 'New evidence' });
       await dialog.waitFor();
-      await dialog.getByLabel('Owner').waitFor();
+      await dialog.getByRole('radio', { name: 'Dataset' }).check();
+      await dialog.getByLabel('Collection method').selectOption('bi');
+      await dialog.getByLabel('BI endpoint').waitFor();
+      await dialog.getByLabel('BI endpoint').scrollIntoViewIfNeeded();
     } },
-    ids.evidenceTitle && { name: 'evidence-cycle-start-dialog', path: '/evidence', action: async (page) => {
-      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
-      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
-      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
-      await card.getByRole('button', { name: 'Start a cycle now' }).click();
-      const dialog = page.getByRole('dialog', { name: /^New cycle/ });
+    { name: 'evidence-new-dialog-form-semester', path: '/evidence', action: async (page) => {
+      await page.getByRole('button', { name: '+ Evidence' }).click();
+      const dialog = page.getByRole('dialog', { name: 'New evidence' });
       await dialog.waitFor();
-      await dialog.getByLabel('Evidence item').waitFor();
+      await dialog.getByRole('radio', { name: 'Dataset' }).check();
+      await dialog.getByLabel('Collection method').selectOption('form');
+      await dialog.getByLabel('Repeats').selectOption('semester');
+      await dialog.getByLabel('Time zone').waitFor();
+      await dialog.getByLabel('Owner').scrollIntoViewIfNeeded();
     } },
-    ids.evidenceFree && { name: 'evidence-card-cycle-section-empty', path: '/evidence', action: async (page) => {
-      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceFree}` });
-      await card.getByRole('button', { name: `Actions for ${ids.evidenceFree}` }).click();
-      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
-      await card.getByTestId('evidence-cycle-none').waitFor();
-      await card.getByTestId('evidence-cycle').scrollIntoViewIfNeeded();
+    { name: 'evidence-library-chips', path: '/evidence', action: async (page) => {
+      await page.getByTestId('evidence-card').first().waitFor();
+      // The chips sit in the card's right side, which a phone hides (the open card's Collection section carries them there).
+      if (await page.getByTestId('evidence-schedule').first().isVisible()) await page.getByTestId('evidence-schedule').first().scrollIntoViewIfNeeded();
+    } },
+    ids.evRequest && { name: 'evidence-card-collection-request', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evRequest}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('collection-section').waitFor();
+      await card.getByTestId('collection-section').scrollIntoViewIfNeeded();
+    } },
+    ids.evBi && { name: 'evidence-card-collection-bi-gap', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evBi}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('collection-section').waitFor();
+      await card.getByTestId('collection-section').scrollIntoViewIfNeeded();
+    } },
+    ids.evForm && { name: 'evidence-edit-dialog', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evForm}` });
+      await card.getByRole('button', { name: `Actions for ${ids.evForm}` }).click();
+      await page.getByRole('menuitem', { name: 'Edit details' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Edit details' });
+      await dialog.waitFor();
+      await dialog.getByLabel('Repeats').scrollIntoViewIfNeeded();
     } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
@@ -1108,7 +1132,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'evidence-card-cycle-section'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'evidence-card-collection-request'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

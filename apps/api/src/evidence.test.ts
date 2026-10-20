@@ -70,8 +70,38 @@ describe('evidence API', () => {
     expect((await call('lead', 'POST', `/api/evidence/${item.body.id}/links-to-documents`, { url: 'https://intranet.example.edu/handbook-2026' })).body.versionNo).toBe(2);
   });
 
+  it('takes and returns the definition, the type (document | dataset), the collection method and the schedule', async () => {
+    const made = await call('lead', 'POST', '/api/evidence', {
+      title: 'Graduate outcomes', type: 'dataset', definition: 'Where graduates are six months after graduation', method: 'bi',
+      methodConfig: { endpointKey: 'main', query: { metric: 'graduate_outcomes', dimensions: ['program'] }, period: 'year', timeoutSeconds: 90 },
+      schedule: { every: 'year', startDate: '2026-09-01', dueAfterDays: 30, timezone: 'Asia/Dubai' },
+    });
+    expect(made.status).toBe(201);
+    expect(made.body).toMatchObject({
+      title: 'Graduate outcomes', type: 'dataset', definition: 'Where graduates are six months after graduation', method: 'bi',
+      methodConfig: { endpointKey: 'main', period: 'year' }, schedule: { every: 'year', dueAfterDays: 30, timezone: 'Asia/Dubai' }, lastRunAt: null, scheduleGap: null,
+    });
+    expect(made.body.nextDueAt).toEqual(expect.any(String));
+    expect('description' in made.body).toBe(false);
+    // The list carries the same fields; a patch changes them.
+    expect((await call('viewer', 'GET', '/api/evidence?q=outcomes')).body[0]).toMatchObject({ method: 'bi', schedule: { every: 'year' } });
+    const patched = await call('lead', 'PATCH', `/api/evidence/${made.body.id}`, { method: 'form', schedule: null, definition: 'Six months on' });
+    expect(patched.body).toMatchObject({ method: 'form', methodConfig: {}, schedule: null, nextDueAt: null, definition: 'Six months on' });
+    // Refused with the field named: the form belongs to a dataset; a request names one person or one address; an endpoint is not an address.
+    const doc = await call('lead', 'POST', '/api/evidence', { title: 'Form on a document', type: 'document', method: 'form' });
+    expect(doc.status).toBe(400);
+    expect(doc.body.issues).toEqual([expect.objectContaining({ path: ['method'] })]);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'x', type: 'document', method: 'request', methodConfig: {} })).status).toBe(400);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'x', type: 'dataset', method: 'bi', methodConfig: { endpointKey: 'https://bi.example.org' } })).status).toBe(400);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'x', type: 'document', schedule: { every: 'week', startDate: '2026-09-01', dueAfterDays: 3, timezone: 'Nowhere/Land' } })).status).toBe(400);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'x', type: 'data' })).status).toBe(400);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'x', type: 'document', description: 'old name' })).status).toBe(400);
+    expect((await call('lead', 'POST', '/api/evidence', { title: 'Reserved', type: 'document', method: 'survey' })).body.method).toBe('survey');
+    expect((await call('viewer', 'PATCH', `/api/evidence/${made.body.id}`, { method: 'manual' })).status).toBe(403);
+  });
+
   it('saves data rows and names every cell it refuses', async () => {
-    const item = await call('lead', 'POST', '/api/evidence', { title: 'Headcount', type: 'data' });
+    const item = await call('lead', 'POST', '/api/evidence', { title: 'Headcount', type: 'dataset' });
     expect((await call('lead', 'POST', `/api/evidence/${item.body.id}/data`, { rows: [{ n: '1' }] })).body.message).toBe('define the columns first');
     expect((await call('lead', 'PUT', `/api/evidence/${item.body.id}/data-definition`, { columns: [{ key: 'n', label: 'Headcount', type: 'integer', required: true }] })).status).toBe(200);
     const bad = await call('lead', 'POST', `/api/evidence/${item.body.id}/data`, { rows: [{ n: '12' }, { n: 'x' }] });

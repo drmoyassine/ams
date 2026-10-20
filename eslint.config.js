@@ -23,7 +23,7 @@ export const CONVERTED_UI = [
   'apps/web/src/pages/quality-management.tsx', 'apps/web/src/pages/cycles/cycles-tab.tsx', 'apps/web/src/pages/cycles/my-work.tsx', 'apps/web/src/pages/cycles/cycle-page.tsx',
   'apps/web/src/pages/cycles/stage-card.tsx', 'apps/web/src/pages/cycles/cycle-timeline.tsx', 'apps/web/src/pages/cycles/output-slot.tsx', 'apps/web/src/pages/cycles/input-row.tsx',
   'apps/web/src/pages/cycles/dialogs.tsx', 'apps/web/src/pages/cycles/draft-dialogs.tsx',
-  'apps/web/src/pages/settings/academic-calendar-section.tsx', 'apps/web/src/components/plans/labels.tsx', 'apps/web/src/components/cycles/plan-dialog.tsx', 'apps/web/src/components/evidence-cycle-section.tsx',
+  'apps/web/src/pages/settings/academic-calendar-section.tsx', 'apps/web/src/components/plans/labels.tsx',
   'apps/web/src/pages/cycles/due-section.tsx', 'apps/web/src/pages/cycles/plans-tab.tsx',
 ];
 

@@ -1,9 +1,9 @@
-// Quality Management -> Cycles (TASK-080, simplified by DEC-030): every cycle of the institution with filters (status, template, only mine,
-// late or due soon) and a search, "New cycle" (the template, the evidence item, the owner and the start date), and per row the title, the
-// evidence item it is about, its owner, the status, the progress, the next stage with its owner and date, and a flag while an owner is
-// still to be chosen. Cycles about a unit, a program or the institution (Quality Assurance / report cycles) are listed when they exist
-// but cannot be started from here. A draft is started with "Start" or deleted (to the Trash, with Undo); a running cycle is cancelled
-// with a reason. People who cannot manage cycles see the list read-only.
+// Quality Management -> Cycles (TASK-080, simplified by DEC-030, narrowed by DEC-031): every cycle of the institution with filters (status,
+// template, only mine, late or due soon) and a search, and per row the title, what it is about, its owner, the status, the progress, the
+// next stage with its owner and date, and a flag while an owner is still to be chosen. There is no "New cycle": evidence is collected by the
+// schedule on the evidence item, and cycles for reports and Quality Assurance are coming; cycles that exist are listed, and a run an existing
+// plan proposes is launched from Due to launch. A draft is started with "Start" or deleted (to the Trash, with Undo); a running cycle is
+// cancelled with a reason. People who cannot manage cycles see the list read-only.
 import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,6 @@ import { ReadOnlyNote } from '../../components/read-only-note';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { type CycleApis } from '../../components/cycles/directory';
-import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
 import { CYCLE_TONE, Chip, cycleStatusLabels, day, fieldCls, selectCls, stageStatusLabels } from '../../components/cycles/labels';
 import { useTranslation } from '../../i18n';
 import { useCyclesApi } from '../../lib/cycles-api';
@@ -39,7 +38,6 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
   const [mine, setMine] = useState(false);
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
-  const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState<CycleSummary | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -95,7 +93,6 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
           </select>
         </label>
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />{t('qmc.filter.mine')}</label>
-        {manage && <Button type="button" className="sm:ms-auto" onClick={() => setCreating(true)}>{t('qmc.new.button')}</Button>}
       </div>
 
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -158,7 +155,6 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
         })}
       </ul>
 
-      {creating && <LaunchCycleDialog me={me} apis={apis} onClose={() => setCreating(false)} onOpen={onOpen} />}
       {cancelling && (
         <ReasonDialog title={t('qmc.cycle.cancelTitle', { name: cancelling.title })} intro={t('qmc.cycle.cancelIntro')} label={t('qmc.cycle.cancelReason')} confirm={t('qmc.cycle.cancel')} busy={busy} error={error} onClose={() => setCancelling(null)}
           onSubmit={(reason) => void run(() => api.cancel(cancelling.id, reason)).then((r) => { if (r) setCancelling(null); })} />

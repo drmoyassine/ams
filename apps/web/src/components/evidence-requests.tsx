@@ -188,7 +188,7 @@ export function RequestList({ requests, api, canManage, onChange, setError, show
   );
 }
 
-/** Ask people to fill in a data item's form: one request each; those without an account get a one-time link. */
+/** Ask people to fill in a dataset's form: one request each; those without an account get a one-time link. */
 export function RequestFormDialog({ api, item, onDone, onClose }: {
   api: EvidenceApi; item: { id: string; title: string }; onDone: () => void; onClose: () => void;
 }) {

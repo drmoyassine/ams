@@ -1,5 +1,5 @@
 // Evidence requests (DEC-018). Someone asks a person, by email address, for a file on an item of the institution's own
-// framework, or to fill in a data item's form (DEC-020). An AMS user answers from their requests; anyone else through a
+// framework, or to fill in a dataset's form (DEC-020). An AMS user answers from their requests; anyone else through a
 // one-time link. A file becomes evidence with a proposed link, which a reviewer approves or rejects; a form answer
 // becomes a response, which joins the data when someone adds it.
 import { createHash, randomBytes } from 'node:crypto';
@@ -161,7 +161,7 @@ export async function requestByLink(ctx: Ctx, requestId: string): Promise<Reques
   const row = await getRequestRow(ctx, requestId);
   const [d] = await describe(ctx, [row]);
   const [inst] = await ctx.tx.select({ name: institution.nameEn }).from(institution).where(eq(institution.id, row.institutionId));
-  const form = row.dataItemId ? await specOf(ctx, row.dataItemId).then(({ spec, columns }) => ({ definition: spec?.definition ?? null, columns })) : null;
+  const form = row.dataItemId ? await specOf(ctx, row.dataItemId).then(({ item, columns }) => ({ definition: item.definition, columns })) : null;
   return {
     title: row.title, message: row.message, dueDate: row.dueDate, internalCode: row.internalCode, internalTitle: d!.internalTitle,
     requestedByName: d!.requestedByName, institutionName: inst?.name ?? '', form,
@@ -178,7 +178,7 @@ export async function answerByLink(ctx: Ctx, requestId: string, file: UploadedFi
 // ---- Form requests (DEC-020) ---------------------------------------------------------------------------------------
 
 /**
- * Asks each person to fill in a data item's form; each gets their own request (a one-time link if they have no AMS
+ * Asks each person to fill in a dataset's form; each gets their own request (a one-time link if they have no AMS
  * account). The request is what lets them answer, so the form need not be open to everyone.
  */
 export async function createFormRequests(ctx: Ctx, dataItemId: string, input: CreateFormRequest): Promise<IssuedRequest[]> {
@@ -202,7 +202,7 @@ export async function createFormRequests(ctx: Ctx, dataItemId: string, input: Cr
   return out;
 }
 
-/** Requests to fill in a data item's form, newest first. */
+/** Requests to fill in a dataset's form, newest first. */
 export async function requestsForDataItem(ctx: Ctx, dataItemId: string): Promise<EvidenceRequest[]> {
   await assertPermitted(ctx, 'evidence:read', any);
   const rows = await ctx.tx.select().from(evidenceRequest).where(eq(evidenceRequest.dataItemId, dataItemId)).orderBy(desc(evidenceRequest.createdAt));
@@ -217,9 +217,9 @@ async function mayAnswer(ctx: Ctx, row: RequestRow) {
 
 async function formOfRequest(ctx: Ctx, row: RequestRow): Promise<PublicForm> {
   if (!row.dataItemId) throw new ConflictError('this request asks for a file');
-  const { item, spec, columns } = await specOf(ctx, row.dataItemId);
+  const { item, columns } = await specOf(ctx, row.dataItemId);
   const [inst] = await ctx.tx.select({ name: institution.nameEn }).from(institution).where(eq(institution.id, row.institutionId));
-  return { title: item.title, definition: spec?.definition ?? null, institutionName: inst?.name ?? '', columns };
+  return { title: item.title, definition: item.definition, institutionName: inst?.name ?? '', columns };
 }
 
 /** The form a signed-in person was asked to fill in. */

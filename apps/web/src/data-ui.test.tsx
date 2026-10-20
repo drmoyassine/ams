@@ -44,26 +44,29 @@ beforeAll(async () => {
 afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
 
-describe('data evidence', () => {
-  it('defines columns, takes a pasted block, flags bad cells and saves a version', async () => {
+describe('dataset evidence', () => {
+  it('defines a dataset and its columns, takes a pasted block, flags bad cells and saves a version', async () => {
     const user = userEvent.setup();
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Title'), 'Fall-to-fall retention');
-    await user.click(within(dialog).getByRole('radio', { name: 'Data' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'Dataset' }));
+    await user.type(within(dialog).getByLabelText('Definition'), 'Students still enrolled the next fall');
     expect(within(dialog).getByText('File (optional)')).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Create evidence' }));
 
-    const panel = await screen.findByRole('region', { name: 'Data' });
-    await user.type(within(panel).getByLabelText('What the data means'), 'Students still enrolled the next fall');
+    const panel = await screen.findByRole('region', { name: 'Dataset' });
+    // What the data means is the item's definition (typed above); the panel holds only the columns and the grain.
+    expect(within(panel).queryByLabelText('What the data means')).toBeNull();
+    expect(screen.getAllByText('Students still enrolled the next fall').length).toBeGreaterThan(0);
     await user.type(within(panel).getByLabelText('Column 1 name'), 'Program');
     await user.click(within(panel).getByLabelText('Column 1 required'));
     await user.click(within(panel).getByRole('button', { name: '+ Column' }));
     await user.type(within(panel).getByLabelText('Column 2 name'), 'Retention');
     await user.selectOptions(within(panel).getByLabelText('Column 2 type'), 'percent');
-    await user.click(within(panel).getByRole('button', { name: 'Save definition' }));
+    await user.click(within(panel).getByRole('button', { name: 'Save columns' }));
 
     const sheet = await within(panel).findByRole('table', { name: 'Data' });
     await user.click(within(sheet).getByLabelText('Program, row 1'));
@@ -88,7 +91,7 @@ describe('data evidence', () => {
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await user.click(within(await screen.findByRole('region', { name: 'Evidence: Fall-to-fall retention' })).getAllByRole('button')[0]!); // opens its card
-    const panel = await screen.findByRole('region', { name: 'Data' });
+    const panel = await screen.findByRole('region', { name: 'Dataset' });
     const sheet = await within(panel).findByRole('table', { name: 'Data' });
     await waitFor(() => expect((within(sheet).getByLabelText('Program, row 1') as HTMLInputElement).value).toBe('BS Mechanical'));
     await user.upload(within(panel).getByLabelText('Import Excel or CSV'), new File(['Program,Retention,Comment\nBS Electrical,88\n'], 'ret.csv', { type: 'text/csv' }));

@@ -8,7 +8,7 @@ import { RequestFormDialog, RequestList } from './evidence-requests';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
-/** Where signed-in people answer a data item's form, and where its public link opens (DEC-020). */
+/** Where signed-in people answer a dataset's form, and where its public link opens (DEC-020). */
 export const formUrl = (itemId: string) => `${window.location.origin}/forms/${itemId}`;
 export const publicFormUrl = (token: string) => `${window.location.origin}/f/${token}`;
 
@@ -65,7 +65,7 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
             )}
           </>
         )}
-        <p className="text-xs text-muted-foreground">The questions are the columns of the definition. Responses wait under Responses until someone adds them to the data.</p>
+        <p className="text-xs text-muted-foreground">The questions are the columns of the dataset. Responses wait under Responses until someone adds them to the data.</p>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </div>
       <section aria-label="Requests to fill in" className="space-y-2 rounded-md border border-border p-4">
@@ -83,7 +83,7 @@ export function FormTab({ item, api, canWrite }: { item: EvidenceItem; api: Evid
         onDone={() => { for (const queryKey of [['form-requests', item.id], ['evidence-requests'], ['evidence']]) void qc.invalidateQueries({ queryKey }); }} />}
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview</p>
-        <DataFormView preview form={{ title: item.title, definition: spec.data.definition, institutionName: '', columns: spec.data.columns }} />
+        <DataFormView preview form={{ title: item.title, definition: item.definition, institutionName: '', columns: spec.data.columns }} />
       </div>
     </section>
   );

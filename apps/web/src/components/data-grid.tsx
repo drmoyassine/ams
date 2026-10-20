@@ -33,7 +33,7 @@ export function parseClipboard(text: string): string[][] {
 }
 
 /**
- * The online sheet for data evidence: one input per cell, so it works with screen readers, right-to-left text and the
+ * The online sheet for dataset evidence: one input per cell, so it works with screen readers, right-to-left text and the
  * browser's own editing. Paste a block from Excel into any cell to fill from there; Enter and the up/down arrows move
  * between rows. A cell that does not fit its column is shaded red and says why (the server applies the same rules).
  */

@@ -7,9 +7,9 @@ import {
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
-  CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
+  checkMethod, CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, ScheduleSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
   type CreateEvidence, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
-  type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type UpdateEvidence,
+  type EvidenceMethod, type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type Schedule, type UpdateEvidence,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
@@ -20,9 +20,11 @@ import { reportUndo } from '../trash/store.js';
 import { loadAssignments } from '../scope/assignments.js';
 import { noteEvidenceVersion } from '../cycles/evidence-hook.js';
 import { loadPlanAssignments } from '../cycles/plan-service.js';
+import { calendarEntries } from '../cycles/calendar.js';
 import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
 import { createNotification, dismissFor } from '../notifications/store.js';
+import { nextDue, type CalendarTerm } from './schedule.js';
 
 type ItemRow = typeof evidenceItem.$inferSelect;
 type VersionRow = typeof evidenceVersion.$inferSelect;
@@ -40,11 +42,28 @@ export const versionDto = (v: VersionRow): EvidenceVersion => ({
 interface ItemStats { linkCount: number; proposedLinkCount: number; openRequestCount: number; formOpen: boolean; pendingResponses: number }
 const NO_STATS: ItemStats = { linkCount: 0, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0 };
 
-const itemDto = (r: ItemRow, latest: VersionRow | null, stats: ItemStats): EvidenceItem => ({
-  id: r.id, title: r.title, description: r.description, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId,
+/** The stored schedule, read back as one (the database checks its shape; an unreadable one is treated as none rather than failing a list). */
+const scheduleOf = (r: ItemRow): Schedule | null => {
+  if (r.schedule == null) return null;
+  const p = ScheduleSchema.safeParse(r.schedule);
+  return p.success ? p.data : null;
+};
+
+const itemDto = (r: ItemRow, latest: VersionRow | null, stats: ItemStats, ownerName: string | null, scheduleGap: EvidenceItem['scheduleGap']): EvidenceItem => ({
+  id: r.id, title: r.title, definition: r.definition, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId, ownerName,
   periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags,
+  method: r.method, methodConfig: (r.methodConfig ?? {}) as Record<string, unknown>, schedule: scheduleOf(r),
+  nextDueAt: r.nextDueAt?.toISOString() ?? null, lastRunAt: r.lastRunAt?.toISOString() ?? null, scheduleGap,
   status: r.status, latest: latest ? versionDto(latest) : null, ...stats,
 });
+
+/** The next due time of a schedule as of now (null without one, or where a semester has no term to place), for the column `next_due_at`. */
+async function dueOf(ctx: Ctx, schedule: Schedule | null): Promise<Date | null> {
+  if (!schedule) return null;
+  const terms: CalendarTerm[] = schedule.every === 'semester' ? await calendarEntries(ctx) : [];
+  const due = nextDue(schedule, new Date(), terms).dueAt;
+  return due ? new Date(due) : null;
+}
 
 /** Stats for many items in a fixed number of queries (one per kind of count, never one per item). */
 async function itemStats(ctx: Ctx, itemIds: string[]): Promise<Map<string, ItemStats>> {
@@ -72,7 +91,17 @@ async function describeItems(ctx: Ctx, rows: ItemRow[]): Promise<EvidenceItem[]>
   const ids = rows.map((r) => r.id);
   const latest = await latestVersions(ctx, ids);
   const stats = await itemStats(ctx, ids);
-  return rows.map((r) => itemDto(r, latest.get(r.id) ?? null, stats.get(r.id)!));
+  const owners = new Map<string, string>();
+  const ownerIds = [...new Set(rows.map((r) => r.ownerUserId).filter((x): x is string => !!x))];
+  if (ownerIds.length) for (const u of await ctx.tx.select({ id: appUser.id, name: appUser.fullName }).from(appUser).where(inArray(appUser.id, ownerIds))) owners.set(u.id, u.name);
+  // A semester schedule is placed by the academic calendar; where it has no term the card says so (never guessed).
+  const semester = rows.filter((r) => scheduleOf(r)?.every === 'semester');
+  const terms = semester.length ? await calendarEntries(ctx) : [];
+  const gapOf = (r: ItemRow): EvidenceItem['scheduleGap'] => {
+    const sc = scheduleOf(r);
+    return sc?.every === 'semester' && nextDue(sc, new Date(), terms).gap ? 'no_term' : null;
+  };
+  return rows.map((r) => itemDto(r, latest.get(r.id) ?? null, stats.get(r.id)!, r.ownerUserId ? owners.get(r.ownerUserId) ?? null : null, gapOf(r)));
 }
 
 export async function getItem(ctx: Ctx, id: string) {
@@ -99,16 +128,17 @@ export async function createEvidence(ctx: Ctx, input: CreateEvidence): Promise<E
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
   const d = CreateEvidenceSchema.parse(input);
+  const { config } = methodSettings(d.method, d.type, d.methodConfig);
+  const schedule = d.schedule ?? null;
+  const nextDueAt = await dueOf(ctx, schedule);
   const [row] = await guardIntegrity(() => ctx.tx.insert(evidenceItem).values({
-    institutionId: ctx.caller.institutionId, title: d.title, description: d.description ?? null, type: d.type, subtype: d.subtype ?? null,
-    ownerUnitId: d.ownerUnitId ?? null, ownerUserId: ctx.caller.userId, periodLabel: d.periodLabel ?? null,
+    institutionId: ctx.caller.institutionId, title: d.title, definition: d.definition || null, type: d.type, subtype: d.subtype ?? null,
+    ownerUnitId: d.ownerUnitId ?? null, ownerUserId: d.ownerUserId ?? ctx.caller.userId, periodLabel: d.periodLabel ?? null,
     confidentiality: d.confidentiality, containsStudentData: d.containsStudentData, tags: d.tags,
+    method: d.method, methodConfig: config, schedule, nextDueAt,
   }).returning());
-  let latest: VersionRow | null = null;
-  if (d.url) {
-    [latest] = await ctx.tx.insert(evidenceVersion).values({ institutionId: ctx.caller.institutionId, evidenceItemId: row!.id, versionNo: 1, url: d.url }).returning() as [VersionRow];
-  }
-  return itemDto(row!, latest, NO_STATS);
+  if (d.url) await ctx.tx.insert(evidenceVersion).values({ institutionId: ctx.caller.institutionId, evidenceItemId: row!.id, versionNo: 1, url: d.url });
+  return (await describeItems(ctx, [row!]))[0]!;
 }
 
 export async function updateEvidence(ctx: Ctx, id: string, patch: UpdateEvidence): Promise<EvidenceItem> {
@@ -117,21 +147,42 @@ export async function updateEvidence(ctx: Ctx, id: string, patch: UpdateEvidence
   const item = await getItem(ctx, id);
   const d = UpdateEvidenceSchema.parse(patch);
   if (d.type && d.type !== item.type) await assertMayChangeType(ctx, id, d.type);
-  const [row] = await guardIntegrity(() => ctx.tx.update(evidenceItem).set(d).where(eq(evidenceItem.id, id)).returning());
+  // The method and its settings are checked as they will be: the new type and method, and the new settings or (for a changed method) none.
+  const type = d.type ?? item.type;
+  const method = d.method ?? item.method;
+  const touchesMethod = d.method !== undefined || d.methodConfig !== undefined || d.type !== undefined;
+  const set: Partial<typeof evidenceItem.$inferInsert> = { ...d, ...(d.definition === '' ? { definition: null } : {}) };
+  if (touchesMethod) {
+    const settings = d.methodConfig ?? (method === item.method ? item.methodConfig : {});
+    set.methodConfig = methodSettings(method, type, settings, { type: d.type !== undefined && d.method === undefined }).config;
+  }
+  if (d.schedule !== undefined) { set.schedule = d.schedule; set.nextDueAt = await dueOf(ctx, d.schedule); }
+  const [row] = await guardIntegrity(() => ctx.tx.update(evidenceItem).set(set).where(eq(evidenceItem.id, id)).returning());
   return (await describeItems(ctx, [row!]))[0]!;
 }
 
+/** Checks a method's settings and its fit with the type; the stored settings come back normalised. */
+function methodSettings(method: EvidenceMethod, type: EvidenceItem['type'], settings: unknown, opts: { type?: boolean } = {}) {
+  const r = checkMethod(method, type, settings);
+  if (r.issues.length) {
+    // A form on an item that becomes a document: say what to do, not which rule.
+    const message = opts.type && method === 'form' ? 'this item is collected by the online form, which belongs to a dataset; choose another way to collect it first' : r.issues[0]!.message;
+    throw new ValidationError(message, r.issues);
+  }
+  return r;
+}
+
 /**
- * A document becomes data only while it holds no file or address, and data a document only while it holds no saved
+ * A document becomes a dataset only while it holds no file or address, and a dataset a document only while it holds no saved
  * data or form responses: what was stored stays readable as what it is.
  */
 async function assertMayChangeType(ctx: Ctx, id: string, to: EvidenceItem['type']) {
   const versions = await ctx.tx.select({ filePath: evidenceVersion.filePath, url: evidenceVersion.url, data: evidenceVersion.data })
     .from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, id));
-  if (to === 'data' && versions.some((v) => v.filePath || v.url)) throw new ConflictError('this document has file versions; it cannot become data');
+  if (to === 'dataset' && versions.some((v) => v.filePath || v.url)) throw new ConflictError('this document has file versions; it cannot become a dataset');
   if (to === 'document') {
     const [response] = await ctx.tx.select({ id: datasetResponse.id }).from(datasetResponse).where(eq(datasetResponse.evidenceItemId, id)).limit(1);
-    if (versions.some((v) => v.data !== null) || response) throw new ConflictError('this data has saved data or form responses; it cannot become a document');
+    if (versions.some((v) => v.data !== null) || response) throw new ConflictError('this dataset has saved data or form responses; it cannot become a document');
   }
 }
 

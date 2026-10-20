@@ -1,4 +1,4 @@
-// Data evidence (PRD 9.4): a definition (what the data means, its columns, its grain) and rows saved as versions.
+// Dataset evidence (PRD 9.4): a specification (its columns and grain; what it means is the item's definition) and rows saved as versions.
 // Cell parsing and validation live here so the grid in the browser and the service on the server agree exactly.
 import { z } from 'zod';
 
@@ -26,13 +26,12 @@ export type DataColumn = z.infer<typeof DataColumnSchema>;
 const uniqueKeys = (cols: DataColumn[]) => new Set(cols.map((c) => c.key)).size === cols.length;
 
 export const DatasetSpecSchema = z.object({
-  definition: z.string().nullable(), grain: z.string().nullable(), columns: z.array(DataColumnSchema),
+  grain: z.string().nullable(), columns: z.array(DataColumnSchema),
   sourceKind: z.enum(DATA_SOURCE_KINDS), updatedAt: z.string().nullable(),
 });
 export type DatasetSpec = z.infer<typeof DatasetSpecSchema>;
 
 export const SaveDatasetSpecSchema = z.object({
-  definition: z.string().trim().min(1).nullable().optional(),
   grain: z.string().trim().min(1).nullable().optional(),
   columns: z.array(DataColumnSchema).min(1, 'add at least one column').refine(uniqueKeys, 'two columns have the same key'),
 }).strict();
@@ -146,7 +145,7 @@ export function formatCell(col: Pick<DataColumn, 'type'>, v: CellValue | undefin
 
 // ---- Forms (DEC-020) ------------------------------------------------------------------------------------------------
 
-/** The form of a data item: whether it takes responses, its public link, and its responses waiting to be added. */
+/** The form of a dataset: whether it takes responses, its public link, and its responses waiting to be added. */
 export const DataFormSchema = z.object({ open: z.boolean(), linkToken: z.string().nullable(), pending: z.number(), included: z.number() });
 export type DataForm = z.infer<typeof DataFormSchema>;
 export const SetFormOpenSchema = z.object({ open: z.boolean() }).strict();

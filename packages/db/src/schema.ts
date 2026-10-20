@@ -867,14 +867,18 @@ export const iqfItemProposal = pgTable('iqf_item_proposal', {
 
 // ---- 6.5 Evidence (M3) ----------------------------------------------------------------------------------------
 
-/** Kept simple for now: a document (a file people read) or data (figures the system reads). Kinds come later as sub-types. */
-export const EVIDENCE_TYPES = ['document', 'data'] as const;
+/** A document (a file people read) or a dataset (figures the system reads, with columns and a grain). Kinds come later as sub-types. */
+export const EVIDENCE_TYPES = ['document', 'dataset'] as const;
+/** How an item is collected, ONE per item (DEC-031). `survey` is reserved: accepted, not yet selectable. */
+export const EVIDENCE_METHODS = ['manual', 'form', 'request', 'bi', 'survey'] as const;
+export const EVIDENCE_SCHEDULE_EVERY = ['day', 'week', 'month', 'quarter', 'semester', 'year'] as const;
 export const CONFIDENTIALITY = ['public', 'internal', 'restricted'] as const;
 /** A piece of evidence owned by the institution, not by an engagement: stored once, linked many times. */
 export const evidenceItem = pgTable('evidence_item', {
   ...base(), ...tenant(),
   title: text('title').notNull(),
-  description: text('description'),
+  /** What the evidence is and what it should contain; for a dataset, what the data means. */
+  definition: text('definition'),
   type: text('type', { enum: EVIDENCE_TYPES }).notNull(),
   /** The kind within the type (policy, minutes, report …): kept for the sub-types to come, not shown yet. */
   subtype: text('subtype'),
@@ -885,10 +889,24 @@ export const evidenceItem = pgTable('evidence_item', {
   containsStudentData: boolean('contains_student_data').notNull().default(false),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
   status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
+  /** How it is collected (one per item) and that method's settings, validated by Zod per method in the services (DEC-031). */
+  method: text('method', { enum: EVIDENCE_METHODS }).notNull().default('manual'),
+  methodConfig: jsonb('method_config').notNull().default(sql`'{}'::jsonb`),
+  /** `{ every, startDate, dueAfterDays, timezone }`, or null for no schedule. Nothing runs from it yet (TASK-090). */
+  schedule: jsonb('schedule'),
+  /** The next due date of the schedule and the last time a run fired; kept by the services, null until there is one. */
+  nextDueAt: timestamp('next_due_at', { withTimezone: true }),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
 }, (t) => [
   oneOf('evidence_item_type_check', t.type, EVIDENCE_TYPES),
   oneOf('evidence_item_confidentiality_check', t.confidentiality, CONFIDENTIALITY),
   oneOf('evidence_item_status_check', t.status, ['active', 'archived']),
+  oneOf('evidence_item_method_check', t.method, EVIDENCE_METHODS),
+  check('evidence_item_method_config_check', sql`jsonb_typeof(${t.methodConfig}) = 'object'`),
+  check('evidence_item_form_dataset_check', sql`${t.method} <> 'form' or ${t.type} = 'dataset'`),
+  check('evidence_item_request_check', sql`${t.method} <> 'request' or ((${t.methodConfig} ->> 'assigneeUserId' is not null)::int + (${t.methodConfig} ->> 'assigneeEmail' is not null)::int = 1)`),
+  check('evidence_item_bi_check', sql`${t.method} <> 'bi' or ${t.methodConfig} ->> 'endpointKey' is null or ${t.methodConfig} ->> 'endpointKey' ~ '^[A-Za-z][A-Za-z0-9_.-]{0,63}$'`),
+  check('evidence_item_schedule_check', sql`${t.schedule} is null or (jsonb_typeof(${t.schedule}) = 'object' and ${t.schedule} ->> 'every' in ('day', 'week', 'month', 'quarter', 'semester', 'year'))`),
 ]);
 
 /** One upload (or registered link) of an evidence item. New upload → new version; versions are never changed. */
@@ -1000,13 +1018,13 @@ export const evidenceRequest = pgTable('evidence_request', {
 
 export const DATASET_SOURCE_KINDS = ['manual_upload', 'governed_metric'] as const;
 /**
- * The definition of a data item (PRD 9.4): what it means, its grain, its columns. One per data item. Each saved version
- * keeps its own copy of the columns, so changing the definition never changes data already saved.
+ * The specification of a dataset item (PRD 9.4): its grain and its columns (what the data MEANS is the item's `definition`).
+ * One per dataset item. Each saved version keeps its own copy of the columns, so changing the specification never changes data
+ * already saved.
  */
 export const datasetSpec = pgTable('dataset_spec', {
   ...base(), ...tenant(),
   evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
-  definition: text('definition'),
   grain: text('grain'),
   columns: jsonb('columns').notNull().default(sql`'[]'::jsonb`),
   sourceKind: text('source_kind', { enum: DATASET_SOURCE_KINDS }).notNull().default('manual_upload'),

@@ -1,4 +1,4 @@
-// Forms on data items (DEC-020), like Google Forms: the columns are the questions; each answer is kept as a response,
+// Forms on dataset items (DEC-020), like Google Forms: the columns are the questions; each answer is kept as a response,
 // checked with the same cell rules as the sheet; responses join the data when someone adds them (the next version).
 import { randomBytes } from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -56,7 +56,7 @@ async function describeForm(ctx: Ctx, itemId: string): Promise<PublicForm> {
   const { item, spec, columns } = await specOf(ctx, itemId);
   if (!spec?.formOpen) throw new ConflictError('this form is not taking responses');
   const [inst] = await ctx.tx.select({ name: institution.nameEn }).from(institution).where(eq(institution.id, item.institutionId));
-  return { title: item.title, definition: spec.definition, institutionName: inst?.name ?? '', columns };
+  return { title: item.title, definition: item.definition, institutionName: inst?.name ?? '', columns };
 }
 
 /** Checks the answers against the columns and keeps them as a response; returns its id. Callers decide who may answer. */

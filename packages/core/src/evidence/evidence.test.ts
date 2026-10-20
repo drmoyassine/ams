@@ -78,7 +78,7 @@ describe('the repository', () => {
   });
 
   it('shows a restricted item only to institution-wide roles and its owner', async () => {
-    const secret = await w.as('alo', (c) => createEvidence(c, { title: 'Salary survey', type: 'data', confidentiality: 'restricted' }));
+    const secret = await w.as('alo', (c) => createEvidence(c, { title: 'Salary survey', type: 'dataset', confidentiality: 'restricted' }));
     expect((await w.as('alo', (c) => listEvidence(c))).map((e) => e.id)).toContain(secret.id);
     expect((await w.as('contrib', (c) => listEvidence(c))).map((e) => e.id)).not.toContain(secret.id);
   });
@@ -157,7 +157,7 @@ describe('what the repository list shows', () => {
     // Two links on v1: the internal one (approved by a reviewer) and the WSCUC one (approved at once by its creator); the ABET one was removed above.
     expect(doc).toMatchObject({ linkCount: 2, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0 });
 
-    const data = await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'data' }));
+    const data = await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'dataset' }));
     await w.as('contrib', (c) => saveDatasetSpec(c, data.id, { columns: [{ key: 'employer', label: 'Employer', type: 'text', required: true }] }));
     await w.as('contrib', (c) => setDataFormOpen(c, data.id, true));
     await w.as('alo', (c) => submitDataResponse(c, data.id, { answers: { employer: 'Aramco' } }));
@@ -181,17 +181,17 @@ describe('what the repository list shows', () => {
   });
 
   it('changes a document to data only while it holds no file, and data to a document only while it holds no data', async () => {
-    await expect(w.as('contrib', (c) => updateEvidence(c, ids.minutes!, { type: 'data' }))).rejects.toThrow('this document has file versions; it cannot become data');
+    await expect(w.as('contrib', (c) => updateEvidence(c, ids.minutes!, { type: 'dataset' }))).rejects.toThrow('this document has file versions; it cannot become a dataset');
     const linked = await w.as('contrib', (c) => createEvidence(c, { title: 'Policy on SharePoint', type: 'document' }));
     await w.as('contrib', (c) => addUrlVersion(c, linked.id, { url: 'https://example.org/policy' }));
-    await expect(w.as('contrib', (c) => updateEvidence(c, linked.id, { type: 'data' }))).rejects.toThrow(ConflictError);
+    await expect(w.as('contrib', (c) => updateEvidence(c, linked.id, { type: 'dataset' }))).rejects.toThrow(ConflictError);
 
     const empty = await w.as('contrib', (c) => createEvidence(c, { title: 'Headcount', type: 'document' }));
-    expect(await w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'data', title: 'Fall headcount', description: 'By program' })))
-      .toMatchObject({ type: 'data', title: 'Fall headcount', description: 'By program' });
+    expect(await w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'dataset', title: 'Fall headcount', definition: 'By program' })))
+      .toMatchObject({ type: 'dataset', title: 'Fall headcount', definition: 'By program' });
     await w.as('contrib', (c) => saveDatasetSpec(c, empty.id, { columns: [{ key: 'program', label: 'Program', type: 'text', required: true }] }));
     await w.as('contrib', (c) => saveDatasetRows(c, empty.id, { rows: [{ program: 'BS Mechanical' }] }));
-    await expect(w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'document' }))).rejects.toThrow('this data has saved data or form responses; it cannot become a document');
+    await expect(w.as('contrib', (c) => updateEvidence(c, empty.id, { type: 'document' }))).rejects.toThrow('this dataset has saved data or form responses; it cannot become a document');
     await expect(w.as('contrib', (c) => updateEvidence(c, ids.data!, { type: 'document' }))).rejects.toThrow(ConflictError); // a response, no data yet
   });
 });

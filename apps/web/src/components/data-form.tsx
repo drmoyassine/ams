@@ -40,7 +40,7 @@ function Question({ c, value, error, disabled, onChange }: { c: DataColumn; valu
 }
 
 /**
- * A data item's form, like Google Forms: its title and purpose, then one question per column. Answers are checked with
+ * A dataset's form, like Google Forms: its title and purpose, then one question per column. Answers are checked with
  * the sheet's rules before they are sent, and again by the server. `preview` shows it without taking answers.
  */
 export function DataFormView({ form, onSubmit, preview = false, once = false }: {

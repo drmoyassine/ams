@@ -81,18 +81,21 @@ describe('evidence', () => {
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
     const form = await screen.findByRole('dialog', { name: 'New evidence' });
-    // kept simple: a title, document or data, an optional description, the file
+    // a title, document or dataset, a definition, how it is collected (manual by default), a schedule (none) and the owner; the file with manual collection
     expect(within(form).queryByLabelText('Period')).toBeNull();
     expect(within(form).queryByLabelText('Confidentiality')).toBeNull();
     await user.type(within(form).getByLabelText('Title'), 'Course review minutes');
     expect((within(form).getByLabelText('Document') as HTMLInputElement).checked).toBe(true);
-    await user.type(within(form).getByLabelText('Description'), 'Minutes of the course review committee');
+    expect((within(form).getByLabelText('Collection method') as HTMLSelectElement).value).toBe('manual');
+    expect((within(form).getByLabelText('Repeats') as HTMLSelectElement).value).toBe('');
+    await user.type(within(form).getByLabelText('Definition'), 'Minutes of the course review committee');
     await user.upload(within(form).getByLabelText('File'), new File(['minutes v1'], 'minutes.pdf', { type: 'application/pdf' }));
     await user.click(within(form).getByRole('button', { name: 'Create evidence' }));
     // The new item's card opens by itself.
     const card = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
     await waitFor(() => expect(within(card).getAllByTestId('evidence-version').map((v) => v.textContent)).toEqual([expect.stringMatching(/^v1minutes\.pdf/)]));
     expect(within(card).getByText('Minutes of the course review committee')).toBeTruthy();
+    expect(within(card).getByTestId('collection-method').textContent).toContain('Manual');
     await user.upload(screen.getByLabelText('Upload a new version'), new File(['minutes v2'], 'minutes-2.pdf', { type: 'application/pdf' }));
     await waitFor(() => expect(within(card).getAllByTestId('evidence-version')).toHaveLength(2));
     await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/v2 · /));
@@ -190,27 +193,27 @@ describe('the evidence library', () => {
   it('shows on each closed card what it is, what it is linked to, and what needs attention', async () => {
     const user = userEvent.setup();
     const a = apis('admin');
-    await a.evidence.create({ title: 'Graduate headcount', type: 'data', description: 'Graduates by program and year' });
+    await a.evidence.create({ title: 'Graduate headcount', type: 'dataset', definition: 'Graduates by program and year' });
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
 
     const minutes = await screen.findByRole('region', { name: 'Evidence: Course review minutes' });
     expect(toggleOf(minutes).getAttribute('aria-expanded')).toBe('false');
     expect(within(minutes).getByTestId('evidence-kind').textContent).toBe('PDF');
     // Attached to Standard 3.2 and linked to the ABET requirement, both approved: nothing to flag.
-    expect(within(minutes).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 2v2 · \d+ \w{3} \d{4}$/);
-    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Cycle…', 'Download latest', 'Edit details', 'Archive']);
+    expect(within(minutes).getByTestId('evidence-meta').textContent).toMatch(/^ManualLinked to 2v2 · \d+ \w{3} \d{4}$/);
+    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Download latest', 'Edit details', 'Archive']);
 
     const observations = screen.getByRole('region', { name: 'Evidence: Teaching observation reports' });
     expect(within(observations).getByTestId('evidence-meta').textContent).toContain('1 to review');
 
     const headcount = screen.getByRole('region', { name: 'Evidence: Graduate headcount' });
     expect(within(headcount).getByTestId('evidence-kind').textContent).toBe('DATA');
-    expect(within(headcount).getByTestId('evidence-meta').textContent).toBe('Not linked');
+    expect(within(headcount).getByTestId('evidence-meta').textContent).toBe('ManualNot linked');
     // No version yet: nothing to link or download.
-    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Cycle…', 'Edit details', 'Archive']);
+    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Edit details', 'Archive']);
     await user.click(within(headcount).getByRole('button', { name: 'Actions for Graduate headcount' }));
     await user.click(screen.getByRole('menuitem', { name: 'Open sheet' }));
-    expect(await within(headcount).findByRole('region', { name: 'Data' })).toBeTruthy(); // the sheet, inside the card
+    expect(await within(headcount).findByRole('region', { name: 'Dataset' })).toBeTruthy(); // the sheet, inside the card
     expect(within(headcount).getByText('Graduates by program and year')).toBeTruthy();
     expect(within(headcount).getByText('No data saved yet.')).toBeTruthy();
   });
@@ -233,7 +236,7 @@ describe('the evidence library', () => {
     await user.type(within(dialog).getByLabelText('Justification'), 'The plan the assessment committee follows');
     await user.click(within(dialog).getByRole('button', { name: 'Link' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 1v1/)); // approved at once: nothing to review
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/^ManualLinked to 1v1/)); // approved at once: nothing to review
     expect(within(card).getByTestId('evidence-meta').textContent).not.toContain('to review');
     await user.click(toggleOf(card));
     const link = await within(card).findByTestId('evidence-link');
@@ -268,11 +271,11 @@ describe('the evidence library', () => {
     await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Edit details' }));
     const dialog = await screen.findByRole('dialog', { name: 'Edit details' });
-    await user.click(within(dialog).getByRole('radio', { name: 'Data' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'Dataset' }));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-    expect((await within(dialog).findByRole('alert')).textContent).toContain('this document has file versions; it cannot become data');
+    expect((await within(dialog).findByRole('alert')).textContent).toContain('this document has file versions; it cannot become a dataset');
     await user.click(within(dialog).getByRole('radio', { name: 'Document' }));
-    await user.type(within(dialog).getByLabelText('Description'), 'Approved by the council');
+    await user.type(within(dialog).getByLabelText('Definition'), 'Approved by the council');
     await user.clear(within(dialog).getByLabelText('Title'));
     await user.type(within(dialog).getByLabelText('Title'), 'Assessment plan 2026-27');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -300,7 +303,7 @@ describe('the evidence library', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Restore' }));
     expect(await screen.findByText('Nothing matches.')).toBeTruthy();
 
-    await user.click(within(filters).getByRole('button', { name: 'Data' }));
+    await user.click(within(filters).getByRole('button', { name: 'Datasets' }));
     await waitFor(() => expect(cardNames()).toEqual(['Evidence: Graduate headcount']));
     await user.click(within(filters).getByRole('button', { name: 'Documents' }));
     await waitFor(() => expect(cardNames()).not.toContain('Evidence: Graduate headcount'));

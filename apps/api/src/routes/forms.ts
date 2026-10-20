@@ -9,7 +9,7 @@ import { errors, idParam, json } from './common.js';
 
 const tokenParam = z.object({ token: z.string().min(1) });
 
-/** Forms on data items (DEC-020): the form's state and link, answering signed in or by link, and the responses. */
+/** Forms on datasets (DEC-020): the form's state and link, answering signed in or by link, and the responses. */
 export function formRoutes(registry: RouteRegistry, deps: ChainDeps, options: { defaultHook: Hook<unknown, AppEnv, string, unknown> }) {
   const tag = ['forms'];
   return new OpenAPIHono<AppEnv>(options)

@@ -95,12 +95,13 @@ describe('the template list', () => {
     expect(await screen.findAllByTestId('template-row')).toHaveLength(DEFAULT_CYCLE_TEMPLATE_KEYS.length);
     expect(screen.queryByTestId('no-templates')).toBeNull();
     expect(screen.queryByRole('button', { name: /Restore missing defaults/ })).toBeNull();
-    // The shipped Evidence collection template is among them; the ones made for Quality Assurance / report cycles say so.
+    // The shipped Evidence collection template stays defined but is not offered (collection is the item's schedule now, DEC-031): it says
+    // "coming", like the ones made for Quality Assurance / report cycles.
     const evidenceRow = await rowOf('Evidence collection');
     expect(evidenceRow.textContent).toContain('جمع الأدلة');
-    expect(within(evidenceRow).queryByTestId('qa-only')).toBeNull();
+    expect(within(evidenceRow).getByTestId('qa-only').textContent).toBe('For report and Quality Assurance cycles (coming)');
     const annual = await rowOf('Annual program report');
-    expect(within(annual).getByTestId('qa-only').textContent).toBe('For Quality Assurance / report cycles (coming)');
+    expect(within(annual).getByTestId('qa-only').textContent).toBe('For report and Quality Assurance cycles (coming)');
     expect(annual.textContent).toContain('التقرير السنوي للبرنامج');
     expect(within(annual).getByTestId('template-status').textContent).toBe('Published');
     expect(annual.textContent).toMatch(/Version:1/);

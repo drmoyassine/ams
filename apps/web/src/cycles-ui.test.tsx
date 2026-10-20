@@ -78,7 +78,7 @@ const ANNUAL: CreateCycleTemplate = {
   ],
 };
 /** One stage whose owner rule needs a unit head: the unit of one program has none, so the owner cannot be found. */
-/** Evidence collection templates (the only ones New cycle offers): one whose owner is the cycle's, one that needs the head of the evidence's unit. */
+/** Evidence collection templates (for runs a plan proposes): one whose owner is the cycle's, one that needs the head of the evidence's unit. */
 const EVIDENCE_ROUND: CreateCycleTemplate = {
   key: 'evidence_round', name: 'Evidence round', anchorKinds: ['evidence_item'], origin: 'manual',
   stages: [{ key: 'collect', name: 'Collect', process: '', checklist: [], unit: { kind: 'cycle' }, owner: { kind: 'cycle_lead' }, startOffsetDays: 0, lengthDays: 7, outputs: [NOTE('result', 'Result')], inputs: [] }],
@@ -241,79 +241,50 @@ describe('the Cycles tab', () => {
     expect(await screen.findByRole('link', { name: d2.title })).toBeTruthy();
   });
 
-  it('opens New cycle with four fields (template, evidence item, owner, start date); only templates that fit an evidence item are offered', async () => {
-    const user = userEvent.setup();
+  it('has no New cycle: evidence is collected by the schedule on the item (DEC-031) and cycles for reports and Quality Assurance are coming; the cycles that exist are listed', async () => {
     render(tab('admin', 'cycles'));
-    await user.click(await screen.findByRole('button', { name: 'New cycle' }));
-    const dialog = await screen.findByRole('dialog', { name: 'New cycle' });
-    expect(Array.from(dialog.querySelectorAll('select, input')).map((el) => el.getAttribute('aria-label'))).toEqual(['Template', 'Evidence item', 'Owner', 'Start date']);
-    await waitFor(() => expect(within(dialog).getByRole('option', { name: 'Evidence round' })).toBeTruthy());
-    // A template made only for a unit or a program (a Quality Assurance / report cycle) is not offered.
-    expect(within(dialog).queryByRole('option', { name: 'Annual review' })).toBeNull();
-    expect(within(dialog).queryByRole('option', { name: 'Unit check' })).toBeNull();
-    // Nothing to ask about units, leads or what the cycle is about.
-    for (const gone of ['Responsible unit', 'Cycle lead', 'Lead', 'What the cycle is about', 'Who the cycle is about']) expect(within(dialog).queryByLabelText(gone)).toBeNull();
-    // The evidence item and the owner are needed; the owner starts as the person opening the dialog.
-    expect((within(dialog).getByRole('button', { name: 'Create cycle' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.admin);
+    expect(screen.queryByRole('button', { name: 'New cycle' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // Cycles made earlier (by the API, which still works) are listed.
+    expect((await screen.findAllByRole('link', { name: /Annual review/ })).length).toBeGreaterThan(0);
   });
 
-  it('starts from the evidence item: the owner is the item\'s owner, the stages follow them, and only what the rules could not settle is asked ("Choose an owner for stage X")', async () => {
+  it('launches a run a plan proposed: the owner is the plan\'s, the stages follow them, and only what the rules could not settle is asked ("Choose an owner for stage X")', async () => {
     const user = userEvent.setup();
-    render(tab('admin', 'cycles'));
-    await user.click(await screen.findByRole('button', { name: 'New cycle' }));
-    let dialog = await screen.findByRole('dialog', { name: 'New cycle' });
-    await within(dialog).findByRole('option', { name: 'Syllabi' });
-    await user.selectOptions(within(dialog).getByLabelText('Evidence item'), ids.evidenceUnit!);
-    expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.lead);       // the evidence item's owner
-    await within(dialog).findByRole('option', { name: 'Evidence round' });
-    await user.selectOptions(within(dialog).getByLabelText('Template'), ids.tplEvidence!);
-    await user.clear(within(dialog).getByLabelText('Start date'));
-    await user.type(within(dialog).getByLabelText('Start date'), '2026-11-01');
+    // A plan (made through the API: no screen makes one) on an evidence item with no unit, for a template whose stage needs that unit's head.
+    await plansApi(createApi(fetcherOf('admin'))).set({ anchorKind: 'evidence_item', anchorId: ids.evidence!, templateId: ids.tplHead!, recurrence: { every: 1, unit: 'month' }, firstStart: '2026-01-01', ownerUserId: ids.admin });
+    render(myWork('admin'));
+    const run = (await screen.findAllByTestId('my-due-run')).find((r) => r.textContent?.includes('Evidence unit check'))!;
+    await user.click(within(run).getByRole('button', { name: /^Start Evidence unit check/ }));
+    const dialog = await screen.findByRole('dialog', { name: /Launch a proposed run/ });
+    expect(Array.from(dialog.querySelectorAll('select, input')).map((el) => el.getAttribute('aria-label'))).toEqual(['Template', 'Evidence item', 'Owner', 'Start date']);
+    // Nothing to ask about units, leads or what the cycle is about.
+    for (const gone of ['Responsible unit', 'Cycle lead', 'Lead', 'What the cycle is about', 'Who the cycle is about']) expect(within(dialog).queryByLabelText(gone)).toBeNull();
+    await waitFor(() => expect((within(dialog).getByLabelText('Evidence item') as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Enrolment report 2025'));
+    await waitFor(() => expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.admin));
     await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
-    let review = await within(dialog).findByTestId('launch-review');
+    const review = await within(dialog).findByTestId('launch-review');
     expect(review.textContent).toMatch(/was created as a draft/);
-    // The head of the evidence's unit is found: nothing is left to choose, and the owner owns every stage.
-    expect(within(review).getByRole('status').textContent).toBe('Everything is set.');
-    expect(within(review).queryAllByTestId('launch-stage')).toHaveLength(0);
-    expect(within(review).getByTestId('owner-cascade-note').textContent).toContain('Every stage is owned by lead');
-    const made = (await apis('admin').cycles.list({ templateId: ids.tplEvidence })).find((c) => c.startDate === '2026-11-01')!;
-    expect(made).toMatchObject({ anchorKind: 'evidence_item', anchorId: ids.evidenceUnit, leadUserId: ids.lead, responsibleUnitId: ids.dept, status: 'draft', unresolvedCount: 0 });
-    expect((await apis('admin').cycles.get(made.id)).stages.map((s) => s.ownerUserId)).toEqual([ids.lead]);
-    await user.click(within(review).getByRole('button', { name: 'Keep as a draft' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-
-    // An evidence item without a unit: the rule finds nobody to own "Check", which is asked for in one line, then the cycle starts.
-    await user.click(await screen.findByRole('button', { name: 'New cycle' }));
-    dialog = await screen.findByRole('dialog', { name: 'New cycle' });
-    await within(dialog).findByRole('option', { name: 'Enrolment report 2025' });
-    await user.selectOptions(within(dialog).getByLabelText('Evidence item'), ids.evidence!);
-    await within(dialog).findByRole('option', { name: 'Evidence unit check' });
-    await user.selectOptions(within(dialog).getByLabelText('Template'), ids.tplHead!);
-    await user.clear(within(dialog).getByLabelText('Start date'));
-    await user.type(within(dialog).getByLabelText('Start date'), '2026-12-01');
-    await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
-    review = await within(dialog).findByTestId('launch-review');
     const stage = within(review).getByTestId('launch-stage');
     expect(stage.textContent).toContain('Choose an owner for stage Check');
     expect(within(stage).getByTestId('unresolved-owner').textContent).toBe('Not found: choose one');
     expect(within(review).getByTestId('unresolved-note').textContent).toMatch(/1 item\(s\) still need a person/);
+    expect(within(review).getByTestId('owner-cascade-note').textContent).toContain('Every stage is owned by admin');
     await user.selectOptions(within(stage).getByLabelText('Owner of Check'), ids.lead!);
     await waitFor(() => expect(within(review).queryByTestId('unresolved-owner')).toBeNull());
     expect(within(review).queryByTestId('unresolved-note')).toBeNull();
-    const second = (await apis('admin').cycles.list({ templateId: ids.tplHead })).find((c) => c.startDate === '2026-12-01')!;
-    expect(second).toMatchObject({ leadUserId: ids.admin, unresolvedCount: 0 });   // no owner on the item: the person who opened the dialog
+    const made = (await apis('admin').cycles.list({ templateId: ids.tplHead })).find((c) => c.planId)!;
+    expect(made).toMatchObject({ leadUserId: ids.admin, unresolvedCount: 0, anchorId: ids.evidence });
     await user.click(within(review).getByRole('button', { name: 'Start the cycle' }));
-    await waitFor(async () => expect((await apis('admin').cycles.get(second.id)).status).toBe('active'));
+    await waitFor(async () => expect((await apis('admin').cycles.get(made.id)).status).toBe('active'));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('is read-only for someone who cannot manage cycles: the list, no New cycle, no row actions, one line saying so', async () => {
+  it('is read-only for someone who cannot manage cycles: the list, no row actions, one line saying so', async () => {
     const c = await annual({ label: 'View-G' });
     render(tab('viewer', 'cycles'));
     expect(await screen.findByRole('link', { name: c.title })).toBeTruthy();
     expect(screen.getByTestId('read-only-note').textContent).toBe('You can view this; ask an administrator to change it.');
-    expect(screen.queryByRole('button', { name: 'New cycle' })).toBeNull();
     expect(screen.queryByRole('button', { name: new RegExp(`^(Start|Cancel|Delete) ${c.title}`) })).toBeNull();
   });
 });

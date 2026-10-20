@@ -1,7 +1,7 @@
 // Quality Management -> Plans (TASK-081, simplified by DEC-030): every cycle plan of the institution: what it is attached to, the template, how
 // often, the next run not yet launched and its owner. A plan only PROPOSES runs; they appear under Cycles -> Due to launch for QA to launch and,
-// for the plan's owner, in My work. "New plan" asks which evidence item to collect regularly (the same dialog as the evidence card); plans on
-// anything else that already exist (a unit, a program, a standard) are listed and their dates kept, but no screen creates or changes them.
+// for the plan's owner, in My work. Plans that already exist are listed and their dates kept, but no screen creates or changes them (DEC-031:
+// evidence is collected by the schedule on the evidence item; plans for reports and Quality Assurance cycles are coming).
 // For a plan whose next run is set by a decision, the date is recorded here. Anything that needs a term the calendar lacks says so.
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,6 @@ import type { CycleApis } from '../../components/cycles/directory';
 import { Chip, day, fieldCls } from '../../components/cycles/labels';
 import { gapText, planAnchorLabels, recurrenceText } from '../../components/plans/labels';
 import { ReadOnlyNote } from '../../components/read-only-note';
-import { PlanDialog } from '../../components/cycles/plan-dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useTranslation } from '../../i18n';
@@ -36,7 +35,6 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
   const qc = useQueryClient();
   const manage = can(me, 'cycle:manage');
   const [q, setQ] = useState('');
-  const [editing, setEditing] = useState<CyclePlan | 'new' | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const act = useAction(setError);
@@ -48,7 +46,6 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
     setBusy(true); setError('');
     try { const r = await act(() => api.setNextDate(p.id, date)); if (r) refresh(); } finally { setBusy(false); }
   };
-  const close = () => { setEditing(null); refresh(); };
 
   return (
     <div className="space-y-4">
@@ -56,7 +53,6 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
       <ReadOnlyNote show={meLoaded && !manage} />
       <div className="flex flex-wrap items-end gap-2" role="search" aria-label={t('plans.list.filters')}>
         <label className={fieldCls}>{t('common.search')}<Input aria-label={t('plans.list.search')} dir="auto" className="min-w-0 sm:w-56" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-        {manage && <Button type="button" className="sm:ms-auto" onClick={() => setEditing('new')}>{t('plans.list.new')}</Button>}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {list.isLoading && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
@@ -90,16 +86,9 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
             </dl>
             {p.gap && p.mode === 'own' && <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900" data-testid="plan-gap">{gapText(t, p.gap)}. {t('plans.gap.define')}</p>}
             {manage && p.waitingForDate && <NextDate plan={p} busy={busy} onSet={(d) => void setDate(p, d)} />}
-            {manage && p.anchorKind === 'evidence_item' && p.mode === 'own' && (
-              <div className="flex flex-wrap gap-1">
-                <Button type="button" variant="outline" className="px-3 py-1" aria-label={t('plans.list.changeNamed', { name: `${p.templateName} ${p.anchorName ?? ''}` })} onClick={() => setEditing(p)}>{t('plans.list.change')}</Button>
-              </div>
-            )}
           </li>
         ))}
       </ul>
-      {editing === 'new' && <PlanDialog me={me} apis={apis} onClose={close} />}
-      {editing && editing !== 'new' && <PlanDialog plan={editing} me={me} apis={apis} onClose={close} />}
     </div>
   );
 }

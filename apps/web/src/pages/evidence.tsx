@@ -19,7 +19,7 @@ type Tab = (typeof TABS)[number][0];
 const FILTERS = {
   all: { label: 'All', keep: (e: EvidenceItem) => e.status === 'active' },
   documents: { label: 'Documents', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'document' },
-  data: { label: 'Data', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'data' },
+  datasets: { label: 'Datasets', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'dataset' },
   unlinked: { label: 'Not linked', keep: (e: EvidenceItem) => e.status === 'active' && e.linkCount === 0 },
   review: { label: 'To review', keep: (e: EvidenceItem) => e.status === 'active' && e.proposedLinkCount > 0 },
   archived: { label: 'Archived', keep: (e: EvidenceItem) => e.status === 'archived' },
@@ -27,7 +27,7 @@ const FILTERS = {
 type Filter = keyof typeof FILTERS;
 
 /** The evidence repository (PRD 9.1): stored once, versioned, linked many times; and every request for evidence. */
-export function EvidencePage({ api: override, framework: frameworkOverride, cycleApis }: { api?: EvidenceApi; framework?: FrameworkApi; cycleApis?: CycleApis }) {
+export function EvidencePage({ api: override, framework: frameworkOverride, apis }: { api?: EvidenceApi; framework?: FrameworkApi; apis?: CycleApis }) {
   const api = useEvidenceApi(override);
   const framework = useApi(frameworkOverride);
   const me = useMe(framework);
@@ -43,13 +43,13 @@ export function EvidencePage({ api: override, framework: frameworkOverride, cycl
         ))}
       </div>
       {tab === 'library'
-        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(cycleApis ? { cycleApis } : {})} />
+        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(apis ? { apis } : {})} />
         : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
 
-function Library({ api, framework, canWrite, canReview, cycleApis }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; cycleApis?: CycleApis }) {
+function Library({ api, framework, canWrite, canReview, apis }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis }) {
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -74,13 +74,13 @@ function Library({ api, framework, canWrite, canReview, cycleApis }: { api: Evid
       </div>
       <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>
       {adding && canWrite && (
-        <NewEvidenceDialog api={api} dataWithoutFile onClose={() => setAdding(false)}
+        <NewEvidenceDialog api={api} dataWithoutFile {...(apis ? { apis } : {})} onClose={() => setAdding(false)}
           onCreated={(item) => { setAdding(false); setFilter('all'); toggle(item.id, true); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />
       )}
       <div className="min-w-0 space-y-2 break-words" role="list" aria-label="Evidence">
         {shown.map((e) => (
           <div role="listitem" key={e.id}>
-            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} {...(cycleApis ? { cycleApis } : {})} />
+            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} {...(apis ? { apis } : {})} />
           </div>
         ))}
         {list.data && shown.length === 0 && <p className="text-sm text-muted-foreground">{q || filter !== 'all' ? 'Nothing matches.' : 'No evidence yet.'}</p>}

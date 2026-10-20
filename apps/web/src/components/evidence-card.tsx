@@ -9,21 +9,21 @@ import { AccordionCard, HoverCard, Shaded } from './accordion';
 import { ContentText } from './content-text';
 import { DatasetPanel } from './dataset-panel';
 import type { CycleApis } from './cycles/directory';
-import { EvidenceCycleSection } from './evidence-cycle-section';
+import { CollectionChips, CollectionSection } from './evidence-collection';
+import { draftOf, errorText, EVERY_LABEL, ItemFields, METHOD_LABEL, methodConfigOf, scheduleOf } from './evidence-item-form';
 import { EvidenceLinkList } from './evidence-links';
 import { RequestEvidenceDialog, RequestFormDialog, RequestList } from './evidence-requests';
 import { Modal } from './link-evidence-dialog';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 
-const TYPE_LABEL = { document: 'Document', data: 'Data' } as const;
+const TYPE_LABEL = { document: 'Document', dataset: 'Dataset' } as const;
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const size = (n: number | null) => (n === null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** What the item is, from its latest version: PDF, DOC, XLS, IMG…, LINK for an address, DATA for data, — with nothing yet. */
+/** What the item is, from its latest version: PDF, DOC, XLS, IMG…, LINK for an address, DATA for a dataset, — with nothing yet. */
 export function kindOf(item: Pick<EvidenceItem, 'type' | 'latest'>): string {
-  if (item.type === 'data') return 'DATA';
+  if (item.type === 'dataset') return 'DATA';
   const v = item.latest;
   if (!v) return '—';
   if (v.url && !v.fileName) return 'LINK';
@@ -40,7 +40,7 @@ export function kindOf(item: Pick<EvidenceItem, 'type' | 'latest'>): string {
 /** A small tile on the left of the card saying what the item is. */
 function KindTile({ item }: { item: EvidenceItem }) {
   const kind = kindOf(item);
-  const label = kind === '—' ? 'No file yet' : kind === 'DATA' ? 'Data' : kind === 'LINK' ? 'Link' : `${kind} file`;
+  const label = kind === '—' ? 'No file yet' : kind === 'DATA' ? 'Dataset' : kind === 'LINK' ? 'Link' : `${kind} file`;
   return (
     <span role="img" aria-label={label} data-testid="evidence-kind"
       className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted text-[0.65rem] font-semibold uppercase tracking-tight text-muted-foreground">{kind}</span>
@@ -48,12 +48,13 @@ function KindTile({ item }: { item: EvidenceItem }) {
 }
 
 const chip = 'rounded px-1.5 py-0.5';
-/** The right side of the closed card: links, the latest version, data and form state, and flags only when they apply. */
+/** The right side of the closed card: how it is collected and when, links, the latest version, dataset and form state, and flags only when they apply. */
 function CardMeta({ item }: { item: EvidenceItem }) {
   const v = item.latest;
-  const data = item.type === 'data';
+  const data = item.type === 'dataset';
   return (
     <span className="hidden shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground md:flex" data-testid="evidence-meta">
+      <CollectionChips item={item} />
       {item.linkCount > 0 && <span>Linked to {item.linkCount}</span>}
       {item.proposedLinkCount > 0 && <span className={`${chip} bg-amber-50 text-amber-900`}>{item.proposedLinkCount} to review</span>}
       {v && <span>v{v.versionNo} · {DATE.format(new Date(v.createdAt))}</span>}
@@ -160,19 +161,22 @@ function RequestUpdateDialog({ item, api, framework, onDone, onClose }: { item: 
   );
 }
 
-/** Title, description and whether it is a document or data. */
-function EditDetailsDialog({ item, api, onDone, onClose }: { item: EvidenceItem; api: EvidenceApi; onDone: () => void; onClose: () => void }) {
-  const [type, setType] = useState(item.type);
+/** Everything about the item itself: title, type, definition, how it is collected, the schedule and the owner. */
+function EditDetailsDialog({ item, api, apis, onDone, onClose }: { item: EvidenceItem; api: EvidenceApi; apis?: CycleApis | undefined; onDone: () => void; onClose: () => void }) {
+  const [draft, setDraft] = useState(() => draftOf(item));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget);
     setBusy(true); setError('');
     try {
-      await api.update(item.id, { title: String(f.get('title')).trim(), description: String(f.get('description') ?? '').trim() || null, ...(type !== item.type ? { type } : {}) });
+      await api.update(item.id, {
+        title: draft.title.trim(), definition: draft.definition.trim() || null, ownerUserId: draft.ownerUserId || null,
+        ...(draft.type !== item.type ? { type: draft.type } : {}),
+        method: draft.method, methodConfig: methodConfigOf(draft), schedule: scheduleOf(draft),
+      });
       onDone(); onClose();
-    } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   return (
     <Modal labelledBy="edit-evidence-title" onClose={onClose}>
@@ -181,14 +185,7 @@ function EditDetailsDialog({ item, api, onDone, onClose }: { item: EvidenceItem;
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="Edit details">
-        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" required defaultValue={item.title} dir="auto" /></label>
-        <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'document'} onChange={() => setType('document')} /> Document</label>
-          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'data'} onChange={() => setType('data')} /> Data</label>
-        </div>
-        <label className="flex flex-col text-sm">Description
-          <textarea name="description" aria-label="Description" rows={3} dir="auto" defaultValue={item.description ?? ''} className="rounded-md border border-border p-2 text-sm" />
-        </label>
+        <ItemFields draft={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} apis={apis} currentOwner={item.ownerUserId && item.ownerName ? { id: item.ownerUserId, name: item.ownerName } : null} />
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
@@ -203,19 +200,19 @@ type Dialog = 'link' | 'request-update' | 'request-form' | 'edit' | null;
 
 /**
  * One piece of evidence in the library: what it is, its title, and what needs attention on the closed card; opening it
- * shows the description, every version, what it is linked to, and for data its requests and the online sheet.
+ * shows the definition, how it is collected and when, every version, what it is linked to, and for a dataset its requests and the online sheet.
  */
-export function EvidenceCard({ item, api, framework, canWrite, canReview, open, onToggle, cycleApis }: {
+export function EvidenceCard({ item, api, framework, canWrite, canReview, open, onToggle, apis }: {
   item: EvidenceItem; api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; open: boolean; onToggle: (open: boolean) => void;
-  /** The clients of the Cycle section (they default to the app's own; tests hand it those of the signed-in test person). */
-  cycleApis?: CycleApis;
+  /** The clients that name people (the owner, a person to ask); they default to the app's own, and tests hand over those of the signed-in test person. */
+  apis?: CycleApis;
 }) {
   const qc = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
-  const isData = item.type === 'data';
+  const isData = item.type === 'dataset';
   const active = item.status === 'active';
   const latest = item.latest;
   const detail = useQuery({ queryKey: ['evidence-item', item.id], queryFn: () => api.get(item.id), enabled: open });
@@ -245,8 +242,6 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
     ...may(canWrite && active && !!latest, 'Link to a standard', () => setDialog('link')),
     ...may(!isData && canWrite && active, 'Request an update', () => setDialog('request-update')),
     ...may(isData && canWrite && active, 'Ask people to fill in the form', () => setDialog('request-form')),
-    // The Cycle section shows the plan, the open cycle and the past ones, with "Collect this regularly" and "Start a cycle now" (DEC-030).
-    ...may(canWrite && active, 'Cycle…', () => onToggle(true)),
     ...may(!!latest, 'Download latest', () => act(downloadLatest)),
     ...may(canWrite, 'Edit details', () => setDialog('edit')),
     ...may(canWrite, active ? 'Archive' : 'Restore', () => act(() => api.update(item.id, { status: active ? 'archived' : 'active' }))),
@@ -263,17 +258,19 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
           <HoverCard>
             <p className="font-semibold"><ContentText>{item.title}</ContentText></p>
             <p className="text-xs text-muted-foreground">{TYPE_LABEL[item.type]}{latest ? ` · version ${latest.versionNo}` : ''}</p>
-            {item.description ? <p className="mt-1 whitespace-pre-line"><ContentText>{item.description}</ContentText></p> : <p className="mt-1 text-muted-foreground">No description.</p>}
+            {item.definition ? <p className="mt-1 whitespace-pre-line"><ContentText>{item.definition}</ContentText></p> : <p className="mt-1 text-muted-foreground">No definition.</p>}
+            <p className="mt-1 text-xs text-muted-foreground">{METHOD_LABEL[item.method]}{item.schedule ? ` · ${EVERY_LABEL[item.schedule.every].toLowerCase()}` : ''}</p>
           </HoverCard>
         )}>
         {!d ? <p className="text-sm">Loading…</p> : (
           <>
             <div className="space-y-2">
-              <Shaded>Description</Shaded>
-              {d.item.description
-                ? <p className="whitespace-pre-line text-sm"><ContentText>{d.item.description}</ContentText></p>
-                : <p className="text-sm text-muted-foreground">No description.</p>}
+              <Shaded>Definition</Shaded>
+              {d.item.definition
+                ? <p className="whitespace-pre-line text-sm"><ContentText>{d.item.definition}</ContentText></p>
+                : <p className="text-sm text-muted-foreground">No definition.</p>}
             </div>
+            <CollectionSection item={d.item} apis={{ evidence: api, ...apis }} />
             <section aria-label="Versions" className="space-y-2">
               <Shaded>Versions</Shaded>
               <ul className="divide-y divide-border rounded-md border border-border text-sm">
@@ -299,7 +296,6 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
               <Shaded>Linked to</Shaded>
               <EvidenceLinkList links={d.links} api={api} canReview={canReview} canRemove={canWrite} showTarget onChange={() => void refresh()} setError={setError} />
             </section>
-            <EvidenceCycleSection item={d.item} framework={framework} apis={{ evidence: api, ...cycleApis }} />
             {isData && (requests.data?.length ?? 0) > 0 && (
               <section aria-label="Requests for this item" className="space-y-2">
                 <Shaded>Requests</Shaded>
@@ -318,7 +314,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
       {dialog === 'link' && latest && <LinkToStandardDialog item={item} latest={latest} api={api} framework={framework} onDone={() => void refresh()} onClose={close} />}
       {dialog === 'request-update' && <RequestUpdateDialog item={item} api={api} framework={framework} onDone={() => void refresh()} onClose={close} />}
       {dialog === 'request-form' && <RequestFormDialog api={api} item={item} onDone={() => void refresh()} onClose={close} />}
-      {dialog === 'edit' && <EditDetailsDialog item={item} api={api} onDone={() => void refresh()} onClose={close} />}
+      {dialog === 'edit' && <EditDetailsDialog item={item} api={api} apis={{ evidence: api, ...apis }} onDone={() => void refresh()} onClose={close} />}
     </div>
   );
 }

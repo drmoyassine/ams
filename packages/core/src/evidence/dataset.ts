@@ -1,5 +1,5 @@
-// Data evidence (PRD 9.4, DEC-014): a definition with columns, and rows saved as versions. Every save is validated
-// against the columns with the same rules the grid uses, and keeps its own copy of the columns.
+// Dataset evidence (PRD 9.4, DEC-014): a specification (columns and grain; what the data means is the item's definition), and rows saved
+// as versions. Every save is validated against the columns with the same rules the grid uses, and keeps its own copy of the columns.
 import { desc, eq } from 'drizzle-orm';
 import { datasetSpec, evidenceVersion } from '@ams/db';
 import {
@@ -17,17 +17,17 @@ const any = { type: 'any' } as const;
 type SpecRow = typeof datasetSpec.$inferSelect;
 
 const specDto = (r: SpecRow | undefined): DatasetSpec => ({
-  definition: r?.definition ?? null, grain: r?.grain ?? null, columns: (r?.columns ?? []) as DataColumn[],
+  grain: r?.grain ?? null, columns: (r?.columns ?? []) as DataColumn[],
   sourceKind: r?.sourceKind ?? 'manual_upload', updatedAt: r?.updatedAt.toISOString() ?? null,
 });
 
 export async function dataItem(ctx: Ctx, itemId: string) {
   const item = await getItem(ctx, itemId);
-  if (item.type !== 'data') throw new ValidationError('only data evidence has a data definition');
+  if (item.type !== 'dataset') throw new ValidationError('only dataset evidence has columns and rows');
   return item;
 }
 
-/** The item's definition; an item that has none yet gets an empty one (no columns). */
+/** The item's specification; an item that has none yet gets an empty one (no columns). */
 export async function getDatasetSpec(ctx: Ctx, itemId: string): Promise<DatasetSpec> {
   await assertPermitted(ctx, 'evidence:read', any);
   await dataItem(ctx, itemId);
@@ -35,13 +35,13 @@ export async function getDatasetSpec(ctx: Ctx, itemId: string): Promise<DatasetS
   return specDto(row);
 }
 
-/** Sets what the data means and its columns. Data already saved keeps the columns it was saved with. */
+/** Sets the dataset's columns and grain. Data already saved keeps the columns it was saved with. */
 export async function saveDatasetSpec(ctx: Ctx, itemId: string, input: SaveDatasetSpec): Promise<DatasetSpec> {
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
   await dataItem(ctx, itemId);
   const d = SaveDatasetSpecSchema.parse(input);
-  const values = { definition: d.definition ?? null, grain: d.grain ?? null, columns: d.columns };
+  const values = { grain: d.grain ?? null, columns: d.columns };
   const [existing] = await ctx.tx.select({ id: datasetSpec.id }).from(datasetSpec).where(eq(datasetSpec.evidenceItemId, itemId));
   const [row] = existing
     ? await guardIntegrity(() => ctx.tx.update(datasetSpec).set(values).where(eq(datasetSpec.id, existing.id)).returning())

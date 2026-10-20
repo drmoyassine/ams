@@ -11,16 +11,20 @@ import { ROLES } from './permissions.js';
 export const CYCLE_ANCHOR_KINDS = ['institution', 'org_unit', 'program', 'framework_version', 'requirement', 'evidence_item', 'engagement'] as const;
 export type CycleAnchorKind = (typeof CYCLE_ANCHOR_KINDS)[number];
 /**
- * The anchors the screens OFFER (DEC-030): an evidence item (an evidence collection cycle) and, reserved for TASK-082 and not shown yet,
- * an accreditation (`engagement`). The others (institution, unit, program, standard version, requirement) are Quality Assurance / report
- * cycles: the engine, the data and the API keep working for them, but no picker lists them. A requirement or a standard version can no
- * longer be the anchor of a NEW cycle or plan at all (cycles are not linked to standards).
+ * The anchors the screens OFFER: none for now (DEC-031). Collecting evidence is no longer a cycle: it is a schedule and a method on the
+ * evidence item itself, and cycles are for reports and Quality Assurance (coming) and, reserved for TASK-082, an accreditation
+ * (`engagement`). The engine, the data and the API keep working for every anchor kind, and existing cycles and plans are listed; no picker
+ * offers a new one. A requirement or a standard version can no longer be the anchor of a NEW cycle or plan at all (DEC-030).
  */
-export const CYCLE_OFFERED_ANCHOR_KINDS = ['evidence_item'] as const satisfies readonly CycleAnchorKind[];
+export const CYCLE_OFFERED_ANCHOR_KINDS = [] as const satisfies readonly CycleAnchorKind[];
 /** Anchors the service refuses for a NEW cycle or plan: cycles are not linked to standards or requirements (DEC-030). */
 export const CYCLE_RETIRED_ANCHOR_KINDS = ['framework_version', 'requirement'] as const satisfies readonly CycleAnchorKind[];
-/** True when a template (its `anchorKinds`; empty = any) fits an evidence collection cycle; false for templates made only for QA/report anchors. */
-export const fitsEvidenceCycle = (anchorKinds: readonly CycleAnchorKind[]): boolean => anchorKinds.length === 0 || anchorKinds.includes('evidence_item');
+/**
+ * True for a template that names what it is made for (its `anchorKinds`; empty = any): the shipped ones are made for an evidence item
+ * (collection is now the item's schedule) or for Quality Assurance / report anchors, so Settings labels them "coming" and no screen starts
+ * a cycle from them.
+ */
+export const isComingCycleTemplate = (anchorKinds: readonly CycleAnchorKind[]): boolean => anchorKinds.length > 0;
 /** Who does the work, when it is not the anchor itself. */
 export const CYCLE_SUBJECT_KINDS = ['institution', 'org_unit', 'program'] as const;
 export type CycleSubjectKind = (typeof CYCLE_SUBJECT_KINDS)[number];

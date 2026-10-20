@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import type { EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { useTranslation } from '../i18n';
+import type { CycleApis } from './cycles/directory';
 import { Dialog } from './dialog';
+import { draftOf, errorText, ItemFields, methodConfigOf, scheduleOf, type ItemDraft } from './evidence-item-form';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
@@ -12,28 +14,37 @@ export function Modal({ labelledBy, onClose, children, z = 'z-50' }: { labelledB
   return <Dialog labelledBy={labelledBy} onClose={onClose} z={z}>{children}</Dialog>;
 }
 
-/** Adds a piece of evidence to the repository: a title, document or data, an optional description, and the file. */
-export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, dataWithoutFile = false }: {
+/**
+ * Adds a piece of evidence to the repository: a title, document or dataset, its definition, how it is collected (one method, with
+ * its settings), an optional schedule and the owner. With the manual method the file goes up with it.
+ */
+export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, dataWithoutFile = false, apis }: {
   api: EvidenceApi; initialTitle?: string; onCreated: (item: EvidenceItem) => void; onClose: () => void;
-  /** Data may be created without a file, to be entered in the online sheet afterwards. */
+  /** The library may add any item: a dataset needs no file, and an item may be collected by something other than an upload. Elsewhere (linking) a file is needed at once. */
   dataWithoutFile?: boolean;
+  /** The clients that name people (the owner, a person to ask); they default to the app's own. */
+  apis?: CycleApis;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [type, setType] = useState<EvidenceItem['type']>('document');
+  const [draft, setDraft] = useState<ItemDraft>(() => draftOf(undefined, { title: initialTitle }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const manual = draft.method === 'manual';
+  const fileOptional = dataWithoutFile && draft.type === 'dataset';
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fileOptional = dataWithoutFile && type === 'data';
-    if (!file && !fileOptional) { setError('Choose the file.'); return; }
-    const f = new FormData(e.currentTarget);
+    if (manual && !file && !fileOptional) { setError('Choose the file.'); return; }
     setBusy(true); setError('');
     try {
-      const description = String(f.get('description') ?? '').trim();
-      const item = await api.create({ title: String(f.get('title')).trim(), type, ...(description ? { description } : {}) });
-      if (file) await api.upload(item.id, file);
+      const schedule = scheduleOf(draft);
+      const item = await api.create({
+        title: draft.title.trim(), type: draft.type, ...(draft.definition.trim() ? { definition: draft.definition.trim() } : {}),
+        ...(draft.ownerUserId ? { ownerUserId: draft.ownerUserId } : {}),
+        method: draft.method, methodConfig: methodConfigOf(draft), ...(schedule ? { schedule } : {}),
+      });
+      if (file && manual) await api.upload(item.id, file);
       onCreated((await api.get(item.id)).item);
-    } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   return (
     <Modal labelledBy="new-evidence-title" onClose={onClose} z="z-[60]">
@@ -42,16 +53,13 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, 
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label="New evidence">
-        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" required defaultValue={initialTitle} dir="auto" /></label>
-        <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'document'} onChange={() => setType('document')} /> Document</label>
-          <label className="flex items-center gap-1"><input type="radio" name="type" checked={type === 'data'} onChange={() => setType('data')} /> Data</label>
-        </div>
-        <label className="flex flex-col text-sm">Description (optional)
-          <textarea name="description" aria-label="Description" rows={3} dir="auto" className="rounded-md border border-border p-2 text-sm" />
-        </label>
-        <label className="flex flex-col text-sm">{dataWithoutFile && type === 'data' ? 'File (optional)' : 'File'}<input aria-label="File" type="file" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
-        {dataWithoutFile && type === 'data' && <p className="-mt-2 text-xs text-muted-foreground">Or leave it empty: define the columns and enter or import the data in the online sheet.</p>}
+        <ItemFields draft={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} apis={apis} showMethod={dataWithoutFile} emptyOwner="Me" />
+        {manual && (
+          <>
+            <label className="flex flex-col text-sm">{fileOptional ? 'File (optional)' : 'File'}<input aria-label="File" type="file" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+            {fileOptional && <p className="-mt-2 text-xs text-muted-foreground">Or leave it empty: define the columns and enter or import the data in the online sheet.</p>}
+          </>
+        )}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

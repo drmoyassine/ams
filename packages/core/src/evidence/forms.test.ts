@@ -24,14 +24,14 @@ async function viaLink<T>(token: string, fn: (ctx: Ctx, itemId: string) => Promi
 
 beforeAll(async () => {
   w = await buildWorld('formsvc');
-  ids.item = (await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'data' }))).id;
+  ids.item = (await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'dataset' }))).id;
 }, 120000);
 afterAll(() => w.close());
 
 describe('forms', () => {
   it('opens only once the questions exist', async () => {
     await expect(w.as('contrib', (c) => setDataFormOpen(c, ids.item!, true))).rejects.toThrow(/define the columns first/);
-    await w.as('contrib', (c) => saveDatasetSpec(c, ids.item!, { definition: 'How our graduates do at work', columns: [
+    await w.as('contrib', (c) => saveDatasetSpec(c, ids.item!, { columns: [
       { key: 'employer', label: 'Employer', type: 'text', required: true },
       { key: 'rating', label: 'Overall rating', type: 'choice', choices: ['Good', 'Fair', 'Poor'], help: 'Your overall view' },
       { key: 'hires', label: 'Graduates hired', type: 'integer' },

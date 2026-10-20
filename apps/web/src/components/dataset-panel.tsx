@@ -19,9 +19,8 @@ const toDraft = (c: DataColumn): ColumnDraft => ({ key: c.key, label: c.label, t
 const toDraftRow = (columns: DataColumn[], r: Record<string, CellValue>): DraftRow =>
   Object.fromEntries(columns.map((c) => [c.key, formatCell(c, r[c.key] ?? null)]));
 
-/** What the data means and its columns: name, type, unit, required, and the choices of a choice column. */
-function DefinitionEditor({ spec, onSave, onCancel }: { spec: DatasetSpec; onSave: (s: { definition: string; grain: string; columns: DataColumn[] }) => Promise<void>; onCancel?: () => void }) {
-  const [definition, setDefinition] = useState(spec.definition ?? '');
+/** The dataset's columns and grain: name, type, unit, required, and the choices of a choice column. What the data means is the item's definition. */
+function ColumnsEditor({ spec, onSave, onCancel }: { spec: DatasetSpec; onSave: (s: { grain: string; columns: DataColumn[] }) => Promise<void>; onCancel?: () => void }) {
   const [grain, setGrain] = useState(spec.grain ?? '');
   const [cols, setCols] = useState<ColumnDraft[]>(spec.columns.length ? spec.columns.map(toDraft) : [{ key: null, label: '', type: 'text', unit: '', required: false, choices: '', help: '' }]);
   const [busy, setBusy] = useState(false);
@@ -38,14 +37,10 @@ function DefinitionEditor({ spec, onSave, onCancel }: { spec: DatasetSpec; onSav
       return { key, label: c.label.trim(), type: c.type, required: c.required, ...(c.unit.trim() ? { unit: c.unit.trim() } : {}), ...(c.type === 'choice' ? { choices } : {}), ...(c.help.trim() ? { help: c.help.trim() } : {}) };
     });
     setBusy(true); setError('');
-    try { await onSave({ definition: definition.trim(), grain: grain.trim(), columns }); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    try { await onSave({ grain: grain.trim(), columns }); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   return (
-    <section aria-label="Data definition" className="space-y-3">
-      <label className="flex flex-col text-sm">What the data means
-        <textarea aria-label="What the data means" rows={2} dir="auto" value={definition} onChange={(e) => setDefinition(e.target.value)} className="rounded-md border border-border p-2 text-sm"
-          placeholder="e.g. First-time, full-time students still enrolled the next fall" />
-      </label>
+    <section aria-label="Dataset columns" className="space-y-3">
       <label className="flex flex-col text-sm">One row is
         <Input aria-label="One row is" dir="auto" value={grain} onChange={(e) => setGrain(e.target.value)} placeholder="e.g. one program in one academic year" />
       </label>
@@ -83,14 +78,14 @@ function DefinitionEditor({ spec, onSave, onCancel }: { spec: DatasetSpec; onSav
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex justify-end gap-2">
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-        <Button type="button" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save definition'}</Button>
+        <Button type="button" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save columns'}</Button>
       </div>
     </section>
   );
 }
 
 /**
- * Data evidence: its definition, and the latest data in an online sheet to type, paste or import into. Saving checks
+ * Dataset evidence: its columns, and the latest data in an online sheet to type, paste or import into. Saving checks
  * every cell and keeps the result as the next version; earlier versions stay as they were.
  */
 export function DatasetPanel({ item, api, canWrite }: { item: EvidenceItem; api: EvidenceApi; canWrite: boolean }) {
@@ -159,17 +154,16 @@ export function DatasetPanel({ item, api, canWrite }: { item: EvidenceItem; api:
   const defining = editingDef || (canWrite && columns.length === 0);
   return (
     <Card>
-      <section aria-label="Data" className="space-y-4">
+      <section aria-label="Dataset" className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-lg font-semibold">Data</h3>
+          <h3 className="text-lg font-semibold">Dataset</h3>
           {spec.data.grain && <span className="text-sm text-muted-foreground" dir="auto">· one row is {spec.data.grain}</span>}
-          {canWrite && !defining && <Button type="button" variant="ghost" className="ms-auto" onClick={() => setEditingDef(true)}>Edit definition</Button>}
+          {canWrite && !defining && <Button type="button" variant="ghost" className="ms-auto" onClick={() => setEditingDef(true)}>Edit columns</Button>}
         </div>
-        {spec.data.definition && !defining && <p className="whitespace-pre-line text-sm" dir="auto">{spec.data.definition}</p>}
         {defining && (
-          <DefinitionEditor spec={spec.data} onCancel={columns.length ? () => setEditingDef(false) : undefined}
+          <ColumnsEditor spec={spec.data} onCancel={columns.length ? () => setEditingDef(false) : undefined}
             onSave={async (s) => {
-              await api.saveDataDefinition(item.id, { columns: s.columns, definition: s.definition || null, grain: s.grain || null });
+              await api.saveDataDefinition(item.id, { columns: s.columns, grain: s.grain || null });
               setEditingDef(false);
               await refresh();
             }} />

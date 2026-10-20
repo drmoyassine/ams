@@ -1,16 +1,16 @@
-// Launching a cycle (TASK-080, simplified by DEC-030): the one dialog behind "New cycle" in Quality Management, "Start a cycle now" on an
-// evidence item, and "Review and launch" of a run a plan proposed. A cycle is about an evidence item (an evidence collection cycle; an
-// accreditation is reserved for later), so the dialog asks four things: the template, the evidence item, the owner and the start date.
+// Launching a cycle (TASK-080, simplified by DEC-030, narrowed by DEC-031): "Review and launch" of a run a plan proposed (Cycles, Due to
+// launch, and My work). Evidence is no longer collected by cycles (it has its own schedule, DEC-031), so no screen starts a new cycle from
+// scratch any more: cycles for reports and Quality Assurance are coming, and plans that already exist still propose runs. The template,
+// the item and the period are the plan's; the dialog asks the owner and the start date.
 // The owner is the one person responsible: every stage follows them until it is given its own owner on the cycle page. The cycle is made
 // as a DRAFT with its stages resolved from the template's rules; the review then shows only what the rules could not settle ("Choose an
 // owner for stage X"; nothing is ever guessed) and "Start the cycle" activates it, or it stays a draft.
 import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fitsEvidenceCycle, type CycleDetail, type DueRun, type Me } from '@ams/shared';
+import type { CycleDetail, DueRun, Me } from '@ams/shared';
 import { useTranslation } from '../../i18n';
 import { useCyclesApi } from '../../lib/cycles-api';
-import { useEvidenceApi } from '../../lib/evidence-api';
 import { useAction } from '../../lib/use-action';
 import { ContentText } from '../content-text';
 import { Dialog } from '../dialog';
@@ -20,44 +20,33 @@ import { useDirectory, type CycleApis } from './directory';
 import { Chip, fieldCls, selectCls } from './labels';
 
 const today = () => new Date().toISOString().slice(0, 10);
-/** The shipped template the dialog starts with (a published template of this key, when there is one). */
-const DEFAULT_TEMPLATE_KEY = 'evidence_collection';
-
-export function LaunchCycleDialog({ evidenceId, proposal, me, apis = {}, onClose, onOpen, onMade }: {
-  /** Start with this evidence item chosen and fixed (the "Start a cycle now" of its card). */
-  evidenceId?: string; me: Me | undefined; apis?: CycleApis;
-  /** A run a plan proposed (TASK-081): the template, the evidence item and the period are fixed; the owner and the start date can be changed. */
-  proposal?: DueRun;
+export function LaunchCycleDialog({ proposal, me, apis = {}, onClose, onOpen, onMade }: {
+  me: Me | undefined; apis?: CycleApis;
+  /** A run a plan proposed (TASK-081): the template, the item and the period are fixed; the owner and the start date can be changed. */
+  proposal: DueRun;
   onClose: () => void; onOpen?: (cycleId: string) => void;
   /** Called when the cycle has been made (as a draft), before the person checks it. */
   onMade?: (cycle: CycleDetail) => void;
 }) {
   const { t } = useTranslation();
   const api = useCyclesApi(apis.cycles);
-  const evidenceApi = useEvidenceApi(apis.evidence);
   const dir = useDirectory(apis);
   const qc = useQueryClient();
-  const [itemPick, setItemPick] = useState('');
-  const [templatePick, setTemplatePick] = useState('');
   const [leadPick, setLeadPick] = useState('');
-  const [startDate, setStartDate] = useState(proposal ? (proposal.periodStart > today() ? proposal.periodStart : today()) : today());
+  const [startDate, setStartDate] = useState(proposal.periodStart > today() ? proposal.periodStart : today());
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<CycleDetail | null>(null);
   const act = useAction(setError);
 
-  const fixedItem = proposal ? { kind: proposal.anchorKind, id: proposal.anchorId } : evidenceId ? { kind: 'evidence_item' as const, id: evidenceId } : null;
-  const items = useQuery({ queryKey: ['evidence-items-for-cycles'], queryFn: () => evidenceApi.list() });
-  const templates = useQuery({ queryKey: ['cycle-templates', 'published', 'evidence_item'], queryFn: () => api.templates({ status: 'published', anchorKind: 'evidence_item' }) });
-  const choices = (items.data ?? []).filter((e) => e.status === 'active');
-  const itemId = fixedItem?.id ?? itemPick;
-  const item = (items.data ?? []).find((e) => e.id === itemId);
-  const fits = (templates.data ?? []).filter((x) => x.status === 'published' && (proposal ? x.id === proposal.templateId : fitsEvidenceCycle(x.anchorKinds)));
-  const templateId = proposal?.templateId ?? (fits.some((x) => x.id === templatePick) ? templatePick : (fits.find((x) => x.key === DEFAULT_TEMPLATE_KEY) ?? fits[0])?.id ?? '');
-  // The owner: the one picked, else the plan's, else the evidence item's own owner, else the person opening the dialog.
-  const lead = leadPick || proposal?.ownerUserId || item?.ownerUserId || me?.userId || '';
+  const itemId = proposal.anchorId;
+  const templates = useQuery({ queryKey: ['cycle-templates', 'published', proposal.anchorKind], queryFn: () => api.templates({ status: 'published', anchorKind: proposal.anchorKind }) });
+  const fits = (templates.data ?? []).filter((x) => x.id === proposal.templateId);
+  const templateId = proposal.templateId;
+  // The owner: the one picked, else the plan's, else the person opening the dialog.
+  const lead = leadPick || proposal.ownerUserId || me?.userId || '';
   const noTemplates = templates.data !== undefined && fits.length === 0;
-  const itemName = proposal?.anchorName ?? item?.title ?? '';
+  const itemName = proposal.anchorName ?? '';
   const canSubmit = !busy && !!itemId && !!templateId && !!lead && !!startDate;
 
   const submit = async (e: FormEvent) => {
@@ -66,11 +55,11 @@ export function LaunchCycleDialog({ evidenceId, proposal, me, apis = {}, onClose
     setBusy(true); setError('');
     try {
       const r = await act(() => api.launch({
-        anchorKind: fixedItem?.kind ?? 'evidence_item', anchorId: itemId, startDate, templateId, leadUserId: lead,
-        ...(proposal ? { planId: proposal.planId, periodStart: proposal.periodStart, periodLabel: proposal.periodLabel } : {}),
-        // A run of an older plan may name who it is about (a program) or a unit; an evidence plan's run names neither.
-        ...(proposal?.subjectKind && proposal.subjectId ? { subjectKind: proposal.subjectKind, subjectId: proposal.subjectId } : {}),
-        ...(proposal?.responsibleUnitId ? { responsibleUnitId: proposal.responsibleUnitId } : {}),
+        anchorKind: proposal.anchorKind, anchorId: itemId, startDate, templateId, leadUserId: lead,
+        planId: proposal.planId, periodStart: proposal.periodStart, periodLabel: proposal.periodLabel,
+        // A run of an older plan may name who it is about (a program) or a unit; a plan on an item names neither.
+        ...(proposal.subjectKind && proposal.subjectId ? { subjectKind: proposal.subjectKind, subjectId: proposal.subjectId } : {}),
+        ...(proposal.responsibleUnitId ? { responsibleUnitId: proposal.responsibleUnitId } : {}),
       }));
       if (r) {
         setMade(r); onMade?.(r);
@@ -79,7 +68,7 @@ export function LaunchCycleDialog({ evidenceId, proposal, me, apis = {}, onClose
     } finally { setBusy(false); }
   };
 
-  const title = made ? t('ops.cycle.created') : proposal ? t('plans.launch.title') : t('qmc.new.title');
+  const title = made ? t('ops.cycle.created') : t('plans.launch.title');
   return (
     <Dialog labelledBy="cycle-dialog-title" size="lg" onClose={onClose}>
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -91,18 +80,17 @@ export function LaunchCycleDialog({ evidenceId, proposal, me, apis = {}, onClose
         <LaunchReview made={made} setMade={setMade} apis={apis} onClose={onClose} onOpen={onOpen} />
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label={title}>
-          <p className="text-sm text-muted-foreground">{proposal ? t('plans.launch.intro', { period: proposal.periodLabel }) : t('qmc.new.intro')}</p>
-          {proposal && <p className="text-sm" data-testid="proposal-facts"><span className="text-muted-foreground">{t('plans.launch.subject')}: </span><ContentText>{proposal.subjectName ?? proposal.anchorName ?? ''}</ContentText><span className="text-muted-foreground"> · {t('plans.launch.period')}: </span><ContentText>{proposal.periodLabel}</ContentText></p>}
+          <p className="text-sm text-muted-foreground">{t('plans.launch.intro', { period: proposal.periodLabel })}</p>
+          <p className="text-sm" data-testid="proposal-facts"><span className="text-muted-foreground">{t('plans.launch.subject')}: </span><ContentText>{proposal.subjectName ?? proposal.anchorName ?? ''}</ContentText><span className="text-muted-foreground"> · {t('plans.launch.period')}: </span><ContentText>{proposal.periodLabel}</ContentText></p>
           {noTemplates && <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900" data-testid="no-templates">{t('qmc.new.noTemplates')}</p>}
           <label className={fieldCls}>{t('qmc.new.template')}
-            <select aria-label={t('qmc.new.template')} className={selectCls} value={templateId} disabled={!!proposal} onChange={(e) => setTemplatePick(e.target.value)}>
+            <select aria-label={t('qmc.new.template')} className={selectCls} value={templateId} disabled>
               {fits.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>
           <label className={fieldCls}>{t('qmc.new.evidence')}
-            <select aria-label={t('qmc.new.evidence')} className={selectCls} value={itemId} disabled={!!fixedItem} required onChange={(e) => setItemPick(e.target.value)}>
-              {fixedItem ? <option value={itemId}>{itemName}</option> : <option value="">{t('qmc.new.chooseEvidence')}</option>}
-              {!fixedItem && choices.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+            <select aria-label={t('qmc.new.evidence')} className={selectCls} value={itemId} disabled required>
+              <option value={itemId}>{itemName}</option>
             </select>
           </label>
           <div className="grid gap-3 sm:grid-cols-2">

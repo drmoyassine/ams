@@ -1,7 +1,7 @@
 // The shipped default cycle templates (TASK-079): data that passes the same checks as any template, with Arabic names, internal
 // approval wording only, and no accreditor named (DEC-002, DEC-005).
 import { describe, expect, it } from 'vitest';
-import { CreateCycleTemplateSchema, DEFAULT_CYCLE_TEMPLATES, DEFAULT_CYCLE_TEMPLATE_KEYS, fitsEvidenceCycle, validateTemplateStages } from './index.js';
+import { CreateCycleTemplateSchema, DEFAULT_CYCLE_TEMPLATES, DEFAULT_CYCLE_TEMPLATE_KEYS, isComingCycleTemplate, validateTemplateStages } from './index.js';
 
 describe('default cycle templates', () => {
   it('are the seven the plan names, with unique keys, Evidence collection first', () => {
@@ -17,9 +17,10 @@ describe('default cycle templates', () => {
     expect(t.stages.map((s) => s.key)).toEqual(['collect', 'review']);
     expect(t.stages.every((s) => s.owner.kind === 'cycle_lead')).toBe(true);   // stage owners follow the cycle owner
     expect(t.stages[1]!.outputs[0]).toMatchObject({ kind: 'approval', approver: { kind: 'head_of_evidence_unit' } });
-    expect(fitsEvidenceCycle(t.anchorKinds)).toBe(true);
-    expect(fitsEvidenceCycle(['program'])).toBe(false);
-    expect(fitsEvidenceCycle([])).toBe(true);
+    // Collection is now the evidence item's schedule (DEC-031): the template stays defined and is labelled "coming", like the QA ones.
+    expect(isComingCycleTemplate(t.anchorKinds)).toBe(true);
+    expect(isComingCycleTemplate(['program'])).toBe(true);
+    expect(isComingCycleTemplate([])).toBe(false);
   });
 
   it.each(DEFAULT_CYCLE_TEMPLATES.map((t) => [t.key, t] as const))('%s is well formed, consistent and has at least one stage', (_key, t) => {

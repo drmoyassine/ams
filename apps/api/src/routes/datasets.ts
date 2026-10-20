@@ -4,14 +4,14 @@ import { DatasetDataSchema, DatasetSpecSchema, EvidenceVersionSchema, SaveDatase
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
-/** Data evidence (PRD 9.4): the definition, rows saved as versions, and the rows of a version. */
+/** Dataset evidence (PRD 9.4): the specification (columns and grain), rows saved as versions, and the rows of a version. */
 export function datasetRoutes(registry: RouteRegistry, deps: ChainDeps, options: { defaultHook: Hook<unknown, AppEnv, string, unknown> }) {
-  const tag = ['data'];
+  const tag = ['dataset'];
   return new OpenAPIHono<AppEnv>(options)
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/evidence/{id}/data-definition', access: requires('evidence:read'), tags: tag,
       request: { params: idParam },
-      responses: { 200: { description: 'What the data means and its columns', ...json(DatasetSpecSchema) }, ...errors },
+      responses: { 200: { description: 'The columns and grain of the dataset', ...json(DatasetSpecSchema) }, ...errors },
     }), async (c) => c.json(toDto(DatasetSpecSchema, await getDatasetSpec(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {

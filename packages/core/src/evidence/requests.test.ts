@@ -110,7 +110,7 @@ describe('asking someone without an account', () => {
 
 describe('asking people to fill in a form', () => {
   it('sends one request per address, a link to those without an account', async () => {
-    const item = await w.as('alo', (c) => createEvidence(c, { title: 'Unit headcount', type: 'data' }));
+    const item = await w.as('alo', (c) => createEvidence(c, { title: 'Unit headcount', type: 'dataset' }));
     ids.data = item.id;
     await expect(w.as('alo', (c) => createFormRequests(c, item.id, { assigneeEmails: ['contrib@x.org'] }))).rejects.toThrow(/define the columns first/);
     await w.as('alo', (c) => saveDatasetSpec(c, item.id, { columns: [{ key: 'unit', label: 'Unit', type: 'text', required: true }, { key: 'staff', label: 'Staff', type: 'integer' }] }));

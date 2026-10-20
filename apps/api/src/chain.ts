@@ -9,7 +9,7 @@ import { REPLAY_HEADER, UNDO_HEADER, type Permission, type Scope, type UndoDescr
 export type Authenticator = (req: Request) => Promise<{ userId: string; institutionId: string } | null>;
 
 export interface AppEnv {
-  /** `linkTargetId`: on link routes, the one request (or data item) the link opens. */
+  /** `linkTargetId`: on link routes, the one request (or dataset) the link opens. */
   Variables: { caller: Identity; ctx: Ctx; linkTargetId: string; undo: UndoDescriptor };
 }
 export type AppContext = Context<AppEnv>;
@@ -28,7 +28,7 @@ export const publicRoute = (): Access => ({ kind: 'public' });
  * request, whose id the handler reads from `linkTargetId`. No account is involved.
  */
 export const responseLink = (): Access => ({ kind: 'link', target: 'request' });
-/** A public form link (DEC-020): the `{token}` opens one open form; the data item's id is in `linkTargetId`. */
+/** A public form link (DEC-020): the `{token}` opens one open form; the dataset's id is in `linkTargetId`. */
 export const formLink = (): Access => ({ kind: 'link', target: 'form' });
 
 export const scopeFrom = {

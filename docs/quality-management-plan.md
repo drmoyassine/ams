@@ -9,6 +9,18 @@ the text below says otherwise (cycles about a standard, a lead and a responsible
 plans inherited down the IQF, a cycle started from almost anything) it is **superseded** and kept only as the record of
 how the engine was designed.
 
+> **Superseded the same day (2026-10-20, DEC-031, TASK-089): collecting evidence is no longer a cycle.** An evidence item now carries
+> its own **collection method** (manual, online form, request, BI; survey reserved) and an optional **schedule** (every day, week, month,
+> quarter, semester or year, with a start date, days to due and a time zone). Everything below that makes the evidence item the subject of a
+> cycle or a plan is gone from the screens: the Cycle section of the evidence card ("Collect this regularly", "Start a cycle now", "Stop
+> repeating"), the card's "Cycle…" menu item, **New cycle** on the Cycles tab, **New plan** and **Change** on the Plans tab and the plan
+> dialog. The shipped **Evidence collection** template stays defined but is not offered (Settings labels it "coming", like the report and
+> Quality Assurance ones). What is untouched: the cycle engine, its data and its API (a cycle or plan on an evidence item can still be
+> made through the API; the ones that exist are listed, and a run an existing plan proposes is launched from Due to launch or My work), one
+> owner per cycle, the owner cascade, the derived unit, the template owner rules and the cycle page. **Cycles are for reports and Quality
+> Assurance (coming) and, later, accreditation (TASK-082).** The runs that fire an item's schedule are TASK-090. The "In scope now" bullets
+> on evidence collection cycles, the evidence card's Cycle section and the shipped template below are therefore history, kept as the record.
+
 **In scope now**
 
 - A cycle is about **an evidence item**: an *evidence collection cycle*, and a *plan* that proposes one regularly ("collect

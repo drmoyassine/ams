@@ -46,8 +46,8 @@ beforeAll(async () => {
     await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, $3, 'institution', $1)`, [ids.inst, ids[u!], role]);
   }
   const a = apis('admin').evidence;
-  ids.item = (await a.create({ title: 'Employer survey', type: 'data' })).id;
-  await a.saveDataDefinition(ids.item, { definition: 'How our graduates do at work', columns: [
+  ids.item = (await a.create({ title: 'Employer survey', type: 'dataset', definition: 'How our graduates do at work', method: 'form' })).id;
+  await a.saveDataDefinition(ids.item, { columns: [
     { key: 'employer', label: 'Employer', type: 'text', required: true },
     { key: 'rating', label: 'Overall rating', type: 'choice', choices: ['Good', 'Fair', 'Poor'], help: 'Your overall view of our graduates' },
     { key: 'hires', label: 'Graduates hired', type: 'integer' },
@@ -62,7 +62,7 @@ describe('forms', () => {
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await user.click(within(await screen.findByRole('region', { name: 'Evidence: Employer survey' })).getAllByRole('button')[0]!); // opens its card
-    const panel = await screen.findByRole('region', { name: 'Data' });
+    const panel = await screen.findByRole('region', { name: 'Dataset' });
     await user.click(await within(panel).findByRole('tab', { name: 'Form' }));
     const form = await within(panel).findByRole('region', { name: 'Form' });
     expect(within(form).getByText('Your overall view of our graduates')).toBeTruthy(); // the preview
@@ -106,9 +106,9 @@ describe('forms', () => {
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     const card = await screen.findByRole('region', { name: 'Evidence: Employer survey' });
     // The closed card says the form is open and two responses wait to be added.
-    expect(within(card).getByTestId('evidence-meta').textContent).toBe('Form open2 newNot linked');
+    expect(within(card).getByTestId('evidence-meta').textContent).toBe('Online formForm open2 newNot linked');
     await user.click(within(card).getAllByRole('button')[0]!); // opens it
-    const panel = await screen.findByRole('region', { name: 'Data' });
+    const panel = await screen.findByRole('region', { name: 'Dataset' });
     await user.click(await within(panel).findByRole('tab', { name: 'Responses (2 new)' }));
     const responses = await within(panel).findByRole('region', { name: 'Responses' });
     const rows = await within(responses).findAllByTestId('data-response');
@@ -131,7 +131,7 @@ describe('forms', () => {
     const a = apis('admin');
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     await user.click(within(await screen.findByRole('region', { name: 'Evidence: Employer survey' })).getAllByRole('button')[0]!); // opens its card
-    const panel = await screen.findByRole('region', { name: 'Data' });
+    const panel = await screen.findByRole('region', { name: 'Dataset' });
     await user.click(await within(panel).findByRole('tab', { name: 'Form' }));
     await user.click(await within(panel).findByRole('button', { name: 'Ask people to fill it in' }));
     const dialog = await screen.findByRole('dialog');

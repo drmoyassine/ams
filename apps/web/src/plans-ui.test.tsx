@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // Cycle plans, the academic calendar and proposed runs (TASK-081, DEC-030) in the SPA against the real API: Settings -> Organization ->
 // Institution -> Academic calendar; Quality Management -> Cycles -> Due to launch (filters, select several, Review and launch with the
-// template and the evidence item fixed, Skip this period, gaps in the calendar) and the Plans tab (plans of evidence items, a plan
-// that already existed on a standard is listed and not offered for change, New plan asks which evidence item). There is no
+// template and the evidence item fixed, Skip this period, gaps in the calendar) and the Plans tab (plans that exist are listed, none is
+// offered for change, and there is no "New plan": evidence is collected by the schedule on the item itself, DEC-031). There is no
 // "Set cycle plan…" on a standard any more.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -261,7 +261,7 @@ describe('Quality Management -> Cycles -> Due to launch', () => {
 });
 
 describe('Quality Management -> Plans', () => {
-  it('lists the plans with what they are attached to, how often and the next run; a plan that existed on a standard is listed and cannot be changed here', async () => {
+  it('lists the plans with what they are attached to, how often and the next run; none can be changed here', async () => {
     render(wrap(qm('lead', 'plans')));
     const rows = await screen.findAllByTestId('plan-row');
     expect(rows).toHaveLength(2);
@@ -271,33 +271,27 @@ describe('Quality Management -> Plans', () => {
     expect(within(ev).getByTestId('plan-recurrence').textContent).toBe('Every term');
     expect(within(ev).getByTestId('plan-next').textContent).toMatch(/Current term|Next term/);
     expect(within(ev).getByTestId('plan-gap').textContent).toMatch(/No term defined for that period/);
-    expect(within(ev).getByRole('button', { name: /^Change the plan/ })).toBeTruthy();
+    expect(within(ev).queryByRole('button', { name: /^Change the plan/ })).toBeNull();      // evidence is collected by its own schedule now (DEC-031)
     const std = rows.find((r) => within(r).getByTestId('plan-anchor-kind').textContent === 'Standard or requirement')!;
     expect(within(std).getByTestId('plan-recurrence').textContent).toBe('Every term');
     expect(within(std).queryByRole('button', { name: /^Change the plan/ })).toBeNull();   // no screen changes a plan on a standard
     expect(screen.queryByLabelText('Attached to')).toBeNull();                             // and no kind filter offers the Quality Assurance anchors
   });
 
-  it('"New plan" asks which evidence item, then the template, how often, the first due date and the owner', async () => {
-    const user = userEvent.setup();
+  it('has no New plan and no way to change a plan: evidence is collected by the schedule on the item (DEC-031); a plan made through the API is still listed', async () => {
     render(wrap(qm('lead', 'plans')));
-    await user.click(await screen.findByRole('button', { name: 'New plan' }));
-    const dialog = await screen.findByRole('dialog', { name: /Collect this regularly/ });
-    expect((within(dialog).getByRole('button', { name: 'Save plan' }) as HTMLButtonElement).disabled).toBe(true);
-    const which = within(dialog).getByLabelText('Evidence item');
-    await within(which).findByRole('option', { name: 'Syllabi' });
-    await user.selectOptions(which, ids.syllabi!);
-    await waitFor(() => expect((within(dialog).getByLabelText('Cycle template') as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Evidence collection'));
-    expect(within(dialog).queryByRole('option', { name: 'Annual program report' })).toBeNull();   // made for QA anchors: not offered
-    expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.lead);     // the evidence item's owner
-    await user.selectOptions(within(dialog).getByLabelText('Repeats'), 'month');
-    setDate(within(dialog).getByLabelText('Every (number)'), '3');
-    setDate(within(dialog).getByLabelText('First due date'), iso(-3));
-    await user.click(within(dialog).getByRole('button', { name: 'Save plan' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const row = await waitFor(() => { const r = screen.getAllByTestId('plan-row').find((x) => x.textContent?.includes('Evidence collection')); expect(r).toBeTruthy(); return r!; });
+    await screen.findAllByTestId('plan-row');
+    expect(screen.queryByRole('button', { name: 'New plan' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Change the plan/ })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // The API still makes one (the engine is untouched), and the list shows it.
+    const lead = apis('lead');
+    const evidenceCollection = (await lead.cycles.templates({ status: 'published' })).find((t) => t.name === 'Evidence collection')!;
+    await lead.plans.set({ anchorKind: 'evidence_item', anchorId: ids.syllabi!, templateId: evidenceCollection.id, recurrence: { every: 3, unit: 'month' }, firstStart: iso(-3), ownerUserId: ids.lead! });
+    cleanup();
+    render(wrap(qm('lead', 'plans')));
+    const row = await waitFor(() => { const r = screen.getAllByTestId('plan-row').find((x) => x.textContent?.includes('Evidence collection') && x.textContent.includes('Syllabi')); expect(r).toBeTruthy(); return r!; });
     expect(within(row).getByTestId('plan-anchor-kind').textContent).toBe('Evidence item');
-    expect(row.textContent).toContain('Syllabi');
     expect(within(row).getByTestId('plan-recurrence').textContent).toBe('Every 3 months');
     expect(row.textContent).toContain('lead');
   });
@@ -329,7 +323,7 @@ describe('Quality Management -> Plans', () => {
     expect((await screen.findByTestId('no-plans')).textContent).toContain('No plan matches');
   });
 
-  it('is read-only for a viewer: the list, no New plan, no Change', async () => {
+  it('is read-only for a viewer: the list, no dates to set', async () => {
     render(wrap(qm('viewer', 'plans')));
     await waitFor(() => expect(screen.getAllByTestId('plan-row').length).toBeGreaterThanOrEqual(2));
     expect(screen.queryByRole('button', { name: 'New plan' })).toBeNull();
