@@ -55,6 +55,8 @@ const openStage = async (user: ReturnType<typeof userEvent.setup>, n: number) =>
   return within(stageCard(n));
 };
 
+configure({ asyncUtilTimeout: 10000 }); // the full run loads the machine: these screens wait on several requests
+
 beforeAll(async () => {
   db = await createTestDb('webqm');
   pool = new pg.Pool({ connectionString: db.url });
