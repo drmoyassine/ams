@@ -29,11 +29,11 @@ export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; 
   return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
 }
 
-/** "My work (N)": the stages I own and the approvals waiting for me in running cycles; shown only while there are some. */
+/** "My work (N)": the stages I own, the approvals waiting for me in running cycles and the runs due of plans I own; shown only while there are some. */
 export function MyWorkLink({ enabled, api }: { enabled: boolean; api?: CyclesApi }) {
   const { t } = useTranslation();
   const mine = useMyWork(api ? { cycles: api } : {}, enabled);
-  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0);
+  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0);
   if (!enabled || count === 0) return null;
   return <Link to="/quality-management" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
 }

@@ -19,17 +19,15 @@ export function AddStageDialog({ cycle, dir, busy, error, onSubmit, onClose }: {
   const [nameAr, setNameAr] = useState('');
   const [process, setProcess] = useState('');
   const [checklist, setChecklist] = useState('');
-  const [unit, setUnit] = useState(cycle.responsibleUnitId);
   const [owner, setOwner] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const units = dir.units.some((u) => u.id === cycle.responsibleUnitId) ? dir.units : [...dir.units, { id: cycle.responsibleUnitId, nameEn: cycle.responsibleUnitName ?? '', nameAr: null, detail: null }];
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     const items = checklist.split('\n').map((x) => x.trim()).filter(Boolean);
     onSubmit({
-      name: name.trim(), ...(nameAr.trim() ? { nameAr: nameAr.trim() } : {}), process, checklist: items, responsibleUnitId: unit,
+      name: name.trim(), ...(nameAr.trim() ? { nameAr: nameAr.trim() } : {}), process, checklist: items,
       ...(owner ? { ownerUserId: owner } : {}), ...(start ? { startDate: start } : {}), ...(end ? { endDate: end } : {}),
     });
   };
@@ -42,12 +40,9 @@ export function AddStageDialog({ cycle, dir, busy, error, onSubmit, onClose }: {
         <label className={fieldCls}>{t('qmc.f.process')}<textarea aria-label={t('qmc.f.process')} dir="auto" rows={3} className={area} value={process} onChange={(e) => setProcess(e.target.value)} /></label>
         <label className={fieldCls}>{t('qmc.f.checklist')}<textarea aria-label={t('qmc.f.checklist')} dir="auto" rows={3} className={area} value={checklist} onChange={(e) => setChecklist(e.target.value)} /></label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={fieldCls}>{t('qmc.stage.unit')}
-            <select aria-label={t('qmc.stage.unit')} className={selectCls} value={unit} onChange={(e) => setUnit(e.target.value)}>{units.map((u) => <option key={u.id} value={u.id}>{u.nameEn}</option>)}</select>
-          </label>
           <label className={fieldCls}>{t('qmc.stage.owner')}
             <select aria-label={t('qmc.stage.owner')} className={selectCls} value={owner} onChange={(e) => setOwner(e.target.value)}>
-              <option value="">{t('qmc.choosePerson')}</option>
+              <option value="">{t('qmc.stage.ownerCycle', { name: cycle.leadName ?? '' })}</option>
               {dir.people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
             </select>
           </label>

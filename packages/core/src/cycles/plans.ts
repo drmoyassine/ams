@@ -72,12 +72,13 @@ export function resolvePlanTree(
 // ---- Who a plan's runs are about ------------------------------------------------------------------------------------------
 
 export type SubjectKind = 'institution' | 'org_unit' | 'program';
-export interface Candidate { kind: SubjectKind; id: string; name: string; unitId: string | null; unitType?: string | null; programLevel?: string | null }
+/** `evidence_item`: the thing a plan on an evidence item is about (DEC-030); it is its own subject, so a run names no other. */
+export interface Candidate { kind: SubjectKind | 'evidence_item'; id: string; name: string; unitId: string | null; unitType?: string | null; programLevel?: string | null }
 export interface Universe { institution: Candidate | null; units: Candidate[]; programs: Candidate[] }
 /** A scope level as the plan needs it: what the level's items are (units, programs, the institution, or nothing yet), and which. */
 export interface ScopeLevelUse { kind: 'institution' | 'org_unit' | 'program' | 'course' | 'custom'; itemIds: string[] }
 
-const ORDER: Record<SubjectKind, number> = { institution: 0, org_unit: 1, program: 2 };
+const ORDER: Record<SubjectKind | 'evidence_item', number> = { institution: 0, org_unit: 1, program: 2, evidence_item: 3 };
 
 /**
  * The subjects of a plan's runs: the node's effective scope (levels with their items; none listed = every one at that level),

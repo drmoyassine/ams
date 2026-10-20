@@ -3,7 +3,7 @@
 // no automatic launch. When notifications arrive they hook onto `proposeForPlan`, which has no side effects.
 import { and, eq, inArray } from 'drizzle-orm';
 import { appUser, cyclePlan, cyclePlanSkip, cycleTemplate, orgUnit } from '@ams/db';
-import { DUE_HORIZON_DAYS, type DueGap, type DueRun, type DueRuns, type DueRunsQuery, type SkipDueRun } from '@ams/shared';
+import { DUE_HORIZON_DAYS, CYCLE_RETIRED_ANCHOR_KINDS, type CycleSubjectKind, type DueGap, type DueRun, type DueRuns, type DueRunsQuery, type SkipDueRun } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
@@ -11,7 +11,7 @@ import { assertPermitted } from '../permissions.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { reportUndo } from '../trash/store.js';
 import { dayOf, mayManage, nfc } from './common.js';
-import { cycleAnchorOf, loadPlanEnv, runKey, subjectKey, subjectsOfPlan, type PlanEnv, type PlanRow } from './plan-env.js';
+import { cycleAnchorOf, isSelfPlan, loadPlanEnv, runKey, subjectKey, subjectsOfPlan, type PlanEnv, type PlanRow } from './plan-env.js';
 import { periodsFor, plusDays } from './recurrence.js';
 import { assertManageTemplates } from './templates.js';
 
@@ -37,10 +37,10 @@ export async function proposeForPlan(ctx: Ctx, env: PlanEnv, p: PlanRow, horizon
       if (env.made.has(k) || env.skipped.has(k)) continue;
       const previous = env.madeBySubject.get(`${p.id}|${subjectKey(s.kind, s.id)}`)?.find((r) => r.periodStart < period.start && (r.status === 'active' || r.status === 'completed'));
       // A unit, program or institution plan is about that thing itself, so the subject is the anchor and not named twice.
-      const own = p.anchorKind === 'institution' || p.anchorKind === 'org_unit' || p.anchorKind === 'program';
+      const own = isSelfPlan(p);
       runs.push({
         planId: p.id, templateId: p.templateId, anchorKind: anchor.kind, anchorId: anchor.id, anchorName: anchor.name,
-        subjectKind: own ? null : s.kind, subjectId: own ? null : s.id, subjectName: s.name,
+        subjectKind: own ? null : (s.kind as CycleSubjectKind), subjectId: own ? null : s.id, subjectName: s.name,
         periodStart: period.start, periodEnd: period.end, periodLabel: period.label, state: period.start <= env.today ? 'due' : 'upcoming',
         responsibleUnitId: p.responsibleUnitId ?? s.unitId, ownerUserId: p.ownerUserId, previousCycleId: previous?.id ?? null,
       });
@@ -85,8 +85,11 @@ export async function listDueRuns(ctx: Ctx, query: DueRunsQuery = {}, opts: DueO
   const filtered = raw.filter(({ run }) => (!query.state || run.state === query.state) && (!query.subjectId || run.subjectId === query.subjectId || (run.subjectId === null && run.anchorId === query.subjectId)));
   const names = await nameOf(ctx, { units: new Set(filtered.flatMap((r) => (r.run.responsibleUnitId ? [r.run.responsibleUnitId] : []))), users: new Set(filtered.flatMap((r) => (r.run.ownerUserId ? [r.run.ownerUserId] : []))) });
   const runs: DueRun[] = [];
+  const planOwner = new Map(plans.map((p) => [p.id, p.ownerUserId] as const));
   for (const { run } of filtered) {
-    const can = run.responsibleUnitId ? await mayManage(ctx, run.responsibleUnitId) : true;
+    // Not for a standard or a requirement (DEC-030: cycles are not linked to them any more); the plan's owner may start the run without cycle:manage.
+    const retired = (CYCLE_RETIRED_ANCHOR_KINDS as readonly string[]).includes(run.anchorKind);
+    const can = !retired && ((run.responsibleUnitId ? await mayManage(ctx, run.responsibleUnitId) : await assertManageTemplates(ctx).then(() => true, () => false)) || (!!ctx.caller.userId && planOwner.get(run.planId) === ctx.caller.userId));
     runs.push({
       ...run, planLabel: planLabel(tpls.get(run.templateId) ?? '', run.anchorName), templateName: tpls.get(run.templateId) ?? '',
       responsibleUnitName: run.responsibleUnitId ? names.units.get(run.responsibleUnitId) ?? null : null, ownerName: run.ownerUserId ? names.users.get(run.ownerUserId) ?? null : null, canLaunch: can,
@@ -106,11 +109,13 @@ export async function skipDueRun(ctx: Ctx, input: SkipDueRun): Promise<{ ok: tru
   const reason = nfc(d.reason);
   if (!reason) throw new ValidationError('Give the reason for skipping this period.');
   // A unit, program or institution plan is about the anchor itself: the subject is stored as that.
-  const own = plan.anchorKind === 'institution' || plan.anchorKind === 'org_unit' || plan.anchorKind === 'program';
-  const kind = own ? (plan.anchorKind as 'institution' | 'org_unit' | 'program') : d.subjectKind;
-  const id = own ? plan.anchorId : d.subjectId;
+  const own = isSelfPlan(plan);
+  // An evidence item is not a subject kind, so its skip is stored with no subject; the plan env reads that back as the plan's own anchor.
+  const stored = own && plan.anchorKind !== 'evidence_item';
+  const kind = stored ? (plan.anchorKind as 'institution' | 'org_unit' | 'program') : own ? null : d.subjectKind;
+  const id = stored ? plan.anchorId : own ? null : d.subjectId;
   const env = await loadPlanEnv(ctx);
-  if (env.made.has(runKey(plan.id, subjectKey(kind, id), d.periodStart))) throw new ConflictError('A run for that period was already launched.');
+  if (env.made.has(runKey(plan.id, own ? subjectKey(plan.anchorKind, plan.anchorId) : subjectKey(kind, id), d.periodStart))) throw new ConflictError('A run for that period was already launched.');
   const [row] = await guardIntegrity(() => ctx.tx.insert(cyclePlanSkip).values({
     institutionId: ctx.caller.institutionId, planId: plan.id, subjectKind: kind, subjectId: id, periodStart: d.periodStart, reason,
   }).returning());

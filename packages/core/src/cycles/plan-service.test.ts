@@ -16,7 +16,7 @@ import { createMapping, reviewMapping } from '../mapping/mapping.js';
 import { setRequirementScope } from '../scope/assignments.js';
 import {
   activateCycle, clearPlan, createAcademicTerm, deleteAcademicTerm, getCycle, getTargetPlans, installDefaultTemplates, launchCycle, listAcademicTerms, listDueRuns, listPlans,
-  listTemplates, loadPlanAssignments, reorderAcademicTerms, setNextDate, setPlan, skipDueRun, updateAcademicTerm,
+  getMyWork, listTemplates, loadPlanAssignments, reorderAcademicTerms, setNextDate, setPlan, skipDueRun, updateAcademicTerm,
 } from './index.js';
 
 let w: World;
@@ -28,6 +28,18 @@ const asU = <T>(who: string, fn: (ctx: Ctx) => Promise<T>) => {
   return withIdentity(w.pool, caller, (tx) => fn({ tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined, store: w.store, undo: (d) => { lastUndo = d; } }));
 };
 const one = async (sql: string, p: unknown[] = []) => (await w.db.su.query(sql, p)).rows[0].id as string;
+/**
+ * A plan on a standard or a requirement as it was set before DEC-030 (the service refuses new ones, but the existing ones stay readable and
+ * keep working): the row is written behind the service's back as an opt-out stub, then set to the wanted values through the service.
+ */
+const legacySet = async (input: Record<string, unknown>) => {
+  const kind = input.anchorKind as string;
+  const fw = (input.frameworkId as string | undefined) ?? null;
+  const code = (input.code as string | undefined) ?? null;
+  const there = (await w.db.su.query(`select 1 from cycle_plan where institution_id = $1 and anchor_kind = $2 and anchor_framework_id is not distinct from $3 and anchor_code is not distinct from $4 and template_id = $5`, [w.ids.inst, kind, fw, code, input.templateId])).rows.length > 0;
+  if (!there) await w.db.su.query(`insert into cycle_plan (institution_id, anchor_kind, anchor_framework_id, anchor_code, template_id, mode) values ($1, $2, $3, $4, $5, 'opt_out')`, [w.ids.inst, kind, fw, code, input.templateId]);
+  return w.as('admin', (c) => setPlan(c, input as never));
+};
 const TODAY = '2026-09-10';
 const due = (q: Parameters<typeof listDueRuns>[1] = {}) => w.as('alo', (c) => listDueRuns(c, { horizonDays: 200, ...q }, { today: TODAY }));
 const summary = (r: Awaited<ReturnType<typeof listDueRuns>>) => r.runs.map((x) => `${x.periodLabel}|${x.subjectName ?? x.anchorName}`);
@@ -176,11 +188,11 @@ describe('course assessment: every semester, on an evidence item, for every prog
   });
 });
 
-describe('the IQF annual report: every year, for every program', () => {
+describe('plans that already existed on the whole IQF (DEC-030: read and changed, never created)', () => {
   it('a plan on the whole standard proposes one run per program per academic year, about the standard\'s published version', async () => {
-    const plan = await w.as('admin', (c) => setPlan(c, {
+    const plan = await legacySet({
       anchorKind: 'framework', frameworkId: ids.iqfFw!, templateId: ids.tpl_annual_program_report!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-08-01', appliesTo: { kinds: ['program'] },
-    }));
+    });
     expect(plan).toMatchObject({ anchorKind: 'framework', subjectCount: 3, nextLabel: 'AY2026-27' });
     ids.iqfPlan = plan.id;
     const r = await due({ templateId: ids.tpl_annual_program_report! });
@@ -199,10 +211,10 @@ describe('the IQF annual report: every year, for every program', () => {
   });
 });
 
-describe('plans on a standard: scope, inheritance, mapped requirements, override and opt-out', () => {
-  const planOn = (code: string, over: Record<string, unknown> = {}) => w.as('admin', (c) => setPlan(c, {
+describe('existing plans on a standard (DEC-030: read and changed, never created): scope, inheritance, mapped requirements, override and opt-out', () => {
+  const planOn = (code: string, over: Record<string, unknown> = {}) => legacySet({
     anchorKind: 'requirement', frameworkId: ids.iqfFw!, code, templateId: ids.tpl_course_assessment!, recurrence: { every: 1, unit: 'term' }, firstStart: '2026-08-01', ...over,
-  } as never));
+  });
   const nodeOf = async (versionId: string, code: string) => (await w.as('alo', (c) => loadPlanAssignments(c, versionId))).get(code)!;
 
   it('Standard Q1 every term runs for the programs in its scope, narrowed by applies_to', async () => {
@@ -244,7 +256,7 @@ describe('plans on a standard: scope, inheritance, mapped requirements, override
   });
 
   it('an opt-out stops the template at that node', async () => {
-    const out = await asU('admin', (c) => setPlan(c, { anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.1', templateId: ids.tpl_course_assessment!, mode: 'opt_out' }));
+    const out = await legacySet({ anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.1', templateId: ids.tpl_course_assessment!, mode: 'opt_out' });
     expect(out).toMatchObject({ mode: 'opt_out', recurrence: null, firstStart: null, nextDue: null, subjectCount: 0 });
     const q11 = await nodeOf(ids.qv!, 'Q1.1');
     expect(q11.effective.find((e) => e.templateId === ids.tpl_course_assessment)).toMatchObject({ planId: out.id, optedOut: true, source: { kind: 'own' } });
@@ -261,14 +273,14 @@ describe('plans on a standard: scope, inheritance, mapped requirements, override
     const e = (await nodeOf(w.ids.abet!, ids.extCode1!)).effective.find((x) => x.templateId === ids.tpl_course_assessment)!;
     expect(e).toMatchObject({ planId: ids.q1Plan, source: { kind: 'iqf', code: 'Q1.2' }, sourceCodes: ['Q1.2'], optedOut: false });
     // It can have its own, which overrides; and opt out.
-    const mine = await w.as('admin', (c) => setPlan(c, { anchorKind: 'requirement', frameworkId: ids.abetFw!, code: ids.extCode1!, templateId: ids.tpl_course_assessment!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-09-01' }));
+    const mine = await legacySet({ anchorKind: 'requirement', frameworkId: ids.abetFw!, code: ids.extCode1!, templateId: ids.tpl_course_assessment!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-09-01' });
     const withOwn = await nodeOf(w.ids.abet!, ids.extCode1!);
     expect(withOwn.effective.find((x) => x.templateId === ids.tpl_course_assessment)).toMatchObject({ planId: mine.id, source: { kind: 'own' } });
     expect(withOwn.inherited.find((x) => x.templateId === ids.tpl_course_assessment)).toMatchObject({ planId: ids.q1Plan, source: { kind: 'iqf', code: 'Q1.2' } });
     await w.as('admin', (c) => clearPlan(c, mine.id));
     expect((await nodeOf(w.ids.abet!, ids.extCode1!)).effective.find((x) => x.templateId === ids.tpl_course_assessment)).toMatchObject({ planId: ids.q1Plan });
     // The IQF node opting out reaches the external requirement it maps to.
-    const iqfOut = await w.as('admin', (c) => setPlan(c, { anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.2', templateId: ids.tpl_course_assessment!, mode: 'opt_out' }));
+    const iqfOut = await legacySet({ anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.2', templateId: ids.tpl_course_assessment!, mode: 'opt_out' });
     expect((await nodeOf(w.ids.abet!, ids.extCode1!)).effective.find((x) => x.templateId === ids.tpl_course_assessment)).toMatchObject({ optedOut: true });
     await w.as('admin', (c) => clearPlan(c, iqfOut.id));
   });
@@ -329,5 +341,54 @@ describe('who can see and change what', () => {
     await w.db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, 'admin', 'institution', $1)`, [ids.other, theirs]);
     const list = await withIdentity(w.pool, caller, (tx) => listPlans({ tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined, store: w.store, undo: () => undefined }));
     expect(list).toEqual([]);
+  });
+});
+
+describe('evidence collection plans (DEC-030): the plan of one evidence item, owned by a person', () => {
+  const evInput = () => ({ anchorKind: 'evidence_item' as const, anchorId: ids.evidence!, templateId: ids.tpl_evidence_collection!, recurrence: { every: 1, unit: 'month' as const }, firstStart: '2026-09-01', ownerUserId: w.ids.contrib! });
+
+  it('refuses a NEW plan on a standard or a requirement; an existing one can still be changed (above) and removed', async () => {
+    await expect(w.as('admin', (c) => setPlan(c, { anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.2', templateId: ids.tpl_evidence_collection!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-09-01' }))).rejects.toThrow(/not attached to a standard or a requirement/);
+    await expect(w.as('admin', (c) => setPlan(c, { anchorKind: 'framework', frameworkId: ids.iqfFw!, templateId: ids.tpl_evidence_collection!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-09-01' }))).rejects.toThrow(ValidationError);
+    await expect(w.as('admin', (c) => setPlan(c, { anchorKind: 'requirement', frameworkId: ids.iqfFw!, code: 'Q1.2', templateId: ids.tpl_evidence_collection!, mode: 'opt_out' }))).rejects.toThrow(ValidationError);
+    // Institution, unit and program plans are still creatable through the API (the engine keeps working; the screens do not offer them).
+    const unitPlan = await w.as('admin', (c) => setPlan(c, { anchorKind: 'org_unit', anchorId: ids.unit!, templateId: ids.tpl_admin_unit_review!, recurrence: { every: 1, unit: 'year' }, firstStart: '2026-09-01' }));
+    await w.as('admin', (c) => clearPlan(c, unitPlan.id));
+  });
+
+  it('a plan on an evidence item that names no one to narrow it is about the item itself: one run per period, no subject', async () => {
+    const plan = await asU('admin', (c) => setPlan(c, evInput()));
+    expect(plan).toMatchObject({ anchorKind: 'evidence_item', anchorName: 'Course results', templateName: 'Evidence collection', subjectCount: 1, ownerName: 'contrib', nextLabel: expect.any(String) });
+    ids.evPlan = plan.id;
+    const r = await due({ planId: plan.id });
+    expect(r.runs[0]).toMatchObject({ planId: plan.id, anchorKind: 'evidence_item', anchorId: ids.evidence, subjectKind: null, subjectId: null, subjectName: 'Course results', state: 'due', periodStart: '2026-09-01', ownerName: 'contrib', canLaunch: true });
+    expect(r.runs.map((x) => x.periodStart)).toEqual(['2026-09-01', '2026-10-01', '2026-11-01', '2026-12-01', '2027-01-01', '2027-02-01', '2027-03-01']);
+  });
+
+  it('"Skip this period" works for the item itself and the run is not proposed again', async () => {
+    await asU('admin', (c) => skipDueRun(c, { planId: ids.evPlan!, periodStart: '2027-02-01', reason: 'Closed for the holiday' }));
+    expect((await due({ planId: ids.evPlan! })).runs.map((x) => x.periodStart)).not.toContain('2027-02-01');
+    await expect(w.as('admin', (c) => skipDueRun(c, { planId: ids.evPlan!, periodStart: '2027-02-01', reason: 'again' }))).rejects.toThrow();
+  });
+
+  it('the owner sees the due run in My work and starts it without cycle:manage; nobody else does', async () => {
+    const mine = (await w.as('contrib', (c) => getMyWork(c))).dueRuns.filter((r) => r.planId === ids.evPlan);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine[0]).toMatchObject({ state: 'due', anchorKind: 'evidence_item', subjectKind: null, canLaunch: true, ownerUserId: w.ids.contrib });
+    expect((await w.as('alo', (c) => getMyWork(c))).dueRuns.filter((r) => r.planId === ids.evPlan)).toEqual([]);   // alo does not own the plan
+    const run = mine[0]!;
+    const body = LaunchCycleSchema.parse({
+      templateId: run.templateId, anchorKind: run.anchorKind, anchorId: run.anchorId, startDate: run.periodStart, periodLabel: run.periodLabel, planId: run.planId, periodStart: run.periodStart, leadUserId: w.ids.contrib,
+    });
+    await expect(w.as('outsider', (c) => launchCycle(c, body))).rejects.toThrow(ForbiddenError);
+    const made = await w.as('contrib', (c) => launchCycle(c, body));
+    expect(made).toMatchObject({ planId: ids.evPlan, anchorKind: 'evidence_item', leadUserId: w.ids.contrib, status: 'draft' });
+    const active = await w.as('contrib', (c) => activateCycle(c, made.id));
+    expect(active.status).toBe('active');
+    const after = await w.as('contrib', (c) => getMyWork(c));
+    expect(after.dueRuns.filter((r) => r.planId === ids.evPlan && r.periodStart === run.periodStart)).toEqual([]);
+    expect(after.stages.map((s) => s.stageName)).toContain('Collect');
+    // The plan cannot be removed once it has made a cycle; it is switched off instead.
+    await expect(w.as('admin', (c) => clearPlan(c, ids.evPlan!))).rejects.toThrow(ConflictError);
   });
 });

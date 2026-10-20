@@ -18,6 +18,7 @@ import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { reportUndo } from '../trash/store.js';
 import { loadAssignments } from '../scope/assignments.js';
+import { noteEvidenceVersion } from '../cycles/evidence-hook.js';
 import { loadPlanAssignments } from '../cycles/plan-service.js';
 import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
@@ -196,6 +197,7 @@ export async function storeFileVersion(ctx: Ctx, itemId: string, file: UploadedF
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo, filePath: key, sha256: stored.sha256, fileName,
     mime: file.mime || 'application/octet-stream', size: stored.size, asOfDate: file.asOfDate ?? null, notes: file.notes ?? null,
   }).returning());
+  await noteEvidenceVersion(ctx, itemId, { versionNo, what: fileName });
   return versionDto(v!);
 }
 
@@ -209,6 +211,7 @@ export async function addUrlVersion(ctx: Ctx, itemId: string, input: { url: stri
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo: (last?.n ?? 0) + 1, url: input.url,
     asOfDate: input.asOfDate ?? null, notes: input.notes ?? null,
   }).returning());
+  await noteEvidenceVersion(ctx, itemId, { versionNo: v!.versionNo, what: input.url });
   return versionDto(v!);
 }
 

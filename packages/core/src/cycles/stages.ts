@@ -149,13 +149,15 @@ export async function addStage(ctx: Ctx, cycleId: string, input: AddStage): Prom
   assertDraft(c, 'Stages are added');
   const existing = await stagesOf(ctx, cycleId);
   if (input.responsibleUnitId) await assertUnit(ctx, input.responsibleUnitId, 'The responsible unit');
+  // A stage follows the cycle's owner unless it is given its own (DEC-030); an explicit null leaves it for someone to choose.
+  const owner = input.ownerUserId === undefined ? c.leadUserId : input.ownerUserId;
   if (input.ownerUserId) await assertPerson(ctx, input.ownerUserId, 'The owner of the stage');
   const key = keyFrom(input.name, new Set(existing.map((s) => s.key)), input.key);
   const [row] = await guardIntegrity(() => ctx.tx.insert(cycleStage).values({
     institutionId: c.institutionId, cycleId, key, name: nfc(input.name), nameAr: nfcOrNull(input.nameAr), process: (input.process ?? '').normalize('NFC'),
     checklist: (input.checklist ?? []).map((text) => ({ text: nfc(text), done: false, doneBy: null, doneAt: null })), displayOrder: existing.length,
     responsibleUnitId: input.responsibleUnitId ?? c.responsibleUnitId, unitUnresolved: false,
-    ownerUserId: input.ownerUserId ?? null, ownerUnresolved: !input.ownerUserId, startDate: input.startDate ?? null, endDate: input.endDate ?? null,
+    ownerUserId: owner, ownerUnresolved: !owner, startDate: input.startDate ?? null, endDate: input.endDate ?? null,
   }).returning());
   reportUndo(ctx, { label: `Added the stage ${row!.name}`, method: 'DELETE', path: stagePath(row!.id) });
   return detailOf(ctx, cycleId);

@@ -4,12 +4,15 @@ import type { MyWork } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
 import { dayOf } from './common.js';
+import { listDueRuns } from './due.js';
 
 export async function getMyWork(ctx: Ctx): Promise<MyWork> {
   await assertPermitted(ctx, 'cycle:read', { type: 'any' });
   const me = ctx.caller.userId;
-  if (!me) return { stages: [], approvals: [] };
+  if (!me) return { stages: [], approvals: [], dueRuns: [] };
   const today = dayOf();
+  // Runs of plans I own whose period has begun and that nobody has started: each is mine to start (DEC-030).
+  const due = await listDueRuns(ctx, { state: 'due' });
   const [stages, approvals] = await Promise.all([
     ctx.tx.execute<{
       cycle_id: string; cycle_title: string; cycle_status: MyWork['stages'][number]['cycleStatus']; stage_id: string; stage_name: string;
@@ -30,6 +33,7 @@ export async function getMyWork(ctx: Ctx): Promise<MyWork> {
       order by s.end_date nulls last, c.title, o.name`),
   ]);
   return {
+    dueRuns: due.runs.filter((r) => r.ownerUserId === me && r.canLaunch),
     stages: stages.rows.map((r) => ({
       cycleId: r.cycle_id, cycleTitle: r.cycle_title, cycleStatus: r.cycle_status, stageId: r.stage_id, stageName: r.stage_name, status: r.status,
       startDate: r.start_date, endDate: r.end_date, late: r.end_date !== null && r.end_date < today, missingInputs: r.missing_inputs, missingOutputs: r.missing_outputs,

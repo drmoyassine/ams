@@ -7,7 +7,7 @@ quarter: Q4
 status: In Progress
 priority: P1
 id: ROADMAP-013
-last_updated: '2026-10-19'
+last_updated: '2026-10-20'
 generated:
   by: agent/claude-code
   at: '2026-10-19T09:00:00.000Z'
@@ -53,6 +53,9 @@ related_tasks:
   - id: TASK-086
     name: 'IQF in operation: Link evidence, Assign scope, Assign champion, Create cycle'
     url: /TASKS.md#TASK-086
+  - id: TASK-087
+    name: 'Simplify cycles: evidence collection, one owner'
+    url: /TASKS.md#TASK-087
 ---
 # ROADMAP-013 — Quality Management: cycles and reporting
 
@@ -60,4 +63,4 @@ related_tasks:
 
 The operating side of the Internal Quality Framework, next to Accreditations (external). One engine: a cycle is ordered stages, each with inputs, process, outputs, a responsible unit, an owner and dates; reports are stage outputs or inputs. Cycles can be built at any level (institution, unit, program, a standard or sub-standard, a requirement, an evidence item, an accreditation), recur (term, year, N years, after the previous one), nest (maintenance runs a yearly annual report), and are inherited down the IQF and to mapped external standards with overrides. The IQF gets its operating menu: Link evidence, Assign scope, Assign champion, Create cycle; external standards get the same, inherited through their mappings. Design: docs/quality-management-plan.md, DEC-029. Shares the report engine with Accreditations (M4, ROADMAP-005).
 
-Status (2026-10-19): designed and broken into tasks (TASK-077 done). TASK-078 built: the cycle data model, services and API (no screens). TASK-079 to TASK-086 to build.
+Status (2026-10-20): simplified by the owner (DEC-030, TASK-087): cycles are about evidence items, have one owner, and are not linked to standards; accreditation cycles (TASK-082) and Quality Assurance / report cycles come later; TASK-083 is cancelled. The data model, services, API, template editor, screens, plans and the standards in operation (TASK-078 to TASK-081, TASK-086) are built.

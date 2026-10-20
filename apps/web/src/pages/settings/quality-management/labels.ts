@@ -1,6 +1,6 @@
 // The words of the Quality Management template screens for each value set (literal t() keys, so `pnpm i18n:extract` sees them).
 // Internal approval is only ever worded "Internally approved" (DEC-005); nothing here says met, compliant or a score.
-import type { CycleAnchorKind, CycleOutputKind, CyclePickKind, CycleTemplateStatus, PersonRule, Role, UnitRule } from '@ams/shared';
+import type { CycleAnchorKind, CycleOutputKind, CyclePickKind, CycleTemplateStatus, PersonRule, Role } from '@ams/shared';
 import type { Problem } from './editor-model';
 
 export type T = (key: string, options?: Record<string, unknown>) => string;
@@ -20,11 +20,8 @@ export const roleLabels = (t: T): Record<Role, string> => ({
   reviewer: t('qmt.role.reviewer'), viewer: t('qmt.role.viewer'), external_reviewer: t('qmt.role.external_reviewer'),
 });
 
-export const unitRuleLabels = (t: T): Record<UnitRule['kind'], string> => ({
-  subject: t('qmt.unit.subject'), parent_of_subject: t('qmt.unit.parent'), unit_type: t('qmt.unit.type'), cycle: t('qmt.unit.cycle'),
-});
 export const personRuleLabels = (t: T): Record<PersonRule['kind'], string> => ({
-  head_of_unit: t('qmt.owner.head'), head_of_parent_unit: t('qmt.owner.headAbove'), role: t('qmt.owner.role'), cycle_lead: t('qmt.owner.lead'),
+  head_of_unit: t('qmt.owner.head'), head_of_parent_unit: t('qmt.owner.headAbove'), role: t('qmt.owner.role'), cycle_lead: t('qmt.owner.lead'), head_of_evidence_unit: t('qmt.owner.evidenceHead'),
 });
 
 /** A problem of the editor in the words of the screen (what is wrong and what to do). */

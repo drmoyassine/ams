@@ -374,9 +374,10 @@ async function seedDemo(db, base) {
     cancelled = await call('POST', `/api/cycles/${cancelled.id}/cancel`, { reason: 'The program was merged into the institutional review, so a separate annual report is no longer needed. تم دمج البرنامج في المراجعة المؤسسية.' });
     ids.cyCancelled = cancelled.id;
   } catch (e) { warn('cycles', e); }
-  // TASK-081: the academic calendar (a year and two terms, long and Arabic names; the calendar ends after the second term, so the plans
-  // report a stretch it does not cover), plans (a standard every term for the programs in its scope, the whole quality framework every
-  // year, a unit whose next date a decision fixes, an opt-out on a sub-standard) and so runs due to launch.
+  // TASK-081 / TASK-087: the academic calendar (a year and two terms, long and Arabic names; the calendar ends after the second term, so the
+  // plans report a stretch it does not cover), plans of EVIDENCE ITEMS (Course assessment every term for the programs, Evidence collection every
+  // month with an open cycle, another one owned by the admin whose run is due: it is in My work and in Due to launch), a unit whose next date a
+  // decision fixes, and one plan on a standard that already existed (written behind the service's back: a new one is refused).
   try {
     const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
     await call('POST', '/api/academic-terms', { name: 'AY2026-27', nameAr: 'العام الدراسي ٢٠٢٦-٢٠٢٧ مع اسم طويل جدا يجب أن يلتف على الشاشة الصغيرة', kind: 'year', startDate: day(-100), endDate: day(265) });
@@ -386,11 +387,29 @@ async function seedDemo(db, base) {
     const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
     const templates = await call('GET', '/api/cycle-templates');
     const tpl = (key) => templates.find((t) => t.key === key).id;
-    await call('PUT', '/api/cycle-plans', { anchorKind: 'requirement', frameworkId: qf.framework.id, code: items[0].code, templateId: tpl('course_assessment'), recurrence: { every: 1, unit: 'term' }, firstStart: day(-30), appliesTo: { kinds: ['program'] } });
-    await call('PUT', '/api/cycle-plans', { anchorKind: 'framework', frameworkId: qf.framework.id, templateId: tpl('annual_program_report'), recurrence: { every: 1, unit: 'year' }, firstStart: day(-30), appliesTo: { kinds: ['program'] } });
+    const evidenceItem = async (title) => {
+      const e = await call('POST', '/api/evidence', { title, type: 'document', description: 'Collected on a regular basis by the owner of this evidence.' });
+      await q(`update evidence_item set owner_unit_id = $1, owner_user_id = $2 where id = $3`, [unit, admin, e.id]);
+      return e;
+    };
+    const results = await evidenceItem('Course results and assessment samples for every program, collected each term (a long title that has to wrap on a phone)');
+    await call('PUT', '/api/cycle-plans', { anchorKind: 'evidence_item', anchorId: results.id, templateId: tpl('course_assessment'), recurrence: { every: 1, unit: 'term' }, firstStart: day(-30), appliesTo: { kinds: ['program'] } });
     await call('PUT', '/api/cycle-plans', { anchorKind: 'org_unit', anchorId: unit, templateId: tpl('admin_unit_review'), recurrence: { after: 'previous_ends', setBy: 'decision' }, firstStart: day(-3) });
-    const child = items.find((r) => r.parentId === items[0].id);
-    if (child) await call('PUT', '/api/cycle-plans', { anchorKind: 'requirement', frameworkId: qf.framework.id, code: child.code, templateId: tpl('course_assessment'), mode: 'opt_out' });
+    const instId = (await q(`select institution_id from framework where id = $1`, [qf.framework.id]))[0].institution_id;
+    await q(`insert into cycle_plan (institution_id, anchor_kind, anchor_framework_id, anchor_code, template_id, mode, recurrence, first_start) values ($1, 'requirement', $2, $3, $4, 'own', '{"every":1,"unit":"term"}', $5)`,
+      [instId, qf.framework.id, items[0].code, tpl('course_assessment'), day(-30)]);
+    // Evidence collection: one item with an open cycle (the plan's first run launched, the Collect stage started), one whose run is due now.
+    const syllabi = await evidenceItem('Course syllabi for every program');
+    ids.evidenceTitle = syllabi.title;
+    const monthly = await call('PUT', '/api/cycle-plans', { anchorKind: 'evidence_item', anchorId: syllabi.id, templateId: tpl('evidence_collection'), recurrence: { every: 1, unit: 'month' }, firstStart: day(-3), ownerUserId: admin });
+    const run = (await call('GET', '/api/due-cycle-runs?horizonDays=5')).runs.find((r) => r.planId === monthly.id);
+    let ev = await call('POST', '/api/cycles', { templateId: run.templateId, anchorKind: 'evidence_item', anchorId: syllabi.id, startDate: run.periodStart, periodLabel: run.periodLabel, planId: run.planId, periodStart: run.periodStart, leadUserId: admin });
+    ev = await call('POST', `/api/cycles/${ev.id}/activate`);
+    ev = await call('POST', `/api/cycle-stages/${ev.stages[0].id}/start`);
+    ids.cyEvidence = ev.id;
+    const exams = await evidenceItem('Exam papers and marking schemes');
+    await call('PUT', '/api/cycle-plans', { anchorKind: 'evidence_item', anchorId: exams.id, templateId: tpl('evidence_collection'), recurrence: { every: 1, unit: 'month' }, firstStart: day(-3), ownerUserId: admin });
+    ids.evidenceFree = (await evidenceItem('Policies and procedures manual')).title;
   } catch (e) { warn('plans', e); }
   // The in-app assistant (DEC-027): AI switched on so the panel's composer is live, one saved conversation with steps, links and a
   // pending "Remember this?" card, and a few memory notes (long and Arabic) for the memory page.
@@ -836,10 +855,9 @@ function pagesFor(ids) {
       await page.getByRole('button', { name: 'New cycle' }).click();
       const dialog = page.getByRole('dialog', { name: 'New cycle' });
       await dialog.waitFor();
-      await dialog.getByLabel('What the cycle is about').selectOption('program');
-      await dialog.getByLabel('Which one').selectOption({ index: 1 });
-      await dialog.getByRole('option', { name: 'Periodic program review' }).waitFor({ state: 'attached' });
-      await dialog.getByLabel('Template').selectOption({ label: 'Periodic program review' });
+      await dialog.getByRole('option', { name: 'Evidence collection' }).waitFor({ state: 'attached' });
+      await dialog.getByLabel('Template').selectOption({ label: 'Evidence collection' });
+      await dialog.getByLabel('Evidence item').selectOption({ index: 1 });
       await dialog.getByRole('button', { name: 'Create cycle' }).click();
       await page.getByTestId('launch-review').waitFor();
     } },
@@ -848,6 +866,17 @@ function pagesFor(ids) {
     ids.cyActive && { name: 'qm-cycle-page-edit-stage', path: `/quality-management/cycles/${ids.cyActive}?stage=${ids.cyFinalStage}`, action: async (page) => {
       await page.getByRole('button', { name: 'Edit Final report' }).click();
       await page.getByRole('dialog', { name: 'Edit Final report' }).waitFor();
+    } },
+    ids.cyActive && { name: 'qm-cycle-page-edit-cycle', path: `/quality-management/cycles/${ids.cyActive}`, action: async (page) => {
+      await page.getByTestId('owner-cascade').waitFor();
+      await page.getByRole('button', { name: 'Edit the cycle' }).click();
+      await page.getByRole('dialog', { name: 'Edit the cycle' }).waitFor();
+    } },
+    ids.cyEvidence && { name: 'qm-cycle-page-evidence-owner-cascade', path: `/quality-management/cycles/${ids.cyEvidence}`, action: async (page) => {
+      await page.getByTestId('owner-cascade').waitFor();
+      await page.getByTestId('owner-source').first().waitFor();
+      await page.getByRole('button', { name: 'Edit Review' }).click();
+      await page.getByRole('dialog', { name: 'Edit Review' }).waitFor();
     } },
     ids.cyLate && { name: 'qm-cycle-page-late-pick', path: `/quality-management/cycles/${ids.cyLate}?stage=${ids.cyLateStage}`, action: async (page) => {
       await page.getByTestId('stage-late').first().waitFor();
@@ -865,14 +894,20 @@ function pagesFor(ids) {
       await page.getByRole('dialog', { name: 'Add a stage' }).waitFor();
     } },
     ids.cyCancelled && { name: 'qm-cycle-page-cancelled', path: `/quality-management/cycles/${ids.cyCancelled}`, action: async (page) => { await page.getByTestId('cancel-reason').waitFor(); } },
-    { name: 'qm-my-work', path: '/quality-management?tab=my-work', action: async (page) => { await page.getByTestId('my-stage').first().waitFor(); await page.getByTestId('my-approval').first().waitFor(); } },
-    // TASK-086: Quality Management -> Standards (the IQF tree in operation) with the menu Link evidence · Assign scope · Assign champion ·
-    // Create cycle, the three dialogs, the hover card with scope and champion, the same menu on an external standard, and Settings ->
+    { name: 'qm-my-work', path: '/quality-management?tab=my-work', action: async (page) => { await page.getByTestId('my-stage').first().waitFor(); await page.getByTestId('my-approval').first().waitFor(); await page.getByTestId('my-due-run').first().waitFor(); } },
+    { name: 'qm-my-work-start-dialog', path: '/quality-management?tab=my-work', action: async (page) => {
+      await page.getByTestId('my-due-run').first().getByRole('button', { name: /^Start / }).click();
+      const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
+      await dialog.waitFor();
+      await dialog.getByTestId('proposal-facts').waitFor();
+    } },
+    // TASK-086: Quality Management -> Standards (the IQF tree in operation) with the menu Link evidence · Assign scope · Assign champion,
+    // the two dialogs, the hover card with scope and champion, the same menu on an external standard, and Settings ->
     // Organization -> Institution -> Scope levels.
     { name: 'quality-management', path: '/quality-management', action: async (page) => { await page.getByRole('list', { name: 'Standards', exact: true }).first().waitFor(); } },
     { name: 'quality-management-menu', path: '/quality-management', action: async (page) => {
       await page.getByRole('button', { name: /^Actions for / }).first().click();
-      await page.getByRole('menuitem', { name: 'Create cycle' }).waitFor();
+      await page.getByRole('menuitem', { name: 'Assign champion' }).waitFor();
     } },
     { name: 'quality-management-scope-dialog', path: '/quality-management', action: async (page) => {
       await menuItem('Assign scope')(page);
@@ -893,12 +928,6 @@ function pagesFor(ids) {
       await dialog.waitFor();
       await dialog.getByTestId('champion-current').waitFor();
     } },
-    { name: 'quality-management-create-cycle-dialog', path: '/quality-management', action: async (page) => {
-      await menuItem('Create cycle')(page);
-      const dialog = page.getByRole('dialog', { name: /^Create cycle/ });
-      await dialog.waitFor();
-      await dialog.getByLabel('Template').waitFor();
-    } },
     { name: 'quality-management-hover-card', path: '/quality-management', action: async (page) => {
       await page.locator('button[data-tree-focus]').first().hover();
       await page.getByRole('tooltip').getByText('Champion', { exact: true }).waitFor();
@@ -916,7 +945,7 @@ function pagesFor(ids) {
       await page.getByRole('list', { name: 'Scope levels' }).scrollIntoViewIfNeeded();
     } },
     // TASK-081: Settings -> Organization -> Academic calendar; Quality Management -> Cycles -> Due to launch (the list, the launch dialog with a
-    // proposed run, Skip this period); Quality Management -> Plans (the list, New plan) and "Set cycle plan…" with its hover card.
+    // proposed run, Skip this period); Quality Management -> Plans (the list, New plan).
     { name: 'settings-organization-academic-calendar', path: '/settings/organization', action: async (page) => {
       await page.getByRole('list', { name: 'Terms' }).waitFor();
       await page.getByRole('list', { name: 'Terms' }).scrollIntoViewIfNeeded();
@@ -927,7 +956,7 @@ function pagesFor(ids) {
     } },
     { name: 'qm-cycles-due-launch', path: '/quality-management?tab=cycles', action: async (page) => {
       await page.getByTestId('due-run').first().waitFor();
-      await page.getByTestId('due-run').first().getByRole('button', { name: /^Review and launch / }).click();
+      await page.locator('[data-testid="due-run"] button:not([disabled])', { hasText: 'Review and launch' }).first().click();
       const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
       await dialog.waitFor();
       await dialog.getByTestId('proposal-facts').waitFor();
@@ -940,19 +969,44 @@ function pagesFor(ids) {
     { name: 'qm-plans', path: '/quality-management?tab=plans', action: async (page) => { await page.getByTestId('plan-row').first().waitFor(); } },
     { name: 'qm-plans-new-dialog', path: '/quality-management?tab=plans', action: async (page) => {
       await page.getByRole('button', { name: 'New plan' }).click();
-      const dialog = page.getByRole('dialog', { name: /^Cycle plan/ });
+      const dialog = page.getByRole('dialog', { name: /^Collect this regularly/ });
       await dialog.waitFor();
       await dialog.getByTestId('plan-anchor-pick').waitFor();
     } },
-    { name: 'quality-management-plan-dialog', path: '/quality-management', action: async (page) => {
-      await menuItem('Set cycle plan…')(page);
-      const dialog = page.getByRole('dialog', { name: /^Cycle plan/ });
-      await dialog.waitFor();
-      await dialog.getByTestId('effective-plan').first().waitFor();
+    // TASK-087: the Cycle section of an evidence item's card (the plan, the open cycle, the actions), the plan dialog and the one-off start,
+    // and an item with no plan yet.
+    ids.evidenceTitle && { name: 'evidence-card-cycle-section', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
+      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
+      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
+      await card.getByTestId('evidence-plan').waitFor();
+      await card.getByTestId('evidence-open-cycle').waitFor();
+      await card.getByTestId('evidence-cycle').scrollIntoViewIfNeeded();
     } },
-    { name: 'quality-management-plan-hover', path: '/quality-management', action: async (page) => {
-      await page.locator('button[data-tree-focus]').first().hover();
-      await page.getByRole('tooltip').getByText('Cycle plans', { exact: true }).waitFor();
+    ids.evidenceTitle && { name: 'evidence-cycle-plan-dialog', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
+      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
+      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
+      await card.getByRole('button', { name: 'Change the plan' }).click();
+      const dialog = page.getByRole('dialog', { name: /^Collect this regularly/ });
+      await dialog.waitFor();
+      await dialog.getByLabel('Owner').waitFor();
+    } },
+    ids.evidenceTitle && { name: 'evidence-cycle-start-dialog', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceTitle}` });
+      await card.getByRole('button', { name: `Actions for ${ids.evidenceTitle}` }).click();
+      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
+      await card.getByRole('button', { name: 'Start a cycle now' }).click();
+      const dialog = page.getByRole('dialog', { name: /^New cycle/ });
+      await dialog.waitFor();
+      await dialog.getByLabel('Evidence item').waitFor();
+    } },
+    ids.evidenceFree && { name: 'evidence-card-cycle-section-empty', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evidenceFree}` });
+      await card.getByRole('button', { name: `Actions for ${ids.evidenceFree}` }).click();
+      await page.getByRole('menuitem', { name: 'Cycle…' }).click();
+      await card.getByTestId('evidence-cycle-none').waitFor();
+      await card.getByTestId('evidence-cycle').scrollIntoViewIfNeeded();
     } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
@@ -1004,7 +1058,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'quality-management-plan-dialog'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'evidence-card-cycle-section'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

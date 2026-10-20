@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EvidenceItem } from '@ams/shared';
+import type { CycleApis } from '../components/cycles/directory';
 import { EvidenceCard } from '../components/evidence-card';
 import { RequestList } from '../components/evidence-requests';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
@@ -26,7 +27,7 @@ const FILTERS = {
 type Filter = keyof typeof FILTERS;
 
 /** The evidence repository (PRD 9.1): stored once, versioned, linked many times; and every request for evidence. */
-export function EvidencePage({ api: override, framework: frameworkOverride }: { api?: EvidenceApi; framework?: FrameworkApi }) {
+export function EvidencePage({ api: override, framework: frameworkOverride, cycleApis }: { api?: EvidenceApi; framework?: FrameworkApi; cycleApis?: CycleApis }) {
   const api = useEvidenceApi(override);
   const framework = useApi(frameworkOverride);
   const me = useMe(framework);
@@ -42,13 +43,13 @@ export function EvidencePage({ api: override, framework: frameworkOverride }: { 
         ))}
       </div>
       {tab === 'library'
-        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} />
+        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(cycleApis ? { cycleApis } : {})} />
         : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
 
-function Library({ api, framework, canWrite, canReview }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean }) {
+function Library({ api, framework, canWrite, canReview, cycleApis }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; cycleApis?: CycleApis }) {
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -79,7 +80,7 @@ function Library({ api, framework, canWrite, canReview }: { api: EvidenceApi; fr
       <div className="min-w-0 space-y-2 break-words" role="list" aria-label="Evidence">
         {shown.map((e) => (
           <div role="listitem" key={e.id}>
-            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} />
+            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} {...(cycleApis ? { cycleApis } : {})} />
           </div>
         ))}
         {list.data && shown.length === 0 && <p className="text-sm text-muted-foreground">{q || filter !== 'all' ? 'Nothing matches.' : 'No evidence yet.'}</p>}

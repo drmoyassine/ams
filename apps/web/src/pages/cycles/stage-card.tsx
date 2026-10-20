@@ -59,9 +59,10 @@ export function StageCard({ stage, index, env, open, onToggle }: { stage: CycleS
             {stage.late && <Chip tone="bad" testId="stage-late">{t('qmc.late')}</Chip>}
           </div>
         </div>
-        <dl className="grid gap-x-5 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex min-w-0 gap-1"><dt className="text-muted-foreground">{t('qmc.stage.unit')}:</dt><dd className="min-w-0 break-words" dir="auto">{stage.responsibleUnitName ?? ''}{stage.unitUnresolved && <> <Chip tone="warn">{t('qmc.stage.unitUnresolved')}</Chip></>}</dd></div>
-          <div className="flex min-w-0 gap-1"><dt className="text-muted-foreground">{t('qmc.stage.owner')}:</dt><dd className="min-w-0 break-words" dir="auto" data-testid="stage-owner">{stage.ownerName ?? <Chip tone="warn" testId="owner-missing">{t('qmc.stage.noOwner')}</Chip>}</dd></div>
+        <dl className="grid gap-x-5 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex min-w-0 flex-wrap gap-1"><dt className="text-muted-foreground">{t('qmc.stage.owner')}:</dt>
+            <dd className="min-w-0 break-words" dir="auto" data-testid="stage-owner">{stage.ownerName ?? <Chip tone="warn" testId="owner-missing">{t('qmc.stage.noOwner')}</Chip>}
+              {stage.ownerUserId && <> <Chip tone="neutral" testId="owner-source">{stage.ownerUserId === cycle.leadUserId ? t('qmc.stage.ownerFollows') : t('qmc.stage.ownerOwn')}</Chip></>}</dd></div>
           <div className="flex gap-1"><dt className="text-muted-foreground">{t('qmc.stage.starts')}:</dt><dd>{day(stage.startDate) || t('qmc.noDate')}</dd></div>
           <div className="flex gap-1"><dt className="text-muted-foreground">{t('qmc.stage.ends')}:</dt><dd>{day(stage.endDate) || t('qmc.noDate')}</dd></div>
         </dl>
@@ -142,7 +143,7 @@ export function StageCard({ stage, index, env, open, onToggle }: { stage: CycleS
       )}
 
       {dialog === 'edit' && (
-        <EditStageDialog stage={stage} dir={dir} busy={busy} error={err} onClose={() => setDialog(null)}
+        <EditStageDialog stage={stage} cycleOwner={{ id: cycle.leadUserId, name: cycle.leadName }} dir={dir} busy={busy} error={err} onClose={() => setDialog(null)}
           onSubmit={(v) => void run(() => api.updateStage(stage.id, v), { at: stage.id }).then((r) => { if (r) setDialog(null); })} />
       )}
       {dialog === 'skip' && (

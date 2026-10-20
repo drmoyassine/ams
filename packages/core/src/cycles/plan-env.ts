@@ -2,7 +2,7 @@
 // (TASK-086), the runs already made and the periods already skipped. Loaded once per request and shared by the plan list, the due
 // runs and the screens' counts, so every answer comes from the same picture.
 import { and, eq, isNotNull } from 'drizzle-orm';
-import { cycle, cyclePlan, cyclePlanSkip, orgUnit, program, requirement } from '@ams/db';
+import { cycle, cyclePlan, cyclePlanSkip, evidenceItem, orgUnit, program, requirement } from '@ams/db';
 import type { CycleAnchorKind } from '@ams/shared';
 import { sql } from 'drizzle-orm';
 import type { Ctx } from '../ctx.js';
@@ -55,7 +55,13 @@ export async function loadPlanEnv(ctx: Ctx, today: string = dayOf()): Promise<Pl
   }
   for (const list of madeBySubject.values()) list.sort((a, b) => b.periodStart.localeCompare(a.periodStart));
   const skipped = new Map<string, string>();
-  for (const s of await ctx.tx.select().from(cyclePlanSkip)) skipped.set(runKey(s.planId, subjectKey(s.subjectKind, s.subjectId), s.periodStart), s.reason);
+  const evidencePlans = new Map((await ctx.tx.select({ id: cyclePlan.id, kind: cyclePlan.anchorKind, anchor: cyclePlan.anchorId }).from(cyclePlan).where(eq(cyclePlan.anchorKind, 'evidence_item'))).map((p) => [p.id, subjectKey(p.kind, p.anchor)] as const));
+  for (const s of await ctx.tx.select().from(cyclePlanSkip)) {
+    skipped.set(runKey(s.planId, subjectKey(s.subjectKind, s.subjectId), s.periodStart), s.reason);
+    // A skip with no subject on a plan about an evidence item is about that item.
+    const self = !s.subjectKind ? evidencePlans.get(s.planId) : undefined;
+    if (self) skipped.set(runKey(s.planId, self, s.periodStart), s.reason);
+  }
   return { today, calendar, universe, made, madeBySubject, skipped, assignments: new Map(), institutionName };
 }
 
@@ -75,11 +81,20 @@ export async function cycleAnchorOf(ctx: Ctx, p: PlanRow): Promise<{ kind: Cycle
   } catch { return null; }
 }
 
+/** A plan on an evidence item that names no one to narrow it is about the evidence item itself (DEC-030): one run per period. */
+const noNarrowing = (a: PlanRow['appliesTo']) => !a || (!a.kinds?.length && !a.unitTypes?.length && !a.programLevels?.length && !a.ids?.length);
+/** A plan whose runs are about its anchor itself, so the subject is not named twice: an institution, unit or program, or an evidence item with no narrowing. */
+export const isSelfPlan = (p: PlanRow): boolean => p.anchorKind === 'institution' || p.anchorKind === 'org_unit' || p.anchorKind === 'program' || (p.anchorKind === 'evidence_item' && noNarrowing(p.appliesTo));
+
 /** The subjects of a plan's runs: its anchor's effective scope narrowed by `appliesTo`; a unit, program or institution plan is about that one thing. */
 export async function subjectsOfPlan(ctx: Ctx, env: PlanEnv, p: PlanRow): Promise<Candidate[]> {
   if (p.anchorKind === 'institution') return env.universe.institution ? [env.universe.institution] : [];
   if (p.anchorKind === 'org_unit') return env.universe.units.filter((u) => u.id === p.anchorId);
   if (p.anchorKind === 'program') return env.universe.programs.filter((u) => u.id === p.anchorId);
+  if (p.anchorKind === 'evidence_item' && noNarrowing(p.appliesTo)) {
+    const [e] = await ctx.tx.select({ id: evidenceItem.id, name: evidenceItem.title, unit: evidenceItem.ownerUnitId }).from(evidenceItem).where(eq(evidenceItem.id, p.anchorId!));
+    return e ? [{ kind: 'evidence_item', id: e.id, name: e.name, unitId: e.unit }] : [];
+  }
   if (p.anchorKind === 'requirement') {
     const ref = await referenceVersion(ctx, p.anchorFrameworkId!);
     let all = ref ? env.assignments.get(ref) : undefined;

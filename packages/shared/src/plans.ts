@@ -4,7 +4,7 @@
 // out. Plans only PROPOSE runs; QA launches them (DEC-029). Nothing here says met, compliant or a score (DEC-005); nothing
 // branches on an accreditor (DEC-002).
 import { z } from 'zod';
-import { CYCLE_ANCHOR_KINDS, CYCLE_SUBJECT_KINDS } from './cycles.js';
+import { CYCLE_ANCHOR_KINDS, CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS } from './cycles.js';
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date as YYYY-MM-DD');
 const text = z.string().trim();
@@ -157,3 +157,23 @@ export const SkipDueRunSchema = z.object({
   periodStart: day, reason: text.min(1).max(2000),
 }).strict().refine((v) => (v.subjectKind === null) === (v.subjectId === null), { message: 'give the subject kind and id together, or neither', path: ['subjectId'] });
 export type SkipDueRun = z.input<typeof SkipDueRunSchema>;
+
+// ---- My work -------------------------------------------------------------------------------------------------------------
+
+export const MyWorkSchema = z.object({
+  /** Stages I own that are not finished, with how far along and what is missing. */
+  stages: z.array(z.object({
+    cycleId: z.string(), cycleTitle: z.string(), cycleStatus: z.enum(CYCLE_STATUSES),
+    stageId: z.string(), stageName: z.string(), status: z.enum(CYCLE_STAGE_STATUSES),
+    startDate: z.string().nullable(), endDate: z.string().nullable(), late: z.boolean(),
+    missingInputs: z.number(), missingOutputs: z.number(),
+  })),
+  /** Approvals that wait for my decision (the stage has started, the output is not decided). */
+  approvals: z.array(z.object({
+    cycleId: z.string(), cycleTitle: z.string(), stageId: z.string(), stageName: z.string(), outputId: z.string(), outputName: z.string(),
+    returnedBefore: z.boolean(),
+  })),
+  /** Runs that have fallen due (a plan's period has begun, nothing launched yet) of plans I own: each has a "Start" (DEC-030, evidence collection). */
+  dueRuns: z.array(DueRunSchema),
+});
+export type MyWork = z.infer<typeof MyWorkSchema>;

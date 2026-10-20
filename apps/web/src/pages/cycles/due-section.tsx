@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { DueRun, DueRunsQuery } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
-import { useDirectory, type CycleApis } from '../../components/cycles/directory';
+import { type CycleApis } from '../../components/cycles/directory';
 import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
 import { Chip, day, fieldCls, selectCls } from '../../components/cycles/labels';
 import { gapText } from '../../components/plans/labels';
@@ -25,10 +25,8 @@ const rowKey = (r: DueRun) => `${r.planId}|${r.subjectKind ?? '-'}:${r.subjectId
 export function DueSection({ manage, apis = {}, me, onOpen }: { manage: boolean; apis?: CycleApis; me: Parameters<typeof LaunchCycleDialog>[0]['me']; onOpen: (cycleId: string) => void }) {
   const { t } = useTranslation();
   const api = usePlansApi(apis.plans);
-  const dir = useDirectory(apis);
   const qc = useQueryClient();
   const [templateId, setTemplateId] = useState('');
-  const [place, setPlace] = useState('');
   const [state, setState] = useState<'' | 'due' | 'upcoming'>('');
   const [horizon, setHorizon] = useState<number>(120);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -39,7 +37,7 @@ export function DueSection({ manage, apis = {}, me, onOpen }: { manage: boolean;
   const made = useRef(false);
   const act = useAction(setError);
 
-  const query: DueRunsQuery = { horizonDays: horizon, ...(templateId ? { templateId } : {}), ...(place ? { subjectId: place.split(':')[1]! } : {}), ...(state ? { state } : {}) };
+  const query: DueRunsQuery = { horizonDays: horizon, ...(templateId ? { templateId } : {}), ...(state ? { state } : {}) };
   const due = useQuery({ queryKey: ['due-runs', query], queryFn: () => api.due(query), placeholderData: (p) => p });
   const plans = useQuery({ queryKey: ['cycle-plans'], queryFn: () => api.list(), staleTime: 30_000 });
   const runs = due.data?.runs ?? [];
@@ -79,13 +77,6 @@ export function DueSection({ manage, apis = {}, me, onOpen }: { manage: boolean;
             {templates.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </label>
-        <label className={fieldCls}>{t('plans.due.subject')}
-          <select aria-label={t('plans.due.subject')} className={`${selectCls} sm:w-auto sm:max-w-56`} value={place} onChange={(e) => setPlace(e.target.value)}>
-            <option value="">{t('qmc.filter.allPlaces')}</option>
-            <optgroup label={t('ops.cycle.units')}>{dir.units.map((u) => <option key={u.id} value={`org_unit:${u.id}`}>{u.nameEn}</option>)}</optgroup>
-            <optgroup label={t('ops.cycle.programs')}>{dir.programs.map((p) => <option key={p.id} value={`program:${p.id}`}>{p.nameEn}</option>)}</optgroup>
-          </select>
-        </label>
         <label className={fieldCls}>{t('plans.due.state')}
           <select aria-label={t('plans.due.state')} className={`${selectCls} sm:w-auto`} value={state} onChange={(e) => setState(e.target.value as '' | 'due' | 'upcoming')}>
             <option value="">{t('plans.due.anyState')}</option>
@@ -117,7 +108,7 @@ export function DueSection({ manage, apis = {}, me, onOpen }: { manage: boolean;
                 <p className="min-w-0 break-words text-xs text-muted-foreground">
                   <ContentText>{r.subjectName ?? r.anchorName ?? ''}</ContentText>
                   {r.subjectKind && r.anchorName && <> · <ContentText>{r.anchorName}</ContentText></>}
-                  {r.responsibleUnitName && <> · <ContentText>{r.responsibleUnitName}</ContentText></>}
+                  {r.ownerName && <> · {t('qmc.new.owner')}: <ContentText>{r.ownerName}</ContentText></>}
                   {' · '}{day(r.periodStart)}{r.periodEnd ? ` – ${day(r.periodEnd)}` : ''}
                 </p>
               </div>

@@ -492,6 +492,6 @@ describe('Merge, split and move', () => {
     render(wrap(versionPage(s.v)));
     await user.click(await screen.findByRole('button', { name: 'Actions for k1' }));
     const items = (await screen.findAllByRole('menuitem')).map((m) => m.textContent);
-    expect(items).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…', 'Show source', 'Map to IQF…']); // what lives outside the fixed version is still offered
+    expect(items).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Show source', 'Map to IQF…']); // what lives outside the fixed version is still offered
   });
 });

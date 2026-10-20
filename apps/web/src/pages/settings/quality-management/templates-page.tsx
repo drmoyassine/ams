@@ -3,7 +3,7 @@
 // again, and delete a draft that was never published (every change can be undone). Opening a template shows the editor.
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CYCLE_TEMPLATE_STATUSES, DEFAULT_CYCLE_TEMPLATE_KEYS, type CycleTemplate, type CycleTemplateStatus } from '@ams/shared';
+import { CYCLE_TEMPLATE_STATUSES, DEFAULT_CYCLE_TEMPLATE_KEYS, fitsEvidenceCycle, type CycleTemplate, type CycleTemplateStatus } from '@ams/shared';
 import { Dialog } from '../../../components/dialog';
 import { ReadOnlyNote } from '../../../components/read-only-note';
 import { Button } from '../../../components/ui/button';
@@ -115,6 +115,7 @@ export function QualityManagementSettingsPage({ api = defaultCyclesApi, settings
               <div className="flex min-w-0 gap-1"><dt>{t('qmt.col.fits')}</dt><dd className="break-words">{x.anchorKinds.length ? x.anchorKinds.map((k) => anchors[k]).join(', ') : t('qmt.fits.any')}</dd></div>
               {x.cycleCount > 0 && <div className="flex gap-1"><dt>{t('qmt.col.cycles')}</dt><dd>{x.cycleCount}</dd></div>}
               {x.origin === 'default' && <div><dd>{t('qmt.origin.default')}</dd></div>}
+              {!fitsEvidenceCycle(x.anchorKinds) && <div data-testid="qa-only"><dd className="rounded border border-border bg-muted px-1.5 py-0.5">{t('qmt.qaOnly')}</dd></div>}
             </dl>
             {canManage && (
               <div className="flex flex-wrap gap-1">

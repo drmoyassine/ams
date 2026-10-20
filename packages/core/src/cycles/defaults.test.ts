@@ -63,9 +63,10 @@ describe('installDefaultTemplates', () => {
     const audit = (await as('lead', (c) => listTemplates(c))).find((t) => t.key === 'internal_audit')!;
     await as('lead', (c) => retireTemplate(c, audit.id));
     // One default was never installed (as when a later release ships a new one): remove it behind the service's back (triggers off).
-    await db.su.query(`begin; set local session_replication_role = replica; delete from cycle_template where key = 'custom' and institution_id = '${ids.inst}'; commit;`);
+    await db.su.query(`begin; set local session_replication_role = replica; delete from cycle_template where key in ('custom', 'evidence_collection') and institution_id = '${ids.inst}'; commit;`);
     const r = await as('lead', (c) => installDefaultTemplates(c));
-    expect(r.installed).toEqual(['custom']);
+    expect(r.installed).toEqual(['evidence_collection', 'custom']);   // an install made before DEC-030 gets Evidence collection from "Restore missing defaults"
+    expect((await as('lead', (c) => listTemplates(c, { status: 'published' }))).find((t) => t.key === 'evidence_collection')).toMatchObject({ name: 'Evidence collection', nameAr: 'جمع الأدلة', anchorKinds: ['evidence_item'], version: 1, origin: 'default' });
     const now = await as('lead', (c) => listTemplates(c));
     expect(now.find((t) => t.key === 'annual_program_report')).toMatchObject({ name: 'Our annual report', version: 2 });
     expect(now.find((t) => t.key === 'internal_audit')).toMatchObject({ status: 'retired' });

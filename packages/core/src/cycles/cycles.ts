@@ -20,12 +20,14 @@ export async function updateCycle(ctx: Ctx, id: string, patch: UpdateCycle): Pro
   if (c.status === 'completed' || c.status === 'cancelled') throw new ConflictError(`The cycle is ${c.status}; it can no longer be edited.`);
   const set: Partial<typeof cycle.$inferInsert> = {};
   const before: Record<string, unknown> = {};
+  let cascadeTo: string | null = null;
   if (patch.title !== undefined && nfc(patch.title) !== c.title) { set.title = nfc(patch.title); before.title = c.title; }
   if (patch.periodLabel !== undefined && nfcOrNull(patch.periodLabel) !== c.periodLabel) { set.periodLabel = nfcOrNull(patch.periodLabel); before.periodLabel = c.periodLabel; }
   if (patch.endDate !== undefined && patch.endDate !== c.endDate) { set.endDate = patch.endDate; before.endDate = c.endDate; }
   if (patch.leadUserId !== undefined && patch.leadUserId !== c.leadUserId) {
     await assertPerson(ctx, patch.leadUserId, 'The owner of the cycle');
     set.leadUserId = patch.leadUserId; before.leadUserId = c.leadUserId;
+    cascadeTo = patch.leadUserId;
   }
   if (patch.responsibleUnitId !== undefined && patch.responsibleUnitId !== c.responsibleUnitId) {
     await assertUnit(ctx, patch.responsibleUnitId, 'The responsible unit');
@@ -47,6 +49,12 @@ export async function updateCycle(ctx: Ctx, id: string, patch: UpdateCycle): Pro
   } else {
     await guardIntegrity(() => ctx.tx.update(cycle).set(set).where(eq(cycle.id, id)));
   }
+  // One owner for the whole cycle (DEC-030): a stage that was following the old owner follows the new one; a stage given its own owner
+  // keeps it, and a finished stage keeps the person who did it.
+  if (cascadeTo) {
+    await ctx.tx.execute(sql`update cycle_stage set owner_user_id = ${cascadeTo}::uuid, owner_unresolved = false
+      where cycle_id = ${id}::uuid and owner_user_id = ${c.leadUserId}::uuid and status in ('not_started', 'in_progress')`);
+  }
   reportUndo(ctx, { label: `Edited the cycle ${c.title}`, method: 'PATCH', path: `/api/cycles/${id}`, body: before });
   return loadDetail(ctx, await loadCycle(ctx, id));
 }
@@ -55,7 +63,8 @@ export async function updateCycle(ctx: Ctx, id: string, patch: UpdateCycle): Pro
 export async function activateCycle(ctx: Ctx, id: string): Promise<CycleDetail> {
   assertHuman(ctx);
   const c = await loadCycle(ctx, id);
-  await assertManage(ctx, c.responsibleUnitId);
+  // The owner of a cycle a plan proposed starts it without cycle:manage (it is the run they were asked to do).
+  if (!(c.planId && c.leadUserId === ctx.caller.userId && c.status === 'draft')) await assertManage(ctx, c.responsibleUnitId);
   if (c.status !== 'draft') throw new ConflictError(`The cycle is already ${c.status}.`);
   if ((await stagesOf(ctx, id)).length === 0) throw new ConflictError('Add at least one stage before launching the cycle.');
   await guardIntegrity(() => ctx.tx.update(cycle).set({ status: 'active' }).where(eq(cycle.id, id)));

@@ -200,7 +200,7 @@ describe('the evidence library', () => {
     expect(within(minutes).getByTestId('evidence-kind').textContent).toBe('PDF');
     // Attached to Standard 3.2 and linked to the ABET requirement, both approved: nothing to flag.
     expect(within(minutes).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 2v2 · \d+ \w{3} \d{4}$/);
-    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Download latest', 'Edit details', 'Archive']);
+    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Cycle…', 'Download latest', 'Edit details', 'Archive']);
 
     const observations = screen.getByRole('region', { name: 'Evidence: Teaching observation reports' });
     expect(within(observations).getByTestId('evidence-meta').textContent).toContain('1 to review');
@@ -209,7 +209,7 @@ describe('the evidence library', () => {
     expect(within(headcount).getByTestId('evidence-kind').textContent).toBe('DATA');
     expect(within(headcount).getByTestId('evidence-meta').textContent).toBe('Not linked');
     // No version yet: nothing to link or download.
-    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Edit details', 'Archive']);
+    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Cycle…', 'Edit details', 'Archive']);
     await user.click(within(headcount).getByRole('button', { name: 'Actions for Graduate headcount' }));
     await user.click(screen.getByRole('menuitem', { name: 'Open sheet' }));
     expect(await within(headcount).findByRole('region', { name: 'Data' })).toBeTruthy(); // the sheet, inside the card

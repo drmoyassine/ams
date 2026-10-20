@@ -161,7 +161,7 @@ describe('cycles API', () => {
     expect(stage(decided.body, 'sign').outputs[0]).toMatchObject({ decision: 'approved', decisionLabel: 'Internally approved', state: 'final', finalisedByName: 'head' });
     const finished = await call('lead', 'POST', `/api/cycle-stages/${sign.id}/complete`);
     expect(finished.body).toMatchObject({ status: 'completed', stagesDone: 2 });
-    expect((await call('head', 'GET', '/api/my-cycle-work')).body).toEqual({ stages: [], approvals: [] });
+    expect((await call('head', 'GET', '/api/my-cycle-work')).body).toEqual({ stages: [], approvals: [], dueRuns: [] });
   });
 
   it('cancels with a reason, deletes only drafts (to the Trash), and takes the draft back with Undo', async () => {
@@ -198,7 +198,7 @@ describe('cycles API', () => {
     for (const who of ['viewer', 'contributor']) expect((await call(who, 'POST', '/api/cycle-templates/install-defaults')).status, who).toBe(403);
     const first = await call('lead', 'POST', '/api/cycle-templates/install-defaults');
     expect(first.status).toBe(200);
-    expect(first.body.installed).toEqual(['annual_program_report', 'periodic_program_review', 'admin_unit_review', 'internal_audit', 'course_assessment', 'custom']);
+    expect(first.body.installed).toEqual(['evidence_collection', 'annual_program_report', 'periodic_program_review', 'admin_unit_review', 'internal_audit', 'course_assessment', 'custom']);
     expect(first.body.existing).toEqual([]);
     const again = await call('lead', 'POST', '/api/cycle-templates/install-defaults');
     expect(again.body).toEqual({ installed: [], existing: first.body.installed });

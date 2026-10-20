@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // Standards in operation (TASK-086) in the SPA against the real API: the Quality Management page's Standards tab, the ⋯ menu
-// (Link evidence · Assign scope · Assign champion · Create cycle) by permission, the scope and champion dialogs with what is inherited
-// and from where, "Back to inherited", hover cards, the same menu on an external standard (values inherited through mappings), the
-// Create cycle dialog, and Settings -> Organization -> Institution -> Scope levels.
+// (Link evidence · Assign scope · Assign champion) by permission, the scope and champion dialogs with what is inherited
+// and from where, "Back to inherited", hover cards, the same menu on an external standard (values inherited through mappings), and
+// Settings -> Organization -> Institution -> Scope levels.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
@@ -97,7 +97,6 @@ beforeAll(async () => {
 }, 180000);
 afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
-const code = (title: string) => iqf.find((r) => r.title === title)!.code;
 
 describe('Quality Management -> Standards', () => {
   it('has a Standards tab with the institution\'s standards, full width, and no side panel', async () => {
@@ -113,11 +112,11 @@ describe('Quality Management -> Standards', () => {
     expect(screen.queryByRole('button', { name: 'Publish this version' })).toBeNull();
   });
 
-  it('has the menu Link evidence · Assign scope · Assign champion · Create cycle for a lead; no Request evidence, no authoring', async () => {
+  it('has the menu Link evidence · Assign scope · Assign champion for a lead; no Create cycle, no Set cycle plan (DEC-030), no Request evidence, no authoring', async () => {
     const user = userEvent.setup();
     render(wrap(qm('lead')));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
   });
 
   it('shows only what the person may do: a contributor links evidence; a viewer has no menu', async () => {
@@ -137,12 +136,12 @@ describe('Quality Management -> Standards', () => {
     // The published version is fixed: only the operations are offered there; a draft adds the authoring items.
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
     await user.keyboard('{Escape}');
     await user.click(await screen.findByRole('button', { name: 'Start a new version' }));
     await waitFor(async () => expect((await screen.findByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
     await user.click(await actions('3.0'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…', 'Add sub-standard', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Add sub-standard', 'Edit', 'Delete']);
     expect(screen.queryByRole('menuitem', { name: 'Request evidence' })).toBeNull();
   });
 });
@@ -164,7 +163,12 @@ describe('Assign scope and Assign champion', () => {
 
     expect(await hoverTip(user, '3.0')).toMatch(/Scope\s*Program: BS Nursing\s*\(Own\)/);
     await unhover(user, '3.0');
-    expect(await hoverTip(user, '3.2')).toMatch(/Scope\s*Program: BS Nursing\s*\(From Standard 3\)/);
+    const tip = await hoverTip(user, '3.2');
+    expect(tip).toMatch(/Scope\s*Program: BS Nursing\s*\(From Standard 3\)/);
+    // Scope and champion stay (plain facts); the cycle plan line is gone (DEC-030).
+    expect(tip).toMatch(/Champion/);
+    expect(tip).not.toMatch(/cycle plan|No cycle plan/i);
+    expect(screen.queryByTestId('hover-plans')).toBeNull();
     await unhover(user, '3.2');
   });
 
@@ -260,12 +264,14 @@ describe('an external standard', () => {
     return a.framework.me().then((me) => render(wrap(<ExternalRequirements api={a.framework} version={ext.version} me={me} evidence={a.evidence} apis={{ scope: a.scope, cycles: a.cycles, settings: a.settings }} />)));
   };
 
-  it('has the same menu first (Link evidence · Assign scope · Assign champion · Create cycle), then the rest', async () => {
+  it('has the same menu first (Link evidence · Assign scope · Assign champion), then the rest, and no cycle items', async () => {
     const user = userEvent.setup();
     await renderExt('lead');
     await user.click(await screen.findByRole('button', { name: `Actions for ${tagOf(ext.sub)}` }));
     const names = menuNames();
-    expect(names.slice(0, 5)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
+    expect(names.slice(0, 3)).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
+    expect(names).not.toContain('Create cycle');
+    expect(names).not.toContain('Set cycle plan…');
     expect(names).toContain('Map to IQF…');
   });
 
@@ -334,65 +340,6 @@ describe('an external standard', () => {
     } else await waitFor(() => expect(tip.textContent).toMatch(/\(From IQF/));
     return screen.getByRole('tooltip').textContent ?? '';
   }
-});
-
-describe('Create cycle', () => {
-  it('says there is no published template and points to Settings -> Quality Management; still offers an empty cycle', async () => {
-    const user = userEvent.setup();
-    render(wrap(qm('lead')));
-    await user.click(await actions('3.2'));
-    await user.click(screen.getByRole('menuitem', { name: 'Create cycle' }));
-    const dialog = await screen.findByRole('dialog', { name: /Create cycle/ });
-    expect((await within(dialog).findByTestId('no-templates')).textContent).toMatch(/no published cycle templates.*Settings → Quality Management/);
-    expect(within(dialog).getAllByRole('option', { name: 'No template (empty cycle)' })).toHaveLength(1);
-  });
-
-  it('creates a draft cycle anchored on the standard from a published template, shows who is responsible for each stage, then links to the cycle page', async () => {
-    const user = userEvent.setup();
-    const a = apis('lead');
-    const tpl = await a.cycles.createTemplate({
-      key: 'evidence_round', name: 'Evidence round', anchorKinds: ['requirement'],
-      stages: [{ key: 'collect', name: 'Collect evidence', process: '', checklist: [], unit: { kind: 'subject' }, owner: { kind: 'cycle_lead' }, startOffsetDays: 0, lengthDays: 14, outputs: [{ key: 'note', name: 'Summary', kind: 'note', required: true }], inputs: [] }] as never,
-    });
-    await a.cycles.publishTemplate(tpl.id);
-    // A template for another kind of anchor is not offered.
-    const other = await a.cycles.createTemplate({ key: 'unit_only', name: 'Unit review', anchorKinds: ['org_unit'], stages: tpl.stages });
-    await a.cycles.publishTemplate(other.id);
-
-    render(wrap(qm('lead')));
-    await user.click(await actions('3.2'));
-    await user.click(screen.getByRole('menuitem', { name: 'Create cycle' }));
-    const dialog = await screen.findByRole('dialog', { name: /Create cycle/ });
-    await waitFor(() => expect(within(dialog).getByRole('option', { name: 'Evidence round' })).toBeTruthy());
-    expect(within(dialog).queryByRole('option', { name: 'Unit review' })).toBeNull();
-    expect(within(dialog).queryByTestId('no-templates')).toBeNull();
-    // A subject is needed (the cycle's unit comes from it).
-    await user.selectOptions(within(dialog).getByLabelText('Who the cycle is about'), '');
-    expect((within(dialog).getByRole('button', { name: 'Create cycle' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.selectOptions(within(dialog).getByLabelText('Template'), tpl.id);
-    await user.selectOptions(within(dialog).getByLabelText('Who the cycle is about'), `program:${ids.nursing}`);
-    await user.clear(within(dialog).getByLabelText('Start date'));
-    await user.type(within(dialog).getByLabelText('Start date'), '2026-11-01');
-    await user.selectOptions(within(dialog).getByLabelText('Cycle lead'), ids.admin!);
-    await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
-    const done = await within(dialog).findByTestId('launch-review');
-    expect(done.textContent).toMatch(/Evidence round.*was created as a draft/);
-    // Who is responsible for each stage is shown before the cycle starts.
-    expect(within(done).getAllByTestId('launch-stage')).toHaveLength(1);
-
-    const cycles = await a.cycles.list({});
-    expect(cycles).toHaveLength(1);
-    expect(within(done).getByRole('link', { name: 'Open the cycle' }).getAttribute('href')).toBe(`/quality-management/cycles/${cycles[0]!.id}`);
-    expect(cycles[0]).toMatchObject({ anchorKind: 'requirement', subjectKind: 'program', subjectId: ids.nursing, status: 'draft', startDate: '2026-11-01', leadUserId: ids.admin });
-    expect(cycles[0]!.anchorName).toContain(code('Assessment of learning'));
-  });
-
-  it('is offered only to someone who manages cycles', async () => {
-    const user = userEvent.setup();
-    render(wrap(qm('contributor')));
-    await user.click(await actions('3.2'));
-    expect(menuNames()).not.toContain('Create cycle');
-  });
 });
 
 describe('Settings -> Organization -> Institution -> Scope levels', () => {

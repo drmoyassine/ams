@@ -15,7 +15,7 @@ export interface Resolver {
   person(rule: PersonRule, unitId: string | null): string | null;
 }
 
-export async function makeResolver(ctx: Ctx, c: { cycleUnitId: string; subjectUnitId: string | null; leadUserId: string }): Promise<Resolver> {
+export async function makeResolver(ctx: Ctx, c: { cycleUnitId: string; subjectUnitId: string | null; /** The unit that owns the evidence item the cycle is about. */ evidenceUnitId?: string | null; leadUserId: string }): Promise<Resolver> {
   const [unitRows, userRows, grants] = await Promise.all([
     ctx.tx.select({ id: orgUnit.id, parentId: orgUnit.parentId, type: orgUnit.type, active: orgUnit.active, headUserId: orgUnit.headUserId }).from(orgUnit),
     ctx.tx.select({ id: appUser.id }).from(appUser).where(sql`${appUser.active} = true`),
@@ -53,6 +53,8 @@ export async function makeResolver(ctx: Ctx, c: { cycleUnitId: string; subjectUn
     person(rule, unitId) {
       switch (rule.kind) {
         case 'cycle_lead': return c.leadUserId;
+        // The head of the unit that owns the evidence item the cycle is about (the subject unit of an evidence cycle).
+        case 'head_of_evidence_unit': { const h = c.evidenceUnitId ? units.get(c.evidenceUnitId)?.headUserId : null; return h && active.has(h) ? h : null; }
         case 'head_of_unit': { const h = unitId ? units.get(unitId)?.headUserId : null; return h && active.has(h) ? h : null; }
         case 'head_of_parent_unit': {
           const parent = unitId ? units.get(unitId)?.parentId : null;

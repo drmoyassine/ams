@@ -205,6 +205,12 @@ export async function setPlan(ctx: Ctx, input: SetPlan): Promise<CyclePlan> {
   await assertManageTemplates(ctx);
   const parsed = SetPlanSchema.parse(input);
   const r = await resolveTarget(ctx, parsed);
+  const [prior] = await ctx.tx.select().from(cyclePlan).where(and(targetWhere(r), eq(cyclePlan.templateId, parsed.templateId)));
+  // Cycles are not linked to standards or requirements any more (DEC-030): the plans there stay readable and can be changed or removed,
+  // but a new one is refused.
+  if (!prior && (r.kind === 'requirement' || r.kind === 'framework')) {
+    throw new ValidationError('A cycle plan is not attached to a standard or a requirement. Attach it to an evidence item (on its card in Evidence).');
+  }
   const [tpl] = await ctx.tx.select().from(cycleTemplate).where(eq(cycleTemplate.id, parsed.templateId));
   if (!tpl) throw new NotFoundError(`cycle template ${parsed.templateId}`);
   if (parsed.mode === 'own') {
@@ -217,7 +223,6 @@ export async function setPlan(ctx: Ctx, input: SetPlan): Promise<CyclePlan> {
   if (parsed.mode === 'own' && parsed.responsibleUnitId) await assertUnit(ctx, parsed.responsibleUnitId, 'The responsible unit');
   if (parsed.mode === 'own' && parsed.ownerUserId) await assertPerson(ctx, parsed.ownerUserId, 'The owner');
   const vals = valuesOf(parsed);
-  const [prior] = await ctx.tx.select().from(cyclePlan).where(and(targetWhere(r), eq(cyclePlan.templateId, parsed.templateId)));
   const t: PlanTarget = { anchorKind: r.kind, ...(r.anchorId ? { anchorId: r.anchorId } : {}), ...(r.frameworkId ? { frameworkId: r.frameworkId } : {}), ...(r.code ? { code: r.code } : {}) };
   let row: PlanRow;
   if (prior) {

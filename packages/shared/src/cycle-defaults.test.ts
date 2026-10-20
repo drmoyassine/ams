@@ -1,12 +1,25 @@
 // The shipped default cycle templates (TASK-079): data that passes the same checks as any template, with Arabic names, internal
 // approval wording only, and no accreditor named (DEC-002, DEC-005).
 import { describe, expect, it } from 'vitest';
-import { CreateCycleTemplateSchema, DEFAULT_CYCLE_TEMPLATES, DEFAULT_CYCLE_TEMPLATE_KEYS, validateTemplateStages } from './index.js';
+import { CreateCycleTemplateSchema, DEFAULT_CYCLE_TEMPLATES, DEFAULT_CYCLE_TEMPLATE_KEYS, fitsEvidenceCycle, validateTemplateStages } from './index.js';
 
 describe('default cycle templates', () => {
-  it('are the six the plan names, with unique keys', () => {
-    expect(DEFAULT_CYCLE_TEMPLATE_KEYS).toEqual(['annual_program_report', 'periodic_program_review', 'admin_unit_review', 'internal_audit', 'course_assessment', 'custom']);
-    expect(new Set(DEFAULT_CYCLE_TEMPLATE_KEYS).size).toBe(6);
+  it('are the seven the plan names, with unique keys, Evidence collection first', () => {
+    expect(DEFAULT_CYCLE_TEMPLATE_KEYS).toEqual(['evidence_collection', 'annual_program_report', 'periodic_program_review', 'admin_unit_review', 'internal_audit', 'course_assessment', 'custom']);
+    expect(new Set(DEFAULT_CYCLE_TEMPLATE_KEYS).size).toBe(7);
+  });
+
+  it('Evidence collection is collect then review, for an evidence item, with the review approved by a named person', () => {
+    const t = DEFAULT_CYCLE_TEMPLATES.find((x) => x.key === 'evidence_collection')!;
+    expect(t.anchorKinds).toEqual(['evidence_item']);
+    expect(t.name).toBe('Evidence collection');
+    expect(t.nameAr).toMatch(/[؀-ۿ]/);
+    expect(t.stages.map((s) => s.key)).toEqual(['collect', 'review']);
+    expect(t.stages.every((s) => s.owner.kind === 'cycle_lead')).toBe(true);   // stage owners follow the cycle owner
+    expect(t.stages[1]!.outputs[0]).toMatchObject({ kind: 'approval', approver: { kind: 'head_of_evidence_unit' } });
+    expect(fitsEvidenceCycle(t.anchorKinds)).toBe(true);
+    expect(fitsEvidenceCycle(['program'])).toBe(false);
+    expect(fitsEvidenceCycle([])).toBe(true);
   });
 
   it.each(DEFAULT_CYCLE_TEMPLATES.map((t) => [t.key, t] as const))('%s is well formed, consistent and has at least one stage', (_key, t) => {

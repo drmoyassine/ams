@@ -4,7 +4,7 @@
 // and says what is wrong. A published template shows read-only with "Revise to edit". Arabic text keeps its direction (dir="auto").
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CYCLE_ANCHOR_KINDS, type CycleAnchorKind, type CycleTemplate, type OrgUnitType } from '@ams/shared';
+import { CYCLE_ANCHOR_KINDS, type CycleAnchorKind, type CycleTemplate } from '@ams/shared';
 import { confirmDialog } from '../../../components/confirm-dialog';
 import { ReadOnlyNote } from '../../../components/read-only-note';
 import { Button } from '../../../components/ui/button';
@@ -30,7 +30,6 @@ export function TemplateEditorPage({ templateId, api = defaultCyclesApi, setting
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['cycle-template', templateId], queryFn: () => api.template(templateId) });
   const me = useMe(settingsApi);
-  const types = useQuery({ queryKey: ['org-unit-types'], queryFn: () => settingsApi.orgUnitTypes() });
   // Messages outlive the editor's remount when a template changes status (published, revised).
   const [notice, setNotice] = useState<Notice | null>(null);
   if (q.isLoading || me.isLoading) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
@@ -48,13 +47,13 @@ export function TemplateEditorPage({ templateId, api = defaultCyclesApi, setting
     void qc.invalidateQueries({ queryKey: ['cycle-templates'] });
   };
   return (
-    <Editor key={`${template.id}:${template.status}:${template.version}`} template={template} canManage={can(me.data, 'cycle:manage')} unitTypes={types.data ?? []} api={api}
+    <Editor key={`${template.id}:${template.status}:${template.version}`} template={template} canManage={can(me.data, 'cycle:manage')} api={api}
       notice={notice} setNotice={setNotice} onChanged={changed} onBack={onBack} />
   );
 }
 
-function Editor({ template, canManage, unitTypes, api, notice, setNotice, onChanged, onBack }: {
-  template: CycleTemplate; canManage: boolean; unitTypes: OrgUnitType[]; api: CyclesApi; notice: Notice | null; setNotice: (n: Notice | null) => void;
+function Editor({ template, canManage, api, notice, setNotice, onChanged, onBack }: {
+  template: CycleTemplate; canManage: boolean; api: CyclesApi; notice: Notice | null; setNotice: (n: Notice | null) => void;
   onChanged: (t: CycleTemplate) => void; onBack: () => void;
 }) {
   const { t: tr } = useTranslation();
@@ -197,7 +196,7 @@ function Editor({ template, canManage, unitTypes, api, notice, setNotice, onChan
         <fieldset className="m-0 min-w-0 border-0 p-0">
           <legend className="mb-1 text-xs text-muted-foreground">{t('qmt.f.anchors')}</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {CYCLE_ANCHOR_KINDS.map((k) => (
+            {CYCLE_ANCHOR_KINDS.filter((k) => k === 'evidence_item' || anchors.includes(k)).map((k) => (
               <label key={k} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={anchors.includes(k)} onChange={() => toggleAnchor(k)} />
                 {anchorNames[k]}
@@ -242,7 +241,7 @@ function Editor({ template, canManage, unitTypes, api, notice, setNotice, onChan
         {stages.length === 0 && <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">{t('qmt.stages.empty')}</p>}
         <ol className="space-y-3" aria-label={t('qmt.stages.label')}>
           {stages.map((s, i) => (
-            <StageCard key={s.uid} stage={s} index={i} stages={stages} editable={editable} open={open.has(s.uid)} types={unitTypes} problems={editable ? forStage(i) : []}
+            <StageCard key={s.uid} stage={s} index={i} stages={stages} editable={editable} open={open.has(s.uid)} problems={editable ? forStage(i) : []}
               onToggle={() => toggle(s.uid)} onChange={(next) => setStages(stages.map((x) => (x.uid === s.uid ? next : x)))}
               onMove={(d) => setStages(move(stages, i, d))}
               onRemove={() => { const r = removeStage(stages, s.uid); onStages(r.stages, r.changed); }} onStages={onStages} />

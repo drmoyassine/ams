@@ -14,8 +14,9 @@ import {
   activateCycle, addInput, addOutput, addStage, cancelCycle, completeStage, createTemplate, decideApproval, deleteCycle, deleteInput, deleteOutput, deleteStage, deleteTemplate,
   finalizeOutput, getCycle, getMyWork, getTemplate, launchCycle, listCycles, listTemplates, publishTemplate, readOutputFile, reinstateTemplate, removeOutputFile, reopenOutput,
   reopenStage, resetStage, retireTemplate, reviseTemplate, revertCycleToDraft, setInputPick, setOutputNote, skipStage, startStage, toggleChecklist, updateCycle, updateOutput,
-  updateStage, updateTemplate, uploadOutputFile, validateTemplate,
+  updateStage, updateTemplate, uploadOutputFile, validateTemplate, installDefaultTemplates,
 } from './index.js';
+import { addFileVersion } from '../evidence/evidence.js';
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -198,12 +199,14 @@ describe('launching', () => {
   });
 
   it('needs a responsible unit, a fitting template and a real anchor of this institution', async () => {
-    await expect(launch('admin', { templateId: ids.tpl!, anchorKind: 'requirement', anchorId: crypto.randomUUID() })).rejects.toThrow(/does not fit/);
+    await expect(launch('admin', { templateId: ids.tpl!, anchorKind: 'institution', anchorId: ids.inst!, responsibleUnitId: ids.uni! })).rejects.toThrow(/does not fit/);
     await expect(launch('admin', { anchorKind: 'org_unit', anchorId: crypto.randomUUID() })).rejects.toThrow(ValidationError);
     await expect(launch('admin', { anchorKind: 'program', anchorId: ids.dept! })).rejects.toThrow(/program not found/);
     await expect(launch('admin', { anchorKind: 'institution', anchorId: ids.other! })).rejects.toThrow(ValidationError);
-    // An institution anchor has no unit of its own: say which unit is responsible.
-    await expect(launch('admin', { anchorKind: 'institution', anchorId: ids.inst! })).rejects.toThrow(/Choose the unit responsible/);
+    // An institution anchor has no unit of its own and none is asked for (DEC-030): the institution's top unit is taken.
+    const derived = await launch('admin', { anchorKind: 'institution', anchorId: ids.inst!, title: 'Derived unit' });
+    expect(derived.responsibleUnitId).toBe(ids.uni);
+    await as('admin', (c) => deleteCycle(c, { id: derived.id }));
     const ok = await launch('admin', { anchorKind: 'institution', anchorId: ids.inst!, responsibleUnitId: ids.uni!, title: 'Institutional review' });
     expect(ok).toMatchObject({ title: 'Institutional review', templateId: null, templateVersion: null, stageCount: 0, anchorName: 'Gulf University', responsibleUnitId: ids.uni });
     await expect(launch('admin', { anchorKind: 'org_unit', anchorId: ids.dept!, subjectKind: 'program', subjectId: crypto.randomUUID() })).rejects.toThrow(/program not found/);
@@ -228,7 +231,10 @@ describe('launching', () => {
     await expect(as('lead', (c) => activateCycle(c, b.id))).rejects.toThrow(/at least one stage/);
     const s1 = (await as('lead', (c) => addStage(c, b.id, { name: 'Gather', process: 'Do it', checklist: ['one'] }))).stages[0]!;
     expect(lastUndo).toMatchObject({ method: 'DELETE', path: `/api/cycle-stages/${s1.id}` });
-    expect(s1).toMatchObject({ key: 'gather', responsibleUnitId: ids.dept, ownerUserId: null, ownerUnresolved: true, displayOrder: 0 });
+    expect(s1).toMatchObject({ key: 'gather', responsibleUnitId: ids.dept, ownerUserId: b.leadUserId, ownerUnresolved: false, displayOrder: 0 });   // follows the cycle's owner
+    const none = (await as('lead', (c) => addStage(c, b.id, { name: 'Nobody yet', ownerUserId: null }))).stages[1]!;
+    expect(none).toMatchObject({ ownerUserId: null, ownerUnresolved: true });   // an explicit null leaves it to be chosen
+    await as('lead', (c) => deleteStage(c, none.id));
     const withOut = await as('lead', (c) => addOutput(c, s1.id, { name: 'Findings', kind: 'note', required: true }));
     const out = withOut.stages[0]!.outputs[0]!;
     const s2 = (await as('lead', (c) => addStage(c, b.id, { name: 'Sign', ownerUserId: ids.ownerOnly! }))).stages[1]!;
@@ -540,5 +546,86 @@ describe('audit', () => {
     const { rows } = await db.su.query(`select action, actor_id from audit_event where target_type = 'cycle_output' and target_id = $1 order by created_at`, [(await as('lead', (c) => getCycle(c, ids.c1!))).stages[1]!.outputs[0]!.id]);
     expect(rows.map((r) => r.action)).toContain('update');
     expect(rows.some((r) => r.actor_id === ids.qaHead)).toBe(true);
+  });
+});
+
+describe('evidence collection cycles (DEC-030): one owner, the unit derived, cycles not about standards', () => {
+  const tplOf = async (key: string) => (await as('lead', (c) => listTemplates(c, { status: 'published' }))).find((t) => t.key === key)!;
+
+  it('refuses a new cycle about a standard version or a requirement; unit, program and institution stay creatable (API only)', async () => {
+    for (const anchorKind of ['requirement', 'framework_version'] as const) {
+      await expect(launch('admin', { anchorKind, anchorId: crypto.randomUUID(), responsibleUnitId: ids.uni! })).rejects.toThrow(/not about a standard or a requirement/);
+    }
+    const unit = await launch('admin', { anchorKind: 'org_unit', anchorId: ids.dept!, title: 'A unit review through the API' });
+    expect(unit.anchorKind).toBe('org_unit');
+    await as('admin', (c) => deleteCycle(c, { id: unit.id }));
+  });
+
+  it('the default Evidence collection template installs (idempotent) and launches for an evidence item: the owner, the unit and the reviewer come from the item', async () => {
+    const first = await as('lead', (c) => installDefaultTemplates(c));
+    expect(first.installed).toContain('evidence_collection');
+    expect((await as('lead', (c) => installDefaultTemplates(c))).installed).toEqual([]);
+    const tpl = await tplOf('evidence_collection');
+    expect(tpl).toMatchObject({ status: 'published', name: 'Evidence collection', anchorKinds: ['evidence_item'] });
+    ids.ev = await one(`insert into evidence_item (institution_id, title, type, owner_unit_id, owner_user_id) values ($1, 'Syllabi', 'document', $2, $3) returning id`, [ids.inst, ids.dept, ids.ownerOnly]);
+    // No owner named: the evidence item's owner; the unit: the item's.
+    const c = await launch('lead', { templateId: tpl.id, anchorKind: 'evidence_item', anchorId: ids.ev! });
+    ids.evc = c.id;
+    expect(c).toMatchObject({ leadUserId: ids.ownerOnly, leadName: 'ownerOnly', responsibleUnitId: ids.dept, anchorName: 'Syllabi' });
+    expect(c.stages.map((s) => [s.key, s.ownerUserId])).toEqual([['collect', ids.ownerOnly], ['review', ids.ownerOnly]]);
+    expect(outputOf(c, 'review', 'review_signoff')).toMatchObject({ kind: 'approval', approverUserId: ids.headDept, approverUnresolved: false });
+    expect(c.unresolvedCount).toBe(0);
+    // A template made for QA anchors does not fit an evidence item.
+    await expect(launch('lead', { templateId: (await tplOf('periodic_program_review')).id, anchorKind: 'evidence_item', anchorId: ids.ev! })).rejects.toThrow(/does not fit/);
+  });
+
+  it('derives the unit deterministically: the item\'s, else one the owner heads, else one the owner holds a role in, else the top one', async () => {
+    const tpl = await tplOf('evidence_collection');
+    const bare = await one(`insert into evidence_item (institution_id, title, type) values ($1, 'No unit, no owner', 'document') returning id`, [ids.inst]);
+    // The caller is the owner. The head of Dept owns the cycle -> Dept; the lead of Dept2 (a role there) -> Dept2; a plain admin -> the top unit.
+    const byHead = await launch('admin', { templateId: tpl.id, anchorKind: 'evidence_item', anchorId: bare, leadUserId: ids.headDept! });
+    expect(byHead.responsibleUnitId).toBe(ids.dept);
+    const byRole = await launch('unitLead', { templateId: tpl.id, anchorKind: 'evidence_item', anchorId: bare });
+    expect(byRole).toMatchObject({ leadUserId: ids.unitLead, responsibleUnitId: ids.dept2 });
+    const byTop = await launch('admin', { templateId: tpl.id, anchorKind: 'evidence_item', anchorId: bare });
+    expect(byTop).toMatchObject({ leadUserId: ids.admin, responsibleUnitId: ids.uni });
+    // No unit on the item: the reviewer rule finds nobody and the review's approver is flagged, never guessed.
+    expect(outputOf(byTop, 'review', 'review_signoff')).toMatchObject({ approverUserId: null, approverUnresolved: true });
+    for (const x of [byHead, byRole, byTop]) await as('admin', (c) => deleteCycle(c, { id: x.id }));
+  });
+
+  it('stages follow the cycle owner and keep an owner of their own when given one', async () => {
+    const before = await as('lead', (c) => getCycle(c, ids.evc!));
+    await as('lead', (c) => updateStage(c, stageOf(before, 'review').id, { ownerUserId: ids.contributor! }));   // overridden
+    const moved = await as('lead', (c) => updateCycle(c, ids.evc!, { leadUserId: ids.lead! }));
+    expect(moved.leadUserId).toBe(ids.lead);
+    expect(stageOf(moved, 'collect').ownerUserId).toBe(ids.lead);       // followed
+    expect(stageOf(moved, 'review').ownerUserId).toBe(ids.contributor); // kept its own
+    // Back to the owner of the item.
+    const back = await as('lead', (c) => updateCycle(c, ids.evc!, { leadUserId: ids.ownerOnly! }));
+    expect(stageOf(back, 'collect').ownerUserId).toBe(ids.ownerOnly);
+    expect(stageOf(back, 'review').ownerUserId).toBe(ids.contributor);
+  });
+
+  it('a new version of THAT evidence item makes the Collect output final while the stage is in progress, and only then', async () => {
+    const file = (name: string) => ({ fileName: name, mime: 'application/pdf', bytes: new TextEncoder().encode(name) });
+    await as('admin', (c) => addFileVersion(c, ids.ev!, file('before-the-stage.pdf')));       // the cycle is a draft: nothing happens
+    await as('lead', (c) => activateCycle(c, ids.evc!));
+    await as('admin', (c) => addFileVersion(c, ids.ev!, file('stage-not-started.pdf')));       // the stage has not started: nothing happens
+    const d = await as('lead', (c) => getCycle(c, ids.evc!));
+    expect(outputOf(d, 'collect', 'evidence_version').state).toBe('missing');
+    await as('ownerOnly', (c) => startStage(c, stageOf(d, 'collect').id));
+    // Another evidence item's version does not touch this cycle.
+    const other = await one(`insert into evidence_item (institution_id, title, type) values ($1, 'Another item', 'document') returning id`, [ids.inst]);
+    await as('admin', (c) => addFileVersion(c, other, file('elsewhere.pdf')));
+    expect(outputOf(await as('lead', (c) => getCycle(c, ids.evc!)), 'collect', 'evidence_version').state).toBe('missing');
+    await as('admin', (c) => addFileVersion(c, ids.ev!, file('syllabi-2026.pdf')));
+    const after = await as('lead', (c) => getCycle(c, ids.evc!));
+    expect(outputOf(after, 'collect', 'evidence_version')).toMatchObject({ state: 'final', note: expect.stringContaining('Version 3') });
+    expect(outputOf(after, 'collect', 'evidence_version').note).toContain('syllabi-2026.pdf');
+    // The stage is still the owner's to complete.
+    expect(stageOf(after, 'collect').status).toBe('in_progress');
+    const done = await as('ownerOnly', (c) => completeStage(c, stageOf(after, 'collect').id));
+    expect(stageOf(done, 'collect').status).toBe('completed');
   });
 });

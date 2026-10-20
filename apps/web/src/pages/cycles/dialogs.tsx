@@ -43,24 +43,22 @@ export function ReasonDialog({ title, intro, label, confirm, busy, error, onSubm
   );
 }
 
-export interface StageEdit { name: string; process: string; responsibleUnitId: string; ownerUserId: string | null; startDate: string | null; endDate: string | null }
+export interface StageEdit { name: string; process: string; ownerUserId: string | null; startDate: string | null; endDate: string | null }
 
-/** Name, instructions, responsible unit, owner and dates of one stage (cycle:manage). */
-export function EditStageDialog({ stage, dir, busy, error, onSubmit, onClose }: {
-  stage: CycleStage; dir: ReturnType<typeof useDirectory>; busy: boolean; error: string; onSubmit: (v: StageEdit) => void; onClose: () => void;
+/** Name, instructions, owner and dates of one stage (cycle:manage). The owner is the cycle's owner unless a stage is given its own (DEC-030). */
+export function EditStageDialog({ stage, cycleOwner, dir, busy, error, onSubmit, onClose }: {
+  stage: CycleStage; /** The cycle's owner: the first choice, the one every stage follows. */ cycleOwner: { id: string; name: string | null }; dir: ReturnType<typeof useDirectory>; busy: boolean; error: string; onSubmit: (v: StageEdit) => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(stage.name);
   const [process, setProcess] = useState(stage.process);
-  const [unit, setUnit] = useState(stage.responsibleUnitId);
   const [owner, setOwner] = useState(stage.ownerUserId ?? '');
   const [start, setStart] = useState(stage.startDate ?? '');
   const [end, setEnd] = useState(stage.endDate ?? '');
-  const units = dir.units.some((u) => u.id === stage.responsibleUnitId) ? dir.units : [...dir.units, { id: stage.responsibleUnitId, nameEn: stage.responsibleUnitName ?? '', nameAr: null, detail: null }];
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit({ name: name.trim(), process, responsibleUnitId: unit, ownerUserId: owner || null, startDate: start || null, endDate: end || null });
+    onSubmit({ name: name.trim(), process, ownerUserId: owner || null, startDate: start || null, endDate: end || null });
   };
   return (
     <Dialog labelledBy="edit-stage-title" onClose={onClose}>
@@ -71,13 +69,11 @@ export function EditStageDialog({ stage, dir, busy, error, onSubmit, onClose }: 
           <textarea aria-label={t('qmc.f.process')} dir="auto" rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={process} onChange={(e) => setProcess(e.target.value)} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={fieldCls}>{t('qmc.stage.unit')}
-            <select aria-label={t('qmc.stage.unit')} className={selectCls} value={unit} onChange={(e) => setUnit(e.target.value)}>{units.map((u) => <option key={u.id} value={u.id}>{u.nameEn}</option>)}</select>
-          </label>
           <label className={fieldCls}>{t('qmc.stage.owner')}
             <select aria-label={t('qmc.stage.owner')} className={selectCls} value={owner} onChange={(e) => setOwner(e.target.value)}>
               <option value="">{t('qmc.choosePerson')}</option>
-              {dir.people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+              <option value={cycleOwner.id}>{t('qmc.stage.ownerCycle', { name: cycleOwner.name ?? '' })}</option>
+              {dir.people.filter((p) => p.id !== cycleOwner.id).map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
             </select>
           </label>
           <label className={fieldCls}>{t('qmc.f.start')}<Input type="date" aria-label={t('qmc.f.start')} value={start} onChange={(e) => setStart(e.target.value)} /></label>
@@ -93,31 +89,26 @@ export function EditStageDialog({ stage, dir, busy, error, onSubmit, onClose }: 
   );
 }
 
-export interface CycleEdit { title: string; leadUserId: string; responsibleUnitId: string; startDate: string; endDate: string | null; periodLabel: string | null }
+export interface CycleEdit { title: string; leadUserId: string; startDate: string; endDate: string | null; periodLabel: string | null }
 
-/** Title, lead, responsible unit, dates and period of the cycle (cycle:manage). A running cycle's start date is fixed. */
+/** Title, owner, dates and period of the cycle (cycle:manage). A running cycle's start date is fixed. */
 export function EditCycleDialog({ cycle, dir, busy, error, onSubmit, onClose }: {
   cycle: CycleDetail; dir: ReturnType<typeof useDirectory>; busy: boolean; error: string; onSubmit: (v: CycleEdit) => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(cycle.title);
   const [lead, setLead] = useState(cycle.leadUserId);
-  const [unit, setUnit] = useState(cycle.responsibleUnitId);
   const [start, setStart] = useState(cycle.startDate);
   const [end, setEnd] = useState(cycle.endDate ?? '');
   const [period, setPeriod] = useState(cycle.periodLabel ?? '');
-  const units = dir.units.some((u) => u.id === cycle.responsibleUnitId) ? dir.units : [...dir.units, { id: cycle.responsibleUnitId, nameEn: cycle.responsibleUnitName ?? '', nameAr: null, detail: null }];
   return (
     <Dialog labelledBy="edit-cycle-title" onClose={onClose}>
       <DialogTitle id="edit-cycle-title" onClose={onClose}>{t('qmc.editCycle.title')}</DialogTitle>
-      <form className="space-y-3" aria-label={t('qmc.editCycle.title')} onSubmit={(e) => { e.preventDefault(); if (title.trim()) onSubmit({ title: title.trim(), leadUserId: lead, responsibleUnitId: unit, startDate: start, endDate: end || null, periodLabel: period.trim() || null }); }}>
+      <form className="space-y-3" aria-label={t('qmc.editCycle.title')} onSubmit={(e) => { e.preventDefault(); if (title.trim()) onSubmit({ title: title.trim(), leadUserId: lead, startDate: start, endDate: end || null, periodLabel: period.trim() || null }); }}>
         <label className={fieldCls}>{t('qmc.f.title')}<Input aria-label={t('qmc.f.title')} dir="auto" required value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={fieldCls}>{t('qmc.cycle.lead')}
-            <select aria-label={t('qmc.cycle.lead')} className={selectCls} value={lead} onChange={(e) => setLead(e.target.value)}>{dir.people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}</select>
-          </label>
-          <label className={fieldCls}>{t('qmc.cycle.unit')}
-            <select aria-label={t('qmc.cycle.unit')} className={selectCls} value={unit} onChange={(e) => setUnit(e.target.value)}>{units.map((u) => <option key={u.id} value={u.id}>{u.nameEn}</option>)}</select>
+          <label className={fieldCls}>{t('qmc.cycle.owner')}
+            <select aria-label={t('qmc.cycle.owner')} className={selectCls} value={lead} onChange={(e) => setLead(e.target.value)}>{dir.people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}</select>
           </label>
           <label className={fieldCls}>{t('qmc.f.start')}<Input type="date" aria-label={t('qmc.f.start')} required disabled={cycle.status !== 'draft'} value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label className={fieldCls}>{t('qmc.f.end')}<Input type="date" aria-label={t('qmc.f.end')} value={end} onChange={(e) => setEnd(e.target.value)} /></label>

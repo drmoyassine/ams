@@ -168,4 +168,26 @@ describe('cycle plans API', () => {
     expect(out.body).toMatchObject({ mode: 'opt_out', recurrence: null, nextDue: null });
     expect((await call('admin', 'DELETE', `/api/cycle-plans/${p2.body.id}`)).status).toBe(204);
   });
+
+  it('refuses a new plan or cycle about a standard or a requirement (DEC-030) and takes one about an evidence item', async () => {
+    const t3 = await call('admin', 'POST', '/api/cycle-templates', { key: 'ev', name: 'Evidence round', anchorKinds: [], stages: [{ key: 's1', name: 'Collect' }] });
+    await call('admin', 'POST', `/api/cycle-templates/${t3.body.id}/publish`);
+    const rec = { recurrence: { every: 1, unit: 'year' }, firstStart: start };
+    const accreditor = await one(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'Acc', 'ACC', 'institutional') returning id`, [ids.inst]);
+    const f = await one(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'Our standards', 'institution') returning id`, [ids.inst, accreditor]);
+    const refused = await call('admin', 'PUT', '/api/cycle-plans', { anchorKind: 'framework', frameworkId: f, templateId: t3.body.id, ...rec });
+    expect(refused.status).toBe(400);
+    expect(JSON.stringify(refused.body)).toMatch(/not attached to a standard or a requirement/);
+    const launched = await call('admin', 'POST', '/api/cycles', { anchorKind: 'requirement', anchorId: crypto.randomUUID(), startDate: start, responsibleUnitId: ids.unit });
+    expect(launched.status).toBe(400);
+    expect(JSON.stringify(launched.body)).toMatch(/not about a standard or a requirement/);
+    const ev = await one(`insert into evidence_item (institution_id, title, type, owner_unit_id) values ($1, 'Syllabi', 'document', $2) returning id`, [ids.inst, ids.unit]);
+    const ok = await call('admin', 'PUT', '/api/cycle-plans', { anchorKind: 'evidence_item', anchorId: ev, templateId: t3.body.id, ownerUserId: ids.contributor, ...rec });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ anchorKind: 'evidence_item', anchorName: 'Syllabi', subjectCount: 1, ownerName: 'contributor' });
+    const due = await call('admin', 'GET', '/api/due-cycle-runs?horizonDays=70');
+    expect(due.body.runs.find((r: { planId: string }) => r.planId === ok.body.id)).toMatchObject({ subjectKind: null, subjectId: null, anchorKind: 'evidence_item', anchorId: ev });
+    const mine = await call('contributor', 'GET', '/api/my-cycle-work');
+    expect(mine.body.dueRuns.some((r: { planId: string }) => r.planId === ok.body.id)).toBe(true);
+  });
 });

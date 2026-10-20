@@ -1,5 +1,5 @@
-// A cycle (/quality-management/cycles/$id, TASK-080): the header (title, what it is about, who is responsible, who leads it, status,
-// dates, cancel, the previous cycle), the stages as a timeline and as a list, and - for a draft - the controls to build it by hand.
+// A cycle (/quality-management/cycles/$id, TASK-080, simplified by DEC-030): the header (title, what it is about, its one owner, status,
+// dates, cancel, the previous cycle), the stages as a timeline and as a list (each follows the cycle's owner unless given its own), and - for a draft - the controls to build it by hand.
 // Full width, no side panels. What a person can do mirrors the API: cycle:manage for the cycle's own settings, owners, units and dates;
 // a stage owner (or cycle:work) works the stage; only the named approver decides an approval. Everyone else sees it read-only.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -102,8 +102,7 @@ export function CyclePage({ id, stageId, apis = {}, onBack }: { id: string; /** 
         <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <Fact label={t('qmc.cycle.anchor')} value={<><span className="text-muted-foreground">{anchors[cycle.anchorKind]}: </span><ContentText>{cycle.anchorName ?? t('qmc.unknownName')}</ContentText></>} />
           {cycle.subjectKind && <Fact label={t('qmc.cycle.subject')} value={<ContentText>{cycle.subjectName ?? t('qmc.unknownName')}</ContentText>} />}
-          <Fact label={t('qmc.cycle.unit')} value={<ContentText>{cycle.responsibleUnitName ?? ''}</ContentText>} />
-          <Fact label={t('qmc.cycle.lead')} value={<ContentText>{cycle.leadName ?? ''}</ContentText>} />
+          <Fact label={t('qmc.cycle.owner')} value={<span data-testid="cycle-owner"><ContentText>{cycle.leadName ?? ''}</ContentText></span>} />
           <Fact label={t('qmc.cycle.dates')} value={<>{day(cycle.startDate)}{cycle.endDate ? ` – ${day(cycle.endDate)}` : ''}</>} />
           {cycle.periodLabel && <Fact label={t('qmc.cycle.period')} value={<ContentText>{cycle.periodLabel}</ContentText>} />}
           {cycle.templateName && <Fact label={t('qmc.cycle.template')} value={<><ContentText>{cycle.templateName}</ContentText>{cycle.templateVersion ? ` · ${t('qmt.version', { version: cycle.templateVersion })}` : ''}</>} />}
@@ -114,6 +113,7 @@ export function CyclePage({ id, stageId, apis = {}, onBack }: { id: string; /** 
           <p role="note" data-testid="cancel-reason" className="break-words rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900"><span className="font-medium">{t('qmc.cycle.cancelledBecause')}</span> <span dir="auto">{cycle.cancelReason}</span></p>
         )}
         {cycle.status === 'draft' && <p role="note" className="rounded-md border border-border bg-muted p-2 text-sm" data-testid="draft-note">{t('qmc.cycle.draftNote')}</p>}
+        {cycle.stages.length > 0 && cycle.status !== 'completed' && cycle.status !== 'cancelled' && <p className="text-xs text-muted-foreground" data-testid="owner-cascade">{t('qmc.cycle.cascade')}</p>}
         {unresolved > 0 && cycle.status !== 'completed' && cycle.status !== 'cancelled' && (
           <p role="note" data-testid="unresolved-note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">{t('ops.cycle.unresolved', { count: unresolved })}</p>
         )}
@@ -152,7 +152,7 @@ export function CyclePage({ id, stageId, apis = {}, onBack }: { id: string; /** 
       )}
       {dialog === 'edit' && (
         <EditCycleDialog cycle={cycle} dir={dir} busy={busy} error={pageError} onClose={() => setDialog(null)}
-          onSubmit={(v) => void run(() => api.update(cycle.id, { title: v.title, leadUserId: v.leadUserId, responsibleUnitId: v.responsibleUnitId, endDate: v.endDate, periodLabel: v.periodLabel, ...(cycle.status === 'draft' && v.startDate !== cycle.startDate ? { startDate: v.startDate } : {}) })).then((r) => { if (r) setDialog(null); })} />
+          onSubmit={(v) => void run(() => api.update(cycle.id, { title: v.title, leadUserId: v.leadUserId, endDate: v.endDate, periodLabel: v.periodLabel, ...(cycle.status === 'draft' && v.startDate !== cycle.startDate ? { startDate: v.startDate } : {}) })).then((r) => { if (r) setDialog(null); })} />
       )}
       {dialog === 'stage' && (
         <AddStageDialog cycle={cycle} dir={dir} busy={busy} error={pageError} onClose={() => setDialog(null)}

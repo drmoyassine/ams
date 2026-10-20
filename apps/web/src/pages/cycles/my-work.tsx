@@ -1,12 +1,19 @@
-// Quality Management -> My work (TASK-080): the stages I own in running cycles and the approvals waiting for my decision, with due dates
-// and late flags, each linking to the stage on its cycle page. A person with no stage and no approval sees that there is nothing for them.
-import { Link } from '@tanstack/react-router';
+// Quality Management -> My work (TASK-080, DEC-030): the runs that have fallen due of plans I own, each with a "Start" (the shared launch dialog),
+// the stages I own in running cycles and the approvals waiting for my decision, with due dates and late flags, each linking to the stage on its
+// cycle page. A person with nothing to do sees that there is nothing for them.
+import { useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import type { DueRun } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import type { CycleApis } from '../../components/cycles/directory';
+import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
 import { Chip, day, stageStatusLabels } from '../../components/cycles/labels';
+import { Button } from '../../components/ui/button';
 import { useTranslation } from '../../i18n';
 import { useCyclesApi } from '../../lib/cycles-api';
+import { useMe } from '../../lib/me';
+import { useSettingsApi } from '../../lib/settings-api';
 import type { T } from '../settings/quality-management/labels';
 
 /** The number shown beside the menu item: stages I own plus approvals waiting for me (running cycles only). */
@@ -19,14 +26,35 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   const { t: tr } = useTranslation();
   const t = tr as unknown as T;
   const q = useMyWork(apis);
+  const me = useMe(useSettingsApi(apis.settings));
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState<DueRun | null>(null);
   const statuses = stageStatusLabels(t);
   if (q.isError) return <p role="alert" className="text-sm text-red-700">{(q.error as Error).message}</p>;
   if (!q.data) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
-  const { stages, approvals } = q.data;
+  const { stages, approvals, dueRuns } = q.data;
   return (
     <div className="space-y-6">
       <p className="max-w-prose text-sm text-muted-foreground">{t('qmc.my.intro')}</p>
-      {stages.length === 0 && approvals.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
+      {stages.length === 0 && approvals.length === 0 && dueRuns.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
+
+      {dueRuns.length > 0 && (
+        <section aria-label={t('qmc.my.due')} className="space-y-2">
+          <h2 className="text-base font-semibold">{t('qmc.my.due')}</h2>
+          <ul className="space-y-2">
+            {dueRuns.map((r) => (
+              <li key={`${r.planId}|${r.periodStart}`} data-testid="my-due-run" className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="break-words text-base font-medium" dir="auto"><ContentText>{r.templateName}</ContentText> · <ContentText>{r.periodLabel}</ContentText></p>
+                  <p className="break-words text-sm text-muted-foreground"><ContentText>{r.subjectName ?? r.anchorName ?? ''}</ContentText> · {day(r.periodStart)}{r.periodEnd ? ` – ${day(r.periodEnd)}` : ''}</p>
+                </div>
+                <Chip tone="warn" testId="due-state">{t('plans.state.due')}</Chip>
+                <Button type="button" variant="outline" className="px-3 py-1" aria-label={t('qmc.my.startNamed', { name: `${r.templateName} ${r.periodLabel}` })} onClick={() => setStarting(r)}>{t('qmc.my.start')}</Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {approvals.length > 0 && (
         <section aria-label={t('qmc.my.approvals')} className="space-y-2">
@@ -65,6 +93,10 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
             ))}
           </ul>
         </section>
+      )}
+      {starting && (
+        <LaunchCycleDialog key={`${starting.planId}|${starting.periodStart}`} proposal={starting} me={me.data} apis={apis} onClose={() => setStarting(null)}
+          onOpen={(id) => { void navigate({ to: '/quality-management/cycles/$id', params: { id } }); }} />
       )}
     </div>
   );

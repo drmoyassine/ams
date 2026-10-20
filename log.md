@@ -14,6 +14,16 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-20 — Cycles simplified: evidence collection, one owner, not linked to standards (TASK-087)
+
+Decisions: DEC-030 (new; changes parts of DEC-029: items 4, 9, 12, 14), DEC-002 (Evidence collection is a template, not code), DEC-005 (the review reads "Internally approved"), DEC-006 (nothing here is AI). No migration.
+- **Why.** The owner found the cycle model too confusing: a cycle could be about a standard, a unit, a program or the institution, had a subject, a lead, a responsible unit and a unit and owner per stage, and plans were inherited down the IQF. Decided 2026-10-20: cycles attach to an evidence item now, to an accreditation later (TASK-082), and Quality Assurance / report cycles are out of scope for now.
+- **What stayed.** The whole engine, the tables and the API: a unit, program or institution cycle or plan can still be created through the API, existing ones are listed, and the engine's tests keep running on them. Scope and champion on standards, Link evidence and Map to IQF stay. Decisions inside the brief: no `0063_cycle_single_owner.sql` (the unit column stays NOT NULL and is derived: the evidence's unit, else one the owner heads, else one the owner holds a role in by name, else the top unit); a stage "follows" the cycle owner when its owner IS the cycle's owner, so no new column (changing the owner moves the not finished stages that had the old owner); the new output is a `note` (not a new kind, so no constraint change) that a new evidence version writes and finalizes while Collect is in progress.
+- **What was refused.** A new cycle on a requirement or a standard version, and a new plan on a requirement or a framework (400 with the reason). An existing plan on a standard can still be changed or removed, so nothing is stranded; its runs cannot be launched (`canLaunch` false).
+- **Traps met.** A plan on an evidence item used to need "applies to" (it had no subjects otherwise); with nothing to narrow it, the item is now its own subject (one run per period, `subjectKind` null) and a skip of such a period is stored with no subject and read back as the item's. The plan's owner must be able to start a run without `cycle:manage` (My work is for owners), so `launchCycle` and `activateCycle` allow it for a run of a plan they own. `addStage` by hand now gives the stage the cycle's owner (an explicit null still leaves it open).
+- **Left behind on purpose.** `requirementContexts` still computes the plans of each requirement (the API field stays; no screen shows it); the legacy unit rules stay in old templates, only the editor stopped editing them.
+- Tests: 1,888 tests in 179 files (database and route-permission tests included); typecheck, lint, build, i18n:extract and the responsive check pass.
+
 ## 2026-10-19 — Recurrence, academic calendar and cycle plans with inheritance (TASK-081)
 
 Decisions: DEC-029 (items 11 and 12), DEC-002 (no accreditor in code: ABET, WSCUC and ISO cadences are plans and templates), DEC-005 (nothing says met or compliant). No new decision. Migration 0062.

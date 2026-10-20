@@ -77,7 +77,7 @@ export async function summariesOf(ctx: Ctx, rows: CycleRow[]): Promise<CycleSumm
     ctx.tx.execute<{ cycle_id: string; stages: number; done: number; unresolved: number }>(sql`
       select s.cycle_id, count(*)::int as stages,
              count(*) filter (where s.status in ('completed', 'skipped'))::int as done,
-             (count(*) filter (where s.owner_unresolved or s.unit_unresolved)
+             (count(*) filter (where s.owner_unresolved)
               + (select count(*) from cycle_output o where o.stage_id in (select id from cycle_stage where cycle_id = s.cycle_id) and o.approver_unresolved))::int as unresolved
       from cycle_stage s where s.cycle_id = any(${uuids(ids)}) group by s.cycle_id`),
     // The first stage not yet done of each cycle, with its owner; and whether any open stage is late or due soon.

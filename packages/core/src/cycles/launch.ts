@@ -5,13 +5,13 @@
 // settle is left empty and flagged for a person; nothing is guessed. `activateCycle` (cycles.ts) then starts it.
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { cycle, cycleInput, cycleOutput, cyclePlan, cycleStage } from '@ams/db';
-import type { CycleDetail, LaunchCycle, StageDef, UnitRule } from '@ams/shared';
+import { CYCLE_RETIRED_ANCHOR_KINDS, type CycleDetail, type LaunchCycle, type StageDef, type UnitRule } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
-import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { reportUndo } from '../trash/store.js';
-import { addDays, assertManage, assertPerson, assertUnit, checkAnchor, checkSubject, nfc, nfcOrNull, type CycleRow } from './common.js';
+import { addDays, assertPerson, assertUnit, checkAnchor, checkSubject, deriveResponsibleUnit, mayManage, nfc, nfcOrNull, type CycleRow } from './common.js';
 import { loadDetail } from './read.js';
 import { makeResolver } from './resolve.js';
 import { loadPublishedTemplate } from './templates.js';
@@ -30,6 +30,10 @@ const defaultTitle = (parts: (string | null | undefined)[]) => parts.filter(Bool
 
 export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDetail> {
   assertHuman(ctx);
+  // Cycles are not linked to standards or requirements (DEC-030); an existing one stays readable, a new one is refused.
+  if ((CYCLE_RETIRED_ANCHOR_KINDS as readonly string[]).includes(input.anchorKind)) {
+    throw new ValidationError('A cycle is not about a standard or a requirement. Choose an evidence item (or a unit, program or the institution through the API).');
+  }
   let tpl: Awaited<ReturnType<typeof loadPublishedTemplate>> | null = null;
   if (input.templateId) {
     tpl = await loadPublishedTemplate(ctx, input.templateId);
@@ -39,15 +43,22 @@ export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDe
   const anchor = await checkAnchor(ctx, input.anchorKind, input.anchorId);
   const subject = input.subjectKind && input.subjectId ? await checkSubject(ctx, input.subjectKind, input.subjectId) : null;
 
-  // Who does the work: the subject, or the anchor itself when that is an institution, unit or program.
-  const worker = subject ?? (input.anchorKind === 'org_unit' || input.anchorKind === 'program' || input.anchorKind === 'institution' ? anchor : null);
+  // Who does the work: the subject, or the anchor itself when that is an institution, unit, program or evidence item (its owner unit).
+  const worker = subject ?? (['org_unit', 'program', 'institution', 'evidence_item'].includes(input.anchorKind) ? anchor : null);
   const subjectUnitId = worker?.unitId ?? null;
-  const responsibleUnitId = input.responsibleUnitId ?? subjectUnitId;
-  if (!responsibleUnitId) throw new ValidationError('Choose the unit responsible for this cycle: it could not be found from what the cycle is about.');
-  await assertUnit(ctx, responsibleUnitId, 'The responsible unit');
-  await assertManage(ctx, responsibleUnitId);
-  const leadUserId = input.leadUserId ?? ctx.caller.userId!;
+  const evidenceUnitId = input.anchorKind === 'evidence_item' ? anchor.unitId : null;
+  // The cycle's one owner: named, else (for evidence) the evidence item's owner, else the caller.
+  const leadUserId = input.leadUserId ?? (input.anchorKind === 'evidence_item' && anchor.ownerUserId ? anchor.ownerUserId : ctx.caller.userId!);
   await assertPerson(ctx, leadUserId, 'The owner of the cycle');
+  // The unit is derived, never asked (DEC-030): named in the API, else the worker's, else the evidence's, the owner's, the top one.
+  const responsibleUnitId = input.responsibleUnitId ?? subjectUnitId ?? await deriveResponsibleUnit(ctx, { evidenceUnitId, ownerUserId: leadUserId });
+  if (!responsibleUnitId) throw new ValidationError('The organization chart has no unit yet, so the cycle has nowhere to belong. Add a unit first.');
+  await assertUnit(ctx, responsibleUnitId, 'The responsible unit');
+  // A run a plan proposed may be started by the plan's owner without cycle:manage (they are the person asked to collect it).
+  if (!(await mayManage(ctx, responsibleUnitId))) {
+    const planOwner = input.planId ? (await ctx.tx.select({ owner: cyclePlan.ownerUserId }).from(cyclePlan).where(eq(cyclePlan.id, input.planId)))[0]?.owner : null;
+    if (!planOwner || planOwner !== ctx.caller.userId) throw new ForbiddenError('Missing permission cycle:manage');
+  }
 
   let previousCycleId: string | null = null;
   if (input.previousCycleId) {
@@ -90,7 +101,7 @@ export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDe
     responsibleUnitId, leadUserId, status: 'draft', startDate: input.startDate, previousCycleId, periodLabel: nfcOrNull(input.periodLabel), origin: input.origin, planId, periodStart,
   }).returning());
 
-  if (tpl) await buildStages(ctx, row!, tpl.stages, { subjectUnitId, previousCycleId });
+  if (tpl) await buildStages(ctx, row!, tpl.stages, { subjectUnitId, evidenceUnitId, previousCycleId });
 
   // The cycle ends when its last stage does.
   const [end] = (await ctx.tx.execute<{ e: string | null }>(sql`select max(end_date)::text as e from cycle_stage where cycle_id = ${row!.id}`)).rows;
@@ -100,8 +111,8 @@ export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDe
   return loadDetail(ctx, (await ctx.tx.select().from(cycle).where(eq(cycle.id, row!.id)))[0]!);
 }
 
-async function buildStages(ctx: Ctx, c: CycleRow, defs: StageDef[], opts: { subjectUnitId: string | null; previousCycleId: string | null }): Promise<void> {
-  const resolver = await makeResolver(ctx, { cycleUnitId: c.responsibleUnitId, subjectUnitId: opts.subjectUnitId, leadUserId: c.leadUserId });
+async function buildStages(ctx: Ctx, c: CycleRow, defs: StageDef[], opts: { subjectUnitId: string | null; evidenceUnitId: string | null; previousCycleId: string | null }): Promise<void> {
+  const resolver = await makeResolver(ctx, { cycleUnitId: c.responsibleUnitId, subjectUnitId: opts.subjectUnitId, evidenceUnitId: opts.evidenceUnitId, leadUserId: c.leadUserId });
   const stageIds = new Map<string, string>();
   const outputIds = new Map<string, string>();   // `${stageKey}/${outputKey}`
 
@@ -110,7 +121,7 @@ async function buildStages(ctx: Ctx, c: CycleRow, defs: StageDef[], opts: { subj
     const unitUnresolved = unit === null;
     const stageUnit = unit ?? c.responsibleUnitId;
     // A rule that needs the unit cannot be settled when the unit could not be; the cycle's own lead needs no unit.
-    const personFor = (rule: StageDef['owner']) => (rule.kind === 'cycle_lead' ? resolver.person(rule, null) : unitUnresolved ? null : resolver.person(rule, unit));
+    const personFor = (rule: StageDef['owner']) => (rule.kind === 'cycle_lead' || rule.kind === 'head_of_evidence_unit' ? resolver.person(rule, null) : unitUnresolved ? null : resolver.person(rule, unit));
     const owner = personFor(def.owner);
     const start = addDays(c.startDate, def.startOffsetDays);
     const [stage] = await guardIntegrity(() => ctx.tx.insert(cycleStage).values({

@@ -8,6 +8,8 @@ import { tag } from '../pages/settings/iqf-requirements';
 import { AccordionCard, HoverCard, Shaded } from './accordion';
 import { ContentText } from './content-text';
 import { DatasetPanel } from './dataset-panel';
+import type { CycleApis } from './cycles/directory';
+import { EvidenceCycleSection } from './evidence-cycle-section';
 import { EvidenceLinkList } from './evidence-links';
 import { RequestEvidenceDialog, RequestFormDialog, RequestList } from './evidence-requests';
 import { Modal } from './link-evidence-dialog';
@@ -203,8 +205,10 @@ type Dialog = 'link' | 'request-update' | 'request-form' | 'edit' | null;
  * One piece of evidence in the library: what it is, its title, and what needs attention on the closed card; opening it
  * shows the description, every version, what it is linked to, and for data its requests and the online sheet.
  */
-export function EvidenceCard({ item, api, framework, canWrite, canReview, open, onToggle }: {
+export function EvidenceCard({ item, api, framework, canWrite, canReview, open, onToggle, cycleApis }: {
   item: EvidenceItem; api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; open: boolean; onToggle: (open: boolean) => void;
+  /** The clients of the Cycle section (they default to the app's own; tests hand it those of the signed-in test person). */
+  cycleApis?: CycleApis;
 }) {
   const qc = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -241,6 +245,8 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
     ...may(canWrite && active && !!latest, 'Link to a standard', () => setDialog('link')),
     ...may(!isData && canWrite && active, 'Request an update', () => setDialog('request-update')),
     ...may(isData && canWrite && active, 'Ask people to fill in the form', () => setDialog('request-form')),
+    // The Cycle section shows the plan, the open cycle and the past ones, with "Collect this regularly" and "Start a cycle now" (DEC-030).
+    ...may(canWrite && active, 'Cycle…', () => onToggle(true)),
     ...may(!!latest, 'Download latest', () => act(downloadLatest)),
     ...may(canWrite, 'Edit details', () => setDialog('edit')),
     ...may(canWrite, active ? 'Archive' : 'Restore', () => act(() => api.update(item.id, { status: active ? 'archived' : 'active' }))),
@@ -293,6 +299,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
               <Shaded>Linked to</Shaded>
               <EvidenceLinkList links={d.links} api={api} canReview={canReview} canRemove={canWrite} showTarget onChange={() => void refresh()} setError={setError} />
             </section>
+            <EvidenceCycleSection item={d.item} framework={framework} apis={{ evidence: api, ...cycleApis }} />
             {isData && (requests.data?.length ?? 0) > 0 && (
               <section aria-label="Requests for this item" className="space-y-2">
                 <Shaded>Requests</Shaded>

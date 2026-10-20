@@ -93,7 +93,7 @@ interface ItemProps {
   api: FrameworkApi; evidence: EvidenceApi; r: Requirement; all: Requirement[]; me: Me | undefined; editable: boolean;
   open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
   onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
-  /** Assign scope, Assign champion, Create cycle (those the person may use), and what this item's hover card shows of them. */
+  /** Assign scope, Assign champion (those the person may use), and what this item's hover card shows of them. */
   opsItems: (r: Requirement) => MenuItem[]; assignment: NodeAssignment | undefined;
 }
 
@@ -108,7 +108,7 @@ function Item(p: ItemProps) {
   const links = useQuery({ queryKey: ['internal-evidence', r.id], queryFn: () => evidence.internalLinks(r.id), enabled: isOpen });
   const requests = useQuery({ queryKey: ['internal-requests', r.id], queryFn: () => evidence.internalRequests(r.id), enabled: isOpen });
   const [linkError, setLinkError] = useState('');
-  // Link evidence · Assign scope · Assign champion · Create cycle, then the authoring items. Evidence is requested through a cycle.
+  // Link evidence · Assign scope · Assign champion, then the authoring items.
   const menu = [
     ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }] : []),
     ...p.opsItems(r),
@@ -146,8 +146,8 @@ function Item(p: ItemProps) {
 /**
  * The internal framework's requirements: standards and their sub-standards as full-width accordions, each with a
  * description and its evidence; sub-standards are listed under their standard, indented. A card's ⋯ menu is Link evidence,
- * Assign scope, Assign champion, Create cycle (TASK-086), then adds a sub-standard, edits or deletes it. Evidence is requested
- * through a cycle, so the menu has no "Request evidence". `operational` is the Quality Management view: the same menu and cards,
+ * Assign scope, Assign champion (TASK-086), then adds a sub-standard, edits or deletes it. Evidence is requested
+ * through an evidence item's own cycle (Evidence page), so the menu has no "Request evidence". `operational` is the Quality Management view: the same menu and cards,
  * without the authoring (edit, add, delete, move), which stays in Settings -> Internal Quality Framework.
  */
 export function IqfRequirements({ api, version, me, evidence: evidenceOverride, operational = false, apis }: {
@@ -157,7 +157,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
   const contexts = useRequirementContexts(evidence, version.id);
   const assignmentOf = useCallback((code: string): NodeAssignment | undefined => {
     const c = contexts.data?.byCode[code];
-    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion, ...(c.plans ? { plans: c.plans } : {}) } : undefined;
+    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion } : undefined;
   }, [contexts.data]);
   const ops = useStandardOps({ me, version, assignmentOf, tagOf: tag, ...(apis ? { apis } : {}) });
   const qc = useQueryClient();

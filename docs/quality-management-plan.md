@@ -1,6 +1,50 @@
 # Quality Management — Cycles and Reporting (TASK-077)
 
-Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078 is built (schema, permissions, services, API and typed web client; migration 0059) and TASK-079 (Settings -> Quality Management: template list, editor, six shipped defaults); the cycle screens and the rest are not. TASK-086 is built (scope levels, scope and champion with inheritance, the menu and Quality Management -> Standards; migration 0061); TASK-080 is built (Cycles and My work tabs, the shared launch dialog, the cycle page; the list API gained next stage, late and due flags and the `due` and `aboutId` filters); TASK-081 is built (academic calendar in Settings, the recurrence engine, plans with inheritance, the Plans tab and the Due to launch list; the scheduler only proposes; migration 0062); nesting, the ⋯ menus beyond standards, the assistant and report outputs are not.
+Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078 is built (schema, permissions, services, API and typed web client; migration 0059) and TASK-079 (Settings -> Quality Management: template list, editor, six shipped defaults); the cycle screens and the rest are not. TASK-086 is built (scope levels, scope and champion with inheritance, the menu and Quality Management -> Standards; migration 0061); TASK-080 is built (Cycles and My work tabs, the shared launch dialog, the cycle page; the list API gained next stage, late and due flags and the `due` and `aboutId` filters); TASK-081 is built (academic calendar in Settings, the recurrence engine, plans with inheritance, the Plans tab and the Due to launch list; the scheduler only proposes; migration 0062); nesting, the ⋯ menus beyond standards, the assistant and report outputs are not. **TASK-087 (2026-10-20, DEC-030) simplified the model: cycles are not linked to standards, a cycle has one owner, evidence collection comes first; see "Simplified 2026-10-20" below, which supersedes the text that follows where they differ.**
+
+## Simplified 2026-10-20 (DEC-030, TASK-087)
+
+The owner found the cycle model too confusing, so it is simplified. **This section wins over everything below it**; where
+the text below says otherwise (cycles about a standard, a lead and a responsible unit, "Create cycle" in the ⋯ menu,
+plans inherited down the IQF, a cycle started from almost anything) it is **superseded** and kept only as the record of
+how the engine was designed.
+
+**In scope now**
+
+- A cycle is about **an evidence item**: an *evidence collection cycle*, and a *plan* that proposes one regularly ("collect
+  this regularly": every term, year, N years or months, with a first due date and an owner). Under the hood these are the
+  existing cycle and plan services anchored on the evidence item (`anchor_kind = evidence_item`).
+- A cycle has **one owner**, a person (`cycle.lead_user_id`). The owner cascades by default to every stage and can be
+  overridden per stage on the cycle page; changing the cycle's owner moves the stages that follow it. The screens say
+  "Owner" and nothing else: no "Lead", no "Responsible unit" in the header, the launch dialog, the list or its filters.
+  The responsible-unit column stays (it carries the permission check) and is **derived**: the evidence item's owner unit,
+  else a unit the owner heads, else a unit the owner holds a role in (by name), else the institution's top unit.
+- Template owner rules in the editor are **Cycle owner** (the default), **a named role**, or **Head of the evidence's
+  owner unit**. Rules an older template holds (head of the unit, head of the unit above) still work.
+- The launch dialog (Cycles -> New cycle, "Start a cycle now" on an evidence item, and a run a plan proposed) asks four
+  things: template, evidence item, owner, start date. It then shows only what the rules could not settle ("Choose an owner
+  for stage X").
+- On the **evidence item's card** a Cycle section shows the plan, the next due date, the open cycle (a link to its page)
+  and the past ones, with "Collect this regularly", "Start a cycle now" and "Stop repeating". A run that falls due is in
+  Cycles -> Due to launch and, for its owner, in My work with a Start.
+- A shipped template **Evidence collection**: Collect (the owner gets a new version of the evidence; adding a new version
+  to THAT evidence item while the stage runs fills the stage's output and makes it final), then Review (a named approver
+  signs it off, "Internally approved").
+- Quality Management tabs stay Standards, Cycles, Plans, My work. Standards keep their ⋯ menu **Link evidence · Assign
+  scope · Assign champion** (and Map to IQF on external requirements); scope and champion are plain facts.
+
+**Not in scope now**
+
+- **Cycles about standards, sub-standards or requirements** (IQF or external), and plans on them: gone as concepts. The
+  service refuses a new cycle or plan anchored on a requirement or a standard version; existing ones are listed and read.
+  "Create cycle" and "Set cycle plan…" left the ⋯ menu of standards, and the hover cards show scope and champion only.
+- **Accreditation cycles** (an engagement as the anchor): the anchor kind stays reserved; built later in TASK-082.
+- **Quality Assurance / report cycles** on a unit, a program or the institution: out of scope for now. The engine, the data
+  and the services keep working (they can still be created through the API, and existing ones are listed), but no screen
+  offers them, and templates made only for them are labelled "for Quality Assurance / report cycles (coming)" in Settings
+  -> Quality Management and are not offered when starting a cycle. They will be taken up separately.
+- Nested cycles, the assistant (TASK-084), report outputs (TASK-085) and "Start a cycle from the ⋯ menu" (TASK-083,
+  cancelled by TASK-087) are unchanged by this except that TASK-083 is gone.
 
 ## Build tasks
 
@@ -11,10 +55,11 @@ Status: design agreed with the owner on 2026-10-15 (DEC-029, TASK-077). TASK-078
 | TASK-080 | Quality Management screens: list, new cycle, cycle page, My work | 079 |
 | TASK-081 | Recurrence, academic terms, plans with inheritance | 080 |
 | TASK-082 | Nested cycles; cycles in Accreditations; org-unit subjects | 081 |
-| TASK-083 | Start a cycle from the ⋯ menu; Cycles panels | 080 |
+| TASK-083 | Start a cycle from the ⋯ menu; Cycles panels (cancelled 2026-10-20: superseded by TASK-087, no cycles from standards) | 080 |
 | TASK-084 | Assistant reads and proposes cycles | 083 |
 | TASK-085 | Report outputs on the shared report engine | 080 + M4 report engine |
 | TASK-086 | IQF in operation: ⋯ menu (Link evidence, Assign scope, Assign champion, Create cycle), scope levels, cascade and inheritance to mapped standards | 078 |
+| TASK-087 | Simplify cycles: evidence collection, one owner (2026-10-20; DEC-030): the Cycle section of an evidence item, the owner cascade, the Evidence collection template; Create cycle and plans left the standards | 080, 081, 086 |
 
 ## Scope
 
@@ -53,7 +98,7 @@ Cycle  (subject, template, status, dates)
   input to this year's stage 1.
 - **Review is just stages.** A review chain is a run of stages whose output is an `approval`; returning work is
   reopening the earlier stage. No separate review engine.
-- **Responsible unit and owner**: every cycle and every stage has a responsible unit (from the org chart) and an owner
+- **Responsible unit and owner** (superseded 2026-10-20: a cycle has one owner; the unit is derived; see the top section): every cycle and every stage has a responsible unit (from the org chart) and an owner
   (a person). The template gives both as rules (the subject's unit, its parent, a unit of a given type such as the QA
   office; its head, or a role); launching resolves them, and both can be changed per stage.
 - **Owners (detail)**: the template says who, as a role or an org-chart rule ("head of the unit", "head of the parent unit",
@@ -61,7 +106,7 @@ Cycle  (subject, template, status, dates)
 - **Dates**: the template gives each stage an offset and a length from the cycle's start; launching turns them into
   dates, editable per stage. Order comes from the inputs, not from the dates, so stages may overlap.
 
-## Cycles at any level
+## Cycles at any level (superseded 2026-10-20: see the top section; only evidence items are offered, accreditations later)
 
 A cycle is attached to an **anchor**: anything it is about. One mechanism, any level:
 
@@ -93,10 +138,10 @@ files never go to the AI):
 - The ⋯ menu's "Start a cycle" has "Ask the assistant to draft it" next to the templates.
 - Drafting report text and summarising stay deferred (see Scope).
 
-## Standards in operation: Link evidence, Assign scope, Assign champion, Create cycle (owner, 2026-10-15)
+## Standards in operation: Link evidence, Assign scope, Assign champion, Create cycle (owner, 2026-10-15; "Create cycle" and plans on standards superseded 2026-10-20)
 
 The ⋯ menu of an IQF standard, sub-standard or item becomes: **Link evidence · Assign scope · Assign champion · Create
-cycle**. "Request evidence" leaves the menu: evidence is requested through a cycle (an evidence-collection cycle).
+cycle** (Create cycle was removed on 2026-10-20, DEC-030). "Request evidence" leaves the menu: evidence is requested through a cycle (an evidence-collection cycle).
 
 **Where:** these are operations, not settings. They live on the IQF tree shown in the **Quality Management** menu.
 Settings -> Internal Quality Framework stays the place where the framework itself is written, versioned and published.

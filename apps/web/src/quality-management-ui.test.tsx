@@ -91,11 +91,16 @@ describe('the template list', () => {
     const user = userEvent.setup();
     render(wrap(list('admin')));
     await user.click(await screen.findByRole('button', { name: 'Add the default templates' }));
-    expect((await screen.findByRole('status')).textContent).toBe('Added 6 default templates.');
+    expect((await screen.findByRole('status')).textContent).toBe('Added 7 default templates.');
     expect(await screen.findAllByTestId('template-row')).toHaveLength(DEFAULT_CYCLE_TEMPLATE_KEYS.length);
     expect(screen.queryByTestId('no-templates')).toBeNull();
     expect(screen.queryByRole('button', { name: /Restore missing defaults/ })).toBeNull();
+    // The shipped Evidence collection template is among them; the ones made for Quality Assurance / report cycles say so.
+    const evidenceRow = await rowOf('Evidence collection');
+    expect(evidenceRow.textContent).toContain('جمع الأدلة');
+    expect(within(evidenceRow).queryByTestId('qa-only')).toBeNull();
     const annual = await rowOf('Annual program report');
+    expect(within(annual).getByTestId('qa-only').textContent).toBe('For Quality Assurance / report cycles (coming)');
     expect(annual.textContent).toContain('التقرير السنوي للبرنامج');
     expect(within(annual).getByTestId('template-status').textContent).toBe('Published');
     expect(annual.textContent).toMatch(/Version:1/);
@@ -177,12 +182,13 @@ describe('the template list', () => {
   });
 
   it('restores only the missing defaults', async () => {
-    await db.su.query(`begin; set local session_replication_role = replica; delete from cycle_template where key = 'custom' and institution_id = '${ids.inst}'; commit;`);
+    await db.su.query(`begin; set local session_replication_role = replica; delete from cycle_template where key in ('custom', 'evidence_collection') and institution_id = '${ids.inst}'; commit;`);
     const user = userEvent.setup();
     render(wrap(list('admin')));
-    await user.click(await screen.findByRole('button', { name: 'Restore missing defaults (1)' }));
-    expect((await screen.findByRole('status')).textContent).toBe('Restored 1 missing default templates.');
+    await user.click(await screen.findByRole('button', { name: 'Restore missing defaults (2)' }));
+    expect((await screen.findByRole('status')).textContent).toBe('Restored 2 missing default templates.');
     expect(await screen.findByRole('button', { name: 'View Custom (blank)' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'View Evidence collection' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Restore missing defaults/ })).toBeNull();
   });
 });
@@ -211,7 +217,10 @@ describe('the template editor', () => {
     const s3 = await openStage(user, 3);
     expect((s3.getByLabelText('Stage 3, output 1: kind') as HTMLSelectElement).value).toBe('approval');
     expect((s3.getByLabelText('Stage 3, output 1: who approves') as HTMLSelectElement).value).toBe('head_of_unit');
-    expect((s3.getByLabelText('Stage 3: responsible unit') as HTMLSelectElement).value).toBe('subject');
+    // The owner rule of an older template stays readable (it is listed while the template holds it); the unit rule is no longer edited.
+    expect((s3.getByLabelText('Stage 3: owner') as HTMLSelectElement).value).toBe('head_of_unit');
+    expect(s3.getAllByRole('option', { name: 'Head of the unit' }).length).toBeGreaterThan(0);
+    expect(s3.queryByLabelText('Stage 3: responsible unit')).toBeNull();
   });
 
   it('says in plain words what is wrong, per stage, as the stages change; a draft saves unfinished; Publish says what to fix', async () => {
@@ -288,8 +297,10 @@ describe('the template editor', () => {
     await user.type(s1.getByLabelText('Stage 1: name (English)'), 'Gather');
     await user.type(s1.getByLabelText('Stage 1: name (Arabic)'), 'الجمع');
     await user.type(s1.getByLabelText('Stage 1: checklist'), 'First thing{Enter}Second thing');
-    await user.selectOptions(s1.getByLabelText('Stage 1: responsible unit'), 'unit_type');
-    await user.selectOptions(s1.getByLabelText('Stage 1: responsible unit: Type of unit'), 'admin_unit');
+    // The owner rule is simple: the cycle's owner (the default), a named role, or the head of the evidence's owner unit.
+    expect((s1.getByLabelText('Stage 1: owner') as HTMLSelectElement).value).toBe('cycle_lead');
+    expect(Array.from((s1.getByLabelText('Stage 1: owner') as HTMLSelectElement).options).map((o) => o.textContent)).toEqual(['Cycle owner', 'A person with a role', 'Head of the evidence\'s owner unit']);
+    expect(s1.queryByLabelText('Stage 1: responsible unit')).toBeNull();
     await user.selectOptions(s1.getByLabelText('Stage 1: owner'), 'role');
     await user.selectOptions(s1.getByLabelText('Stage 1: owner: Role'), 'lead');
     await user.click(s1.getByRole('button', { name: 'Add an output to stage 1' }));
@@ -306,7 +317,7 @@ describe('the template editor', () => {
     await user.type(s2.getByLabelText('Stage 2, output 1: name (English)'), 'Sign-off');
     await user.selectOptions(s2.getByLabelText('Stage 2, output 1: kind'), 'approval');
     expect(s2.getByText(/approval "Sign-off" has no approver rule/)).toBeTruthy();   // a note: it does not stop publishing
-    await user.selectOptions(s2.getByLabelText('Stage 2, output 1: who approves'), 'head_of_unit');
+    await user.selectOptions(s2.getByLabelText('Stage 2, output 1: who approves'), 'head_of_evidence_unit');
     await user.click(s2.getByRole('button', { name: 'Add an input to stage 2' }));
     await user.selectOptions(s2.getByLabelText('Stage 2, input 1: where it comes from'), 'stage_output');
     expect(s2.getByLabelText('Stage 2, input 1: the output it reads').textContent).toContain('Stage 1, Gather: Evidence pack');
@@ -319,11 +330,11 @@ describe('the template editor', () => {
     const stored = await cyclesFor('lead').template(made.id);
     expect(stored).toMatchObject({ status: 'published', version: 1 });
     expect(stored.stages[0]).toMatchObject({
-      key: 'gather', name: 'Gather', nameAr: 'الجمع', checklist: ['First thing', 'Second thing'], unit: { kind: 'unit_type', type: 'admin_unit' }, owner: { kind: 'role', role: 'lead' },
+      key: 'gather', name: 'Gather', nameAr: 'الجمع', checklist: ['First thing', 'Second thing'], unit: { kind: 'cycle' }, owner: { kind: 'role', role: 'lead' },
       outputs: [{ key: 'evidence_pack', kind: 'document' }],
     });
     expect(stored.stages[1]).toMatchObject({
-      key: 'approve', outputs: [{ key: 'sign_off', kind: 'approval', approver: { kind: 'head_of_unit' } }], inputs: [{ from: { stage: 'gather', output: 'evidence_pack' } }],
+      key: 'approve', outputs: [{ key: 'sign_off', kind: 'approval', approver: { kind: 'head_of_evidence_unit' } }], inputs: [{ from: { stage: 'gather', output: 'evidence_pack' } }],
     });
 
     // Published: read-only with "Revise to edit".

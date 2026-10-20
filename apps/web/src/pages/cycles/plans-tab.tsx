@@ -1,17 +1,17 @@
-// Quality Management -> Plans (TASK-081): every cycle plan of the institution: what it is attached to, the template, how often, the next
-// run not yet launched, and how many subjects it covers (the node's scope narrowed by "applies to"). A plan only PROPOSES runs; they
-// appear under Cycles -> Due to launch for QA to launch. "New plan" attaches a plan to the institution, a unit, a program, the whole
-// quality framework or an evidence item; plans on a standard are set from its ⋯ menu ("Set cycle plan…") and changed here too. For a plan
-// whose next run is set by a decision, the date is recorded here. Anything that needs a term the calendar lacks says so.
+// Quality Management -> Plans (TASK-081, simplified by DEC-030): every cycle plan of the institution: what it is attached to, the template, how
+// often, the next run not yet launched and its owner. A plan only PROPOSES runs; they appear under Cycles -> Due to launch for QA to launch and,
+// for the plan's owner, in My work. "New plan" asks which evidence item to collect regularly (the same dialog as the evidence card); plans on
+// anything else that already exist (a unit, a program, a standard) are listed and their dates kept, but no screen creates or changes them.
+// For a plan whose next run is set by a decision, the date is recorded here. Anything that needs a term the calendar lacks says so.
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { PLAN_ANCHOR_KINDS, type CyclePlan, type Me, type PlanAnchorKind } from '@ams/shared';
+import type { CyclePlan, Me } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import type { CycleApis } from '../../components/cycles/directory';
-import { Chip, day, fieldCls, selectCls } from '../../components/cycles/labels';
+import { Chip, day, fieldCls } from '../../components/cycles/labels';
 import { gapText, planAnchorLabels, recurrenceText } from '../../components/plans/labels';
 import { ReadOnlyNote } from '../../components/read-only-note';
-import { PlanDialog } from '../../components/standard-ops/plan-dialog';
+import { PlanDialog } from '../../components/cycles/plan-dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useTranslation } from '../../i18n';
@@ -35,7 +35,6 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
   const api = usePlansApi(apis.plans);
   const qc = useQueryClient();
   const manage = can(me, 'cycle:manage');
-  const [kind, setKind] = useState<'' | PlanAnchorKind>('');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<CyclePlan | 'new' | null>(null);
   const [error, setError] = useState('');
@@ -43,7 +42,7 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
   const act = useAction(setError);
   const list = useQuery({ queryKey: ['cycle-plans'], queryFn: () => api.list() });
   const labels = planAnchorLabels(t);
-  const rows = (list.data ?? []).filter((p) => (!kind || p.anchorKind === kind) && (!q.trim() || `${p.templateName} ${p.anchorName ?? ''} ${p.code ?? ''}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const rows = (list.data ?? []).filter((p) => (!q.trim() || `${p.templateName} ${p.anchorName ?? ''} ${p.code ?? ''}`.toLowerCase().includes(q.trim().toLowerCase())));
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['cycle-plans'] }); void qc.invalidateQueries({ queryKey: ['due-runs'] }); void qc.invalidateQueries({ queryKey: ['requirement-context'] }); };
   const setDate = async (p: CyclePlan, date: string) => {
     setBusy(true); setError('');
@@ -57,12 +56,6 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
       <ReadOnlyNote show={meLoaded && !manage} />
       <div className="flex flex-wrap items-end gap-2" role="search" aria-label={t('plans.list.filters')}>
         <label className={fieldCls}>{t('common.search')}<Input aria-label={t('plans.list.search')} dir="auto" className="min-w-0 sm:w-56" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-        <label className={fieldCls}>{t('plans.list.kind')}
-          <select aria-label={t('plans.list.kind')} className={`${selectCls} sm:w-auto`} value={kind} onChange={(e) => setKind(e.target.value as '' | PlanAnchorKind)}>
-            <option value="">{t('plans.list.allKinds')}</option>
-            {PLAN_ANCHOR_KINDS.map((k) => <option key={k} value={k}>{labels[k]}</option>)}
-          </select>
-        </label>
         {manage && <Button type="button" className="sm:ms-auto" onClick={() => setEditing('new')}>{t('plans.list.new')}</Button>}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -93,14 +86,11 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
                 <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('plans.list.nextDue')}:</dt>
                   <dd className="min-w-0 break-words" data-testid="plan-next">{p.nextDue ? <><ContentText>{p.nextLabel}</ContentText> · {day(p.nextDue)}</> : p.waitingForDate ? t('plans.list.waiting') : t('plans.list.noneDue')}</dd></div>
               )}
-              {p.mode === 'own' && <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('plans.list.subjects')}:</dt><dd data-testid="plan-subjects">{p.subjectCount}</dd></div>}
-              {p.responsibleUnitName && <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('plans.unit')}:</dt><dd className="min-w-0 break-words"><ContentText>{p.responsibleUnitName}</ContentText></dd></div>}
               {p.ownerName && <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('plans.owner')}:</dt><dd className="min-w-0 break-words"><ContentText>{p.ownerName}</ContentText></dd></div>}
             </dl>
             {p.gap && p.mode === 'own' && <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900" data-testid="plan-gap">{gapText(t, p.gap)}. {t('plans.gap.define')}</p>}
-            {p.mode === 'own' && p.active && p.subjectCount === 0 && <p className="text-sm text-muted-foreground" data-testid="plan-no-subjects">{t('plans.list.noSubjects')}</p>}
             {manage && p.waitingForDate && <NextDate plan={p} busy={busy} onSet={(d) => void setDate(p, d)} />}
-            {manage && (
+            {manage && p.anchorKind === 'evidence_item' && p.mode === 'own' && (
               <div className="flex flex-wrap gap-1">
                 <Button type="button" variant="outline" className="px-3 py-1" aria-label={t('plans.list.changeNamed', { name: `${p.templateName} ${p.anchorName ?? ''}` })} onClick={() => setEditing(p)}>{t('plans.list.change')}</Button>
               </div>
@@ -109,11 +99,7 @@ export function PlansTab({ me, meLoaded, apis = {} }: { me: Me | undefined; meLo
         ))}
       </ul>
       {editing === 'new' && <PlanDialog me={me} apis={apis} onClose={close} />}
-      {editing && editing !== 'new' && (
-        editing.anchorKind === 'requirement' && editing.frameworkId && editing.code
-          ? <PlanDialog target={{ frameworkId: editing.frameworkId, versionId: '', code: editing.code, title: editing.anchorName ?? editing.code, label: editing.code, internal: false }} me={me} apis={apis} onClose={close} />
-          : <PlanDialog anchor={{ kind: editing.anchorKind, ...(editing.anchorId ? { id: editing.anchorId } : {}), ...(editing.frameworkId ? { frameworkId: editing.frameworkId } : {}), label: labels[editing.anchorKind], title: editing.anchorName ?? '' }} me={me} apis={apis} onClose={close} />
-      )}
+      {editing && editing !== 'new' && <PlanDialog plan={editing} me={me} apis={apis} onClose={close} />}
     </div>
   );
 }

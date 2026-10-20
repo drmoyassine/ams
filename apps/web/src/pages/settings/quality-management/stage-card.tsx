@@ -1,45 +1,23 @@
 // One stage of the template editor: its header (number, name, what it holds, move up/down, remove) and, when open, its details:
-// names, process text, checklist, who is responsible and who owns it, when it starts and how long it takes, and its outputs and inputs.
+// names, process text, checklist, who owns it, when it starts and how long it takes, and its outputs and inputs. The owner rule is simple
+// (DEC-030): the cycle's owner (the default), a named role, or the head of the evidence's owner unit; a rule an older template holds
+// ("head of the unit", "head of the unit above") stays readable and can be kept or changed. The unit rule is no longer edited here (a
+// template keeps the one it has; a cycle's units follow from its owner).
 // Every control carries the stage (and output or input) number in its label, so a screen reader hears where it is. Read-only
 // pages show the same card with every field disabled and no editing buttons.
-import type { OrgUnitType, PersonRule, UnitRule } from '@ams/shared';
+import type { PersonRule } from '@ams/shared';
 import { CYCLE_OUTPUT_KINDS, CYCLE_PICK_KINDS, ROLES } from '@ams/shared';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { useTranslation } from '../../../i18n';
 import { allOutputs, earlierOutputs, move, newInput, newOutput, removeOutput, type EInput, type EOutput, type EStage, type Problem } from './editor-model';
-import { kindLabels, personRuleLabels, pickLabels, problemText, roleLabels, unitRuleLabels, type T } from './labels';
+import { kindLabels, personRuleLabels, pickLabels, problemText, roleLabels, type T } from './labels';
 
 const control = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-60';
 const labelCls = 'flex min-w-0 flex-col gap-1 text-xs text-muted-foreground';
 const iconBtn = 'px-2 py-1';
-const PERSON_KINDS: PersonRule['kind'][] = ['head_of_unit', 'head_of_parent_unit', 'role', 'cycle_lead'];
-const UNIT_KINDS: UnitRule['kind'][] = ['subject', 'parent_of_subject', 'unit_type', 'cycle'];
-
-function UnitRuleField({ value, onChange, types, label, t }: { value: UnitRule; onChange: (v: UnitRule) => void; types: OrgUnitType[]; label: string; t: T }) {
-  const labels = unitRuleLabels(t);
-  // A type the template holds that this institution no longer has stays visible, so it can be seen and changed.
-  const known = value.kind === 'unit_type' ? types.some((x) => x.key === value.type) : true;
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      <label className={labelCls}>{t('qmt.f.unit')}
-        <select aria-label={label} className={control} value={value.kind}
-          onChange={(e) => { const k = e.target.value as UnitRule['kind']; onChange(k === 'unit_type' ? { kind: 'unit_type', type: types[0]?.key ?? '' } : ({ kind: k } as UnitRule)); }}>
-          {UNIT_KINDS.map((k) => <option key={k} value={k}>{labels[k]}</option>)}
-        </select>
-      </label>
-      {value.kind === 'unit_type' && (
-        <label className={labelCls}>{t('qmt.f.unitType')}
-          <select aria-label={`${label}: ${t('qmt.f.unitType')}`} className={control} value={value.type} onChange={(e) => onChange({ kind: 'unit_type', type: e.target.value })}>
-            {value.type === '' && <option value="">{t('qmt.f.choose')}</option>}
-            {!known && <option value={value.type}>{value.type}</option>}
-            {types.map((x) => <option key={x.key} value={x.key}>{x.labelEn}</option>)}
-          </select>
-        </label>
-      )}
-    </div>
-  );
-}
+/** The rules the editor offers; the older ones are listed only while a template still holds one. */
+const PERSON_KINDS: PersonRule['kind'][] = ['cycle_lead', 'role', 'head_of_evidence_unit'];
 
 function PersonRuleField({ value, onChange, label, t, allowNone = false }: { value: PersonRule | null; onChange: (v: PersonRule | null) => void; label: string; t: T; allowNone?: boolean }) {
   const labels = personRuleLabels(t);
@@ -56,6 +34,7 @@ function PersonRuleField({ value, onChange, label, t, allowNone = false }: { val
           }}>
           {allowNone && <option value="">{t('qmt.f.approverNone')}</option>}
           {PERSON_KINDS.map((k) => <option key={k} value={k}>{labels[k]}</option>)}
+          {value && !PERSON_KINDS.includes(value.kind) && <option value={value.kind}>{labels[value.kind]}</option>}
         </select>
       </label>
       {value?.kind === 'role' && (
@@ -181,13 +160,13 @@ function InputRow({ inp, n, j, count, stages, i, editable, onChange, onMove, onR
 }
 
 export interface StageCardProps {
-  stage: EStage; index: number; stages: EStage[]; editable: boolean; open: boolean; types: OrgUnitType[]; problems: Problem[];
+  stage: EStage; index: number; stages: EStage[]; editable: boolean; open: boolean; problems: Problem[];
   onToggle: () => void; onChange: (s: EStage) => void; onMove: (d: -1 | 1) => void; onRemove: () => void;
   /** Replaces all the stages (an output was removed and inputs that read it were detached). */
   onStages: (stages: EStage[], detached: number) => void;
 }
 
-export function StageCard({ stage: s, index: i, stages, editable, open, types, problems, onToggle, onChange, onMove, onRemove, onStages }: StageCardProps) {
+export function StageCard({ stage: s, index: i, stages, editable, open, problems, onToggle, onChange, onMove, onRemove, onStages }: StageCardProps) {
   const { t: tr } = useTranslation();
   const t = tr as unknown as T;
   const n = i + 1;
@@ -243,7 +222,6 @@ export function StageCard({ stage: s, index: i, stages, editable, open, types, p
             <textarea aria-label={t('qmt.f.stageChecklist', { n })} dir="auto" rows={3} className={control} value={s.checklist} onChange={(e) => set({ checklist: e.target.value })} />
           </label>
           <div className="grid gap-3 lg:grid-cols-2">
-            <UnitRuleField t={t} types={types} label={t('qmt.f.stageUnit', { n })} value={s.unit} onChange={(unit) => set({ unit })} />
             <PersonRuleField t={t} label={t('qmt.f.stageOwner', { n })} value={s.owner} onChange={(owner) => set({ owner: owner ?? { kind: 'cycle_lead' } })} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

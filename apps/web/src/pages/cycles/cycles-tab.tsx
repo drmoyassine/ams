@@ -1,18 +1,19 @@
-// Quality Management -> Cycles (TASK-080): every cycle of the institution with filters (status, unit or program, template, what it is
-// about, only mine, late or due soon) and a search, "New cycle" (the same launch dialog as the ⋯ menu of a standard), and per row the
-// title, what it is about and who does the work, the status, the progress, the next stage with its owner and date, and a flag while an
-// owner or unit is still to be chosen. A draft is started with "Start" or deleted (to the Trash, with Undo); a running cycle is cancelled
+// Quality Management -> Cycles (TASK-080, simplified by DEC-030): every cycle of the institution with filters (status, template, only mine,
+// late or due soon) and a search, "New cycle" (the template, the evidence item, the owner and the start date), and per row the title, the
+// evidence item it is about, its owner, the status, the progress, the next stage with its owner and date, and a flag while an owner is
+// still to be chosen. Cycles about a unit, a program or the institution (Quality Assurance / report cycles) are listed when they exist
+// but cannot be started from here. A draft is started with "Start" or deleted (to the Trash, with Undo); a running cycle is cancelled
 // with a reason. People who cannot manage cycles see the list read-only.
 import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CYCLE_ANCHOR_KINDS, CYCLE_DUE_FILTERS, CYCLE_STATUSES, type CycleAnchorKind, type CycleDueFilter, type CycleFilter, type CycleStatus, type CycleSummary, type Me } from '@ams/shared';
+import { CYCLE_DUE_FILTERS, CYCLE_STATUSES, type CycleDueFilter, type CycleFilter, type CycleStatus, type CycleSummary, type Me } from '@ams/shared';
 import { useConfirm } from '../../components/confirm-dialog';
 import { ContentText } from '../../components/content-text';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { useDirectory, type CycleApis } from '../../components/cycles/directory';
+import { type CycleApis } from '../../components/cycles/directory';
 import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
 import { CYCLE_TONE, Chip, cycleStatusLabels, day, fieldCls, selectCls, stageStatusLabels } from '../../components/cycles/labels';
 import { useTranslation } from '../../i18n';
@@ -29,14 +30,11 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
   const { t: tr } = useTranslation();
   const t = tr as unknown as T;
   const api = useCyclesApi(apis.cycles);
-  const dir = useDirectory(apis);
   const qc = useQueryClient();
   const confirm = useConfirm();
   const manage = can(me, 'cycle:manage');
   const [status, setStatus] = useState<'' | CycleStatus>('');
-  const [place, setPlace] = useState('');
   const [templateId, setTemplateId] = useState('');
-  const [anchorKind, setAnchorKind] = useState<'' | CycleAnchorKind>('');
   const [due, setDue] = useState<'' | CycleDueFilter>('');
   const [mine, setMine] = useState(false);
   const [search, setSearch] = useState('');
@@ -48,11 +46,9 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
   const act = useAction(setError);
   useEffect(() => { const id = setTimeout(() => setQ(search.trim()), 250); return () => clearTimeout(id); }, [search]);
 
-  const placeId = place.split(':')[1];
   const filter: CycleFilter = {
-    ...(status ? { status } : {}), ...(templateId ? { templateId } : {}), ...(anchorKind ? { anchorKind } : {}), ...(due ? { due } : {}),
+    ...(status ? { status } : {}), ...(templateId ? { templateId } : {}), ...(due ? { due } : {}),
     ...(mine && me?.userId ? { ownerId: me.userId } : {}), ...(q ? { q } : {}),
-    ...(placeId ? { aboutId: placeId } : {}),
   };
   // The rows stay while a changed filter is fetched, so the list does not blink.
   const list = useQuery({ queryKey: ['cycles', filter], queryFn: () => api.list(filter), placeholderData: (previous) => previous });
@@ -86,23 +82,10 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
             {CYCLE_STATUSES.map((s) => <option key={s} value={s}>{statuses[s]}</option>)}
           </select>
         </label>
-        <label className={fieldCls}>{t('qmc.filter.place')}
-          <select aria-label={t('qmc.filter.place')} className={`${selectCls} sm:w-auto sm:max-w-56`} value={place} onChange={(e) => setPlace(e.target.value)}>
-            <option value="">{t('qmc.filter.allPlaces')}</option>
-            <optgroup label={t('ops.cycle.units')}>{dir.units.map((u) => <option key={u.id} value={`org_unit:${u.id}`}>{u.nameEn}</option>)}</optgroup>
-            <optgroup label={t('ops.cycle.programs')}>{dir.programs.map((p) => <option key={p.id} value={`program:${p.id}`}>{p.nameEn}</option>)}</optgroup>
-          </select>
-        </label>
         <label className={fieldCls}>{t('qmc.filter.template')}
           <select aria-label={t('qmc.filter.template')} className={`${selectCls} sm:w-auto sm:max-w-56`} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
             <option value="">{t('qmc.filter.allTemplates')}</option>
             {(templates.data ?? []).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
-        </label>
-        <label className={fieldCls}>{t('qmc.filter.anchor')}
-          <select aria-label={t('qmc.filter.anchor')} className={`${selectCls} sm:w-auto`} value={anchorKind} onChange={(e) => setAnchorKind(e.target.value as '' | CycleAnchorKind)}>
-            <option value="">{t('qmc.filter.allAnchors')}</option>
-            {CYCLE_ANCHOR_KINDS.map((k) => <option key={k} value={k}>{anchors[k]}</option>)}
           </select>
         </label>
         <label className={fieldCls}>{t('qmc.filter.due')}
@@ -141,8 +124,7 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
               </div>
               <dl className="grid gap-x-5 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.anchor')}:</dt><dd className="min-w-0 break-words"><span className="text-muted-foreground">{anchors[c.anchorKind]}: </span><ContentText>{c.anchorName ?? t('qmc.unknownName')}</ContentText></dd></div>
-                {c.subjectKind && <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.subject')}:</dt><dd className="min-w-0 break-words"><ContentText>{c.subjectName ?? t('qmc.unknownName')}</ContentText></dd></div>}
-                <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.unit')}:</dt><dd className="min-w-0 break-words"><ContentText>{c.responsibleUnitName ?? ''}</ContentText></dd></div>
+                <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.owner')}:</dt><dd className="min-w-0 break-words" data-testid="cycle-owner"><ContentText>{c.leadName ?? ''}</ContentText></dd></div>
                 <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.dates')}:</dt><dd>{day(c.startDate)}{c.endDate ? ` – ${day(c.endDate)}` : ''}</dd></div>
                 <div className="flex min-w-0 items-center gap-2 sm:col-span-1">
                   <dt className="shrink-0 text-muted-foreground">{t('qmc.cycle.progress')}:</dt>

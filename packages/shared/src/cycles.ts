@@ -10,6 +10,17 @@ import { ROLES } from './permissions.js';
 /** What a cycle is about (the anchor). The id is polymorphic and checked by the service. */
 export const CYCLE_ANCHOR_KINDS = ['institution', 'org_unit', 'program', 'framework_version', 'requirement', 'evidence_item', 'engagement'] as const;
 export type CycleAnchorKind = (typeof CYCLE_ANCHOR_KINDS)[number];
+/**
+ * The anchors the screens OFFER (DEC-030): an evidence item (an evidence collection cycle) and, reserved for TASK-082 and not shown yet,
+ * an accreditation (`engagement`). The others (institution, unit, program, standard version, requirement) are Quality Assurance / report
+ * cycles: the engine, the data and the API keep working for them, but no picker lists them. A requirement or a standard version can no
+ * longer be the anchor of a NEW cycle or plan at all (cycles are not linked to standards).
+ */
+export const CYCLE_OFFERED_ANCHOR_KINDS = ['evidence_item'] as const satisfies readonly CycleAnchorKind[];
+/** Anchors the service refuses for a NEW cycle or plan: cycles are not linked to standards or requirements (DEC-030). */
+export const CYCLE_RETIRED_ANCHOR_KINDS = ['framework_version', 'requirement'] as const satisfies readonly CycleAnchorKind[];
+/** True when a template (its `anchorKinds`; empty = any) fits an evidence collection cycle; false for templates made only for QA/report anchors. */
+export const fitsEvidenceCycle = (anchorKinds: readonly CycleAnchorKind[]): boolean => anchorKinds.length === 0 || anchorKinds.includes('evidence_item');
 /** Who does the work, when it is not the anchor itself. */
 export const CYCLE_SUBJECT_KINDS = ['institution', 'org_unit', 'program'] as const;
 export type CycleSubjectKind = (typeof CYCLE_SUBJECT_KINDS)[number];
@@ -65,7 +76,10 @@ export const PersonRuleSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('head_of_unit') }).strict(),
   z.object({ kind: z.literal('head_of_parent_unit') }).strict(),
   z.object({ kind: z.literal('role'), role: z.enum(ROLES) }).strict(),
+  /** The cycle's owner: the default (DEC-030), so a stage follows the cycle's owner until it is given its own. */
   z.object({ kind: z.literal('cycle_lead') }).strict(),
+  /** The head of the unit that owns the evidence item the cycle is about (DEC-030); found nobody when the item has no unit or the unit no head. */
+  z.object({ kind: z.literal('head_of_evidence_unit') }).strict(),
 ]);
 export type PersonRule = z.infer<typeof PersonRuleSchema>;
 
@@ -384,21 +398,3 @@ export const AddInputSchema = z.object({
 export type AddInput = z.input<typeof AddInputSchema>;
 export const SetPickSchema = z.object({ refKind: z.enum(CYCLE_REF_KINDS).nullable(), refId: z.uuid().nullable() }).strict();
 export type SetPick = z.infer<typeof SetPickSchema>;
-
-// ---- My work -------------------------------------------------------------------------------------------------------------
-
-export const MyWorkSchema = z.object({
-  /** Stages I own that are not finished, with how far along and what is missing. */
-  stages: z.array(z.object({
-    cycleId: z.string(), cycleTitle: z.string(), cycleStatus: z.enum(CYCLE_STATUSES),
-    stageId: z.string(), stageName: z.string(), status: z.enum(CYCLE_STAGE_STATUSES),
-    startDate: z.string().nullable(), endDate: z.string().nullable(), late: z.boolean(),
-    missingInputs: z.number(), missingOutputs: z.number(),
-  })),
-  /** Approvals that wait for my decision (the stage has started, the output is not decided). */
-  approvals: z.array(z.object({
-    cycleId: z.string(), cycleTitle: z.string(), stageId: z.string(), stageName: z.string(), outputId: z.string(), outputName: z.string(),
-    returnedBefore: z.boolean(),
-  })),
-});
-export type MyWork = z.infer<typeof MyWorkSchema>;

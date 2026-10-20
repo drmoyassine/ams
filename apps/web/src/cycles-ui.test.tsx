@@ -22,6 +22,7 @@ import { cyclesApi } from './lib/cycles-api';
 import { documentsApi } from './lib/documents-api';
 import { evidenceApi } from './lib/evidence-api';
 import { frameworkApi } from './lib/framework-api';
+import { plansApi } from './lib/plans-api';
 import { scopeApi } from './lib/scope-api';
 import { settingsApi } from './lib/settings-api';
 import { resetUndoForTests } from './lib/undo';
@@ -77,6 +78,15 @@ const ANNUAL: CreateCycleTemplate = {
   ],
 };
 /** One stage whose owner rule needs a unit head: the unit of one program has none, so the owner cannot be found. */
+/** Evidence collection templates (the only ones New cycle offers): one whose owner is the cycle's, one that needs the head of the evidence's unit. */
+const EVIDENCE_ROUND: CreateCycleTemplate = {
+  key: 'evidence_round', name: 'Evidence round', anchorKinds: ['evidence_item'], origin: 'manual',
+  stages: [{ key: 'collect', name: 'Collect', process: '', checklist: [], unit: { kind: 'cycle' }, owner: { kind: 'cycle_lead' }, startOffsetDays: 0, lengthDays: 7, outputs: [NOTE('result', 'Result')], inputs: [] }],
+};
+const EVIDENCE_HEAD: CreateCycleTemplate = {
+  key: 'evidence_head', name: 'Evidence unit check', anchorKinds: ['evidence_item'], origin: 'manual',
+  stages: [{ key: 'check', name: 'Check', process: '', checklist: [], unit: { kind: 'cycle' }, owner: { kind: 'head_of_evidence_unit' }, startOffsetDays: 0, lengthDays: 7, outputs: [NOTE('result', 'Result')], inputs: [] }],
+};
 const NEEDS_HEAD: CreateCycleTemplate = {
   key: 'needs_head', name: 'Unit check', anchorKinds: ['program', 'org_unit'], origin: 'manual',
   stages: [{ key: 'check', name: 'Check', process: '', checklist: [], unit: { kind: 'subject' }, owner: { kind: 'head_of_unit' }, startOffsetDays: 0, lengthDays: 7, outputs: [NOTE('result', 'Result')], inputs: [] }],
@@ -122,23 +132,26 @@ beforeAll(async () => {
   ids.nursing = await one(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'BS Nursing', 'bachelor') returning id`, [ids.inst, ids.dept]);
   ids.pharmacy = await one(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'BS Pharmacy', 'bachelor') returning id`, [ids.inst, ids.dept2]);
   const a = apis('admin').cycles;
-  for (const [key, def] of [['tplAnnual', ANNUAL], ['tplNeeds', NEEDS_HEAD]] as const) {
+  for (const [key, def] of [['tplAnnual', ANNUAL], ['tplNeeds', NEEDS_HEAD], ['tplEvidence', EVIDENCE_ROUND], ['tplHead', EVIDENCE_HEAD]] as const) {
     const t = await a.createTemplate(def);
     ids[key] = (await a.publishTemplate(t.id)).id;
   }
   ids.evidence = (await apis('admin').evidence.create({ title: 'Enrolment report 2025', type: 'document' } as never)).id;
+  ids.evidenceUnit = await one(`insert into evidence_item (institution_id, title, type, owner_unit_id, owner_user_id) values ($1, 'Syllabi', 'document', $2, $3) returning id`, [ids.inst, ids.dept, ids.lead]);
 }, 120000);
 afterEach(() => { resetConfirmForTests(); cleanup(); resetUndoForTests(); vi.restoreAllMocks(); });
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('the Cycles tab', () => {
-  it('lists cycles with what they are about, who is responsible, the status, the progress and the next stage with its owner and date', async () => {
+  it('lists cycles with what they are about, their owner, the status, the progress and the next stage with its owner and date', async () => {
     const c = await annual({ label: 'AY2026-27' });
     render(tab('admin', 'cycles'));
     const row = (await screen.findByRole('link', { name: c.title })).closest('[data-testid="cycle-row"]') as HTMLElement;
     expect(within(row).getByTestId('cycle-status').textContent).toBe('Active');
     expect(row.textContent).toContain('BS Nursing');
-    expect(row.textContent).toContain('Nursing Department');
+    expect(within(row).getByTestId('cycle-owner').textContent).toBe('admin');
+    expect(row.textContent).not.toContain('Nursing Department');   // no responsible unit column
+    expect(row.textContent).not.toMatch(/Responsible unit|Subject:/);
     expect(within(row).getByTestId('progress-text').textContent).toBe('0 of 3 stages done');
     expect(within(row).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0');
     const next = within(row).getByTestId('next-stage');
@@ -152,12 +165,12 @@ describe('the Cycles tab', () => {
     expect(made.unresolvedCount).toBe(1);
     render(tab('admin', 'cycles'));
     const row = (await screen.findByRole('link', { name: made.title })).closest('[data-testid="cycle-row"]') as HTMLElement;
-    expect(within(row).getByTestId('unresolved-flag').textContent).toMatch(/Needs an owner or unit/);
+    expect(within(row).getByTestId('unresolved-flag').textContent).toMatch(/Needs an owner/);
     expect(within(row).getByTestId('cycle-status').textContent).toBe('Draft');
     expect(within(row).getByTestId('next-stage').textContent).toContain('No owner chosen');
   });
 
-  it('filters by status, unit or program, template, what it is about, only mine, and late or due soon; and searches the title', async () => {
+  it('filters by status, template, only mine, and late or due soon; and searches the title; no unit, program or anchor filters', async () => {
     const user = userEvent.setup();
     const mine = await annual({ lead: 'admin', label: 'Mine-A' });
     const lateOne = await annual({ lead: 'lead', label: 'Late-B' });
@@ -180,14 +193,8 @@ describe('the Cycles tab', () => {
     await waitFor(() => expect(titles()).toContain(draft.title));
     await user.selectOptions(screen.getByLabelText('Template'), '');
 
-    await user.selectOptions(screen.getByLabelText('Unit or program'), `program:${ids.pharmacy}`);
-    await waitFor(() => expect(titles()).not.toContain(mine.title));
-    await waitFor(() => expect(titles()).toContain(draft.title));
-    await user.selectOptions(screen.getByLabelText('Unit or program'), '');
-
-    await user.selectOptions(screen.getByLabelText('About'), 'org_unit');
-    await waitFor(() => expect(screen.getByTestId('no-cycles').textContent).toMatch(/No cycle matches these filters/));
-    await user.selectOptions(screen.getByLabelText('About'), '');
+    expect(screen.queryByLabelText('Unit or program')).toBeNull();
+    expect(screen.queryByLabelText('About')).toBeNull();
 
     // "Only mine": the person leads the cycle or owns one of its stages (the admin leads Mine-A, not Late-B).
     await user.click(screen.getByRole('checkbox', { name: 'Only mine' }));
@@ -234,36 +241,70 @@ describe('the Cycles tab', () => {
     expect(await screen.findByRole('link', { name: d2.title })).toBeTruthy();
   });
 
-  it('opens New cycle, shows what the template resolved for every stage with the unresolved ones flagged and editable, then starts it', async () => {
+  it('opens New cycle with four fields (template, evidence item, owner, start date); only templates that fit an evidence item are offered', async () => {
     const user = userEvent.setup();
     render(tab('admin', 'cycles'));
     await user.click(await screen.findByRole('button', { name: 'New cycle' }));
     const dialog = await screen.findByRole('dialog', { name: 'New cycle' });
-    // Only a published template that fits the anchor is offered; the list says so when there is none.
-    await user.selectOptions(within(dialog).getByLabelText('What the cycle is about'), 'program');
-    await user.selectOptions(within(dialog).getByLabelText('Which one'), ids.pharmacy!);
-    await waitFor(() => expect(within(dialog).getByRole('option', { name: 'Unit check' })).toBeTruthy());
-    expect(within(dialog).getByRole('option', { name: 'Annual review' })).toBeTruthy();
-    await user.selectOptions(within(dialog).getByLabelText('Template'), ids.tplNeeds!);
-    expect((within(dialog).getByLabelText('Who the cycle is about') as HTMLSelectElement).value).toBe('');
+    expect(Array.from(dialog.querySelectorAll('select, input')).map((el) => el.getAttribute('aria-label'))).toEqual(['Template', 'Evidence item', 'Owner', 'Start date']);
+    await waitFor(() => expect(within(dialog).getByRole('option', { name: 'Evidence round' })).toBeTruthy());
+    // A template made only for a unit or a program (a Quality Assurance / report cycle) is not offered.
+    expect(within(dialog).queryByRole('option', { name: 'Annual review' })).toBeNull();
+    expect(within(dialog).queryByRole('option', { name: 'Unit check' })).toBeNull();
+    // Nothing to ask about units, leads or what the cycle is about.
+    for (const gone of ['Responsible unit', 'Cycle lead', 'Lead', 'What the cycle is about', 'Who the cycle is about']) expect(within(dialog).queryByLabelText(gone)).toBeNull();
+    // The evidence item and the owner are needed; the owner starts as the person opening the dialog.
+    expect((within(dialog).getByRole('button', { name: 'Create cycle' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.admin);
+  });
+
+  it('starts from the evidence item: the owner is the item\'s owner, the stages follow them, and only what the rules could not settle is asked ("Choose an owner for stage X")', async () => {
+    const user = userEvent.setup();
+    render(tab('admin', 'cycles'));
+    await user.click(await screen.findByRole('button', { name: 'New cycle' }));
+    let dialog = await screen.findByRole('dialog', { name: 'New cycle' });
+    await within(dialog).findByRole('option', { name: 'Syllabi' });
+    await user.selectOptions(within(dialog).getByLabelText('Evidence item'), ids.evidenceUnit!);
+    expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.lead);       // the evidence item's owner
+    await within(dialog).findByRole('option', { name: 'Evidence round' });
+    await user.selectOptions(within(dialog).getByLabelText('Template'), ids.tplEvidence!);
     await user.clear(within(dialog).getByLabelText('Start date'));
     await user.type(within(dialog).getByLabelText('Start date'), '2026-11-01');
     await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
-
-    const review = await within(dialog).findByTestId('launch-review');
+    let review = await within(dialog).findByTestId('launch-review');
     expect(review.textContent).toMatch(/was created as a draft/);
+    // The head of the evidence's unit is found: nothing is left to choose, and the owner owns every stage.
+    expect(within(review).getByRole('status').textContent).toBe('Everything is set.');
+    expect(within(review).queryAllByTestId('launch-stage')).toHaveLength(0);
+    expect(within(review).getByTestId('owner-cascade-note').textContent).toContain('Every stage is owned by lead');
+    const made = (await apis('admin').cycles.list({ templateId: ids.tplEvidence })).find((c) => c.startDate === '2026-11-01')!;
+    expect(made).toMatchObject({ anchorKind: 'evidence_item', anchorId: ids.evidenceUnit, leadUserId: ids.lead, responsibleUnitId: ids.dept, status: 'draft', unresolvedCount: 0 });
+    expect((await apis('admin').cycles.get(made.id)).stages.map((s) => s.ownerUserId)).toEqual([ids.lead]);
+    await user.click(within(review).getByRole('button', { name: 'Keep as a draft' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // An evidence item without a unit: the rule finds nobody to own "Check", which is asked for in one line, then the cycle starts.
+    await user.click(await screen.findByRole('button', { name: 'New cycle' }));
+    dialog = await screen.findByRole('dialog', { name: 'New cycle' });
+    await within(dialog).findByRole('option', { name: 'Enrolment report 2025' });
+    await user.selectOptions(within(dialog).getByLabelText('Evidence item'), ids.evidence!);
+    await within(dialog).findByRole('option', { name: 'Evidence unit check' });
+    await user.selectOptions(within(dialog).getByLabelText('Template'), ids.tplHead!);
+    await user.clear(within(dialog).getByLabelText('Start date'));
+    await user.type(within(dialog).getByLabelText('Start date'), '2026-12-01');
+    await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
+    review = await within(dialog).findByTestId('launch-review');
     const stage = within(review).getByTestId('launch-stage');
+    expect(stage.textContent).toContain('Choose an owner for stage Check');
     expect(within(stage).getByTestId('unresolved-owner').textContent).toBe('Not found: choose one');
-    expect(within(review).getByTestId('unresolved-note').textContent).toMatch(/1 stage\(s\) still need an owner/);
+    expect(within(review).getByTestId('unresolved-note').textContent).toMatch(/1 item\(s\) still need a person/);
     await user.selectOptions(within(stage).getByLabelText('Owner of Check'), ids.lead!);
     await waitFor(() => expect(within(review).queryByTestId('unresolved-owner')).toBeNull());
     expect(within(review).queryByTestId('unresolved-note')).toBeNull();
-
-    const made = (await apis('admin').cycles.list({ templateId: ids.tplNeeds })).find((c) => c.startDate === '2026-11-01')!;
-    expect(made.status).toBe('draft');
-    expect(made.unresolvedCount).toBe(0);
+    const second = (await apis('admin').cycles.list({ templateId: ids.tplHead })).find((c) => c.startDate === '2026-12-01')!;
+    expect(second).toMatchObject({ leadUserId: ids.admin, unresolvedCount: 0 });   // no owner on the item: the person who opened the dialog
     await user.click(within(review).getByRole('button', { name: 'Start the cycle' }));
-    await waitFor(async () => expect((await apis('admin').cycles.get(made.id)).status).toBe('active'));
+    await waitFor(async () => expect((await apis('admin').cycles.get(second.id)).status).toBe('active'));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
@@ -285,7 +326,8 @@ describe('the cycle page', () => {
     expect(screen.getByRole('heading', { level: 1 }).getAttribute('dir')).toBe('auto');
     expect(screen.getByTestId('cycle-status').textContent).toBe('Active');
     const header = screen.getByTestId('cycle-page');
-    for (const text of ['BS Nursing', 'Nursing Department', 'AY2027-28', 'Annual review · Version 1', '0 of 3 stages done']) expect(header.textContent).toContain(text);
+    expect(header.textContent).not.toMatch(/Responsible unit|Lead:/);
+    for (const text of ['BS Nursing', 'Owner:', 'AY2027-28', 'Annual review · Version 1', '0 of 3 stages done']) expect(header.textContent).toContain(text);
     expect(within(screen.getByTestId('cycle-timeline')).getAllByTestId('timeline-row')).toHaveLength(3);
     expect(screen.getAllByTestId('stage-card')).toHaveLength(3);
     expect(within(card('Collect')).getByText('جمع البيانات').getAttribute('dir')).toBe('auto');
@@ -453,7 +495,7 @@ describe('the cycle page', () => {
     });
   });
 
-  it('is edited by people who manage the cycle: a stage\'s owner, unit and dates (with an Undo), and the cycle\'s own details', async () => {
+  it('is edited by people who manage the cycle: a stage\'s owner and dates (with an Undo), and the cycle\'s own details', async () => {
     const user = userEvent.setup();
     const c = await annual({});
     render(page('admin', c.id));
@@ -461,16 +503,14 @@ describe('the cycle page', () => {
     await user.click(within(card('Final')).getByRole('button', { name: 'Edit Final' }));
     const dialog = await screen.findByRole('dialog', { name: 'Edit Final' });
     await user.selectOptions(within(dialog).getByLabelText('Owner'), ids.lead!);
-    await user.selectOptions(within(dialog).getByLabelText('Responsible unit'), ids.qa!);
     await user.clear(within(dialog).getByLabelText('End date'));
     await user.type(within(dialog).getByLabelText('End date'), '2099-12-31');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(within(card('Final')).getByTestId('stage-owner').textContent).toBe('lead'));
-    expect(card('Final').textContent).toContain('QA Office');
+    await waitFor(() => expect(within(card('Final')).getByTestId('stage-owner').textContent).toContain('lead'));
     expect(card('Final').textContent).toContain('Dec 31, 2099');
-    expect((await apis('admin').cycles.get(c.id)).stages[2]).toMatchObject({ ownerUserId: ids.lead, responsibleUnitId: ids.qa, endDate: '2099-12-31' });
+    expect((await apis('admin').cycles.get(c.id)).stages[2]).toMatchObject({ ownerUserId: ids.lead, endDate: '2099-12-31' });
     await user.click(await screen.findByRole('button', { name: 'Undo' }));
-    await waitFor(() => expect(within(card('Final')).getByTestId('stage-owner').textContent).toBe('admin'));
+    await waitFor(() => expect(within(card('Final')).getByTestId('stage-owner').textContent).toContain('admin'));
 
     await user.click(screen.getByRole('button', { name: 'Edit the cycle' }));
     const edit = await screen.findByRole('dialog', { name: 'Edit the cycle' });
@@ -479,6 +519,48 @@ describe('the cycle page', () => {
     await user.type(within(edit).getByLabelText('Title'), 'Nursing annual review 2026-27');
     await user.click(within(edit).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Nursing annual review 2026-27'));
+  });
+
+  it('has one owner: stages follow it until given their own, the owner is changed once and the stages that follow move with it', async () => {
+    const user = userEvent.setup();
+    const c = await annual({ lead: 'admin' });   // Collect: the unit head's rule, Review: the person with the role, Final: the cycle's owner
+    render(page('admin', c.id));
+    await screen.findByRole('listitem', { name: 'Stage Final' });
+    // The header has an Owner and no Lead or Responsible unit.
+    const header = screen.getByTestId('cycle-page');
+    expect(screen.getByTestId('cycle-owner').textContent).toBe('admin');
+    expect(header.textContent).not.toMatch(/Responsible unit|Lead:/);
+    expect(screen.getByTestId('owner-cascade').textContent).toMatch(/owned by the cycle owner unless it has an owner of its own/);
+    expect(within(card('Final')).getByTestId('owner-source').textContent).toBe('Cycle owner');
+    expect(within(card('Collect')).getByTestId('owner-source').textContent).toBe('Own owner');
+    expect(card('Final').textContent).not.toContain('Responsible unit');
+
+    // Change the cycle's owner: the stage that followed it follows; the stage with an owner of its own keeps it.
+    await user.click(screen.getByRole('button', { name: 'Edit the cycle' }));
+    const edit = await screen.findByRole('dialog', { name: 'Edit the cycle' });
+    expect(within(edit).queryByLabelText('Responsible unit')).toBeNull();
+    await user.selectOptions(within(edit).getByLabelText('Owner'), ids.qaHead!);
+    await user.click(within(edit).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByTestId('cycle-owner').textContent).toBe('qaHead'));
+    await waitFor(() => expect(within(card('Final')).getByTestId('stage-owner').textContent).toContain('qaHead'));
+    expect(within(card('Final')).getByTestId('owner-source').textContent).toBe('Cycle owner');
+    expect(within(card('Collect')).getByTestId('stage-owner').textContent).toContain('headDept');
+
+    // Give Final an owner of its own (the stage dialog offers the cycle's owner first); the next change of the cycle's owner leaves it alone.
+    await user.click(within(card('Final')).getByRole('button', { name: 'Edit Final' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit Final' });
+    expect(within(dialog).queryByLabelText('Responsible unit')).toBeNull();
+    expect(within(dialog).getAllByRole('option').map((o) => o.textContent)).toContain('qaHead (the cycle owner)');
+    await user.selectOptions(within(dialog).getByLabelText('Owner'), ids.lead!);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(within(card('Final')).getByTestId('owner-source').textContent).toBe('Own owner'));
+    await user.click(screen.getByRole('button', { name: 'Edit the cycle' }));
+    const again = await screen.findByRole('dialog', { name: 'Edit the cycle' });
+    await user.selectOptions(within(again).getByLabelText('Owner'), ids.admin!);
+    await user.click(within(again).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByTestId('cycle-owner').textContent).toBe('admin'));
+    expect(within(card('Final')).getByTestId('stage-owner').textContent).toContain('lead');
+    expect((await apis('admin').cycles.get(c.id)).stages.map((s) => s.ownerUserId)).toEqual([ids.headDept, ids.lead, ids.lead]);
   });
 
   it('cancels a running cycle with a reason, which stays on the page, and then nothing can be worked', async () => {
@@ -593,6 +675,35 @@ describe('My work', () => {
     expect(lateStage.getAttribute('data-late')).toBe('true');
     expect(within(lateStage).getByTestId('my-late').textContent).toBe('Late');
     expect(lateStage.textContent).toMatch(/1 inputs and 1 outputs still missing|1 inputs and 2 outputs still missing/);
+  });
+
+  it('lists the runs that have fallen due of plans I own, each with a Start that opens the launch dialog with the template and the evidence item fixed', async () => {
+    const user = userEvent.setup();
+    const admin = plansApi(createApi(fetcherOf('admin')));
+    await admin.set({ anchorKind: 'evidence_item', anchorId: ids.evidenceUnit!, templateId: ids.tplEvidence!, recurrence: { every: 1, unit: 'month' }, firstStart: '2026-01-01', ownerUserId: ids.lead });
+    // Someone else's plan is not mine.
+    render(myWork('viewer'));
+    expect((await screen.findByTestId('my-work-empty')).textContent).toBe('Nothing is waiting for you.');
+    cleanup();
+
+    render(myWork('lead'));
+    const run = (await screen.findAllByTestId('my-due-run'))[0]!;
+    expect(run.textContent).toContain('Evidence round');
+    expect(run.textContent).toContain('Syllabi');
+    expect(within(run).getByTestId('due-state').textContent).toBe('Due');
+    await user.click(within(run).getByRole('button', { name: /^Start Evidence round/ }));
+    const dialog = await screen.findByRole('dialog', { name: /Launch a proposed run/ });
+    expect((within(dialog).getByLabelText('Template') as HTMLSelectElement).disabled).toBe(true);
+    await waitFor(() => expect((within(dialog).getByLabelText('Evidence item') as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Syllabi'));
+    await waitFor(() => expect((within(dialog).getByLabelText('Owner') as HTMLSelectElement).value).toBe(ids.lead));
+    await user.click(within(dialog).getByRole('button', { name: 'Create cycle' }));
+    await within(dialog).findByTestId('launch-review');
+    await user.click(within(dialog).getByRole('button', { name: 'Keep as a draft' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const made = (await apis('lead').cycles.list({ anchorKind: 'evidence_item', anchorId: ids.evidenceUnit! })).find((c) => c.planId);
+    expect(made).toMatchObject({ leadUserId: ids.lead, status: 'draft', anchorName: 'Syllabi' });
+    // The run is launched: it is no longer waiting to be started.
+    await waitFor(() => expect(screen.queryByTestId('my-due-run')).toBeNull());
   });
 
   it('says there is nothing waiting for someone with no stage and no approval, and is a tab of Quality Management', async () => {

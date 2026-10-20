@@ -71,7 +71,7 @@ export function RequirementHover({ r, name, contexts }: { r: Requirement; name: 
             </ul>
           )}
           <EvidenceSummary ctx={ctx} />
-          {ctx.scope && ctx.champion && <AssignmentLines assignment={{ scope: ctx.scope, champion: ctx.champion, ...(ctx.plans ? { plans: ctx.plans } : {}) }} internal={false} />}
+          {ctx.scope && ctx.champion && <AssignmentLines assignment={{ scope: ctx.scope, champion: ctx.champion }} internal={false} />}
         </>
       )}
     </HoverCard>

@@ -26,6 +26,31 @@ const PARENT: UnitRule = { kind: 'parent_of_subject' };
 const HEAD: PersonRule = { kind: 'head_of_unit' };
 const HEAD_ABOVE: PersonRule = { kind: 'head_of_parent_unit' };
 const LEAD_ROLE: PersonRule = { kind: 'role', role: 'lead' };
+const EVIDENCE_HEAD: PersonRule = { kind: 'head_of_evidence_unit' };
+
+/**
+ * Evidence collection (DEC-030): the one cycle the screens offer. Collect (the owner gets a new version of the evidence item; uploading one
+ * to the item during the stage writes the note below and makes it final) -> Review (a named approver signs it off internally).
+ */
+const EVIDENCE_COLLECTION: CreateCycleTemplate = {
+  key: 'evidence_collection', name: 'Evidence collection', nameAr: 'جمع الأدلة', origin: 'default',
+  description: 'Collect a new version of one piece of evidence on a regular basis and have it reviewed: the owner gets the new version, then a named reviewer approves it internally.',
+  anchorKinds: ['evidence_item'],
+  stages: [
+    stage({
+      key: 'collect', name: 'Collect', nameAr: 'الجمع', start: 0, days: 30,
+      process: 'Get the new version of this evidence item and upload it to the item on the Evidence page. When you do, the output below is filled in and made final for you. If there is nothing new, write a note saying why and mark it final.',
+      checklist: ['Get the new version from its source', 'Upload it to the evidence item', 'Check that it covers the period'],
+      outputs: [out('evidence_version', 'New version of the evidence', 'النسخة الجديدة من الدليل', 'note')],
+    }),
+    stage({
+      key: 'review', name: 'Review', nameAr: 'المراجعة', start: 30, days: 14,
+      process: 'The reviewer reads the new version and either approves it internally, approves it with conditions or returns it for changes.',
+      outputs: [out('review_signoff', 'Review sign-off', 'اعتماد المراجعة', 'approval', { approver: EVIDENCE_HEAD })],
+      inputs: [inp('collected', 'New version of the evidence', 'النسخة الجديدة من الدليل', fromStage('collect', 'evidence_version'))],
+    }),
+  ],
+};
 
 /** Annual program report: Collect (evidence, data) -> Self-evaluation (report) -> head of the unit (approval) -> QA review (approval) -> Final report. */
 const ANNUAL_PROGRAM_REPORT: CreateCycleTemplate = {
@@ -293,5 +318,5 @@ const CUSTOM: CreateCycleTemplate = {
 };
 
 /** The shipped templates, in the order they are listed. */
-export const DEFAULT_CYCLE_TEMPLATES: readonly CreateCycleTemplate[] = [ANNUAL_PROGRAM_REPORT, PERIODIC_PROGRAM_REVIEW, ADMIN_UNIT_REVIEW, INTERNAL_AUDIT, COURSE_ASSESSMENT, CUSTOM];
+export const DEFAULT_CYCLE_TEMPLATES: readonly CreateCycleTemplate[] = [EVIDENCE_COLLECTION, ANNUAL_PROGRAM_REPORT, PERIODIC_PROGRAM_REVIEW, ADMIN_UNIT_REVIEW, INTERNAL_AUDIT, COURSE_ASSESSMENT, CUSTOM];
 export const DEFAULT_CYCLE_TEMPLATE_KEYS: readonly string[] = DEFAULT_CYCLE_TEMPLATES.map((t) => t.key);

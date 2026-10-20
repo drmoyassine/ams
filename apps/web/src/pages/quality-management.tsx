@@ -14,7 +14,7 @@ import { IqfRequirements } from './settings/iqf-requirements';
 
 /**
  * The tabs of Quality Management. "Standards" is the institution's own framework in operation (TASK-086): the same tree as
- * Settings -> Internal Quality Framework, with the ⋯ menu Link evidence · Assign scope · Assign champion · Create cycle and without
+ * Settings -> Internal Quality Framework, with the ⋯ menu Link evidence · Assign scope · Assign champion and without
  * the authoring, which stays in Settings. "Cycles" lists the cycles (TASK-080), each opening on its own page; "Plans" lists the cycle plans (TASK-081: a template and a recurrence attached to a standard, unit, program or evidence item; the runs they propose appear under Cycles -> Due to launch); "My work" is the stages
  * I own and the approvals waiting for me. Full width, no side panels. The tab is addressable as ?tab=standards|cycles|plans|my-work.
  */

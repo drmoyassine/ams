@@ -112,7 +112,7 @@ interface NodeProps {
   onMerge: (r: Requirement) => void; onSplit: (r: Requirement) => void; onMove: (r: Requirement) => void;
   /** Map to IQF and Link evidence work on published versions too: both live outside the frozen version. */
   onMap: (r: Requirement) => void; onLinkEvidence: (r: Requirement) => void;
-  /** Assign scope, Assign champion, Create cycle: those the person may use (the menu is Link evidence, then these, then the rest). */
+  /** Assign scope, Assign champion: those the person may use (the menu is Link evidence, then these, then the rest). */
   opsItems: (r: Requirement) => MenuItem[];
   /** The page's one batched answer: per requirement code, its mapped IQF items and evidence (the hover card and the card's body). */
   evidence: EvidenceApi; contexts: ReturnType<typeof useRequirementContexts>;
@@ -204,7 +204,7 @@ function Node(p: NodeProps) {
   const showSource = () => p.onSelect({ kind: 'requirement', id: r.id, requirementId: r.id }, true);
   const shownTitle = useShownText(r.id, 'title', r.title);
   const reasons = (look.get(r.id) ?? []).filter((k) => k !== 'quoteNotFound');
-  // Link evidence · Assign scope · Assign champion · Create cycle, then the authoring items (TASK-086).
+  // Link evidence · Assign scope · Assign champion, then the authoring items (TASK-086).
   const menu = [
     ...(can(p.me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLinkEvidence(r) }] : []),
     ...p.opsItems(r),
@@ -266,7 +266,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
   const contexts = useRequirementContexts(evidence, version.id);
   const assignmentOf = useCallback((code: string): NodeAssignment | undefined => {
     const c = contexts.data?.byCode[code];
-    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion, ...(c.plans ? { plans: c.plans } : {}) } : undefined;
+    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion } : undefined;
   }, [contexts.data]);
   const ops = useStandardOps({ me, version, assignmentOf, tagOf, ...(apis ? { apis } : {}) });
   const [error, setError] = useState('');

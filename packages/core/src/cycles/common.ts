@@ -1,5 +1,5 @@
 // Shared helpers of the cycle services (TASK-078): loading, who may do what, the anchors a cycle can be about, dates.
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { appUser, cycle, cycleInput, cycleOutput, cycleStage, evidenceItem, importDocument, orgUnit, program, requirement } from '@ams/db';
 import type { CycleAnchorKind, CycleRefKind, CycleSubjectKind } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
@@ -76,7 +76,7 @@ export function assertDraft(c: CycleRow, what: string): void {
 
 // ---- Anchors, subjects and picked references ---------------------------------------------------------------------------------
 
-export interface RefInfo { name: string | null; /** For a unit or a program: the org unit it stands for. */ unitId: string | null }
+export interface RefInfo { name: string | null; /** For a unit or a program: the org unit it stands for. */ unitId: string | null; /** For an evidence item: its owner (a person), if it has one. */ ownerUserId?: string | null }
 
 /**
  * What a cycle can be about is checked here, per kind, because the id is polymorphic (like engagement.subject_id). Row-level
@@ -111,9 +111,9 @@ export async function checkAnchor(ctx: Ctx, kind: CycleAnchorKind, id: string): 
       return { name: `${r.code} ${r.title}`, unitId: null };
     }
     case 'evidence_item': {
-      const [r] = await ctx.tx.select({ title: evidenceItem.title, unit: evidenceItem.ownerUnitId }).from(evidenceItem).where(eq(evidenceItem.id, id));
+      const [r] = await ctx.tx.select({ title: evidenceItem.title, unit: evidenceItem.ownerUnitId, owner: evidenceItem.ownerUserId }).from(evidenceItem).where(eq(evidenceItem.id, id));
       if (!r) return none('the evidence item');
-      return { name: r.title, unitId: r.unit };
+      return { name: r.title, unitId: r.unit, ownerUserId: r.owner };
     }
     case 'engagement': {
       const [r] = (await ctx.tx.execute<{ title: string }>(sql`select title from engagement where id = ${id}::uuid`)).rows;
@@ -156,3 +156,24 @@ export function keyFrom(name: string, taken: Set<string>, given?: string): strin
   return key;
 }
 
+
+/**
+ * The responsible unit of a cycle when nobody names one (DEC-030: a cycle has one owner; the unit is derived, never asked). The first
+ * that exists, deterministically: the unit that owns the evidence item the cycle is about, then a unit its owner heads, then a unit
+ * its owner holds a role in (by name), then the institution's top unit (no parent; first by position). Inactive units are skipped.
+ */
+export async function deriveResponsibleUnit(ctx: Ctx, opts: { evidenceUnitId?: string | null; ownerUserId: string }): Promise<string | null> {
+  if (opts.evidenceUnitId) {
+    const [u] = await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(and(eq(orgUnit.id, opts.evidenceUnitId), eq(orgUnit.active, true)));
+    if (u) return u.id;
+  }
+  const headed = await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(and(eq(orgUnit.headUserId, opts.ownerUserId), eq(orgUnit.active, true))).orderBy(asc(orgUnit.nameEn), asc(orgUnit.id)).limit(1);
+  if (headed[0]) return headed[0].id;
+  const held = (await ctx.tx.execute<{ id: string }>(sql`
+    select u.id from role_assignment r join org_unit u on u.id = r.scope_id
+    where r.user_id = ${opts.ownerUserId}::uuid and r.scope_type = 'org_unit' and u.active and (r.expires_at is null or r.expires_at > now())
+    order by u.name_en, u.id limit 1`)).rows[0];
+  if (held) return held.id;
+  const top = await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(and(isNull(orgUnit.parentId), eq(orgUnit.active, true))).orderBy(asc(orgUnit.displayOrder), asc(orgUnit.createdAt), asc(orgUnit.id)).limit(1);
+  return top[0]?.id ?? null;
+}
