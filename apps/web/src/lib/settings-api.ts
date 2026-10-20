@@ -1,4 +1,4 @@
-import type { AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, CreateOrgUnit, CreateOrgUnitType, CreateProgram, CreateScopeLevel, ScopeLevel, UpdateScopeLevel, DeletePreview, DeleteResult, I18nBundle, Institution, LanguageState, LanguagesSettings, Me, MoveManyInput, OrgChart, OrgUnit, OrgUnitType, Program, PublicBranding, PublicI18n, SaveUiTranslation, TranslationRun, UiTranslationPage, UpdateAiAccount, UpdateAiSetting, UpdateInstitution, UpdateOrgUnit, UpdateOrgUnitType, UpdateProgram, UserSummary } from '@ams/shared';
+import type { AcademicTerm, CreateAcademicTerm, UpdateAcademicTerm, AiAccount, AiAccountTest, AiModelKind, AiModelList, AiRole, AiSetting, AiTestResult, CreateAiAccount, CreateOrgUnit, CreateOrgUnitType, CreateProgram, CreateScopeLevel, ScopeLevel, UpdateScopeLevel, DeletePreview, DeleteResult, I18nBundle, Institution, LanguageState, LanguagesSettings, Me, MoveManyInput, OrgChart, OrgUnit, OrgUnitType, Program, PublicBranding, PublicI18n, SaveUiTranslation, TranslationRun, UiTranslationPage, UpdateAiAccount, UpdateAiSetting, UpdateInstitution, UpdateOrgUnit, UpdateOrgUnitType, UpdateProgram, UserSummary } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
@@ -63,6 +63,12 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     createScopeLevel: (json: CreateScopeLevel) => api.api['scope-levels'].$post({ json }).then((r) => unwrap<ScopeLevel>(r)),
     updateScopeLevel: (id: string, json: UpdateScopeLevel) => api.api['scope-levels'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<ScopeLevel>(r)),
     reorderScopeLevels: (ids: string[]) => api.api['scope-levels'].reorder.$post({ json: { ids } }).then((r) => unwrap<ScopeLevel[]>(r)),
+    // Academic calendar (TASK-081): the years and terms "every term" and "every year" recur against.
+    academicTerms: () => api.api['academic-terms'].$get().then((r) => unwrap<AcademicTerm[]>(r)),
+    createAcademicTerm: (json: CreateAcademicTerm) => api.api['academic-terms'].$post({ json }).then((r) => unwrap<AcademicTerm>(r)),
+    updateAcademicTerm: (id: string, json: UpdateAcademicTerm) => api.api['academic-terms'][':id'].$patch({ param: { id }, json }).then((r) => unwrap<AcademicTerm>(r)),
+    reorderAcademicTerms: (ids: string[]) => api.api['academic-terms'].reorder.$post({ json: { ids } }).then((r) => unwrap<AcademicTerm[]>(r)),
+    deleteAcademicTerm: (id: string) => api.api['academic-terms'][':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
     /** People of the institution (to pick a head). */
     people: () => api.api.users.$get().then((r) => unwrap<UserSummary[]>(r)),
     programs: () => api.api.programs.$get().then((r) => unwrap<Program[]>(r)),

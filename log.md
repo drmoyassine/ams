@@ -14,6 +14,18 @@ Chronological log of decisions, discoveries, and session learnings. This is the 
 
 ---
 
+## 2026-10-19 — Recurrence, academic calendar and cycle plans with inheritance (TASK-081)
+
+Decisions: DEC-029 (items 11 and 12), DEC-002 (no accreditor in code: ABET, WSCUC and ISO cadences are plans and templates), DEC-005 (nothing says met or compliant). No new decision. Migration 0062.
+- **A plan makes runs about its own anchor.** A plan on Standard 4 makes one run per subject per period about Standard 4 (which covers its sub-standards); inheritance and opt-out decide which plan a node, and the external requirements mapped to it, show as in effect. Otherwise an external requirement mapped to an IQF node would make a second run of the same cycle. Plans do not inherit down the org chart (a unit or program takes its own plan only).
+- **Per template.** A node can have one plan or opt-out per template; resolution is per template (own, else the first not-opted-out plan of its APPROVED mapped IQF nodes in code order, else the nearest ancestor's, else the whole standard's; an opt-out stops that template at the node and below). The source is the ORIGIN ("From Standard 3" for a grandchild), not the immediate parent. Pure and tested in `cycles/plans.ts`.
+- **Whole standard.** The IQF as a whole is an anchor of its own kind (`framework`, by framework id); its runs are about the newest published version. A requirement is named by (framework, code) like scope and champion, so plans survive new versions.
+- **Engine (`cycles/recurrence.ts`):** pure, takes the calendar as data. A gap is reported only where the horizon reaches past what the calendar defines; the summer between terms is not a gap. A period is proposed while it is under way or begins within the horizon; periods already over are not proposed. `cycle.period_start` (new column) is how a run is matched to its period; `period_label` carries the words.
+- **Scheduler:** `listDueRuns` is computed on request (no job; no automatic launch; a template flag may come later, no column now). Skips are rows with a reason. Launching a proposal is `POST /api/cycles` with `planId` and `periodStart`; the previous run is the subject's previous run of the same plan.
+- **Decision-dated plans:** `{after: 'previous_ends', setBy: 'decision', dates}`: the person records the next date (`POST /api/cycle-plans/{id}/next-date`); until then the plan says it waits.
+- **Wording and lint traps met:** `Plan` and `RecurrenceSchema` already exist in `@ams/shared` (tree moves, framework lifecycle), so the new ones are `CyclePlan` and `CycleRecurrence`; `createTerm`/`updateTerm` exist in the glossary, so the calendar's are `createAcademicTerm` etc. In UI tests the Settings rows are disabled until the person's permissions arrive: wait for the Add form first, and click a button only when it is enabled (the row remounts after each save).
+- Tests: core `recurrence.test.ts`, `plans.test.ts`, `plan-service.test.ts`; db `plans.test.ts`; api `plans.test.ts`; web `plans-ui.test.tsx`; responsive pages for the calendar, Due to launch (list, launch dialog, skip), Plans (list, New plan) and the plan dialog, with the Arabic interface.
+
 ## 2026-10-19 — Quality Management screens: cycles, cycle page, My work (TASK-080)
 
 Decisions: DEC-029, DEC-005 (approvals read "Internally approved", "Internally approved with conditions", "Returned for changes"), DEC-002 (nothing accreditor-specific). No new decision, no migration.

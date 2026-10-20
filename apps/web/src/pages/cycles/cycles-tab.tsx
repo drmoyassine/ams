@@ -20,6 +20,7 @@ import { useCyclesApi } from '../../lib/cycles-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
 import { anchorLabels, type T } from '../settings/quality-management/labels';
+import { DueSection } from './due-section';
 import { ReasonDialog } from './dialogs';
 
 const small = 'px-3 py-1';
@@ -76,6 +77,7 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
     <div className="space-y-4">
       <p className="max-w-prose text-sm text-muted-foreground">{t('qmc.list.intro')}</p>
       <ReadOnlyNote show={meLoaded && !manage} />
+      <DueSection manage={manage} me={me} apis={apis} onOpen={onOpen} />
       <div className="flex flex-wrap items-end gap-2" role="search" aria-label={t('qmc.filter.label')}>
         <label className={fieldCls}>{t('common.search')}<Input aria-label={t('qmc.filter.search')} dir="auto" className="min-w-0 sm:w-56" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
         <label className={fieldCls}>{t('qmc.filter.status')}

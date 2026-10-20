@@ -149,7 +149,7 @@ describe('Languages section (Settings -> Organization)', () => {
     await screen.findByTestId('catalogue-status');
     await screen.findByRole('heading', { name: 'Details' });
     await screen.findByRole('heading', { name: 'Org chart' });
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Languages', 'Org chart', 'Scope levels']);
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Details', 'Logo', 'Languages', 'Org chart', 'Scope levels', 'Academic calendar']);
     expect(screen.getByTestId('catalogue-counts').textContent).toMatch(/^2 of \d+ strings translated, 0 reviewed$/);
     expect((screen.getByLabelText('Secondary language') as HTMLSelectElement).value).toBe('ar');
     expect((await screen.findAllByTestId('review-row')).length).toBeGreaterThan(2);

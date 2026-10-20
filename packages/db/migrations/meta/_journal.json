@@ -421,6 +421,13 @@
       "when": 1792010000000,
       "tag": "0061_scope_champion",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792020000000,
+      "tag": "0062_cycle_plans",
+      "breakpoints": true
     }
   ]
 }

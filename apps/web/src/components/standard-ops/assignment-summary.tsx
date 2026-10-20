@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import type { AssignmentSource, EffectiveChampion, EffectiveScope, NodeAssignment } from '@ams/shared';
 import { useTranslation } from '../../i18n';
 import { ContentText } from '../content-text';
+import { planSourceLabel, recurrenceText } from '../plans/labels';
 
 /** "Own", "From Standard 4", "From IQF 4.2" (several mapped IQF items: "From IQF 4.1, 4.2"). `internal`: the requirement is in the institution's own framework. */
 export function sourceLabel(sources: AssignmentSource[], internal: boolean, t: TFunction): string {
@@ -61,6 +62,26 @@ export function AssignmentLines({ assignment, internal }: { assignment: NodeAssi
           {items.map((c) => <li key={`${c.itemKind}:${c.itemId}`}><ContentText>{c.itemName}</ContentText>: <ChampionText c={c} internal={internal} /></li>)}
         </ul>
       )}
+      <PlanLines plans={assignment.plans} internal={internal} />
     </div>
+  );
+}
+
+/** The cycle plans in effect on a requirement, one line each with where it comes from ("Annual report · Every year (From IQF 4)"). */
+export function PlanLines({ plans, internal }: { plans: NodeAssignment['plans']; internal: boolean }) {
+  const { t } = useTranslation();
+  if (!plans) return null;
+  const active = plans.effective.filter((e) => !e.optedOut);
+  const out = plans.effective.filter((e) => e.optedOut);
+  return (
+    <>
+      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('plans.label')}</p>
+      {active.length === 0 && out.length === 0 ? <p className="text-xs text-muted-foreground" data-testid="hover-plans">{t('plans.none')}</p> : (
+        <ul className="list-none space-y-0.5 text-xs" data-testid="hover-plans">
+          {active.map((e) => <li key={e.templateId}><ContentText>{e.templateName}</ContentText> <span className="text-muted-foreground">· {recurrenceText(t, e.recurrence)} ({planSourceLabel(t, e.source, e.sourceCodes, internal)})</span></li>)}
+          {out.map((e) => <li key={e.templateId} className="text-muted-foreground"><ContentText>{e.templateName}</ContentText> · {t('plans.optedOut')}</li>)}
+        </ul>
+      )}
+    </>
   );
 }

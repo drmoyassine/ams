@@ -1,5 +1,5 @@
-// The three operations every standard's ⋯ menu shares (TASK-086): Assign scope, Assign champion, Create cycle. The menu is
-// Link evidence · Assign scope · Assign champion · Create cycle, then the authoring items; Link evidence and the authoring items
+// The three operations every standard's ⋯ menu shares (TASK-086): Assign scope, Assign champion, Create cycle, Set cycle plan. The menu is
+// Link evidence · Assign scope · Assign champion · Create cycle · Set cycle plan…, then the authoring items; Link evidence and the authoring items
 // stay with each page (they differ between the institution's own framework and an external standard), this hook gives the three
 // in the middle and the dialogs they open. Permissions: framework:write to assign, cycle:manage to create a cycle.
 import { useState, type ReactNode } from 'react';
@@ -10,6 +10,7 @@ import { can } from '../../lib/me';
 import type { Requirement, Version } from '../../lib/framework-api';
 import { ChampionDialog } from './champion-dialog';
 import { CreateCycleDialog } from './create-cycle-dialog';
+import { PlanDialog } from './plan-dialog';
 import { ScopeDialog, type OpsTarget } from './scope-dialog';
 import type { NodeAssignment } from '@ams/shared';
 
@@ -25,14 +26,17 @@ export function useStandardOps({ me, version, assignmentOf, tagOf, apis = {} }: 
   me: Me | undefined; version: Version; assignmentOf: (code: string) => NodeAssignment | undefined; tagOf: (r: Requirement) => string; apis?: OpsApis;
 }): { items: (r: Requirement) => MenuItem[]; dialogs: ReactNode } {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<{ kind: 'scope' | 'champion' | 'cycle'; r: Requirement } | null>(null);
+  const [open, setOpen] = useState<{ kind: 'scope' | 'champion' | 'cycle' | 'plan'; r: Requirement } | null>(null);
   const internal = version.internal === true;
   const items = (r: Requirement): MenuItem[] => [
     ...(can(me, 'framework:write') ? [
       { label: t('ops.menu.scope'), onSelect: () => setOpen({ kind: 'scope', r }) },
       { label: t('ops.menu.champion'), onSelect: () => setOpen({ kind: 'champion', r }) },
     ] : []),
-    ...(can(me, 'cycle:manage') ? [{ label: t('ops.menu.cycle'), onSelect: () => setOpen({ kind: 'cycle', r }) }] : []),
+    ...(can(me, 'cycle:manage') ? [
+      { label: t('ops.menu.cycle'), onSelect: () => setOpen({ kind: 'cycle', r }) },
+      { label: t('ops.menu.plan'), onSelect: () => setOpen({ kind: 'plan', r }) },
+    ] : []),
   ];
   let dialogs: ReactNode = null;
   if (open) {
@@ -42,7 +46,8 @@ export function useStandardOps({ me, version, assignmentOf, tagOf, apis = {} }: 
     const assignment = assignmentOf(r.code);
     dialogs = open.kind === 'scope' ? <ScopeDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} onClose={close} />
       : open.kind === 'champion' ? <ChampionDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} {...(apis.settings ? { settings: apis.settings } : {})} onClose={close} />
-        : <CreateCycleDialog target={{ ...target, anchorId: r.id }} me={me} assignment={assignment} apis={apis} onClose={close} />;
+        : open.kind === 'plan' ? <PlanDialog target={target} assignment={assignment} apis={apis} onClose={close} />
+          : <CreateCycleDialog target={{ ...target, anchorId: r.id }} me={me} assignment={assignment} apis={apis} onClose={close} />;
   }
   return { items, dialogs };
 }

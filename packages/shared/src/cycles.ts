@@ -283,6 +283,7 @@ export const CycleSummarySchema = z.object({
   startDate: z.string(), endDate: z.string().nullable(), periodLabel: z.string().nullable(),
   previousCycleId: z.string().nullable(), parentCycleId: z.string().nullable(), parentStageId: z.string().nullable(),
   origin: z.enum(CYCLE_ORIGINS),
+  planId: z.string().nullable(), periodStart: z.string().nullable(),
   stageCount: z.number(), stagesDone: z.number(),
   /** Stages whose owner (or unit) the template's rules could not resolve: they need choosing before the cycle starts. */
   unresolvedCount: z.number(),
@@ -320,6 +321,8 @@ export const LaunchCycleSchema = z.object({
   /** Default: the subject's latest earlier run of the same template, found automatically. Null = none. */
   previousCycleId: z.uuid().nullable().optional(),
   origin: z.enum(CYCLE_ORIGINS).default('manual'),
+  /** Set when launching a run a plan proposed (TASK-081): the plan, and the start of the period it covers. The previous run is then that plan's. */
+  planId: z.uuid().optional(), periodStart: day.optional(),
 }).strict().refine((v) => (v.subjectKind === null) === (v.subjectId === null), { message: 'give the subject kind and id together, or neither', path: ['subjectId'] });
 export type LaunchCycle = z.infer<typeof LaunchCycleSchema>;
 

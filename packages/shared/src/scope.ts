@@ -4,6 +4,7 @@
 // requirement, through its approved mappings to the institution's own framework; a person can override either, and "Back to
 // inherited" removes the override. Nothing here says met, compliant or a score (DEC-005).
 import { z } from 'zod';
+import { NodePlansSchema } from './plans.js';
 
 export const SCOPE_LEVEL_KINDS = ['institution', 'org_unit', 'program', 'course', 'custom'] as const;
 export type ScopeLevelKind = (typeof SCOPE_LEVEL_KINDS)[number];
@@ -113,7 +114,7 @@ export const NodeChampionSchema = z.object({
 });
 export type NodeChampion = z.infer<typeof NodeChampionSchema>;
 
-export const NodeAssignmentSchema = z.object({ scope: NodeScopeSchema, champion: NodeChampionSchema });
+export const NodeAssignmentSchema = z.object({ scope: NodeScopeSchema, champion: NodeChampionSchema, /** The cycle plans in effect (TASK-081). */ plans: NodePlansSchema.optional() });
 export type NodeAssignment = z.infer<typeof NodeAssignmentSchema>;
 
 /** The key of a scope item in maps and champion lists: "org_unit:<id>" or "program:<id>"; null for the overall champion. */

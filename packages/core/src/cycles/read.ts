@@ -99,7 +99,7 @@ export async function summariesOf(ctx: Ctx, rows: CycleRow[]): Promise<CycleSumm
     responsibleUnitId: r.responsibleUnitId, responsibleUnitName: units.get(r.responsibleUnitId) ?? null,
     leadUserId: r.leadUserId, leadName: users.get(r.leadUserId) ?? null,
     status: r.status, cancelReason: r.cancelReason, startDate: r.startDate, endDate: r.endDate, periodLabel: r.periodLabel,
-    previousCycleId: r.previousCycleId, parentCycleId: r.parentCycleId, parentStageId: r.parentStageId, origin: r.origin,
+    previousCycleId: r.previousCycleId, parentCycleId: r.parentCycleId, parentStageId: r.parentStageId, origin: r.origin, planId: r.planId, periodStart: r.periodStart,
     stageCount: st.get(r.id)?.stages ?? 0, stagesDone: st.get(r.id)?.done ?? 0, unresolvedCount: st.get(r.id)?.unresolved ?? 0,
     nextStage: r.status !== 'cancelled' && next.get(r.id)
       ? { id: next.get(r.id)!.id, name: next.get(r.id)!.name, status: next.get(r.id)!.status, ownerName: next.get(r.id)!.owner_name, ownerUnresolved: next.get(r.id)!.owner_unresolved, endDate: next.get(r.id)!.end_date, late: r.status === 'active' && next.get(r.id)!.late }

@@ -7,7 +7,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CycleAnchorKind, CycleDetail, CycleStage, Me } from '@ams/shared';
+import type { CycleAnchorKind, CycleDetail, CycleStage, DueRun, Me } from '@ams/shared';
 import { useTranslation } from '../../i18n';
 import { useCyclesApi } from '../../lib/cycles-api';
 import { useApi } from '../../lib/me';
@@ -29,10 +29,16 @@ export interface LaunchAnchor { kind: CycleAnchorKind; id: string; label: string
 type PickKind = 'org_unit' | 'program' | 'institution' | 'requirement';
 const PICK_KINDS: PickKind[] = ['org_unit', 'program', 'institution', 'requirement'];
 
-export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, apis = {}, onClose, onOpen }: {
+export function LaunchCycleDialog({ anchor: anchorProp, subject: subjectProp = '', proposal, me, apis = {}, onClose, onOpen, onMade }: {
   anchor?: LaunchAnchor; /** `org_unit:<id>` or `program:<id>` to start the choice with. */ subject?: string; me: Me | undefined; apis?: CycleApis;
+  /** A run a plan proposed (TASK-081): what it is about, who does the work, the template, the period and the plan are fixed; dates, unit and owner can be changed. */
+  proposal?: DueRun;
   onClose: () => void; onOpen?: (cycleId: string) => void;
+  /** Called when the cycle has been made (as a draft), before the person checks its owners. */
+  onMade?: (cycle: CycleDetail) => void;
 }) {
+  const anchor: LaunchAnchor | undefined = anchorProp ?? (proposal ? { kind: proposal.anchorKind, id: proposal.anchorId, label: proposal.periodLabel, title: proposal.anchorName ?? proposal.planLabel } : undefined);
+  const defaultSubject = proposal ? (proposal.subjectKind && proposal.subjectId ? `${proposal.subjectKind}:${proposal.subjectId}` : '') : subjectProp;
   const { t } = useTranslation();
   const api = useCyclesApi(apis.cycles);
   const framework = useApi(apis.framework);
@@ -41,10 +47,10 @@ export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, ap
   const [kind, setKind] = useState<PickKind>('org_unit');
   const [itemId, setItemId] = useState('');
   const [subject, setSubject] = useState(defaultSubject);
-  const [unitId, setUnitId] = useState('');
-  const [templateId, setTemplateId] = useState('');
-  const [startDate, setStartDate] = useState(today());
-  const [lead, setLead] = useState(me?.userId ?? '');
+  const [unitId, setUnitId] = useState(proposal?.responsibleUnitId ?? '');
+  const [templateId, setTemplateId] = useState(proposal?.templateId ?? '');
+  const [startDate, setStartDate] = useState(proposal ? (proposal.periodStart > today() ? proposal.periodStart : today()) : today());
+  const [lead, setLead] = useState(proposal?.ownerUserId ?? me?.userId ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<CycleDetail | null>(null);
@@ -63,7 +69,7 @@ export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, ap
       return v ? framework.requirements(v.id) : [];
     },
   });
-  const fits = (templates.data ?? []).filter((x) => x.status === 'published' && (x.anchorKinds.length === 0 || x.anchorKinds.includes(anchorKind)));
+  const fits = (templates.data ?? []).filter((x) => x.status === 'published' && (proposal ? x.id === proposal.templateId : x.anchorKinds.length === 0 || x.anchorKinds.includes(anchorKind)));
   const noTemplates = templates.data !== undefined && fits.length === 0;
   const anchorIsPlace = anchorKind === 'org_unit' || anchorKind === 'program';
   const canSubmit = !busy && !!anchorId && !!startDate && (!!subject || anchorIsPlace || !!unitId);
@@ -77,12 +83,13 @@ export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, ap
       const r = await act(() => api.launch({
         anchorKind, anchorId, startDate, ...(subjectKind ? { subjectKind, subjectId } : {}),
         ...(templateId ? { templateId } : {}), ...(lead ? { leadUserId: lead } : {}), ...(unitId ? { responsibleUnitId: unitId } : {}),
+        ...(proposal ? { planId: proposal.planId, periodStart: proposal.periodStart, periodLabel: proposal.periodLabel } : {}),
       }));
-      if (r) { setMade(r); void qc.invalidateQueries({ queryKey: ['cycles'] }); }
+      if (r) { setMade(r); onMade?.(r); void qc.invalidateQueries({ queryKey: ['cycles'] }); void qc.invalidateQueries({ queryKey: ['due-runs'] }); void qc.invalidateQueries({ queryKey: ['cycle-plans'] }); }
     } finally { setBusy(false); }
   };
 
-  const title = made ? t('ops.cycle.created') : anchor ? t('ops.cycle.title') : t('qmc.new.title');
+  const title = made ? t('ops.cycle.created') : proposal ? t('plans.launch.title') : anchor ? t('ops.cycle.title') : t('qmc.new.title');
   return (
     <Dialog labelledBy="cycle-dialog-title" size="lg" onClose={onClose}>
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -94,7 +101,8 @@ export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, ap
         <LaunchReview made={made} setMade={setMade} apis={apis} onClose={onClose} onOpen={onOpen} />
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-3" aria-label={title}>
-          <p className="text-sm text-muted-foreground">{anchor ? <><ContentText>{anchor.title}</ContentText>. {t('ops.cycle.intro')}</> : t('qmc.new.intro')}</p>
+          <p className="text-sm text-muted-foreground">{anchor ? <><ContentText>{anchor.title}</ContentText>. {proposal ? t('plans.launch.intro', { period: proposal.periodLabel }) : t('ops.cycle.intro')}</> : t('qmc.new.intro')}</p>
+          {proposal && <p className="text-sm" data-testid="proposal-facts"><span className="text-muted-foreground">{t('plans.launch.subject')}: </span><ContentText>{proposal.subjectName ?? proposal.anchorName ?? ''}</ContentText><span className="text-muted-foreground"> · {t('plans.launch.period')}: </span><ContentText>{proposal.periodLabel}</ContentText></p>}
           {!anchor && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={fieldCls}>{t('qmc.new.anchorKind')}
@@ -116,14 +124,15 @@ export function LaunchCycleDialog({ anchor, subject: defaultSubject = '', me, ap
           )}
           {noTemplates && <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900" data-testid="no-templates">{t('ops.cycle.noTemplates')}</p>}
           <label className={fieldCls}>{t('ops.cycle.template')}
-            <select aria-label={t('ops.cycle.template')} className={selectCls} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-              <option value="">{t('ops.cycle.blank')}</option>
+            <select aria-label={t('ops.cycle.template')} className={selectCls} value={templateId} disabled={!!proposal} onChange={(e) => setTemplateId(e.target.value)}>
+              {!proposal && <option value="">{t('ops.cycle.blank')}</option>}
               {fits.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>
           <label className={fieldCls}>{t('ops.cycle.subject')}
-            <select aria-label={t('ops.cycle.subject')} required={!anchorIsPlace && !unitId} className={selectCls} value={subject} onChange={(e) => setSubject(e.target.value)}>
+            <select aria-label={t('ops.cycle.subject')} required={!anchorIsPlace && !unitId} className={selectCls} value={subject} disabled={!!proposal} onChange={(e) => setSubject(e.target.value)}>
               <option value="">{anchorIsPlace ? t('qmc.new.subjectSame') : t('ops.cycle.chooseSubject')}</option>
+              {proposal?.subjectKind === 'institution' && <option value={defaultSubject}>{proposal.subjectName}</option>}
               <optgroup label={t('ops.cycle.units')}>{dir.units.map((u) => <option key={u.id} value={`org_unit:${u.id}`}>{u.nameEn}</option>)}</optgroup>
               <optgroup label={t('ops.cycle.programs')}>{dir.programs.map((p) => <option key={p.id} value={`program:${p.id}`}>{p.nameEn}{p.detail ? ` · ${p.detail}` : ''}</option>)}</optgroup>
             </select>

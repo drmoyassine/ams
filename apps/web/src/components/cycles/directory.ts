@@ -7,11 +7,12 @@ import type { CyclesApi } from '../../lib/cycles-api';
 import type { DocumentsApi } from '../../lib/documents-api';
 import type { EvidenceApi } from '../../lib/evidence-api';
 import type { FrameworkApi } from '../../lib/framework-api';
+import type { PlansApi } from '../../lib/plans-api';
 import { useScopeApi, type ScopeApi } from '../../lib/scope-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 
 /** The clients the cycle screens use; each defaults to the app's own. */
-export interface CycleApis { cycles?: CyclesApi; settings?: SettingsApi; scope?: ScopeApi; evidence?: EvidenceApi; documents?: DocumentsApi; framework?: FrameworkApi }
+export interface CycleApis { cycles?: CyclesApi; settings?: SettingsApi; scope?: ScopeApi; evidence?: EvidenceApi; documents?: DocumentsApi; framework?: FrameworkApi; plans?: PlansApi }
 
 export interface Directory {
   people: UserSummary[]; units: ScopeItem[]; programs: ScopeItem[];

@@ -3,6 +3,7 @@ import {
   AI_PROVIDERS, ANALYSIS_STAGES, IMPORT_APPLY_STATES, IMPORT_PROPOSAL_STATUSES, IMPORT_READ_STATUSES, IMPORT_RUN_STATUSES, IMPORT_SCOPE_KINDS, IMPORT_STAGES, type ImportProgress, type ImportUsage, ANALYSIS_STATUSES, ENGAGEMENT_KINDS, type AnalysisProgress, type AnalysisUsage, ENGAGEMENT_REQUIREMENT_STATUSES, ENGAGEMENT_STATUSES, ENGAGEMENT_SUBJECT_TYPES, MILESTONE_ORIGINS, MILESTONE_STATUSES,
   MILESTONE_TYPES, ORG_UNIT_SOURCES, PHASE_TYPES, ROLES,
   CYCLE_ANCHOR_KINDS, CYCLE_DECISIONS, CYCLE_INPUT_SOURCES, CYCLE_ORIGINS, CYCLE_OUTPUT_KINDS, CYCLE_OUTPUT_STATES, CYCLE_PICK_KINDS, CYCLE_REF_KINDS,
+  PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
 } from '@ams/shared';
 import {
@@ -1374,6 +1375,9 @@ export const cycle = pgTable('cycle', {
   /** The subject's previous run of the same template: what `previous_cycle` inputs read. */
   previousCycleId: uuid('previous_cycle_id').references((): AnyPgColumn => cycle.id),
   periodLabel: text('period_label'),
+  /** The plan that proposed this run (TASK-081) and the start of the period it covers; both null for a one-off cycle. */
+  planId: uuid('plan_id').references((): AnyPgColumn => cyclePlan.id),
+  periodStart: date('period_start'),
   /** Nesting (TASK-082): the stage that runs this cycle as a child. Null for now. */
   parentCycleId: uuid('parent_cycle_id').references((): AnyPgColumn => cycle.id),
   parentStageId: uuid('parent_stage_id').references((): AnyPgColumn => cycleStage.id),
@@ -1496,4 +1500,62 @@ export const cycleInput = pgTable('cycle_input', {
   check('cycle_input_key_check', sql`${t.key} ~ '^[a-z][a-z0-9_]{0,47}$'`),
   check('cycle_input_pick_check', sql`(${t.source} = 'pick' and ${t.outputId} is null) or (${t.source} <> 'pick' and ${t.refKind} is null and ${t.refId} is null and ${t.pickKind} is null)`),
   check('cycle_input_ref_pair_check', sql`(${t.refKind} is null) = (${t.refId} is null)`),
+]);
+
+// ---- Academic calendar and cycle plans (TASK-081, migration 0062) -----------------------------------------------------------
+
+/** A year or a term of the institution's academic calendar. Active ones of a kind never overlap (a trigger checks). */
+export const academicTerm = pgTable('academic_term', {
+  ...base(), ...tenant(),
+  name: text('name').notNull(),
+  nameAr: text('name_ar'),
+  kind: text('kind', { enum: ACADEMIC_TERM_KINDS }).notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  displayOrder: integer('display_order').notNull().default(0),
+}, (t) => [
+  index('academic_term_idx').on(t.institutionId, t.kind, t.startDate),
+  oneOf('academic_term_kind_check', t.kind, ACADEMIC_TERM_KINDS),
+  check('academic_term_dates_check', sql`${t.endDate} >= ${t.startDate}`),
+  check('academic_term_name_check', sql`length(trim(${t.name})) > 0`),
+]);
+
+/**
+ * A template and a recurrence attached to an anchor. A requirement is named by (framework, code) like scope and champion, a whole
+ * standard by its framework, the others by id. `mode` own = a plan, opt_out = this node stops inheriting this template's plan.
+ * Plans only propose runs; QA launches them (DEC-029).
+ */
+export const cyclePlan = pgTable('cycle_plan', {
+  ...base(), ...tenant(),
+  anchorKind: text('anchor_kind', { enum: PLAN_ANCHOR_KINDS }).notNull(),
+  anchorId: uuid('anchor_id'),
+  anchorFrameworkId: uuid('anchor_framework_id').references(() => framework.id),
+  anchorCode: text('anchor_code'),
+  templateId: uuid('template_id').notNull().references(() => cycleTemplate.id),
+  responsibleUnitId: uuid('responsible_unit_id').references(() => orgUnit.id),
+  ownerUserId: uuid('owner_user_id').references(() => appUser.id),
+  recurrence: jsonb('recurrence').$type<CycleRecurrence>(),
+  firstStart: date('first_start'),
+  appliesTo: jsonb('applies_to').$type<AppliesTo>().notNull().default(sql`'{}'::jsonb`),
+  mode: text('mode', { enum: PLAN_MODES }).notNull().default('own'),
+  active: boolean('active').notNull().default(true),
+}, (t) => [
+  uniqueIndex('cycle_plan_anchor_idx').on(t.institutionId, t.anchorKind, sql`coalesce(${t.anchorId}, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`coalesce(${t.anchorFrameworkId}, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`coalesce(${t.anchorCode}, '')`, t.templateId),
+  index('cycle_plan_framework_idx').on(t.anchorFrameworkId, t.anchorCode),
+  index('cycle_plan_template_idx').on(t.templateId),
+  oneOf('cycle_plan_anchor_kind_check', t.anchorKind, PLAN_ANCHOR_KINDS),
+  oneOf('cycle_plan_mode_check', t.mode, PLAN_MODES),
+]);
+
+/** "Skip this period": a proposed run a person chose not to launch, with the reason, so it is not proposed again. */
+export const cyclePlanSkip = pgTable('cycle_plan_skip', {
+  ...base(), ...tenant(),
+  planId: uuid('plan_id').notNull().references(() => cyclePlan.id),
+  subjectKind: text('subject_kind', { enum: CYCLE_SUBJECT_KINDS }),
+  subjectId: uuid('subject_id'),
+  periodStart: date('period_start').notNull(),
+  reason: text('reason').notNull(),
+}, (t) => [
+  uniqueIndex('cycle_plan_skip_idx').on(t.planId, sql`coalesce(${t.subjectKind}, '')`, sql`coalesce(${t.subjectId}, '00000000-0000-0000-0000-000000000000'::uuid)`, t.periodStart),
 ]);

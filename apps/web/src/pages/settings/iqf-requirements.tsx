@@ -157,7 +157,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
   const contexts = useRequirementContexts(evidence, version.id);
   const assignmentOf = useCallback((code: string): NodeAssignment | undefined => {
     const c = contexts.data?.byCode[code];
-    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion } : undefined;
+    return c?.scope && c.champion ? { scope: c.scope, champion: c.champion, ...(c.plans ? { plans: c.plans } : {}) } : undefined;
   }, [contexts.data]);
   const ops = useStandardOps({ me, version, assignmentOf, tagOf: tag, ...(apis ? { apis } : {}) });
   const qc = useQueryClient();

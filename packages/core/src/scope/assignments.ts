@@ -22,14 +22,14 @@ const CHAMPION_PATH = '/api/requirement-champion';
 
 // ---- Reading --------------------------------------------------------------------------------------------------------------
 
-async function treeOf(ctx: Ctx, versionId: string): Promise<TreeNode[]> {
+export async function treeOf(ctx: Ctx, versionId: string): Promise<TreeNode[]> {
   const rows = await ctx.tx.select({ id: requirement.id, code: requirement.code, parentId: requirement.parentId }).from(requirement).where(eq(requirement.frameworkVersionId, versionId));
   const codeOf = new Map(rows.map((r) => [r.id, r.code]));
   return rows.map((r) => ({ code: r.code, parentCode: r.parentId ? codeOf.get(r.parentId) ?? null : null }));
 }
 
 /** The version whose tree stands for a standard: its newest published version, else its newest. */
-async function referenceVersion(ctx: Ctx, frameworkId: string): Promise<string | null> {
+export async function referenceVersion(ctx: Ctx, frameworkId: string): Promise<string | null> {
   const versions = await ctx.tx.select({ id: frameworkVersion.id, status: frameworkVersion.status }).from(frameworkVersion)
     .where(eq(frameworkVersion.frameworkId, frameworkId)).orderBy(desc(frameworkVersion.createdAt));
   return (versions.find((v) => v.status === 'published') ?? versions[0])?.id ?? null;

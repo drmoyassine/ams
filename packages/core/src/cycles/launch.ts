@@ -4,7 +4,7 @@
 // inputs wired to the outputs they read (an earlier stage of this cycle, or the subject's previous run). What a rule cannot
 // settle is left empty and flagged for a person; nothing is guessed. `activateCycle` (cycles.ts) then starts it.
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { cycle, cycleInput, cycleOutput, cycleStage } from '@ams/db';
+import { cycle, cycleInput, cycleOutput, cyclePlan, cycleStage } from '@ams/db';
 import type { CycleDetail, LaunchCycle, StageDef, UnitRule } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
@@ -54,8 +54,32 @@ export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDe
     const [p] = await ctx.tx.select({ id: cycle.id, templateId: cycle.templateId }).from(cycle).where(eq(cycle.id, input.previousCycleId));
     if (!p) throw new NotFoundError(`cycle ${input.previousCycleId}`);
     previousCycleId = p.id;
-  } else if (input.previousCycleId === undefined && tpl) {
+  } else if (input.previousCycleId === undefined && tpl && !input.planId) {
     previousCycleId = await findPreviousCycle(ctx, tpl.row.id, { anchorKind: input.anchorKind, anchorId: input.anchorId, subjectKind: input.subjectKind, subjectId: input.subjectId });
+  }
+
+  // A run a plan proposed (TASK-081): it names the plan and the period; the previous run is the subject's previous run of THIS plan.
+  let planId: string | null = null;
+  let periodStart: string | null = null;
+  if (input.planId) {
+    const [plan] = await ctx.tx.select().from(cyclePlan).where(eq(cyclePlan.id, input.planId));
+    if (!plan) throw new NotFoundError(`plan ${input.planId}`);
+    if (!input.periodStart) throw new ValidationError('Name the start of the period this run covers.');
+    if (tpl && tpl.row.id !== plan.templateId) throw new ValidationError('That template is not the one of the plan.');
+    const subjectRef = input.subjectKind && input.subjectId ? `${input.subjectKind}:${input.subjectId}` : `${input.anchorKind}:${input.anchorId}`;
+    const [dup] = await ctx.tx.select({ id: cycle.id }).from(cycle).where(and(
+      eq(cycle.planId, plan.id), eq(cycle.periodStart, input.periodStart), sql`${cycle.status} <> 'cancelled'`,
+      sql`coalesce(${cycle.subjectKind} || ':' || ${cycle.subjectId}::text, ${cycle.anchorKind} || ':' || ${cycle.anchorId}::text) = ${subjectRef}`,
+    )).limit(1);
+    if (dup) throw new ConflictError('A run for that period was already launched.');
+    planId = plan.id; periodStart = input.periodStart;
+    if (input.previousCycleId === undefined) {
+      const [prev] = await ctx.tx.select({ id: cycle.id }).from(cycle).where(and(
+        eq(cycle.planId, plan.id), sql`${cycle.periodStart} < ${input.periodStart}::date`, sql`${cycle.status} in ('active', 'completed')`,
+        sql`coalesce(${cycle.subjectKind} || ':' || ${cycle.subjectId}::text, ${cycle.anchorKind} || ':' || ${cycle.anchorId}::text) = ${subjectRef}`,
+      )).orderBy(desc(cycle.periodStart)).limit(1);
+      previousCycleId = prev?.id ?? null;
+    }
   }
 
   const subjectName = subject?.name ?? null;
@@ -63,7 +87,7 @@ export async function launchCycle(ctx: Ctx, input: LaunchCycle): Promise<CycleDe
   const [row] = await guardIntegrity(() => ctx.tx.insert(cycle).values({
     institutionId: ctx.caller.institutionId, title, templateId: tpl?.row.id ?? null, templateVersion: tpl?.row.version ?? null,
     anchorKind: input.anchorKind, anchorId: input.anchorId, subjectKind: input.subjectKind, subjectId: input.subjectId,
-    responsibleUnitId, leadUserId, status: 'draft', startDate: input.startDate, previousCycleId, periodLabel: nfcOrNull(input.periodLabel), origin: input.origin,
+    responsibleUnitId, leadUserId, status: 'draft', startDate: input.startDate, previousCycleId, periodLabel: nfcOrNull(input.periodLabel), origin: input.origin, planId, periodStart,
   }).returning());
 
   if (tpl) await buildStages(ctx, row!, tpl.stages, { subjectUnitId, previousCycleId });

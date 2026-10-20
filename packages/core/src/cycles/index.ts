@@ -13,3 +13,8 @@ export {
 } from './outputs.js';
 export { getMyWork } from './my-work.js';
 export { deleteCycle } from './trash.js';
+export { calendarEntries, createAcademicTerm, deleteAcademicTerm, listAcademicTerms, reorderAcademicTerms, updateAcademicTerm } from './calendar.js';
+export { clearPlan, getTargetPlans, listPlans, loadPlanAssignments, setNextDate, setPlan } from './plan-service.js';
+export { listDueRuns, proposeForPlan, skipDueRun, unskipDueRun } from './due.js';
+export { periodsFor, plusDays, plusMonths, type CalendarEntry } from './recurrence.js';
+export { resolvePlanTree, subjectsFor, type Candidate, type EffRef, type MappedPlans, type PlanBoth, type PlanRef, type ScopeLevelUse, type Universe } from './plans.js';

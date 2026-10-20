@@ -103,7 +103,7 @@ describe('Quality Management -> Standards', () => {
   it('has a Standards tab with the institution\'s standards, full width, and no side panel', async () => {
     render(wrap(qm('lead')));
     expect(await screen.findByRole('heading', { name: 'Quality Management' })).toBeTruthy();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'My work']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'Plans', 'My work']);
     expect(screen.getByRole('tab', { name: 'Standards' }).getAttribute('aria-selected')).toBe('true');
     const list = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(list.textContent).toContain('Assessment of learning'));
@@ -117,7 +117,7 @@ describe('Quality Management -> Standards', () => {
     const user = userEvent.setup();
     render(wrap(qm('lead')));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
   });
 
   it('shows only what the person may do: a contributor links evidence; a viewer has no menu', async () => {
@@ -137,12 +137,12 @@ describe('Quality Management -> Standards', () => {
     // The published version is fixed: only the operations are offered there; a draft adds the authoring items.
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
     await user.keyboard('{Escape}');
     await user.click(await screen.findByRole('button', { name: 'Start a new version' }));
     await waitFor(async () => expect((await screen.findByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
     await user.click(await actions('3.0'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Add sub-standard', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…', 'Add sub-standard', 'Edit', 'Delete']);
     expect(screen.queryByRole('menuitem', { name: 'Request evidence' })).toBeNull();
   });
 });
@@ -265,7 +265,7 @@ describe('an external standard', () => {
     await renderExt('lead');
     await user.click(await screen.findByRole('button', { name: `Actions for ${tagOf(ext.sub)}` }));
     const names = menuNames();
-    expect(names.slice(0, 4)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle']);
+    expect(names.slice(0, 5)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…']);
     expect(names).toContain('Map to IQF…');
   });
 

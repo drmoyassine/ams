@@ -374,6 +374,24 @@ async function seedDemo(db, base) {
     cancelled = await call('POST', `/api/cycles/${cancelled.id}/cancel`, { reason: 'The program was merged into the institutional review, so a separate annual report is no longer needed. تم دمج البرنامج في المراجعة المؤسسية.' });
     ids.cyCancelled = cancelled.id;
   } catch (e) { warn('cycles', e); }
+  // TASK-081: the academic calendar (a year and two terms, long and Arabic names; the calendar ends after the second term, so the plans
+  // report a stretch it does not cover), plans (a standard every term for the programs in its scope, the whole quality framework every
+  // year, a unit whose next date a decision fixes, an opt-out on a sub-standard) and so runs due to launch.
+  try {
+    const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    await call('POST', '/api/academic-terms', { name: 'AY2026-27', nameAr: 'العام الدراسي ٢٠٢٦-٢٠٢٧ مع اسم طويل جدا يجب أن يلتف على الشاشة الصغيرة', kind: 'year', startDate: day(-100), endDate: day(265) });
+    await call('POST', '/api/academic-terms', { name: 'Fall 2026 (a long term name that has to wrap on a narrow phone screen)', nameAr: 'الفصل الدراسي الأول', kind: 'term', startDate: day(-10), endDate: day(60) });
+    await call('POST', '/api/academic-terms', { name: 'Spring 2027', nameAr: 'الفصل الدراسي الثاني', kind: 'term', startDate: day(90), endDate: day(160) });
+    const qf = await call('GET', '/api/quality-framework');
+    const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
+    const templates = await call('GET', '/api/cycle-templates');
+    const tpl = (key) => templates.find((t) => t.key === key).id;
+    await call('PUT', '/api/cycle-plans', { anchorKind: 'requirement', frameworkId: qf.framework.id, code: items[0].code, templateId: tpl('course_assessment'), recurrence: { every: 1, unit: 'term' }, firstStart: day(-30), appliesTo: { kinds: ['program'] } });
+    await call('PUT', '/api/cycle-plans', { anchorKind: 'framework', frameworkId: qf.framework.id, templateId: tpl('annual_program_report'), recurrence: { every: 1, unit: 'year' }, firstStart: day(-30), appliesTo: { kinds: ['program'] } });
+    await call('PUT', '/api/cycle-plans', { anchorKind: 'org_unit', anchorId: unit, templateId: tpl('admin_unit_review'), recurrence: { after: 'previous_ends', setBy: 'decision' }, firstStart: day(-3) });
+    const child = items.find((r) => r.parentId === items[0].id);
+    if (child) await call('PUT', '/api/cycle-plans', { anchorKind: 'requirement', frameworkId: qf.framework.id, code: child.code, templateId: tpl('course_assessment'), mode: 'opt_out' });
+  } catch (e) { warn('plans', e); }
   // The in-app assistant (DEC-027): AI switched on so the panel's composer is live, one saved conversation with steps, links and a
   // pending "Remember this?" card, and a few memory notes (long and Arabic) for the memory page.
   try {
@@ -897,6 +915,45 @@ function pagesFor(ids) {
       await page.getByRole('list', { name: 'Scope levels' }).waitFor();
       await page.getByRole('list', { name: 'Scope levels' }).scrollIntoViewIfNeeded();
     } },
+    // TASK-081: Settings -> Organization -> Academic calendar; Quality Management -> Cycles -> Due to launch (the list, the launch dialog with a
+    // proposed run, Skip this period); Quality Management -> Plans (the list, New plan) and "Set cycle plan…" with its hover card.
+    { name: 'settings-organization-academic-calendar', path: '/settings/organization', action: async (page) => {
+      await page.getByRole('list', { name: 'Terms' }).waitFor();
+      await page.getByRole('list', { name: 'Terms' }).scrollIntoViewIfNeeded();
+    } },
+    { name: 'qm-cycles-due', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByTestId('due-run').first().waitFor();
+      await page.getByTestId('due-section').scrollIntoViewIfNeeded();
+    } },
+    { name: 'qm-cycles-due-launch', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByTestId('due-run').first().waitFor();
+      await page.getByTestId('due-run').first().getByRole('button', { name: /^Review and launch / }).click();
+      const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
+      await dialog.waitFor();
+      await dialog.getByTestId('proposal-facts').waitFor();
+    } },
+    { name: 'qm-cycles-due-skip', path: '/quality-management?tab=cycles', action: async (page) => {
+      await page.getByTestId('due-run').first().waitFor();
+      await page.getByRole('button', { name: /^Skip this period: / }).first().click();
+      await page.getByRole('dialog', { name: /^Skip / }).waitFor();
+    } },
+    { name: 'qm-plans', path: '/quality-management?tab=plans', action: async (page) => { await page.getByTestId('plan-row').first().waitFor(); } },
+    { name: 'qm-plans-new-dialog', path: '/quality-management?tab=plans', action: async (page) => {
+      await page.getByRole('button', { name: 'New plan' }).click();
+      const dialog = page.getByRole('dialog', { name: /^Cycle plan/ });
+      await dialog.waitFor();
+      await dialog.getByTestId('plan-anchor-pick').waitFor();
+    } },
+    { name: 'quality-management-plan-dialog', path: '/quality-management', action: async (page) => {
+      await menuItem('Set cycle plan…')(page);
+      const dialog = page.getByRole('dialog', { name: /^Cycle plan/ });
+      await dialog.waitFor();
+      await dialog.getByTestId('effective-plan').first().waitFor();
+    } },
+    { name: 'quality-management-plan-hover', path: '/quality-management', action: async (page) => {
+      await page.locator('button[data-tree-focus]').first().hover();
+      await page.getByRole('tooltip').getByText('Cycle plans', { exact: true }).waitFor();
+    } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
 
@@ -947,7 +1004,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'quality-management-plan-dialog'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

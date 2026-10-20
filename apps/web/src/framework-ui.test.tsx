@@ -238,7 +238,7 @@ describe('version page', () => {
     const card = await screen.findByRole('region', { name: 'Measure 1-1' });
     expect(within(card).queryByTestId('review')).toBeNull(); // the seed-style auto-approved data shows no label
     await user.click(within(card).getByRole('button', { name: 'Actions for Measure 1-1' }));
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Add measure', 'Edit', 'Map to IQF…', 'Merge into another requirement', 'Split', 'Move to…', 'Delete']); // no Approve / Reject
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…', 'Add measure', 'Edit', 'Map to IQF…', 'Merge into another requirement', 'Split', 'Move to…', 'Delete']); // no Approve / Reject
     await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     const title = within(dialog).getByLabelText('Title');
@@ -374,7 +374,7 @@ describe('version page', () => {
     await screen.findByTestId('requirement-detail');
     // A published version is fixed: only what lives outside it (mapping to the IQF, linking evidence) is still offered.
     await user.click(screen.getAllByRole('button', { name: /^Actions for/ })[0]!);
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Map to IQF…']);
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Create cycle', 'Set cycle plan…', 'Map to IQF…']);
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('button', { name: '+ Requirement' })).toBeNull();
     expect(screen.queryByRole('form', { name: 'Add note' })).toBeNull();

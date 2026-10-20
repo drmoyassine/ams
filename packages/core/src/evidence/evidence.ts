@@ -18,6 +18,7 @@ import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { reportUndo } from '../trash/store.js';
 import { loadAssignments } from '../scope/assignments.js';
+import { loadPlanAssignments } from '../cycles/plan-service.js';
 import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
 
@@ -437,7 +438,8 @@ export async function requirementContexts(ctx: Ctx, versionId: string): Promise<
   const codes = (await ctx.tx.select({ code: requirement.code }).from(requirement).where(eq(requirement.frameworkVersionId, versionId))).map((r) => r.code);
   const byCode: Record<string, RequirementContext> = {};
   const assigned = await loadAssignments(ctx, versionId);
-  for (const code of codes) byCode[code] = { mappings: [], inherited: [], inheritedCount: 0, direct: [], directCount: 0, ...(assigned.has(code) ? { scope: assigned.get(code)!.scope, champion: assigned.get(code)!.champion } : {}) };
+  const planned = await loadPlanAssignments(ctx, versionId);
+  for (const code of codes) byCode[code] = { mappings: [], inherited: [], inheritedCount: 0, direct: [], directCount: 0, ...(assigned.has(code) ? { scope: assigned.get(code)!.scope, champion: assigned.get(code)!.champion } : {}), ...(planned.has(code) ? { plans: planned.get(code)! } : {}) };
   const maps = (await ctx.tx.select().from(requirementMapping).where(eq(requirementMapping.frameworkId, v.frameworkId)))
     .filter((m) => m.reviewStatus !== 'rejected' && byCode[m.externalCode]);
   const titles = new Map<string, Map<string, string>>();

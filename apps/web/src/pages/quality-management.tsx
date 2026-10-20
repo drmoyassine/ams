@@ -8,18 +8,20 @@ import type { FrameworkApi } from '../lib/framework-api';
 import { useApi, useMe } from '../lib/me';
 import { CyclesTab } from './cycles/cycles-tab';
 import { MyWorkTab } from './cycles/my-work';
+import { PlansTab } from './cycles/plans-tab';
 import { STATUS_LABEL } from './frameworks';
 import { IqfRequirements } from './settings/iqf-requirements';
 
 /**
  * The tabs of Quality Management. "Standards" is the institution's own framework in operation (TASK-086): the same tree as
  * Settings -> Internal Quality Framework, with the ⋯ menu Link evidence · Assign scope · Assign champion · Create cycle and without
- * the authoring, which stays in Settings. "Cycles" lists the cycles (TASK-080), each opening on its own page; "My work" is the stages
- * I own and the approvals waiting for me. Full width, no side panels. The tab is addressable as ?tab=standards|cycles|my-work.
+ * the authoring, which stays in Settings. "Cycles" lists the cycles (TASK-080), each opening on its own page; "Plans" lists the cycle plans (TASK-081: a template and a recurrence attached to a standard, unit, program or evidence item; the runs they propose appear under Cycles -> Due to launch); "My work" is the stages
+ * I own and the approvals waiting for me. Full width, no side panels. The tab is addressable as ?tab=standards|cycles|plans|my-work.
  */
 export const QM_TABS = [
   { id: 'standards', label: 'quality.tab.standards' },
   { id: 'cycles', label: 'quality.tab.cycles' },
+  { id: 'plans', label: 'quality.tab.plans' },
   { id: 'my-work', label: 'quality.tab.myWork' },
 ] as const;
 export type QmTab = (typeof QM_TABS)[number]['id'];
@@ -80,6 +82,7 @@ export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabPr
       <div role="tabpanel" id="qm-tabpanel" aria-labelledby={`qm-tab-${tab}`}>
         {tab === 'standards' && <StandardsTab api={api} {...(evidence ? { evidence } : {})} {...(apis ? { apis } : {})} />}
         {tab === 'cycles' && <CyclesTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} onOpen={(id) => { void navigate({ to: '/quality-management/cycles/$id', params: { id } }); }} />}
+        {tab === 'plans' && <PlansTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} />}
         {tab === 'my-work' && <MyWorkTab {...(apis ? { apis } : {})} />}
       </div>
     </div>
