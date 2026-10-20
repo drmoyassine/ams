@@ -103,10 +103,13 @@ describe('attached once to the internal framework, offered to every mapped requi
     expect(await w.as('alo', (c) => suggestionsFor(c, ids.wscucER!))).toHaveLength(1);
 
     await expect(w.as('contrib', (c) => linkToEngagementRequirement(c, ids.wscucER!, { evidenceVersionId: ids.v1!, rationale: 'x' }))).rejects.toThrow(); // not their engagement: they cannot even see it
-    const a = await w.as('coord', (c) => linkToEngagementRequirement(c, ids.abetER!, { evidenceVersionId: ids.v1!, rationale: 'Shows the program reviews assessment results every year' }));
+    // A contributor proposes; the institution lead, who may review the engagement, has hers approved at once (TASK-088).
+    const a = await w.as('contrib', (c) => linkToEngagementRequirement(c, ids.abetER!, { evidenceVersionId: ids.v1!, rationale: 'Shows the program reviews assessment results every year' }));
     const b = await w.as('alo', (c) => linkToEngagementRequirement(c, ids.wscucER!, { evidenceVersionId: ids.v1!, rationale: 'Evidence of institution-wide assessment of learning' }));
     expect(a.rationale).not.toBe(b.rationale);
-    expect(a).toMatchObject({ reviewStatus: 'proposed', target: { kind: 'engagement', engagementId: ids.abetEng } });
+    expect(a).toMatchObject({ reviewStatus: 'proposed', reviewedByName: null, reviewedAt: null, target: { kind: 'engagement', engagementId: ids.abetEng } });
+    expect(b).toMatchObject({ reviewStatus: 'approved', reviewedByName: 'alo', reviewComment: null, target: { kind: 'engagement', engagementId: ids.wscucEng } });
+    expect(b.reviewedAt).toEqual(expect.any(String));
     expect(await w.as('coord', (c) => suggestionsFor(c, ids.abetER!))).toEqual([]); // linked now, so no longer offered
     await w.as('coord', (c) => reviewLink(c, a.id, { decision: 'approved', comment: 'Good' }));
     ids.abetLink = a.id;
@@ -151,8 +154,8 @@ describe('attached once to the internal framework, offered to every mapped requi
 describe('what the repository list shows', () => {
   it('counts links to review, open form requests and new responses, without one query per item', async () => {
     const doc = (await w.as('alo', (c) => listEvidence(c))).find((e) => e.id === ids.minutes)!;
-    // Two links on v1: the internal one (approved) and the WSCUC one (proposed); the ABET one was removed above.
-    expect(doc).toMatchObject({ linkCount: 2, proposedLinkCount: 1, openRequestCount: 0, formOpen: false, pendingResponses: 0 });
+    // Two links on v1: the internal one (approved by a reviewer) and the WSCUC one (approved at once by its creator); the ABET one was removed above.
+    expect(doc).toMatchObject({ linkCount: 2, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0 });
 
     const data = await w.as('contrib', (c) => createEvidence(c, { title: 'Employer survey', type: 'data' }));
     await w.as('contrib', (c) => saveDatasetSpec(c, data.id, { columns: [{ key: 'employer', label: 'Employer', type: 'text', required: true }] }));

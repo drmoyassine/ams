@@ -25,8 +25,8 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: db.url });
   app = createApp({ pool, store, authenticate: async (req) => { const h = req.headers.get('x-test-user'); if (!h) return null; const [u, i] = h.split(':'); return { userId: u!, institutionId: i! }; } }).app;
   ids.inst = await one(`insert into institution (name_en) values ('Gulf University') returning id`);
-  for (const n of ['lead', 'viewer', 'nobody']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
-  for (const [u, role] of [['lead', 'lead'], ['viewer', 'viewer']]) {
+  for (const n of ['lead', 'viewer', 'nobody', 'contrib']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
+  for (const [u, role] of [['lead', 'lead'], ['viewer', 'viewer'], ['contrib', 'contributor']]) {
     await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, $3, 'institution', $1)`, [ids.inst, ids[u!], role]);
   }
 }, 60000);
@@ -92,14 +92,60 @@ describe('evidence API', () => {
     expect((await call('viewer', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'x' })).status).toBe(403);
     const made = await call('lead', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'Lists every faculty member' });
     expect(made.status).toBe(201);
+    expect(made.body).toMatchObject({ reviewStatus: 'approved', reviewedByName: 'lead', reviewComment: null });
     expect(made.body.target).toMatchObject({ kind: 'external', code: '1.2', title: 'Faculty', frameworkLabel: 'IC' });
     expect((await call('lead', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'again' })).status).toBe(409);
     expect((await call('viewer', 'GET', `/api/requirements/${req}/evidence-links`)).body).toHaveLength(1);
 
     const ctx = await call('viewer', 'GET', `/api/framework-versions/${ver}/requirement-context`);
     expect(ctx.status).toBe(200);
-    expect(ctx.body.byCode['1.2']).toMatchObject({ mappings: [], inheritedCount: 0, directCount: 1, direct: [{ title: 'Faculty list', versionNo: 1, reviewStatus: 'proposed' }] });
+    expect(ctx.body.byCode['1.2']).toMatchObject({ mappings: [], inheritedCount: 0, directCount: 1, direct: [{ title: 'Faculty list', versionNo: 1, reviewStatus: 'approved' }] }); // the lead may review, so hers is approved at once
     expect((await call(null, 'GET', `/api/framework-versions/${ver}/requirement-context`)).status).toBe(401);
     expect((await call('nobody', 'GET', `/api/framework-versions/${ver}/requirement-context`)).status).toBe(403);
+  });
+
+  it('approves a reviewer\'s own link at once, makes a rejection give its reason, and tells the proposer', async () => {
+    const acc = await one(`insert into accreditor (institution_id, name, short_name, type) values ($1, 'Other Council', 'OC', 'institutional') returning id`, [ids.inst]);
+    const fw = await one(`insert into framework (institution_id, accreditor_id, name, scope) values ($1, $2, 'Standards', 'institution') returning id`, [ids.inst, acc]);
+    const ver = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'E1') returning id`, [ids.inst, fw]);
+    const req = await one(`insert into requirement (institution_id, framework_version_id, code, level_label, title) values ($1, $2, '3', 'Standard', 'Students') returning id`, [ids.inst, ver]);
+    const item = await call('lead', 'POST', '/api/evidence', { title: 'Admissions policy', type: 'document', url: 'https://intranet.example.edu/admissions' });
+    const version = (await call('lead', 'GET', `/api/evidence/${item.body.id}`)).body.versions[0].id as string;
+
+    const proposed = await call('contrib', 'POST', `/api/requirements/${req}/evidence-links`, { evidenceVersionId: version, rationale: 'It states the criteria' });
+    expect(proposed.body).toMatchObject({ reviewStatus: 'proposed', reviewedAt: null, linkedBy: ids.contrib });
+    const review = `/api/evidence-links/${proposed.body.id}/review`;
+    expect((await call('contrib', 'POST', review, { decision: 'approved' })).status).toBe(403);
+    expect((await call('lead', 'POST', review, { decision: 'rejected' })).status).toBe(400);
+    const rejected = await call('lead', 'POST', review, { decision: 'rejected', comment: 'It is the old policy' });
+    expect(rejected.body).toMatchObject({ reviewStatus: 'rejected', reviewComment: 'It is the old policy', reviewedByName: 'lead' });
+
+    // The notice reaches the proposer only; nobody else, and no account without evidence access, reads it.
+    const mine = await call('contrib', 'GET', '/api/notifications');
+    expect(mine.body).toEqual([expect.objectContaining({ kind: 'link_rejected', readAt: null, body: expect.stringContaining('was rejected: It is the old policy'), link: expect.objectContaining({ id: proposed.body.id, reviewStatus: 'rejected' }) })]);
+    expect((await call('viewer', 'GET', '/api/notifications')).body).toEqual([]);
+    expect((await call('lead', 'GET', '/api/notifications')).body).toEqual([]);
+    expect((await call('nobody', 'GET', '/api/notifications')).status).toBe(403);
+    expect((await call(null, 'GET', '/api/notifications')).status).toBe(401);
+    const note = mine.body[0].id as string;
+    expect((await call('viewer', 'POST', `/api/notifications/${note}/read`)).status).toBe(404);
+    expect((await call('viewer', 'DELETE', `/api/notifications/${note}`)).status).toBe(404);
+
+    // Resubmit: only the proposer; the link returns to review and its notice goes away.
+    expect((await call('lead', 'POST', `/api/evidence-links/${proposed.body.id}/resubmit`, { rationale: 'x' })).status).toBe(403);
+    expect((await call('contrib', 'POST', `/api/evidence-links/${proposed.body.id}/resubmit`, { rationale: ' ' })).status).toBe(400);
+    const back = await call('contrib', 'POST', `/api/evidence-links/${proposed.body.id}/resubmit`, { rationale: 'The 2026 policy' });
+    expect(back.body).toMatchObject({ reviewStatus: 'proposed', rationale: 'The 2026 policy', reviewComment: null });
+    expect((await call('contrib', 'POST', `/api/evidence-links/${proposed.body.id}/resubmit`, { rationale: 'again' })).status).toBe(409);
+    expect((await call('contrib', 'GET', '/api/notifications')).body).toEqual([]);
+
+    // Approved by someone else: a notice too; mark it read, then dismiss it.
+    await call('lead', 'POST', review, { decision: 'approved' });
+    const approved = (await call('contrib', 'GET', '/api/notifications')).body[0];
+    expect(approved).toMatchObject({ kind: 'link_approved' });
+    expect((await call('contrib', 'POST', `/api/notifications/${approved.id}/read`)).status).toBe(204);
+    expect((await call('contrib', 'GET', '/api/notifications')).body[0].readAt).toEqual(expect.any(String));
+    expect((await call('contrib', 'DELETE', `/api/notifications/${approved.id}`)).status).toBe(204);
+    expect((await call('contrib', 'GET', '/api/notifications')).body).toEqual([]);
   });
 });

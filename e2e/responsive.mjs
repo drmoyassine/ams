@@ -285,6 +285,31 @@ async function seedDemo(db, base) {
     const me = await call('GET', '/api/me');
     await call('PUT', '/api/requirement-champion', { frameworkId: qf.framework.id, code: items[0].code, userId: me.userId });
   } catch (e) { warn('scope and champion', e); }
+  // TASK-088: two pieces of evidence linked to the first quality-framework standard by a colleague: one still proposed (the Reject dialog) and one
+  // rejected with a reason (the "Rejected by" line), and notifications for the admin (a rejection with a Resubmit, an approval, one already read).
+  try {
+    const qf = await call('GET', '/api/quality-framework');
+    const items = await call('GET', `/api/framework-versions/${qf.versions[0].id}/requirements`);
+    const [colleague] = await q(`insert into app_user (institution_id, full_name, email) values ($1, 'Layla Hassan (colleague)', 'layla.colleague@example.edu') returning id`, [inst]);
+    const make = async (title, url) => {
+      const e = await call('POST', '/api/evidence', { title, type: 'document', url });
+      return { title, version: (await call('GET', `/api/evidence/${e.id}`)).versions[0].id };
+    };
+    const proposed = await make('Assessment committee minutes with a rather long title that has to wrap on a phone screen', 'https://intranet.example.edu/minutes');
+    const rejected = await make('محضر لجنة التقييم للعام الدراسي', 'https://intranet.example.edu/arabic-minutes');
+    const link = async (v, status, rationale, comment) => (await q(
+      `insert into evidence_link (institution_id, evidence_version_id, internal_framework_id, internal_code, rationale, linked_by, review_status, reviewed_by, reviewed_at, review_comment)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+      [inst, v, qf.framework.id, items[1].code, rationale, status === 'rejected' ? admin : colleague.id, status, status === 'proposed' ? null : colleague.id, status === 'proposed' ? null : new Date(), comment]))[0].id;
+    await link(proposed.version, 'proposed', 'The minutes show the committee reviews assessment results every term, with a justification long enough to wrap.', null);
+    const rejectedLink = await link(rejected.version, 'rejected', 'محضر اللجنة يبين مراجعة نتائج التقييم كل فصل دراسي.', 'The minutes are from 2019 and do not show this standard being reviewed; attach the current ones. السبب: المحضر قديم.');
+    ids.linkEvidence = proposed.title;
+    ids.linkRejectedEvidence = rejected.title;
+    const note = (kind, title, body, ref, read) => q(`insert into notification (institution_id, user_id, kind, title, body, ref_kind, ref_id, read_at) values ($1, $2, $3, $4, $5, 'evidence_link', $6, $7)`, [inst, admin, kind, title, body, ref, read ? new Date() : null]);
+    await note('link_rejected', 'Your link was rejected', `Your link of ${rejected.title} to ${items[1].code} was rejected: The minutes are from 2019 and do not show this standard being reviewed; attach the current ones. السبب: المحضر قديم.`, rejectedLink, false);
+    await note('link_approved', 'Your link was approved', `Your link of ${proposed.title} to ${items[1].code} was approved.`, rejectedLink, false);
+    await note('link_approved', 'Your link was approved', `Your link of Strategic plan to ${items[0].code} was approved: thank you.`, rejectedLink, true);
+  } catch (e) { warn('link review', e); }
   // Things in the Trash (DEC-026): a source document, an Arabic standard with a sub-item and a note, and the last quality-framework standard with its sub-standards.
   try {
     if (ids.draftId) {
@@ -900,6 +925,31 @@ function pagesFor(ids) {
       const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
       await dialog.waitFor();
       await dialog.getByTestId('proposal-facts').waitFor();
+    } },
+    // TASK-088: the Reject dialog (a required reason), a rejected link with its reason on the evidence card, and My work with notifications and the Resubmit dialog.
+    ids.linkEvidence && { name: 'evidence-link-reject-dialog', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.linkEvidence}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('evidence-link').first().waitFor();
+      await card.getByRole('button', { name: 'Reject' }).first().click();
+      const dialog = page.getByRole('dialog', { name: 'Reject this link' });
+      await dialog.waitFor();
+      await dialog.getByLabel('Why is it rejected?').fill('محضر قديم لا يغطي هذا المعيار. The minutes are too old to cover this standard, so attach the current ones before it can be approved.');
+    } },
+    ids.linkRejectedEvidence && { name: 'evidence-link-rejected', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.linkRejectedEvidence}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('link-rejected').waitFor();
+    } },
+    ids.linkEvidence && { name: 'qm-my-work-notifications', path: '/quality-management?tab=my-work', action: async (page) => {
+      await page.getByTestId('my-notification').first().waitFor();
+      await page.getByTestId('my-notification').first().scrollIntoViewIfNeeded();
+    } },
+    ids.linkEvidence && { name: 'qm-my-work-resubmit-dialog', path: '/quality-management?tab=my-work', action: async (page) => {
+      await page.getByTestId('my-notification').getByRole('button', { name: /^Resubmit the link of/ }).first().click();
+      const dialog = page.getByRole('dialog', { name: 'Resubmit this link' });
+      await dialog.waitFor();
+      await dialog.getByTestId('link-rejected').waitFor();
     } },
     // TASK-086: Quality Management -> Standards (the IQF tree in operation) with the menu Link evidence · Assign scope · Assign champion,
     // the two dialogs, the hover card with scope and champion, the same menu on an external standard, and Settings ->

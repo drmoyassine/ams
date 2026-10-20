@@ -1,7 +1,7 @@
 import type {
   CreateFormRequest, DataForm, DataResponse, PublicForm, SubmitResponse,
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
-  CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, RequirementContexts, ReviewLink, UpdateEvidence,
+  CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, Notification, RequirementContexts, ResubmitLink, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
@@ -38,6 +38,13 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     suggestions: (erId: string) => api.api['engagement-requirements'][':id']['evidence-suggestions'].$get({ param: { id: erId } }).then((r) => unwrap<EvidenceSuggestion[]>(r)),
     review: (linkId: string, json: ReviewLink) => api.api['evidence-links'][':id'].review.$post({ param: { id: linkId }, json }).then((r) => unwrap<EvidenceLink>(r)),
     remove: (linkId: string) => api.api['evidence-links'][':id'].$delete({ param: { id: linkId } }).then((r) => unwrap<void>(r)),
+    /** The proposer sends a rejected link back to review with a new reason (TASK-088). */
+    resubmit: (linkId: string, json: ResubmitLink) => api.api['evidence-links'][':id'].resubmit.$post({ param: { id: linkId }, json }).then((r) => unwrap<EvidenceLink>(r)),
+
+    // My notifications (TASK-088): each person's own only
+    notifications: () => api.api.notifications.$get().then((r) => unwrap<Notification[]>(r)),
+    markNotificationRead: (id: string) => api.api.notifications[':id'].read.$post({ param: { id } }).then((r) => unwrap<void>(r)),
+    dismissNotification: (id: string) => api.api.notifications[':id'].$delete({ param: { id } }).then((r) => unwrap<void>(r)),
 
     // Data (PRD 9.4)
     dataDefinition: (id: string) => ev[':id']['data-definition'].$get({ param: { id } }).then((r) => unwrap<DatasetSpec>(r)),

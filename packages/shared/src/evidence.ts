@@ -47,7 +47,9 @@ export const EvidenceLinkSchema = z.object({
   /** The evidence is older than the review year allows (PRD 9.3); engagement links only. */
   stale: z.boolean(),
   target: LinkTargetSchema, rationale: z.string(), reviewStatus: z.enum(['proposed', 'approved', 'rejected']),
-  reviewComment: z.string().nullable(), linkedByName: z.string().nullable(), reviewedByName: z.string().nullable(), createdAt: iso,
+  /** Why it was rejected (required for a rejection) or the reviewer's note; with who decided and when, shown on the link everywhere. */
+  reviewComment: z.string().nullable(), linkedBy: z.string().nullable(), linkedByName: z.string().nullable(), reviewedByName: z.string().nullable(),
+  reviewedAt: iso.nullable(), createdAt: iso,
 });
 export type EvidenceLink = z.infer<typeof EvidenceLinkSchema>;
 
@@ -110,8 +112,13 @@ export type UpdateEvidence = z.infer<typeof UpdateEvidenceSchema>;
 
 export const LinkEvidenceSchema = z.object({ evidenceVersionId: z.uuid(), rationale: z.string().trim().min(1, 'say why this evidence supports it') }).strict();
 export type LinkEvidence = z.infer<typeof LinkEvidenceSchema>;
-export const ReviewLinkSchema = z.object({ decision: z.enum(['approved', 'rejected']), comment: z.string().trim().min(1).optional() }).strict();
+/** A rejection says why (the proposer is told); an approval may carry a note. */
+export const ReviewLinkSchema = z.object({ decision: z.enum(['approved', 'rejected']), comment: z.string().trim().min(1).optional() }).strict()
+  .refine((v) => v.decision !== 'rejected' || !!v.comment, { message: 'say why it is rejected', path: ['comment'] });
 export type ReviewLink = z.infer<typeof ReviewLinkSchema>;
+/** The proposer answers a rejection: the link goes back to review with a new reason. */
+export const ResubmitLinkSchema = z.object({ rationale: z.string().trim().min(1, 'say why this evidence supports it') }).strict();
+export type ResubmitLink = z.infer<typeof ResubmitLinkSchema>;
 
 /** The year a period label starts in ("AY2025-26" → 2025, "2024" → 2024), or null when it names none. */
 export const periodYear = (label: string | null | undefined): number | null => {

@@ -15,7 +15,7 @@ import type { CyclesApi } from '../lib/cycles-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
-import { useMyWork } from './cycles/my-work';
+import { useMyNotifications, useMyWork } from './cycles/my-work';
 
 const navLink = 'rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium';
 
@@ -29,12 +29,14 @@ export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; 
   return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
 }
 
-/** "My work (N)": the stages I own, the approvals waiting for me in running cycles and the runs due of plans I own; shown only while there are some. */
-export function MyWorkLink({ enabled, api }: { enabled: boolean; api?: CyclesApi }) {
+/** "My work (N)": the stages I own, the approvals waiting for me in running cycles, the runs due of plans I own and my unread notifications; shown only while there are some. */
+export function MyWorkLink({ enabled, notify = false, api, evidence }: { enabled: boolean; notify?: boolean; api?: CyclesApi; evidence?: EvidenceApi }) {
   const { t } = useTranslation();
   const mine = useMyWork(api ? { cycles: api } : {}, enabled);
-  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0);
-  if (!enabled || count === 0) return null;
+  const notes = useMyNotifications(evidence ? { evidence } : {}, notify);
+  const unread = (notes.data ?? []).filter((n) => !n.readAt).length;
+  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0) + unread;
+  if ((!enabled && !notify) || count === 0) return null;
   return <Link to="/quality-management" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
 }
 
@@ -111,7 +113,7 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
             {n.label}
           </Link>
         ))}
-        <MyWorkLink enabled={can(me.data, 'cycle:read')} {...(cycles ? { api: cycles } : {})} />
+        <MyWorkLink enabled={can(me.data, 'cycle:read')} notify={can(me.data, 'evidence:read')} {...(evidence ? { evidence } : {})} {...(cycles ? { api: cycles } : {})} />
         <MyRequestsLink api={evidence} enabled={can(me.data, 'evidence:read')} />
       </nav>
       {canSettings && (

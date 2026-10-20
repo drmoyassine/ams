@@ -7,12 +7,12 @@ import {
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
-  CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ReviewLinkSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
+  CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
   type CreateEvidence, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
-  type LinkEvidence, type RequirementContext, type RequirementContexts, type ReviewLink, type UpdateEvidence,
+  type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type UpdateEvidence,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
-import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman, getRequirement, getVersion, require_ } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
@@ -22,6 +22,7 @@ import { noteEvidenceVersion } from '../cycles/evidence-hook.js';
 import { loadPlanAssignments } from '../cycles/plan-service.js';
 import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
+import { createNotification, dismissFor } from '../notifications/store.js';
 
 type ItemRow = typeof evidenceItem.$inferSelect;
 type VersionRow = typeof evidenceVersion.$inferSelect;
@@ -229,7 +230,7 @@ export async function readVersionFile(ctx: Ctx, versionId: string) {
 // ---- Links -------------------------------------------------------------------------------------------------------
 
 /** Links in the shape the screens use: what they point at, whether a newer version exists, whether they are stale. */
-async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]> {
+export async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]> {
   if (!rows.length) return [];
   const versions = await ctx.tx.select({ v: evidenceVersion, i: evidenceItem }).from(evidenceVersion)
     .innerJoin(evidenceItem, eq(evidenceItem.id, evidenceVersion.evidenceItemId)).where(inArray(evidenceVersion.id, [...new Set(rows.map((r) => r.evidenceVersionId))]));
@@ -267,9 +268,9 @@ async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<EvidenceLink[]>
             engagementRequirementId: null, engagementId: null, engagementTitle: null, ...(fw?.internal === false ? { frameworkLabel: fw.label } : {}),
           };
         })(),
-      rationale: r.rationale, reviewStatus: r.reviewStatus, reviewComment: r.reviewComment,
+      rationale: r.rationale, reviewStatus: r.reviewStatus, reviewComment: r.reviewComment, linkedBy: r.linkedBy,
       linkedByName: r.linkedBy ? names.get(r.linkedBy) ?? null : null, reviewedByName: r.reviewedBy ? names.get(r.reviewedBy) ?? null : null,
-      createdAt: r.createdAt.toISOString(),
+      reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null, createdAt: r.createdAt.toISOString(),
     };
   });
 }
@@ -288,15 +289,42 @@ export async function internalTitlesByCode(ctx: Ctx) {
   return fw ? titlesByCode(ctx, fw.id) : new Map<string, string>();
 }
 
+/** A new link that always starts as proposed (an answer to a request keeps its own flow: a reviewer approves it). */
 export async function newLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferInsert, 'institutionId'>) {
   const [row] = await guardIntegrity(() => ctx.tx.insert(evidenceLink).values({ ...values, institutionId: ctx.caller.institutionId, linkedBy: ctx.caller.userId }).returning());
   return (await describeLinks(ctx, [row!]))[0]!;
 }
 
+/** What reviewing a link takes: engagement review on its engagement, or evidence review for a library link. */
+async function reviewRight(ctx: Ctx, engagementRequirementId: string | null | undefined) {
+  if (engagementRequirementId) {
+    const { e } = await engagementOf(ctx, engagementRequirementId);
+    return { permission: 'engagement:review' as const, resource: { type: 'engagement' as const, id: e.id } };
+  }
+  return { permission: 'evidence:review' as const, resource: any };
+}
+async function mayReview(ctx: Ctx, engagementRequirementId: string | null | undefined): Promise<boolean> {
+  const r = await reviewRight(ctx, engagementRequirementId);
+  return isPermitted(ctx.tx, r.permission, r.resource);
+}
+
+/**
+ * A new link made by a person (TASK-088): approved at once when its creator may review it (the same right as reviewing, with
+ * reviewedBy = the creator and no comment; the audit trail records it), else proposed for a reviewer. The AI never approves
+ * (the callers have passed assertHuman).
+ */
+async function createLink(ctx: Ctx, values: Omit<typeof evidenceLink.$inferInsert, 'institutionId'>) {
+  const approve = !!ctx.caller.userId && await mayReview(ctx, values.engagementRequirementId);
+  return newLink(ctx, approve ? { ...values, reviewStatus: 'approved', reviewedBy: ctx.caller.userId, reviewedAt: new Date() } : values);
+}
+const linkedLabel = (l: EvidenceLink, target: string) => (l.reviewStatus === 'approved'
+  ? `Linked and approved ${l.evidenceTitle} to ${target}` : `Proposed ${l.evidenceTitle} for ${target}: a reviewer approves it`);
+
 /**
  * Attaches evidence to a requirement of any standard, the institution's own framework or an external one, keyed by the
  * framework and the requirement's code so the link carries over to new versions of that standard. It lives outside the
- * frozen version tables, so a published version can be linked too. It starts as proposed; evidence review approves it.
+ * frozen version tables, so a published version can be linked too. It starts as proposed for a person who cannot review it
+ * (evidence review approves it) and as approved for one who can.
  */
 export async function linkToRequirement(ctx: Ctx, requirementId: string, input: LinkEvidence): Promise<EvidenceLink> {
   assertHuman(ctx);
@@ -308,8 +336,8 @@ export async function linkToRequirement(ctx: Ctx, requirementId: string, input: 
   const [dup] = await ctx.tx.select({ id: evidenceLink.id }).from(evidenceLink).where(and(
     eq(evidenceLink.evidenceVersionId, d.evidenceVersionId), eq(evidenceLink.internalFrameworkId, v!.frameworkId), eq(evidenceLink.internalCode, req.code)));
   if (dup) throw new ConflictError('this evidence version is already attached here');
-  const link = await newLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: v!.frameworkId, internalCode: req.code, rationale: d.rationale });
-  reportUndo(ctx, { label: `Linked ${link.evidenceTitle} to ${req.code}`, method: 'DELETE', path: `/api/evidence-links/${link.id}` });
+  const link = await createLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: v!.frameworkId, internalCode: req.code, rationale: d.rationale });
+  reportUndo(ctx, { label: linkedLabel(link, req.code), method: 'DELETE', path: `/api/evidence-links/${link.id}` });
   return link;
 }
 /** The original name: the internal framework was the only target at first. */
@@ -322,7 +350,7 @@ async function engagementOf(ctx: Ctx, engagementRequirementId: string) {
   return row;
 }
 
-/** Links evidence to a requirement of an engagement, with this requirement's own reason; it starts as proposed. */
+/** Links evidence to a requirement of an engagement, with this requirement's own reason; proposed, or approved at once for a reviewer of the engagement. */
 export async function linkToEngagementRequirement(ctx: Ctx, engagementRequirementId: string, input: LinkEvidence): Promise<EvidenceLink> {
   assertHuman(ctx);
   const d = LinkEvidenceSchema.parse(input);
@@ -333,7 +361,9 @@ export async function linkToEngagementRequirement(ctx: Ctx, engagementRequiremen
   const [dup] = await ctx.tx.select({ id: evidenceLink.id }).from(evidenceLink).where(and(
     eq(evidenceLink.evidenceVersionId, d.evidenceVersionId), eq(evidenceLink.engagementRequirementId, engagementRequirementId)));
   if (dup) throw new ConflictError('this evidence version is already linked here');
-  return newLink(ctx, { evidenceVersionId: d.evidenceVersionId, engagementRequirementId, rationale: d.rationale });
+  const link = await createLink(ctx, { evidenceVersionId: d.evidenceVersionId, engagementRequirementId, rationale: d.rationale });
+  reportUndo(ctx, { label: linkedLabel(link, link.target.code), method: 'DELETE', path: `/api/evidence-links/${link.id}` });
+  return link;
 }
 
 async function getLink(ctx: Ctx, id: string) {
@@ -341,15 +371,19 @@ async function getLink(ctx: Ctx, id: string) {
   if (!row) throw new NotFoundError(`link ${id}`);
   return row;
 }
-/** Reviewing an engagement link is part of the engagement's review; reviewing an internal one is evidence review. */
+/** Reviewing an engagement link is part of the engagement's review; reviewing a library one is evidence review. */
 async function assertMayReview(ctx: Ctx, link: LinkRow) {
-  if (link.engagementRequirementId) {
-    const { e } = await engagementOf(ctx, link.engagementRequirementId);
-    await assertPermitted(ctx, 'engagement:review', { type: 'engagement', id: e.id });
-  } else await assertPermitted(ctx, 'evidence:review', any);
+  const r = await reviewRight(ctx, link.engagementRequirementId);
+  await assertPermitted(ctx, r.permission, r.resource);
 }
 
-/** A person approves or rejects a link; the AI never does (DEC-006). */
+/** How a link reads in a notice: its standard or requirement, with its title. */
+const targetLabel = (t: EvidenceLink['target']) => `${t.code}${t.title ? ` · ${t.title}` : ''}${t.engagementTitle ? ` (${t.engagementTitle})` : ''}`;
+
+/**
+ * A person approves or rejects a link; the AI never does (DEC-006). A rejection says why (the proposer sees it); the proposer
+ * is told in the app of a rejection, or of an approval by someone else, never of their own decision.
+ */
 export async function reviewLink(ctx: Ctx, id: string, input: ReviewLink): Promise<EvidenceLink> {
   assertHuman(ctx);
   const d = ReviewLinkSchema.parse(input);
@@ -357,6 +391,33 @@ export async function reviewLink(ctx: Ctx, id: string, input: ReviewLink): Promi
   await assertMayReview(ctx, link);
   const [row] = await ctx.tx.update(evidenceLink).set({ reviewStatus: d.decision, reviewedBy: ctx.caller.userId, reviewedAt: new Date(), reviewComment: d.comment ?? null })
     .where(eq(evidenceLink.id, id)).returning();
+  const dto = (await describeLinks(ctx, [row!]))[0]!;
+  if (row!.linkedBy && row!.linkedBy !== ctx.caller.userId) {
+    const what = `${dto.evidenceTitle} to ${targetLabel(dto.target)}`;
+    await createNotification(ctx, d.decision === 'rejected'
+      ? { userId: row!.linkedBy, kind: 'link_rejected', title: 'Your link was rejected', body: `Your link of ${what} was rejected: ${d.comment}`, refKind: 'evidence_link', refId: id }
+      : { userId: row!.linkedBy, kind: 'link_approved', title: 'Your link was approved', body: `Your link of ${what} was approved${d.comment ? `: ${d.comment}` : '.'}`, refKind: 'evidence_link', refId: id });
+  }
+  return dto;
+}
+
+/**
+ * The proposer answers a rejection: the link goes back to review (proposed) with a new reason and no decision on it; the audit
+ * trail keeps the rejected state and its reason. Only the person who made the link, and only while it is rejected.
+ */
+export async function resubmitLink(ctx: Ctx, id: string, input: ResubmitLink): Promise<EvidenceLink> {
+  assertHuman(ctx);
+  const d = ResubmitLinkSchema.parse(input);
+  const link = await getLink(ctx, id);
+  if (!ctx.caller.userId || link.linkedBy !== ctx.caller.userId) throw new ForbiddenError('only the person who proposed this link can resubmit it');
+  if (link.reviewStatus !== 'rejected') throw new ConflictError('only a rejected link can be resubmitted');
+  if (link.engagementRequirementId) {
+    const { e } = await engagementOf(ctx, link.engagementRequirementId);
+    await assertPermitted(ctx, 'engagement:work', { type: 'engagement', id: e.id });
+  } else await assertPermitted(ctx, 'evidence:write', any);
+  const [row] = await ctx.tx.update(evidenceLink).set({ reviewStatus: 'proposed', rationale: d.rationale, reviewedBy: null, reviewedAt: null, reviewComment: null })
+    .where(eq(evidenceLink.id, id)).returning();
+  await dismissFor(ctx, 'evidence_link', id);
   return (await describeLinks(ctx, [row!]))[0]!;
 }
 

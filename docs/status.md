@@ -16,6 +16,14 @@ A snapshot of where the AMS stands against the PRD milestones (§18.4) and the f
 | **In-app assistant, phase 1** | A bubble and panel on every screen, kept conversations, read-only answers about standards with links, scoped memory (personal and shared) that you confirm and manage in Settings | TASK-064, TASK-066, DEC-027 |
 | **In-app assistant, phase 2: bulk edits** | The assistant proposes a change to a draft (rule recipes such as the PUC title fix, re-code, re-parent, delete by filter, bulk assessable; text rewrites the model writes), says in the chat what it will do with the count and examples, and the person presses Do it / Change it / Cancel. A one-time token tied to that exact change set is the only way to apply it; it runs as the person in one transaction, as ONE undoable group (Undo and Redo, deletes to the Trash); texts the assistant wrote are marked until kept or reverted; `pnpm assistant:eval` checks 40 sample instructions | TASK-067, DEC-027 |
 
+## Built: Evidence link review: auto-approve, reasons, notifications (TASK-088)
+
+| Area | What works | Roadmap / tasks |
+|---|---|---|
+| **Reviewers approve their own links** | A link made by someone who may review it (evidence review for IQF and external-requirement links, engagement review for engagement links) is created Approved at once, by that person, and audited; anyone else's is Proposed. Answers to evidence requests stay Proposed. The AI never approves. The toast says "Linked and approved ..." or "Proposed ...: a reviewer approves it", and the Link evidence dialog says which | TASK-088 |
+| **A rejection gives its reason** | Reject opens a small dialog with a required "Why is it rejected?" (the API refuses a rejection without a comment); a rejected link shows "Rejected by X on date: reason" wherever links are listed | TASK-088 |
+| **Notifications (in the app)** | The proposer gets a notice when a link is rejected (with the reason) or approved by someone else, never for their own decision. My work has a Notifications section (unread first) with Resubmit (back to review with a new justification, the earlier rejection stays in the audit log), Mark as read and Dismiss; the My work count in the menu includes unread notices. Each person sees only their own (row-level security). Email waits for SMTP (TASK-061) | TASK-088 |
+
 ## Built: Cycles simplified: evidence collection, one owner (TASK-087, DEC-030)
 
 | Area | What works | Roadmap / tasks |

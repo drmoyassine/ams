@@ -46,8 +46,8 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: db.url });
   app = createApp({ pool, store: new MemoryStore(), authenticate: async (req) => { const h = req.headers.get('x-test-user'); if (!h) return null; const [u, i] = h.split(':'); return { userId: u!, institutionId: i! }; } }).app;
   ids.inst = await one(`insert into institution (name_en) values ('Gulf University') returning id`);
-  for (const n of ['admin', 'viewer']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
-  for (const [u, role] of [['admin', 'admin'], ['viewer', 'viewer']]) {
+  for (const n of ['admin', 'viewer', 'maker']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
+  for (const [u, role] of [['admin', 'admin'], ['viewer', 'viewer'], ['maker', 'contributor']]) {
     await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, $3, 'institution', $1)`, [ids.inst, ids[u!], role]);
   }
   const unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
@@ -114,15 +114,15 @@ describe('evidence', () => {
     await user.type(within(dialog).getByLabelText('Justification'), 'Minutes of the annual course review');
     await user.click(within(dialog).getByRole('button', { name: 'Link evidence' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // The admin may review it, so it is approved at once (TASK-088): nothing left to approve.
     const link = await within(item).findByTestId('evidence-link');
-    expect(link.textContent).toContain('Proposed');
-    await user.click(within(link).getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(within(item).getByTestId('evidence-link').textContent).toContain('Approved'));
+    expect(link.textContent).toContain('Approved');
+    expect(within(link).queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 
   it('creates evidence that is not in the repository yet, from the same dialog', async () => {
     const user = userEvent.setup();
-    const a = apis('admin');
+    const a = apis('maker'); // a contributor proposes, so the link stays to be reviewed (the library's "To review" filter below)
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     const item = await screen.findByRole('region', { name: 'Standard 3.1' });
     await user.click(within(item).getByRole('button', { name: 'Actions for Standard 3.1' }));
@@ -154,10 +154,8 @@ describe('evidence', () => {
     await user.type(within(suggestion).getByLabelText('Justification for Course review minutes'), 'Shows the program reviews assessment results every year');
     await user.click(within(suggestion).getByRole('button', { name: 'Link' }));
     const link = await within(card).findByTestId('evidence-link');
-    expect(link.textContent).toMatch(/Proposed.*Shows the program reviews assessment results every year/s);
+    expect(link.textContent).toMatch(/Approved.*Shows the program reviews assessment results every year/s); // the lead of the engagement reviews it, so it is approved at once
     await waitFor(() => expect(within(card).queryByTestId('evidence-suggestion')).toBeNull()); // linked now
-    await user.click(within(link).getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(within(card).getByTestId('evidence-link').textContent).toContain('Approved'));
   });
 
   it('lets a viewer read evidence but not add, link or review', async () => {
@@ -235,12 +233,11 @@ describe('the evidence library', () => {
     await user.type(within(dialog).getByLabelText('Justification'), 'The plan the assessment committee follows');
     await user.click(within(dialog).getByRole('button', { name: 'Link' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 11 to review/));
+    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).toMatch(/^Linked to 1v1/)); // approved at once: nothing to review
+    expect(within(card).getByTestId('evidence-meta').textContent).not.toContain('to review');
     await user.click(toggleOf(card));
     const link = await within(card).findByTestId('evidence-link');
-    expect(link.textContent).toMatch(/Internal 3\.2 · Assessment of learning.*Proposed.*The plan the assessment committee follows/s);
-    await user.click(within(link).getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(within(card).getByTestId('evidence-meta').textContent).not.toContain('to review'));
+    expect(link.textContent).toMatch(/Internal 3\.2 · Assessment of learning.*Approved.*The plan the assessment committee follows/s);
   });
 
   it('asks for an update of a document for a standard, with its title filled in', async () => {
@@ -269,7 +266,7 @@ describe('the evidence library', () => {
     render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
     const card = await screen.findByRole('region', { name: 'Evidence: Assessment plan 2026' });
     await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Edit details' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit details' }));
     const dialog = await screen.findByRole('dialog', { name: 'Edit details' });
     await user.click(within(dialog).getByRole('radio', { name: 'Data' }));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -359,10 +356,9 @@ describe('linking several pieces of evidence', () => {
       expect(texts.some((t) => t.includes('Faculty handbook 2026'))).toBe(true);
       expect(texts.some((t) => t.includes('Faculty senate bylaws'))).toBe(true);
     });
-    for (const t of ['Faculty handbook 2026', 'Faculty senate bylaws']) { // approved, so the library's "To review" filter stays as the later tests expect
+    for (const t of ['Faculty handbook 2026', 'Faculty senate bylaws']) { // approved at once, so the library's "To review" filter stays as the later tests expect
       const link = within(item).getAllByTestId('evidence-link').find((l) => l.textContent?.includes(t))!;
-      await user.click(within(link).getByRole('button', { name: 'Approve' }));
-      await waitFor(() => expect(within(item).getAllByTestId('evidence-link').find((l) => l.textContent?.includes(t))!.textContent).toContain('Approved'));
+      expect(link.textContent).toContain('Approved');
     }
   });
 });

@@ -93,7 +93,7 @@ The BI reads needs to know what to produce and for whom, and supplies against th
 - **Supply a dataset version:** rows for a dataset item, validated against `columns`, with `as_of` and `lineage`; creates
   an evidence version (or answers a need). A supply to a submitted snapshot's period does not change the snapshot.
 - **Supply a document:** a file or URL as a new version of an existing item, or a new item answering a need.
-- **Propose a link:** the BI may propose an evidence link with a rationale; it is `proposed` until a person approves it.
+- **Propose a link:** the BI may propose an evidence link with a rationale; it is `proposed` until a person approves it. Since TASK-088 a link made by a person who may review it is approved at once, but a link the BI proposes always stays `proposed`: the BI's service identity is not a reviewer and the AI never approves. When a person rejects a link they must give a reason (`review_comment`), and the person who proposed it gets an in-app notification (a BI proposer is not a person and gets none; email comes with SMTP, TASK-061).
 - **Mark a need supplied:** a status change on the need, never on a link's review.
 
 ### 4.3 Refresh

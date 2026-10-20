@@ -36,6 +36,8 @@ export * from './glossary/glossary.js';
 export * from './mapping/mapping.js';
 export * from './mapping/proposals.js';
 export * from './evidence/evidence.js';
+export * from './notifications/notifications.js';
+export { createNotification, type NewNotification } from './notifications/store.js';
 export * from './evidence/requests.js';
 export * from './evidence/dataset.js';
 export * from './evidence/forms.js';

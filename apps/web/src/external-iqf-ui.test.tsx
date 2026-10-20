@@ -236,7 +236,7 @@ describe('Link evidence', () => {
 
     const links = await a.evidence.internalLinks(top.id);
     expect(links).toHaveLength(1);
-    expect(links[0]!).toMatchObject({ evidenceTitle: 'Faculty workload policy', reviewStatus: 'proposed', rationale: 'Defines the workload rules this criterion asks for', target: { kind: 'external', code: top.code } });
+    expect(links[0]!).toMatchObject({ evidenceTitle: 'Faculty workload policy', reviewStatus: 'approved', rationale: 'Defines the workload rules this criterion asks for', target: { kind: 'external', code: top.code } });
     expect(targetText(links[0]!.target)).toMatch(new RegExp(`^ABET ${top.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(external\\)`));
     // The card opened to show it, with its state.
     const card = await screen.findByRole('region', { name: tagOf(top) });

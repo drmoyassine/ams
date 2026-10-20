@@ -64,7 +64,7 @@ function RequirementEvidence({ id, canLink, canReview, evidence }: { id: string;
         </section>
       )}
       {canLink && <div className="mt-4"><Button type="button" variant="ghost" onClick={() => setLinking(true)}>+ Link other evidence</Button></div>}
-      {linking && <LinkEvidenceDialog api={api} title="this requirement" onClose={() => setLinking(false)} onLink={(v, j) => api.linkRequirement(id, { evidenceVersionId: v, rationale: j }).then(refresh)} />}
+      {linking && <LinkEvidenceDialog api={api} title="this requirement" mayReview={canReview} onClose={() => setLinking(false)} onLink={(v, j) => api.linkRequirement(id, { evidenceVersionId: v, rationale: j }).then(refresh)} />}
       </section>
     </Card>
   );

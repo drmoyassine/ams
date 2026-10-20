@@ -250,7 +250,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
           onSave={({ code, title, description }) => saveItem(() => api.editQualityItem(dialog.item.id, { code, title, description }))} />
       )}
       {dialog?.kind === 'link' && (
-        <LinkEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} onClose={close}
+        <LinkEvidenceDialog api={evidence} title={`${tag(dialog.item)} · ${dialog.item.title}`} onClose={close} mayReview={can(me, 'evidence:review')}
           onLink={async (evidenceVersionId, rationale) => {
             const id = dialog.item.id;
             await evidence.linkInternal(id, { evidenceVersionId, rationale });

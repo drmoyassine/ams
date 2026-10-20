@@ -108,7 +108,7 @@ export function InternalEvidence({ requirementId, me, evidence }: { requirementI
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <EvidenceLinkList links={links.data ?? []} api={api} canReview={can(me, 'evidence:review')} canRemove={can(me, 'evidence:write')} onChange={refresh} setError={setError} />
       {can(me, 'evidence:write') && <Button type="button" variant="ghost" onClick={() => setLinking(true)}>+ Link evidence</Button>}
-      {linking && <LinkEvidenceDialog api={api} title="this item" onClose={() => setLinking(false)} onLink={(evidenceVersionId, rationale) => api.linkInternal(requirementId, { evidenceVersionId, rationale }).then(refresh)} />}
+      {linking && <LinkEvidenceDialog api={api} title="this item" mayReview={can(me, 'evidence:review')} onClose={() => setLinking(false)} onLink={(evidenceVersionId, rationale) => api.linkInternal(requirementId, { evidenceVersionId, rationale }).then(refresh)} />}
     </section>
   );
 }

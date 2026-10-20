@@ -938,6 +938,30 @@ export const evidenceLink = pgTable('evidence_link', {
   check('evidence_link_one_target', sql`(${t.engagementRequirementId} is not null) <> (${t.internalFrameworkId} is not null and ${t.internalCode} is not null)`),
 ]);
 
+export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved'] as const;
+/**
+ * An in-app notice for one person (TASK-088): something they proposed was decided (a link of evidence to a standard rejected, with
+ * the reason, or approved by someone else). Row-level security shows each person only their own; anyone acting in the institution
+ * may create one for another person; the worker may read them (email comes with SMTP, TASK-061) and never writes.
+ */
+export const notification = pgTable('notification', {
+  ...base(), ...tenant(),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  kind: text('kind', { enum: NOTIFICATION_KINDS }).notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  /** What it is about (today an `evidence_link`), without a foreign key so the notice outlives a removed link. */
+  refKind: text('ref_kind'),
+  refId: uuid('ref_id'),
+  readAt: timestamp('read_at', { withTimezone: true }),
+}, (t) => [
+  index('notification_user_idx').on(t.userId, t.readAt),
+  index('notification_ref_idx').on(t.refKind, t.refId),
+  oneOf('notification_kind_check', t.kind, NOTIFICATION_KINDS),
+  check('notification_title_check', sql`length(trim(${t.title})) > 0`),
+  check('notification_ref_pair_check', sql`(${t.refKind} is null) = (${t.refId} is null)`),
+]);
+
 export const REQUEST_STATUSES = ['open', 'supplied', 'cancelled'] as const;
 /**
  * A request for evidence on an item of the internal framework, sent to a person by email address (DEC-018). An AMS

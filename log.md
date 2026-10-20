@@ -728,3 +728,9 @@ Quality Management menu item above Accreditations (Engagements relabelled; route
 ## 2026-10-19 — Plan review
 
 Status and the plan reviewed. ROADMAP-013 (Quality Management: cycles and reporting) added and TASK-077 to TASK-086 moved under it; TASK-064 closed (assistant phases 1 and 2 are built). External standards got Map to IQF, direct evidence links, the hover card and the same layout as the IQF, without side panels. Order ahead: real-document checks (owner), Quality Management core, M4 report engine, cycles further, M5/M6 on the cycle engine (to decide), liteparse, P1 features.
+
+## 2026-10-20 — Evidence link review: auto-approve, reasons, notifications (TASK-088)
+
+Owner request. A link made by someone who may review it (the check `assertMayReview` uses: `evidence:review` for library links, `engagement:review` for engagement links) is created approved, by that person, with no comment; everyone else's stays proposed; answers to evidence requests keep their own flow and the AI never approves (DEC-006). A rejection now needs a reason (schema and a dialog in every list of links) and shows "Rejected by X on date: reason". Migration 0063 adds `notification` (own rows only by row-level security, worker read-only): the proposer is told of a rejection or of an approval by someone else (never of their own decision), sees it in a Notifications section of My work (counted in the menu) and can Resubmit (the link goes back to proposed with a new justification; the audit log keeps the history), Mark as read or Dismiss. Email of the notices waits for SMTP (TASK-061); the `notify` job is still a stub. BI-proposed links stay proposed (a service identity is not a reviewer).
+- **Learning.** An insert that RETURNs a row for another person fails row-level security (the SELECT policy applies to the returned row): `createNotification` generates the id itself and does not read the row back.
+

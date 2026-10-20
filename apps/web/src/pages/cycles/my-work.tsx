@@ -3,16 +3,19 @@
 // cycle page. A person with nothing to do sees that there is nothing for them.
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
-import type { DueRun } from '@ams/shared';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DueRun, EvidenceLink } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import type { CycleApis } from '../../components/cycles/directory';
 import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
 import { Chip, day, stageStatusLabels } from '../../components/cycles/labels';
+import { ResubmitLinkDialog } from '../../components/link-review-dialogs';
 import { Button } from '../../components/ui/button';
 import { useTranslation } from '../../i18n';
 import { useCyclesApi } from '../../lib/cycles-api';
-import { useMe } from '../../lib/me';
+import { useEvidenceApi } from '../../lib/evidence-api';
+import { formatDate } from '../../lib/intl';
+import { can, useMe } from '../../lib/me';
 import { useSettingsApi } from '../../lib/settings-api';
 import type { T } from '../settings/quality-management/labels';
 
@@ -22,13 +25,27 @@ export function useMyWork(apis: CycleApis = {}, enabled = true) {
   return useQuery({ queryKey: ['my-work'], queryFn: () => api.myWork(), enabled, staleTime: 30_000 });
 }
 
+/** My in-app notifications (TASK-088); an empty list for a person who cannot read evidence, and when they cannot be loaded. */
+export function useMyNotifications(apis: CycleApis = {}, enabled = true) {
+  const api = useEvidenceApi(apis.evidence);
+  return useQuery({ queryKey: ['notifications'], queryFn: () => api.notifications(), enabled, staleTime: 30_000, retry: false });
+}
+
 export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   const { t: tr } = useTranslation();
   const t = tr as unknown as T;
   const q = useMyWork(apis);
   const me = useMe(useSettingsApi(apis.settings));
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const evidence = useEvidenceApi(apis.evidence);
+  const notes = useMyNotifications(apis, can(me.data, 'evidence:read'));
   const [starting, setStarting] = useState<DueRun | null>(null);
+  const [resubmitting, setResubmitting] = useState<EvidenceLink | null>(null);
+  const [noteError, setNoteError] = useState('');
+  const notices = notes.data ?? [];
+  const refreshNotices = () => { void qc.invalidateQueries({ queryKey: ['notifications'] }); };
+  const actOn = (fn: () => Promise<unknown>) => { setNoteError(''); fn().then(refreshNotices, (e: Error) => setNoteError(e.message)); };
   const statuses = stageStatusLabels(t);
   if (q.isError) return <p role="alert" className="text-sm text-red-700">{(q.error as Error).message}</p>;
   if (!q.data) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
@@ -36,7 +53,32 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   return (
     <div className="space-y-6">
       <p className="max-w-prose text-sm text-muted-foreground">{t('qmc.my.intro')}</p>
-      {stages.length === 0 && approvals.length === 0 && dueRuns.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
+      {stages.length === 0 && approvals.length === 0 && dueRuns.length === 0 && notices.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
+
+      {notices.length > 0 && (
+        <section aria-label={t('qmc.my.notifications')} className="space-y-2">
+          <h2 className="text-base font-semibold">{t('qmc.my.notifications')}</h2>
+          {noteError && <p role="alert" className="text-sm text-red-700">{noteError}</p>}
+          <ul className="space-y-2">
+            {notices.map((n) => (
+              <li key={n.id} data-testid="my-notification" data-unread={!n.readAt} className="space-y-1 rounded-lg border border-border p-3">
+                <div className="flex flex-wrap items-start gap-2">
+                  <p className="min-w-0 flex-1 break-words text-sm" dir="auto"><ContentText>{n.body}</ContentText></p>
+                  {!n.readAt && <Chip tone="info" testId="notification-new">{t('qmc.my.new')}</Chip>}
+                </div>
+                <p className="text-xs text-muted-foreground">{formatDate(n.createdAt)}</p>
+                <div className="flex flex-wrap gap-2">
+                  {n.kind === 'link_rejected' && n.link?.reviewStatus === 'rejected' && (
+                    <Button type="button" variant="outline" className="px-3 py-1" aria-label={t('qmc.my.resubmitNamed', { title: n.link.evidenceTitle })} onClick={() => setResubmitting(n.link)}>{t('qmc.my.resubmit')}</Button>
+                  )}
+                  {!n.readAt && <Button type="button" variant="ghost" className="px-3 py-1" onClick={() => actOn(() => evidence.markNotificationRead(n.id))}>{t('qmc.my.markRead')}</Button>}
+                  <Button type="button" variant="ghost" className="px-3 py-1" aria-label={t('qmc.my.dismissNamed', { text: n.link?.evidenceTitle ?? n.title })} onClick={() => actOn(() => evidence.dismissNotification(n.id))}>{t('qmc.my.dismiss')}</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {dueRuns.length > 0 && (
         <section aria-label={t('qmc.my.due')} className="space-y-2">
@@ -93,6 +135,10 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
             ))}
           </ul>
         </section>
+      )}
+      {resubmitting && (
+        <ResubmitLinkDialog link={resubmitting} onClose={() => setResubmitting(null)}
+          onResubmit={(rationale) => evidence.resubmit(resubmitting.id, { rationale }).then(refreshNotices)} />
       )}
       {starting && (
         <LaunchCycleDialog key={`${starting.planId}|${starting.periodStart}`} proposal={starting} me={me.data} apis={apis} onClose={() => setStarting(null)}

@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
-  linkToRequirement, listEvidence, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, reviewLink, suggestionsFor, updateEvidence, ValidationError,
+  dismissNotification, linkToRequirement, listEvidence, listMyNotifications, markNotificationRead, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, resubmitLink, reviewLink, suggestionsFor, updateEvidence, ValidationError,
 } from '@ams/core';
 import {
   CreateEvidenceSchema, EvidenceDetailSchema, EvidenceItemSchema, EvidenceLinkSchema, EvidenceSuggestionSchema, EvidenceVersionSchema,
-  LinkEvidenceSchema, RequirementContextsSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
+  LinkEvidenceSchema, NotificationSchema, RequirementContextsSchema, ResubmitLinkSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -115,15 +115,40 @@ export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/evidence-links/{id}/review', access: requires('evidence:read'), tags: tag,
-      description: 'Engagement links need engagement:review on the engagement; internal links need evidence:review (checked in the service).',
+      description: 'Engagement links need engagement:review on the engagement; internal links need evidence:review (checked in the service). A rejection needs a comment (the reason); the proposer is notified.',
       request: { params: idParam, body: { required: true, ...json(ReviewLinkSchema) } },
       responses: { 200: { description: 'Reviewed', ...json(EvidenceLinkSchema) }, ...errors },
     }), async (c) => c.json(toDto(EvidenceLinkSchema, await reviewLink(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence-links/{id}/resubmit', access: requires('evidence:read'), tags: tag,
+      description: 'The person who proposed a rejected link sends it back to review with a new reason (checked in the service).',
+      request: { params: idParam, body: { required: true, ...json(ResubmitLinkSchema) } },
+      responses: { 200: { description: 'Proposed again', ...json(EvidenceLinkSchema) }, ...errors },
+    }), async (c) => c.json(toDto(EvidenceLinkSchema, await resubmitLink(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'delete', path: '/api/evidence-links/{id}', access: requires('evidence:read'), tags: tag,
       description: 'Who may remove a link is checked in the service: the linking or reviewing permission of its target.',
       request: { params: idParam },
       responses: { 204: { description: 'Removed' }, ...errors },
-    }), async (c) => { await removeLink(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); });
+    }), async (c) => { await removeLink(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
+
+    // ---- My notifications (TASK-088): each person's own only (row-level security by user) -------------------------
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/notifications', access: requires('evidence:read'), tags: tag,
+      description: 'My in-app notifications, unread first. Nobody reads another person\'s.',
+      responses: { 200: { description: 'My notifications', ...json(z.array(NotificationSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(NotificationSchema), await listMyNotifications(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/notifications/{id}/read', access: requires('evidence:read'), tags: tag,
+      request: { params: idParam }, responses: { 204: { description: 'Marked read' }, ...errors },
+    }), async (c) => { await markNotificationRead(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
+
+    .openapi(secured(registry, deps, {
+      method: 'delete', path: '/api/notifications/{id}', access: requires('evidence:read'), tags: tag,
+      description: 'Dismisses one of my notifications.',
+      request: { params: idParam }, responses: { 204: { description: 'Dismissed' }, ...errors },
+    }), async (c) => { await dismissNotification(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); });
 }

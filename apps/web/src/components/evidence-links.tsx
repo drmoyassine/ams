@@ -1,16 +1,13 @@
+import { useState } from 'react';
 import type { EvidenceLink } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
 import { ContentText } from './content-text';
 import { Button } from './ui/button';
 import { useTranslation } from '../i18n';
+import { targetText } from '../lib/link-text';
+import { RejectedLine, RejectLinkDialog } from './link-review-dialogs';
 
-/** What a link points at, in words: "Internal 1.2 · Title", "IC 1.2 (external) · Title" or "Engagement · code". */
-export function targetText(t: EvidenceLink['target']): string {
-  const title = t.title ? ` · ${t.title}` : '';
-  if (t.kind === 'internal') return `Internal ${t.code}${title}`;
-  if (t.kind === 'external') return `${t.frameworkLabel ? `${t.frameworkLabel} ` : ''}${t.code} (external)${title}`;
-  return `${t.engagementTitle ?? ''} · ${t.code}`;
-}
+export { targetText };
 
 const REVIEW_CLS = { proposed: 'bg-muted text-muted-foreground', approved: 'bg-emerald-50 text-emerald-900', rejected: 'bg-red-50 text-red-900' } as const;
 
@@ -20,9 +17,11 @@ export function EvidenceLinkList({ links, api, canReview, canRemove, onChange, s
 }) {
   const { t } = useTranslation();
   const reviewLabel = { proposed: t('evidence.review.proposed'), approved: t('evidence.review.approved'), rejected: t('evidence.review.rejected') } as const;
+  const [rejecting, setRejecting] = useState<EvidenceLink | null>(null);
   const act = (fn: () => Promise<unknown>) => { setError(''); fn().then(onChange, (e: Error) => setError(e.message)); };
   if (links.length === 0) return <p className="text-sm text-muted-foreground">{t('evidence.noLinks')}</p>;
   return (
+    <>
     <ul className="space-y-2">
       {links.map((l) => (
         <li key={l.id} className="rounded-md border border-border p-2 text-sm" data-testid="evidence-link">
@@ -36,14 +35,21 @@ export function EvidenceLinkList({ links, api, canReview, canRemove, onChange, s
             {l.stale && <span className="rounded bg-amber-50 px-1.5 text-xs text-amber-900" title={t('evidence.staleHint')}>{t('evidence.stale')}</span>}
           </div>
           <p className="mt-1"><ContentText>{l.rationale}</ContentText></p>
-          {l.reviewComment && <p className="text-xs text-muted-foreground">{t('evidence.reviewComment')} <ContentText>{l.reviewComment}</ContentText></p>}
+          {l.reviewStatus === 'rejected'
+            ? <RejectedLine link={l} />
+            : l.reviewComment && <p className="text-xs text-muted-foreground">{t('evidence.reviewComment')} <ContentText>{l.reviewComment}</ContentText></p>}
           <div className="mt-1 flex flex-wrap gap-2">
             {canReview && l.reviewStatus !== 'approved' && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => act(() => api.review(l.id, { decision: 'approved' }))}>{t('evidence.approve')}</Button>}
-            {canReview && l.reviewStatus === 'proposed' && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => act(() => api.review(l.id, { decision: 'rejected' }))}>{t('evidence.reject')}</Button>}
+            {canReview && l.reviewStatus === 'proposed' && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setRejecting(l)}>{t('evidence.reject')}</Button>}
             {(canRemove || canReview) && <Button type="button" variant="ghost" className="px-2 py-1" aria-label={t('evidence.removeLink', { title: l.evidenceTitle })} onClick={() => act(() => api.remove(l.id))}>{t('common.remove')}</Button>}
           </div>
         </li>
       ))}
     </ul>
+    {rejecting && (
+      <RejectLinkDialog link={rejecting} onClose={() => setRejecting(null)}
+        onReject={(reason) => api.review(rejecting.id, { decision: 'rejected', comment: reason }).then(() => { setError(''); onChange(); })} />
+    )}
+    </>
   );
 }

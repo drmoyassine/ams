@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { EvidenceItem } from '@ams/shared';
 import type { EvidenceApi } from '../lib/evidence-api';
+import { useTranslation } from '../i18n';
 import { Dialog } from './dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -67,9 +68,12 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, 
  * "Same for all" copies the first one to the rest. The links are made one after another; a failure stops there and says
  * which were linked.
  */
-export function LinkEvidenceDialog({ api, title, onLink, onClose }: {
+export function LinkEvidenceDialog({ api, title, onLink, onClose, mayReview }: {
   api: EvidenceApi; title: string; onLink: (evidenceVersionId: string, justification: string) => Promise<unknown>; onClose: () => void;
+  /** Whether the person may review this link: then it is approved at once, else proposed for a reviewer (TASK-088). Said under the form when known. */
+  mayReview?: boolean;
 }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
   const [chosen, setChosen] = useState<EvidenceItem[]>([]);
@@ -147,6 +151,9 @@ export function LinkEvidenceDialog({ api, title, onLink, onClose }: {
                 </li>
               ))}
             </ul>
+          )}
+          {mayReview !== undefined && chosen.length > 0 && (
+            <p className="text-xs text-muted-foreground" data-testid="link-outcome">{mayReview ? t('evidence.linkNote.approved') : t('evidence.linkNote.proposed')}</p>
           )}
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2">

@@ -522,7 +522,7 @@ export function ExternalRequirements({ api, version, me, focusId, onOpenSource, 
         }} />
       )}
       {dialog?.kind === 'link' && (
-        <LinkEvidenceDialog api={evidence} title={`${tagOf(dialog.item)} · ${dialog.item.title}`} onClose={close}
+        <LinkEvidenceDialog api={evidence} title={`${tagOf(dialog.item)} · ${dialog.item.title}`} onClose={close} mayReview={can(me, 'evidence:review')}
           onLink={async (evidenceVersionId, rationale) => {
             const id = dialog.item.id;
             await evidence.linkLibrary(id, { evidenceVersionId, rationale });
