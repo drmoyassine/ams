@@ -4180,3 +4180,168 @@ modified:
 # TASK-101 — Assistant reads cycles, collection runs and reports
 
 Safe and useful now. TASK-084 (the assistant proposes) waits for TASK-099.
+
+## TASK-106 — Entity schema registry and data dictionary
+
+---
+id: TASK-106
+title: Entity schema registry and data dictionary
+description: >-
+  One declared schema per entity in packages/shared, from which the API, the AI extraction schemas, the review
+  choices, the BI contract and a read-only data dictionary are derived.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-033
+    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+# TASK-106 — Entity schema registry and data dictionary
+
+Plan docs/schema-and-sources-plan.md 2.5. First entities: evidence item, evidence version, dataset spec, program, course, org unit, framework requirement, cycle template. A test fails when declared schema and database columns disagree. `GET /api/bi/v0/schema/{entity}` and docs/data-dictionary.md; Settings -> Data dictionary (read-only, export JSON/CSV).
+
+## TASK-104 — Program schema
+
+---
+id: TASK-104
+title: Program schema
+description: >-
+  Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits,
+  language, campus, status, start year, description, tags, external id.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
+related_decisions:
+  - id: DEC-033
+    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+# TASK-104 — Program schema
+
+Plan 2.3. Additive migration, every existing row valid. The Programs import target writes the new fields; the Programs screen shows and edits them.
+
+## TASK-105 — Courses: entity, schema, tab and import
+
+---
+id: TASK-105
+title: 'Courses: entity, schema, tab and import'
+description: >-
+  A real Course record with a declared schema, linked to programs many-to-many, a Courses tab under Settings ->
+  Organization with a Docs tab, and the Course scope level listing real courses.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
+related_decisions:
+  - id: DEC-033
+    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+# TASK-105 — Courses: entity, schema, tab and import
+
+Plan 2.4. `course`, `course_program` (role core/elective/service, year, term); Trash and Undo; import target from a course catalogue; DEC-028's two-tab Organization screen becomes three tabs (recorded in DEC-033).
+
+## TASK-102 — Sources by URL for every document import
+
+---
+id: TASK-102
+title: Sources by URL for every document import
+description: >-
+  Anywhere a document can be uploaded for AI import a URL can be added: the AMS fetches it, stores a snapshot with its
+  address and time, and refresh keeps the old version.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-033
+    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+# TASK-102 — Sources by URL for every document import
+
+Plan 2.1. One fetcher (one import point): HTTPS only, blocks private/loopback/link-local/metadata addresses (also after redirects and DNS), size/time/redirect limits, allowed content types incl. HTML (text extracted behind parseDocument()), no logins. `source_url`, `fetched_at`; Refresh. SSRF tests. Evidence is excluded (DEC-013).
+
+## TASK-103 — Cycle template resources and AI-proposed stages
+
+---
+id: TASK-103
+title: Cycle template resources and AI-proposed stages
+description: >-
+  A cycle template gets a Docs tab of documents and URLs kept as resources, and an import target that proposes stages
+  from them for review and applies them to the draft template.
+status: pending
+priority: P2
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-102
+    name: Sources by URL for every document import
+    url: /TASKS.md#TASK-102
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
+related_decisions:
+  - id: DEC-033
+    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+# TASK-103 — Cycle template resources and AI-proposed stages
+
+Plan 2.2. New scope kind `cycle_template`; target proposes stages (name, process, checklist, outputs, inputs, owner rule, offsets); applied to a draft only, one undoable change; resources shown on cycles made from the template.

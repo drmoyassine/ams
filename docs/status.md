@@ -126,7 +126,8 @@ Reviewed 2026-10-21. Plan and reasoning: docs/reports-and-cycles-plan.md (awaiti
 5. **Assistant:** TASK-101 (read-only tools on cycles, collection runs, reports; any time), then TASK-084 (it proposes), after TASK-099.
 6. **M5 Accreditor responses and M6 Decisions and maintenance (ROADMAP-006, ROADMAP-007),** on the report engine and the milestones (the response sub-cycle is milestones plus items). After M4.
 7. **liteparse (ROADMAP-008, TASK-058).** Reminder set for 4 Nov.
-8. **P1 features and small items.** M8 assessment, notifications (email waits for SMTP, TASK-061), external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011); assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog (TASK-061). Directory sync (TASK-074) is parked until IT says what QuickLaunch offers.
+8. **Requirements recorded 2026-10-21 (DEC-033, docs/schema-and-sources-plan.md):** URLs wherever a document can be provided for AI import (TASK-102), cycle template resources and AI-proposed stages (TASK-103), a program schema (TASK-104), courses with a schema (TASK-105), and a declared schema for every entity with a data dictionary (TASK-106). TASK-106 first; 104 and 105 on it; 102 independent.
+9. **P1 features and small items.** M8 assessment, notifications (email waits for SMTP, TASK-061), external reviewer, version diff (ROADMAP-010); M9 governed-metric adapter (ROADMAP-011); assistant follow-ups (TASK-068); compiler gaps (TASK-060); backlog (TASK-061). Directory sync (TASK-074) is parked until IT says what QuickLaunch offers.
 
 ## Waiting on the owner
 

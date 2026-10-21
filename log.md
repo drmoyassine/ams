@@ -761,3 +761,7 @@ Owner request. A link made by someone who may review it (the check `assertMayRev
 ## 2026-10-21 — Plan: reports, report and QA cycles, accreditation, assistant
 
 Analysis and plan in docs/reports-and-cycles-plan.md. One report engine (M4) wrapped two ways: accreditation milestones and report/QA cycles; two approval layers (report sections, then cycle sign-off); a report's requirement set for a subject is the IQF standards in its scope, owners are champions; QA report templates live on the IQF version; accreditation keeps its roadmap (TASK-082 replaced). New tasks TASK-091 to TASK-101; TASK-085 replaced by TASK-098. Awaiting the owner's decisions.
+
+## 2026-10-21 — Requirements: URLs as sources, template resources, schemas for everything
+
+Owner: a URL wherever a document can be provided for scraping; cycle templates take documents and URLs as resources (like org chart and programs); programs, courses and everything have schemas. Recorded as DEC-033 with the analysis and plan in docs/schema-and-sources-plan.md and TASK-102 to TASK-106 (pending). Open questions to the owner: HTML pages and domain allow-list, courses from a catalogue and member of several programs, read-only data dictionary versus custom fields, the program field list.
