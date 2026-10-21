@@ -3445,7 +3445,7 @@ description: >-
   A stage can run child cycles (yearly annual report during maintenance, interim report when the decision asks, ISO
   surveillance); cycles anchored to an engagement appear in Accreditations; engagements can have an org unit as
   subject
-status: pending
+status: cancelled
 priority: P2
 last_updated: '2026-10-15'
 generated:
@@ -3470,6 +3470,8 @@ modified:
 # TASK-082 — Nested cycles and cycles in Accreditations
 
 Plan: Worked examples, items 2, 5, 6. `cycle.parent_cycle_id`, `parent_stage_id`; stage definition `child`; re-accreditation as the next run; `engagement.subject_type` gains `org_unit`; example templates for ABET, WSCUC and ISO maintenance shipped as data. Today's roadmap (milestones) stays as it is.
+
+Replaced (2026-10-21, docs/reports-and-cycles-plan.md): accreditation keeps its roadmap of milestones, not a second cycle engine. Milestones produce reports in TASK-096; recurring maintenance milestones come with M6; an org unit as an engagement subject is TASK-100.
 
 ## TASK-083 — Start a cycle from the ⋯ menu, and Cycles panels
 
@@ -3551,7 +3553,7 @@ title: Report outputs in cycles (shared report engine)
 description: >-
   Report-kind outputs and inputs use the shared report engine (report templates, sections, approvals), the same one
   Accreditations' M4 reports use
-status: pending
+status: cancelled
 priority: P2
 last_updated: '2026-10-15'
 generated:
@@ -3576,6 +3578,8 @@ modified:
 # TASK-085 — Report outputs in cycles (shared report engine)
 
 Plan: Templates (report templates shared with Accreditations). Waits on the M4 report engine breakdown (owner to plan M4 together); until then cycles use document and note outputs.
+
+Replaced (2026-10-21) by TASK-098 (report output on cycles).
 
 ## TASK-086 — IQF in operation: Link evidence, Assign scope, Assign champion, Create cycle
 
@@ -3845,3 +3849,334 @@ Built (2026-10-21), decisions in DEC-032, migration 0065_collection_runs.sql (jo
 Decisions taken here (not in the brief, recorded in DEC-032 or here): the retry delays (15 min, 1 h, 4 h, 12 h) and five attempts; a late run does not keep asking; the first tick of a schedule makes only the current period (no backfill of years); the BI's own lineage is nested under `lineage.bi`; a body over the size limit is 422 with `issues[0].path = fileBase64`; the callback token lives 14 days; a `request` item that is a dataset is asked for through its form (the answer waits until someone adds it to the data), a document through a file; a request to an address without an account waits, since email is not sent yet (TASK-061), and the owner is told to copy its link from the Requests tab; the scheduler does not see restricted items (system identity), so it does not collect them; a version added by a person supplies the oldest open run whatever the method; a `late` run can still be supplied (or skipped) but not retried; the notice kinds are collection_due, collection_late, collection_failed.
 
 Not done: `GET /api/bi/v0/runs?updatedSince=` (the AMS asks the BI itself); email for requests (TASK-061); a catch-up cap after a long worker downtime (it makes one run per missed period, up to 500 per item and tick); the dataset's `source_kind` / `source_config` are not read by the runs (the method says when and by whom, the configuration says what; reconcile in M9); the PRD §6 table is not edited (DEC-031 and DEC-032 win); the Settings page has no BI section (the not-configured state is on the item's Collection section).
+
+## TASK-091 — Report model and engine core
+
+---
+id: TASK-091
+title: Report model and engine core
+description: >-
+  Create a report from a template: report and section tables, requirement codes resolved, section owners from
+  requirement owners or champions, statuses, permissions, Trash, Undo, audit and API.
+status: pending
+priority: P0
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-091 — Report model and engine core
+
+PRD §10.1, §10.2, §10.4 step 1. Tables `report`, `report_section` (round field reserved for M5), created from `report_template.structure` of any framework version (external or IQF). Section owners default to the requirement's owner or, for IQF standards, the champion (TASK-086). Never 'met'/'compliant' (DEC-005). Plan: docs/reports-and-cycles-plan.md.
+
+## TASK-092 — Report editor: narrative, data table, attestation, appendix
+
+---
+id: TASK-092
+title: 'Report editor: narrative, data table, attestation, appendix'
+description: >-
+  The section tree and editors for narrative (Tiptap, Arabic RTL, prompt, linked requirements and approved evidence,
+  inline citations), data table (dataset binding), attestation and appendix, with word counts and limits.
+status: pending
+priority: P0
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+depends_on:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-092 — Report editor: narrative, data table, attestation, appendix
+
+PRD §10.3 (narrative, data_table, attestation, appendix), §10.5 word counts. Full width, no side panels: the evidence panel opens as a sheet. Arabic dir=auto and RTL.
+
+## TASK-093 — Report generated blocks: compliance matrix, evidence index, feedback response
+
+---
+id: TASK-093
+title: 'Report generated blocks: compliance matrix, evidence index, feedback response'
+description: >-
+  Generated blocks: the compliance matrix (internal wording), the evidence index, and the feedback response block
+  (empty until M5).
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+depends_on:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+  - id: TASK-092
+    name: 'Report editor: narrative, data table, attestation, appendix'
+    url: /TASKS.md#TASK-092
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-093 — Report generated blocks: compliance matrix, evidence index, feedback response
+
+PRD §10.3 compliance_matrix, evidence_index, feedback_response. Matrix rows: code, title, internal status, approved evidence titles. No scores or 'compliant' (DEC-005).
+
+## TASK-094 — Report workflow, internal approval and submission snapshot
+
+---
+id: TASK-094
+title: Report workflow, internal approval and submission snapshot
+description: >-
+  Section review and approval, the report internally approved, the immutable submission snapshot, Mark submitted,
+  locking and the section diff between rounds.
+status: pending
+priority: P0
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+depends_on:
+  - id: TASK-092
+    name: 'Report editor: narrative, data table, attestation, appendix'
+    url: /TASKS.md#TASK-092
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-094 — Report workflow, internal approval and submission snapshot
+
+PRD §10.4 steps 2 to 5, §11.4 diff. Snapshots are immutable by database triggers (PRD §6.9). 'Internally approved' wording.
+
+## TASK-095 — Report export: DOCX, PDF, XLSX evidence index, ZIP package
+
+---
+id: TASK-095
+title: 'Report export: DOCX, PDF, XLSX evidence index, ZIP package'
+description: >-
+  Export the report as DOCX and PDF in template order with generated blocks and RTL for Arabic, the evidence index as
+  XLSX and a self-contained ZIP.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+depends_on:
+  - id: TASK-093
+    name: 'Report generated blocks: compliance matrix, evidence index, feedback response'
+    url: /TASKS.md#TASK-093
+  - id: TASK-094
+    name: Report workflow, internal approval and submission snapshot
+    url: /TASKS.md#TASK-094
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-095 — Report export: DOCX, PDF, XLSX evidence index, ZIP package
+
+PRD §10.5. One internal function `renderReport()` as the only import point of the rendering libraries (like parseDocument(), DEC-011). Real-document pass: the WSCUC report and a PUC report in Arabic.
+
+## TASK-096 — Reports in Accreditations: milestones produce reports
+
+---
+id: TASK-096
+title: 'Reports in Accreditations: milestones produce reports'
+description: >-
+  A milestone with a report deliverable creates its report, submitting completes the milestone, and recurring
+  milestones create a report each period.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-005
+  name: M4 — Reports and submissions
+  url: /ROADMAP.md#ROADMAP-005
+depends_on:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+  - id: TASK-094
+    name: Report workflow, internal approval and submission snapshot
+    url: /TASKS.md#TASK-094
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-096 — Reports in Accreditations: milestones produce reports
+
+Replaces the report part of TASK-082. Engagement milestones already carry `deliverable.report_template_key`, `report_id` and `recurrence`; nothing fills them yet.
+
+## TASK-097 — QA report templates on the IQF and shipped defaults
+
+---
+id: TASK-097
+title: QA report templates on the IQF and shipped defaults
+description: >-
+  Report templates on the IQF version's Templates tab, and shipped defaults as data for annual program report,
+  periodic review, admin unit review and internal audit, each matched to a cycle template.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
+depends_on:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-097 — QA report templates on the IQF and shipped defaults
+
+Plan docs/reports-and-cycles-plan.md section 2 rule 4. Defaults are data, never code per accreditor (DEC-002).
+
+## TASK-098 — Report output on cycles
+
+---
+id: TASK-098
+title: Report output on cycles
+description: >-
+  A cycle's report output creates the report from the template for the cycle's subject, with the in-scope standards as
+  sections and champions as owners; the output is final when the report is internally approved.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
+depends_on:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+  - id: TASK-094
+    name: Report workflow, internal approval and submission snapshot
+    url: /TASKS.md#TASK-094
+  - id: TASK-097
+    name: QA report templates on the IQF and shipped defaults
+    url: /TASKS.md#TASK-097
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-098 — Report output on cycles
+
+Replaces TASK-085. A report's requirement set for a subject = the IQF standards in the subject's scope (TASK-086); two approval layers: report sections, then cycle sign-off.
+
+## TASK-099 — Offer report cycles in the UI
+
+---
+id: TASK-099
+title: Offer report cycles in the UI
+description: >-
+  New cycle for a unit, program or institution (template, subject, owner, start, repeat), the due-to-launch list and
+  plans back in a simple form, QA templates shown.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
+depends_on:
+  - id: TASK-098
+    name: Report output on cycles
+    url: /TASKS.md#TASK-098
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-099 — Offer report cycles in the UI
+
+Report/QA cycles were parked by the owner (DEC-030) and are not offered in the UI today. Repeat is a switch on the cycle (every term or year), no plan inheritance tree.
+
+## TASK-100 — Engagement subject may be an org unit
+
+---
+id: TASK-100
+title: Engagement subject may be an org unit
+description: >-
+  An engagement can be about an org unit (ISO for IT or Facilities), not only the institution or a program.
+status: pending
+priority: P2
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-003
+  name: M2 — Engagements and roadmaps
+  url: /ROADMAP.md#ROADMAP-003
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-100 — Engagement subject may be an org unit
+
+`engagement.subject_type` gains `org_unit`; wizard, lists and RLS follow. Small; independent of M4.
+
+## TASK-101 — Assistant reads cycles, collection runs and reports
+
+---
+id: TASK-101
+title: Assistant reads cycles, collection runs and reports
+description: >-
+  Read-only assistant tools: what is late, what is waiting on me, what a standard's evidence and mappings are.
+status: pending
+priority: P2
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-013
+  name: 'Quality Management: cycles and reporting'
+  url: /ROADMAP.md#ROADMAP-013
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T09:00:00.000Z'
+---
+# TASK-101 — Assistant reads cycles, collection runs and reports
+
+Safe and useful now. TASK-084 (the assistant proposes) waits for TASK-099.

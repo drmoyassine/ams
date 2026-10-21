@@ -367,6 +367,25 @@ related_decisions:
 modified:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:35.690Z'
+related_tasks:
+  - id: TASK-091
+    name: Report model and engine core
+    url: /TASKS.md#TASK-091
+  - id: TASK-092
+    name: 'Report editor: narrative, data table, attestation, appendix'
+    url: /TASKS.md#TASK-092
+  - id: TASK-093
+    name: 'Report generated blocks: compliance matrix, evidence index, feedback response'
+    url: /TASKS.md#TASK-093
+  - id: TASK-094
+    name: Report workflow, internal approval and submission snapshot
+    url: /TASKS.md#TASK-094
+  - id: TASK-095
+    name: 'Report export: DOCX, PDF, XLSX evidence index, ZIP package'
+    url: /TASKS.md#TASK-095
+  - id: TASK-096
+    name: 'Reports in Accreditations: milestones produce reports'
+    url: /TASKS.md#TASK-096
 ---
 
 Done when: WSCUC institutional report and ABET SSR export with compliance matrix and evidence index; Arabic PUC report renders RTL; snapshots immutable. PRD §18.4 M4.
@@ -738,6 +757,18 @@ related_tasks:
   - id: TASK-090
     name: 'Evidence collection runs: scheduler, BI call, request, form, manual'
     url: /TASKS.md#TASK-090
+  - id: TASK-097
+    name: QA report templates on the IQF and shipped defaults
+    url: /TASKS.md#TASK-097
+  - id: TASK-098
+    name: Report output on cycles
+    url: /TASKS.md#TASK-098
+  - id: TASK-099
+    name: Offer report cycles in the UI
+    url: /TASKS.md#TASK-099
+  - id: TASK-101
+    name: Assistant reads cycles, collection runs and reports
+    url: /TASKS.md#TASK-101
 ---
 # ROADMAP-013 — Quality Management: cycles and reporting
 

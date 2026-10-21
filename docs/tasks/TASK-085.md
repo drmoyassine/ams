@@ -4,7 +4,7 @@ title: Report outputs in cycles (shared report engine)
 description: >-
   Report-kind outputs and inputs use the shared report engine (report templates, sections, approvals), the same one
   Accreditations' M4 reports use
-status: pending
+status: cancelled
 priority: P2
 last_updated: '2026-10-15'
 generated:
@@ -29,3 +29,5 @@ modified:
 # TASK-085 — Report outputs in cycles (shared report engine)
 
 Plan: Templates (report templates shared with Accreditations). Waits on the M4 report engine breakdown (owner to plan M4 together); until then cycles use document and note outputs.
+
+Replaced (2026-10-21) by TASK-098 (report output on cycles).

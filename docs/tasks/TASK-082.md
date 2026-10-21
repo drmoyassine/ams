@@ -5,7 +5,7 @@ description: >-
   A stage can run child cycles (yearly annual report during maintenance, interim report when the decision asks, ISO
   surveillance); cycles anchored to an engagement appear in Accreditations; engagements can have an org unit as
   subject
-status: pending
+status: cancelled
 priority: P2
 last_updated: '2026-10-15'
 generated:
@@ -30,3 +30,5 @@ modified:
 # TASK-082 — Nested cycles and cycles in Accreditations
 
 Plan: Worked examples, items 2, 5, 6. `cycle.parent_cycle_id`, `parent_stage_id`; stage definition `child`; re-accreditation as the next run; `engagement.subject_type` gains `org_unit`; example templates for ABET, WSCUC and ISO maintenance shipped as data. Today's roadmap (milestones) stays as it is.
+
+Replaced (2026-10-21, docs/reports-and-cycles-plan.md): accreditation keeps its roadmap of milestones, not a second cycle engine. Milestones produce reports in TASK-096; recurring maintenance milestones come with M6; an org unit as an engagement subject is TASK-100.
