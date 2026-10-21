@@ -1,10 +1,11 @@
 // Quality Management -> My work (TASK-080, DEC-030): the runs that have fallen due of plans I own, each with a "Start" (the shared launch dialog),
-// the stages I own in running cycles and the approvals waiting for my decision, with due dates and late flags, each linking to the stage on its
+// the evidence I owe (the open collection runs of items I own: "Supply <evidence> for <period>", TASK-090), the stages I own in running cycles and the approvals waiting for my decision, with due dates and late flags, each linking to the stage on its
 // cycle page. A person with nothing to do sees that there is nothing for them.
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DueRun, EvidenceLink } from '@ams/shared';
+import { RunStatusChip } from '../../components/collection-runs';
 import { ContentText } from '../../components/content-text';
 import type { CycleApis } from '../../components/cycles/directory';
 import { LaunchCycleDialog } from '../../components/cycles/launch-cycle-dialog';
@@ -31,6 +32,12 @@ export function useMyNotifications(apis: CycleApis = {}, enabled = true) {
   return useQuery({ queryKey: ['notifications'], queryFn: () => api.notifications(), enabled, staleTime: 30_000, retry: false });
 }
 
+/** The open collection runs (pending or late) of the evidence items I own (TASK-090); an empty list for a person who cannot read evidence. */
+export function useMyRuns(apis: CycleApis = {}, enabled = true) {
+  const api = useEvidenceApi(apis.evidence);
+  return useQuery({ queryKey: ['collection-runs', 'mine'], queryFn: () => api.collectionRuns({ mine: true, status: 'pending,late' }), enabled, staleTime: 30_000, retry: false });
+}
+
 export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   const { t: tr } = useTranslation();
   const t = tr as unknown as T;
@@ -43,6 +50,8 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   const [starting, setStarting] = useState<DueRun | null>(null);
   const [resubmitting, setResubmitting] = useState<EvidenceLink | null>(null);
   const [noteError, setNoteError] = useState('');
+  const myRuns = useMyRuns(apis, can(me.data, 'evidence:read'));
+  const runs = myRuns.data ?? [];
   const notices = notes.data ?? [];
   const refreshNotices = () => { void qc.invalidateQueries({ queryKey: ['notifications'] }); };
   const actOn = (fn: () => Promise<unknown>) => { setNoteError(''); fn().then(refreshNotices, (e: Error) => setNoteError(e.message)); };
@@ -53,7 +62,7 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
   return (
     <div className="space-y-6">
       <p className="max-w-prose text-sm text-muted-foreground">{t('qmc.my.intro')}</p>
-      {stages.length === 0 && approvals.length === 0 && dueRuns.length === 0 && notices.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
+      {stages.length === 0 && approvals.length === 0 && dueRuns.length === 0 && notices.length === 0 && runs.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm" data-testid="my-work-empty">{t('qmc.my.empty')}</p>}
 
       {notices.length > 0 && (
         <section aria-label={t('qmc.my.notifications')} className="space-y-2">
@@ -68,12 +77,31 @@ export function MyWorkTab({ apis = {} }: { apis?: CycleApis }) {
                 </div>
                 <p className="text-xs text-muted-foreground">{formatDate(n.createdAt)}</p>
                 <div className="flex flex-wrap gap-2">
+                  {n.run && <Link to="/evidence" search={{ item: n.run.evidenceItemId }} className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm underline-offset-2 hover:underline" aria-label={t('coll.notice.openNamed', { title: n.run.evidenceTitle })}>{t('coll.my.open')}</Link>}
                   {n.kind === 'link_rejected' && n.link?.reviewStatus === 'rejected' && (
                     <Button type="button" variant="outline" className="px-3 py-1" aria-label={t('qmc.my.resubmitNamed', { title: n.link.evidenceTitle })} onClick={() => setResubmitting(n.link)}>{t('qmc.my.resubmit')}</Button>
                   )}
                   {!n.readAt && <Button type="button" variant="ghost" className="px-3 py-1" onClick={() => actOn(() => evidence.markNotificationRead(n.id))}>{t('qmc.my.markRead')}</Button>}
                   <Button type="button" variant="ghost" className="px-3 py-1" aria-label={t('qmc.my.dismissNamed', { text: n.link?.evidenceTitle ?? n.title })} onClick={() => actOn(() => evidence.dismissNotification(n.id))}>{t('qmc.my.dismiss')}</Button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {runs.length > 0 && (
+        <section aria-label={t('coll.my.title')} className="space-y-2" data-testid="my-evidence-runs">
+          <h2 className="text-base font-semibold">{t('coll.my.title')}</h2>
+          <ul className="space-y-2">
+            {runs.map((r) => (
+              <li key={r.id} data-testid="my-evidence-run" data-status={r.status} className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="break-words text-base font-medium" dir="auto">{t('coll.my.supply', { title: r.evidenceTitle, period: r.periodLabel })}</p>
+                  <p className="break-words text-sm text-muted-foreground">{t('coll.due', { date: day(r.dueDate) })}</p>
+                </div>
+                <RunStatusChip run={r} />
+                <Link to="/evidence" search={{ item: r.evidenceItemId }} className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm underline-offset-2 hover:underline" aria-label={t('coll.my.openNamed', { title: r.evidenceTitle })}>{t('coll.my.open')}</Link>
               </li>
             ))}
           </ul>

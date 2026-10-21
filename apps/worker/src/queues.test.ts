@@ -8,7 +8,7 @@ import type { PgBoss } from 'pg-boss';
 import type pg from 'pg';
 import { handlers } from '@ams/core';
 import { JOB_TYPES, QUEUE_GROUPS, QUEUE_GROUP_NAMES, parseWorkerQueues } from '@ams/shared';
-import { PURGE_TRASH_CRON, startWorker } from './worker.js';
+import { COLLECT_TICK_CRON, PURGE_TRASH_CRON, startWorker } from './worker.js';
 
 function recorder() {
   const created: string[] = [];
@@ -35,13 +35,14 @@ describe('startWorker subscriptions', () => {
     const r = recorder();
     await startWorker(r.boss, {} as pg.Pool);
     // purge_trash is a scheduled tick with its own subscription rather than a handler (no job row), DEC-026.
-    expect([...r.worked].sort()).toEqual(JOB_TYPES.filter((t) => handlers[t] || t === 'purge_trash').sort());
+    expect([...r.worked].sort()).toEqual(JOB_TYPES.filter((t) => handlers[t] || t === 'purge_trash' || t === 'collect_tick').sort());
   });
 
   it('declares the daily Trash purge schedule only in the service that takes purge_trash', async () => {
     const general = recorder();
     await startWorker(general.boss, {} as pg.Pool, { queues: QUEUE_GROUPS.worker });
-    expect(general.scheduled).toEqual([{ name: 'purge_trash', cron: PURGE_TRASH_CRON }]);
+    // ... and the evidence collection tick (every 15 minutes), also only there (TASK-090).
+    expect(general.scheduled).toEqual([{ name: 'purge_trash', cron: PURGE_TRASH_CRON }, { name: 'collect_tick', cron: COLLECT_TICK_CRON }]);
     const parser = recorder();
     await startWorker(parser.boss, {} as pg.Pool, { queues: QUEUE_GROUPS.parser });
     expect(parser.scheduled).toEqual([]);

@@ -107,6 +107,8 @@ export const EvidenceItemSchema = z.object({
   openRequestCount: z.number(),
   /** For a dataset: whether its form takes responses, and responses not yet added to the data. */
   formOpen: z.boolean(), pendingResponses: z.number(),
+  /** Collection runs of this item (TASK-090): those still open (pending, requested or late), the late ones and the failed ones. */
+  runCounts: z.object({ open: z.number(), late: z.number(), failed: z.number() }).optional(),
 });
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 

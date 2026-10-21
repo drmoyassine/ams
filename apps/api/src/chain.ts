@@ -1,8 +1,8 @@
 import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
-import { resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
-import { hashLinkToken, isPermitted, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
+import { resolveCollectionCallback, resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
+import { callbackTokenValid, hashLinkToken, isPermitted, type BiRuntime, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
 import { REPLAY_HEADER, UNDO_HEADER, type Permission, type Scope, type UndoDescriptor } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
@@ -10,7 +10,7 @@ export type Authenticator = (req: Request) => Promise<{ userId: string; institut
 
 export interface AppEnv {
   /** `linkTargetId`: on link routes, the one request (or dataset) the link opens. */
-  Variables: { caller: Identity; ctx: Ctx; linkTargetId: string; undo: UndoDescriptor };
+  Variables: { caller: Identity; ctx: Ctx; linkTargetId: string; callbackToken: string; undo: UndoDescriptor };
 }
 export type AppContext = Context<AppEnv>;
 
@@ -18,7 +18,7 @@ export type AppContext = Context<AppEnv>;
 export type Access =
   | { kind: 'public' }
   | { kind: 'permission'; permission: Permission; scope: (c: AppContext) => Scope }
-  | { kind: 'link'; target: 'request' | 'form' };
+  | { kind: 'link'; target: 'request' | 'form' | 'run' };
 
 export const requires = (permission: Permission, scope: (c: AppContext) => Scope = () => ({ type: 'any' })): Access =>
   ({ kind: 'permission', permission, scope });
@@ -30,6 +30,12 @@ export const publicRoute = (): Access => ({ kind: 'public' });
 export const responseLink = (): Access => ({ kind: 'link', target: 'request' });
 /** A public form link (DEC-020): the `{token}` opens one open form; the dataset's id is in `linkTargetId`. */
 export const formLink = (): Access => ({ kind: 'link', target: 'form' });
+/**
+ * The BI's callback for one collection run (TASK-090): the credential is the run's per-run one-time token in `Authorization: Bearer ...`
+ * (stored only as a hash, compared in constant time, expiring, cleared when the run is supplied). It grants exactly the run named in the
+ * `{id}` path parameter and nothing else; no session is involved. Any failure answers 401 and says nothing about why.
+ */
+export const runCallback = (): Access => ({ kind: 'link', target: 'run' });
 
 export const scopeFrom = {
   institution: (): Scope => ({ type: 'institution' }),
@@ -56,6 +62,8 @@ export interface ChainDeps {
   authenticate: Authenticator;
   /** Evidence file storage; absent when not configured (uploads then answer 409). */
   store?: ObjectStore;
+  /** The BI the collection runs call (TASK-090); absent = not configured. */
+  bi?: BiRuntime;
 }
 
 const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
@@ -66,7 +74,20 @@ const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (
 };
 
 /** Authenticates and authorizes a one-time link at once: the link resolves to one open request, or to nothing. */
-const linkStep = (deps: ChainDeps, target: 'request' | 'form'): MiddlewareHandler<AppEnv> => async (c, next) => {
+const linkStep = (deps: ChainDeps, target: 'request' | 'form' | 'run'): MiddlewareHandler<AppEnv> => async (c, next) => {
+  if (target === 'run') {
+    const id = c.req.param('id') ?? '';
+    const bearer = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')?.[1] ?? '';
+    const stored = /^[0-9a-f-]{36}$/i.test(id) && bearer ? await resolveCollectionCallback(deps.pool, id) : null;
+    if (!stored || !callbackTokenValid({ tokenHash: stored.tokenHash, expiresAt: stored.expiresAt }, bearer, new Date())) {
+      return c.json({ error: 'unauthorized', message: 'this token has been used, has expired or is not valid' }, 401);
+    }
+    c.set('caller', { userId: null, institutionId: stored.institutionId, requestId: crypto.randomUUID(), actorType: 'system' });
+    c.set('linkTargetId', id);
+    c.set('callbackToken', bearer);
+    await next();
+    return;
+  }
   const token = c.req.param('token') ?? '';
   const found = token.length < 20 ? null
     : target === 'request'

@@ -4,7 +4,7 @@
 // becomes a response, which joins the data when someone adds it.
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { appUser, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, frameworkVersion, institution } from '@ams/db';
+import { appUser, evidenceCollectionRun, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, frameworkVersion, institution } from '@ams/db';
 import {
   CreateEvidenceRequestSchema, CreateFormRequestSchema, REQUEST_LINK_DAYS,
   type CreateEvidenceRequest, type CreateFormRequest, type EvidenceRequest, type IssuedRequest, type PublicForm, type RequestByLink, type SubmitResponse,
@@ -16,6 +16,7 @@ import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { internalTitlesByCode, newLink, storeFileVersion, type UploadedFile } from './evidence.js';
 import { insertResponse, specOf } from './forms.js';
+import { markRunSupplied } from '../collection/hook.js';
 
 type RequestRow = typeof evidenceRequest.$inferSelect;
 const any = { type: 'any' } as const;
@@ -41,6 +42,8 @@ async function describe(ctx: Ctx, rows: RequestRow[]): Promise<EvidenceRequest[]
   const titles = await internalTitlesByCode(ctx);
   const dataIds = [...new Set(rows.map((r) => r.dataItemId).filter((x): x is string => !!x))];
   const dataTitles = new Map((dataIds.length ? await ctx.tx.select({ id: evidenceItem.id, title: evidenceItem.title }).from(evidenceItem).where(inArray(evidenceItem.id, dataIds)) : []).map((x) => [x.id, x.title]));
+  const runIds = [...new Set(rows.map((r) => r.collectionRunId).filter((x): x is string => !!x))];
+  const runItems = new Map((runIds.length ? await ctx.tx.select({ id: evidenceCollectionRun.id, item: evidenceCollectionRun.evidenceItemId }).from(evidenceCollectionRun).where(inArray(evidenceCollectionRun.id, runIds)) : []).map((x) => [x.id, x.item]));
   const now = today();
   return rows.map((r) => ({
     id: r.id, internalCode: r.internalCode, internalTitle: r.internalCode ? titles.get(r.internalCode) ?? null : null,
@@ -50,7 +53,7 @@ async function describe(ctx: Ctx, rows: RequestRow[]): Promise<EvidenceRequest[]
     requestedByName: r.requestedBy ? names.get(r.requestedBy) ?? null : null, createdAt: r.createdAt.toISOString(),
     suppliedAt: r.suppliedAt?.toISOString() ?? null, suppliedNote: r.suppliedNote,
     linkExpiresAt: r.status === 'open' && r.tokenHash ? r.tokenExpiresAt?.toISOString() ?? null : null,
-    evidenceItemId: r.dataItemId ?? (r.evidenceLinkId ? items.get(r.evidenceLinkId) ?? null : null),
+    evidenceItemId: r.dataItemId ?? (r.collectionRunId ? runItems.get(r.collectionRunId) ?? null : null) ?? (r.evidenceLinkId ? items.get(r.evidenceLinkId) ?? null : null),
   }));
 }
 
@@ -130,6 +133,7 @@ export async function renewRequestLink(ctx: Ctx, id: string): Promise<IssuedRequ
 /** The answer: the file becomes evidence, linked to the request's item as proposed, and the request is closed. */
 async function supply(ctx: Ctx, row: RequestRow, file: UploadedFile, note: string | undefined): Promise<EvidenceRequest> {
   if (row.status !== 'open') throw new ConflictError('this request is already closed');
+  if (row.collectionRunId) return supplyCollectionRun(ctx, row, file, note);
   if (row.dataItemId || !row.internalFrameworkId || !row.internalCode) throw new ConflictError('this request asks for the form to be filled in, not a file');
   const [item] = await guardIntegrity(() => ctx.tx.insert(evidenceItem).values({
     institutionId: ctx.caller.institutionId, title: row.title, type: 'document', ownerUserId: ctx.caller.userId,
@@ -143,6 +147,24 @@ async function supply(ctx: Ctx, row: RequestRow, file: UploadedFile, note: strin
   const [out] = await ctx.tx.update(evidenceRequest).set({
     status: 'supplied', suppliedAt: new Date(), suppliedNote: trimmed ?? null, tokenHash: null, evidenceLinkId: link.id,
   }).where(eq(evidenceRequest.id, row.id)).returning();
+  return (await describe(ctx, [out!]))[0]!;
+}
+
+/**
+ * The answer to the request of a collection run (TASK-090): the file is a new version of the run's own evidence item (not a new item, and
+ * not linked to a standard: it answers a period), and the run is supplied by it if it is still waiting.
+ */
+async function supplyCollectionRun(ctx: Ctx, row: RequestRow, file: UploadedFile, note: string | undefined): Promise<EvidenceRequest> {
+  const [run] = await ctx.tx.select().from(evidenceCollectionRun).where(eq(evidenceCollectionRun.id, row.collectionRunId!)).for('update');
+  if (!run) throw new NotFoundError('the collection run of this request');
+  const trimmed = note?.trim() || undefined;
+  const version = await storeFileVersion(ctx, run.evidenceItemId, { ...file, ...(trimmed ? { notes: trimmed } : {}) }, {
+    lineage: { origin: 'request', request_id: row.id, run_id: run.id, supplied_by: ctx.caller.userId, saved_at: new Date().toISOString() },
+  });
+  if (run.status === 'pending' || run.status === 'requested' || run.status === 'late' || run.status === 'failed') {
+    await markRunSupplied(ctx, run.id, version.id, new Date(), { source: 'request', requestId: row.id });
+  }
+  const [out] = await ctx.tx.update(evidenceRequest).set({ status: 'supplied', suppliedAt: new Date(), suppliedNote: trimmed ?? null, tokenHash: null }).where(eq(evidenceRequest.id, row.id)).returning();
   return (await describe(ctx, [out!]))[0]!;
 }
 

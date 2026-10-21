@@ -273,14 +273,36 @@ async function seedDemo(db, base) {
     // One item per collection method, with a schedule (DEC-031): the chips on the closed card and the Collection section of the open one.
     const at = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
     ids.evRequest = 'External examiner reports from every partner institution, collected after each academic year (a long title that has to wrap on a phone)';
-    await call('POST', '/api/evidence', { title: ids.evRequest, type: 'document', definition: 'The signed report of each external examiner.', method: 'request',
+    const reqItem = await call('POST', '/api/evidence', { title: ids.evRequest, type: 'document', definition: 'The signed report of each external examiner.', method: 'request',
       methodConfig: { assigneeEmail: 'examiners@partner.example.edu', note: 'Please send the signed PDF of each report.' }, schedule: { every: 'year', startDate: at(-100), dueAfterDays: 45, timezone: 'Asia/Dubai' } });
     ids.evBi = 'Graduate employment outcomes six months after graduation, by program';
-    await call('POST', '/api/evidence', { title: ids.evBi, type: 'dataset', definition: 'Where graduates are, six months after they graduate.', method: 'bi',
+    const biItem = await call('POST', '/api/evidence', { title: ids.evBi, type: 'dataset', definition: 'Where graduates are, six months after they graduate.', method: 'bi',
       methodConfig: { endpointKey: 'warehouse-main', query: { metric: 'graduate_outcomes', dimensions: ['program', 'cohort_year'] }, period: 'year', timeoutSeconds: 120 },
       schedule: { every: 'semester', startDate: at(-200), dueAfterDays: 30, timezone: 'Asia/Dubai' } });
     ids.evForm = 'Employer feedback on graduates';
-    await call('POST', '/api/evidence', { title: ids.evForm, type: 'dataset', definition: 'How employers rate our graduates.', method: 'form', schedule: { every: 'quarter', startDate: at(-40), dueAfterDays: 14, timezone: 'UTC' } });
+    const formItem = await call('POST', '/api/evidence', { title: ids.evForm, type: 'dataset', definition: 'How employers rate our graduates.', method: 'form', schedule: { every: 'quarter', startDate: at(-40), dueAfterDays: 14, timezone: 'UTC' } });
+    // TASK-090: collection runs in every state (the scheduler is not running here, so they are written as it would have): a BI item with a supplied
+    // run (a version), a failed one with a long error and its attempts, a late one and a skipped one with an Arabic reason; a request that waits for
+    // someone without an account; a form run still pending; and an Arabic-titled item that the admin owes.
+    ids.evRunsBi = ids.evBi;
+    const run = (item, label, startOffset, dueOffset, status, extra = {}) => q(
+      `insert into evidence_collection_run (institution_id, evidence_item_id, period_label, scheduled_for, period_end, due_at, status, trigger, attempts, last_error, next_attempt_at, skip_reason, version_id, requested_at, responded_at)
+       values ($1, $2, $3, $4, $5, $6, $7, 'schedule', $8, $9, $10, $11, $12, $13, $14) returning id`,
+      [inst, item, label, at(startOffset), at(startOffset + 90), new Date(Date.now() + dueOffset * 86400000), status, extra.attempts ?? 0, extra.error ?? null, extra.next ?? null, extra.skip ?? null, extra.version ?? null,
+        status === 'pending' ? null : new Date(), extra.version ? new Date() : null]);
+    const [{ id: biVersion }] = await q(`insert into evidence_version (institution_id, evidence_item_id, version_no, data, as_of_date, lineage) values ($1, $2, 1, $3, $4, '{"origin":"bi"}') returning id`,
+      [inst, biItem.id, JSON.stringify({ columns: [{ key: 'n', label: 'N', type: 'integer', required: false }], rows: [{ n: 1 }, { n: 2 }] }), at(-100)]);
+    await run(biItem.id, 'Fall 2025', -400, -300, 'supplied', { version: biVersion });
+    await run(biItem.id, 'Spring 2026', -250, -150, 'skipped', { skip: 'لم يُعقد الفصل الدراسي الصيفي هذا العام — the summer term did not run this year, so there is nothing to collect for it.' });
+    await run(biItem.id, 'Fall 2026', -120, -20, 'late');
+    await run(biItem.id, 'Spring 2027', -60, 30, 'failed', { attempts: 5, error: 'The BI answered 503: the warehouse is rebuilding its nightly aggregates and cannot answer metric requests until the rebuild has finished; try again after 06:00 Gulf time (a long error that has to wrap on a phone).' });
+    const [{ id: reqRun }] = await run(reqItem.id, 'AY2025-26', -50, 20, 'requested');
+    await q(`insert into evidence_request (institution_id, collection_run_id, title, assignee_email, due_date) values ($1, $2, $3, 'examiners@partner.example.edu', $4)`, [inst, reqRun, `${ids.evRequest} · AY2025-26`, at(20)]);
+    await run(reqItem.id, 'AY2024-25', -420, -330, 'late');
+    await run(formItem.id, 'Q3 2026', -40, 10, 'pending');
+    const arabic = await call('POST', '/api/evidence', { title: 'تقرير ضمان الجودة السنوي لجميع البرامج الأكاديمية', type: 'document', definition: 'التقرير السنوي المعتمد.', schedule: { every: 'year', startDate: at(-30), dueAfterDays: 60, timezone: 'Asia/Dubai' } });
+    ids.evArabic = arabic.title;
+    await run(arabic.id, '2026', -30, 30, 'pending');
   } catch (e) { warn('evidence', e); }
   try {
     const qf = await call('GET', '/api/quality-framework');
@@ -925,7 +947,7 @@ function pagesFor(ids) {
       await page.getByRole('dialog', { name: 'Add a stage' }).waitFor();
     } },
     ids.cyCancelled && { name: 'qm-cycle-page-cancelled', path: `/quality-management/cycles/${ids.cyCancelled}`, action: async (page) => { await page.getByTestId('cancel-reason').waitFor(); } },
-    { name: 'qm-my-work', path: '/quality-management?tab=my-work', action: async (page) => { await page.getByTestId('my-stage').first().waitFor(); await page.getByTestId('my-approval').first().waitFor(); await page.getByTestId('my-due-run').first().waitFor(); } },
+    { name: 'qm-my-work', path: '/quality-management?tab=my-work', action: async (page) => { await page.getByTestId('my-stage').first().waitFor(); await page.getByTestId('my-approval').first().waitFor(); await page.getByTestId('my-due-run').first().waitFor(); await page.getByTestId('my-evidence-run').first().waitFor(); } },
     { name: 'qm-my-work-start-dialog', path: '/quality-management?tab=my-work', action: async (page) => {
       await page.getByTestId('my-due-run').first().getByRole('button', { name: /^Start / }).click();
       const dialog = page.getByRole('dialog', { name: 'Launch a proposed run' });
@@ -1074,6 +1096,25 @@ function pagesFor(ids) {
       await card.getByTestId('collection-section').waitFor();
       await card.getByTestId('collection-section').scrollIntoViewIfNeeded();
     } },
+    // TASK-090: the runs in the Collection section (supplied, skipped with an Arabic reason, late, failed with a long error), the Skip dialog, the filters.
+    ids.evRunsBi && { name: 'evidence-card-collection-runs', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evRunsBi}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('collection-run').first().waitFor();
+      await card.getByTestId('collection-runs').scrollIntoViewIfNeeded();
+    } },
+    ids.evRunsBi && { name: 'evidence-card-collection-skip-dialog', path: '/evidence', action: async (page) => {
+      const card = page.getByRole('region', { name: `Evidence: ${ids.evRunsBi}` });
+      await card.getByRole('button').first().click();
+      await card.getByTestId('collection-run').first().waitFor();
+      await card.getByRole('button', { name: /^Skip Fall 2026/ }).click();
+      await page.getByRole('dialog', { name: /^Skip / }).waitFor();
+    } },
+    ids.evRunsBi && { name: 'evidence-library-late-filter', path: '/evidence', action: async (page) => {
+      await page.getByTestId('evidence-card').first().waitFor();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Late' }).click();
+      await page.getByTestId('evidence-card').first().waitFor();
+    } },
     ids.evForm && { name: 'evidence-edit-dialog', path: '/evidence', action: async (page) => {
       const card = page.getByRole('region', { name: `Evidence: ${ids.evForm}` });
       await card.getByRole('button', { name: `Actions for ${ids.evForm}` }).click();
@@ -1132,7 +1173,7 @@ function measure() {
 // The institution's secondary language is set and a catalogue is seeded for it (not translated by a model: generated text of the
 // same script and a longer length than the English, which is what stresses a layout), the person's interface language is
 // switched, and the main screens are visited again at every width. <html dir>, lang and the script are asserted too.
-const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'evidence-card-collection-request'];
+const LANGUAGE_PAGES = ['engagements', 'evidence-library', 'my-requests', 'settings-organization', 'settings-organization-programs', 'settings-quality-framework', 'settings-ai', 'settings-quality-management', 'qm-template-editor', 'qm-cycles', 'qm-cycle-page', 'qm-cycle-page-approval', 'qm-cycle-page-blank-arabic', 'qm-my-work', 'settings-organization-academic-calendar', 'qm-cycles-due', 'qm-cycles-due-launch', 'qm-plans', 'evidence-card-collection-request', 'evidence-card-collection-runs', 'evidence-library-late-filter'];
 const SAMPLES = {
   ar: { words: ['نص', 'تجريبي', 'طويل', 'لاختبار', 'التخطيط', 'والمحاذاة', 'عند', 'الكتابة', 'من', 'اليمين'], stretch: 1.4, dir: 'rtl', script: 'arabic' },
   'zh-Hans': { words: ['中文', '界面', '测试', '文本', '用于', '检查', '布局', '是否', '溢出'], stretch: 1.0, dir: 'ltr', script: 'cjk-sc' },

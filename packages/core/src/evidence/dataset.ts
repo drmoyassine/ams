@@ -12,6 +12,7 @@ import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
 import { getItem, versionDto } from './evidence.js';
+import { supplyOldestOpenRun } from '../collection/hook.js';
 
 const any = { type: 'any' } as const;
 type SpecRow = typeof datasetSpec.$inferSelect;
@@ -66,16 +67,18 @@ export async function saveDatasetRows(ctx: Ctx, itemId: string, input: SaveDatas
     throw new ValidationError(`${issues.length} cell${issues.length === 1 ? ' needs' : 's need'} attention`, issues.slice(0, 200).map((i) => ({ path: `rows.${i.row}.${i.key}`, message: i.message })));
   }
   if (!rows.length) throw new ValidationError('there are no rows to save');
-  return insertDataVersion(ctx, item.id, columns, rows, { notes: d.notes ?? null, sourceKind: spec!.sourceKind });
+  const v = await insertDataVersion(ctx, item.id, columns, rows, { notes: d.notes ?? null, sourceKind: spec!.sourceKind });
+  await supplyOldestOpenRun(ctx, item.id, v.id);
+  return v;
 }
 
 /** Stores checked rows as the item's next version, with the columns and where they came from. */
-export async function insertDataVersion(ctx: Ctx, itemId: string, columns: DataColumn[], rows: DataRow[], opts: { notes: string | null; sourceKind: string; extra?: Record<string, unknown> }) {
+export async function insertDataVersion(ctx: Ctx, itemId: string, columns: DataColumn[], rows: DataRow[], opts: { notes: string | null; sourceKind: string; extra?: Record<string, unknown>; asOfDate?: string }) {
   const [last] = await ctx.tx.select({ n: evidenceVersion.versionNo }).from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, itemId)).orderBy(desc(evidenceVersion.versionNo)).limit(1);
   const data: DatasetData = { columns, rows };
   const [v] = await guardIntegrity(() => ctx.tx.insert(evidenceVersion).values({
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo: (last?.n ?? 0) + 1, data, notes: opts.notes,
-    asOfDate: new Date().toISOString().slice(0, 10),
+    asOfDate: opts.asOfDate ?? new Date().toISOString().slice(0, 10),
     lineage: { source_kind: opts.sourceKind, supplied_by: ctx.caller.userId, saved_at: new Date().toISOString(), ...opts.extra },
   }).returning());
   return versionDto(v!);

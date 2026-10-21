@@ -1630,4 +1630,75 @@ related_decisions:
   - id: DEC-020
     name: Data can be collected through forms, with an optional public link; responses join the data only when a person adds them
     url: /DECISIONS.md#DEC-020
+  - id: DEC-032
+    name: 'Evidence collection runs: one run per period, carried out by the item''s method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times'
+    url: /DECISIONS.md#DEC-032
+---
+
+## DEC-032 — Evidence collection runs: one run per period, carried out by the item's method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times
+
+---
+id: DEC-032
+title: 'Evidence collection runs: one run per period, carried out by the item''s method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times'
+status: accepted
+context: >-
+  DEC-031 gave every evidence item one collection method and a schedule, and left open what happens when a period begins:
+  how a run is made, how the BI is asked and how it answers, whether a failed call is tried again and how often, whether a late
+  run keeps asking, and what the background service may write. The BI team builds against docs/ams-bi-contract-v0.md, so the
+  shapes had to be fixed before the BI is built. TASK-090 builds it; these are the decisions it took, within the owner's brief.
+decision: >-
+  1. A run is one period of an item's schedule, made once (the database allows one run per item and period, whatever a job's
+  retries). A tick job, collect_tick, runs every 15 minutes in the general worker service (a pg-boss schedule, no job row), works
+  each institution under a system identity with the worker's database role, makes the due runs, carries them out and marks late
+  the runs past their due time. The first tick of a schedule makes only the period that is current (a schedule that began years ago
+  never makes years of runs); after that every period that began since the last one; never before the start date; a semester the
+  academic calendar does not define makes nothing and the gap stays visible on the item. 2. By method: manual tells the owner
+  (in-app notice and My work) and is supplied by the owner's next new version of the item; form opens the dataset's online form
+  and is supplied when responses are added to the data; request sends an evidence request for the run (a file request for a
+  document, a form request for a dataset) and is supplied by its answer, which becomes a new version of the item itself; bi asks
+  the BI. A new version of an item, by a person, supplies its oldest open run whatever the method. Email is not sent yet (SMTP,
+  TASK-061): a request to an address without an account waits, and its owner is told to copy its link from the Requests tab.
+  3. The call to the BI: POST {BI_BASE_URL}/ams/collect (the path of an item's endpoint name, when it has one, comes from the
+  server's BI_ENDPOINTS, never from a person), bearer BI_API_KEY, https only (http to localhost outside production), with the run,
+  the evidence item (and a dataset's columns), the period, the structured query, the callback address and a per-run one-time
+  token. 200 with rows, a file or an address, asOf and lineage is the supply; 202 means the BI will call back; any other answer, an
+  error or a timeout fails the run. The callback, POST /api/bi/v0/runs/{id}/supply, has no session: its only credential is the
+  run's token (kept as a hash, compared in constant time, expiring after 14 days, cleared the moment the run is supplied, skipped
+  or failed), and a body that does not fit the item is refused with 422 and the issues. The BI's lineage is stored under
+  lineage.bi; the version's origin is bi. 4. Retry: a failed BI call is tried again by later ticks after 15 minutes, 1 hour, 4
+  hours and 12 hours, five attempts in all; then it stays failed and the owner is told once; a person can always retry or skip it.
+  A failure that is a setting (no BI configured, an endpoint name the server does not know, a dataset without columns) is not
+  retried by itself. A late run does not keep asking: its owner is told once, and it still takes a supply. 5. The worker may make
+  and move runs (status, attempts, the BI token, the error, the version), add only a version whose lineage names the BI, send only
+  the request of a run, open (never close) a form, tell people (the collection notices only), and keep an item's next due and
+  last run times; it cannot skip a run, answer or cancel a request, or change anything else. The scheduler does not see
+  restricted items, so it does not collect them. 6. The dataset's source configuration (manual upload or governed metric) and
+  the bi method stay as DEC-031 left them: the method says when and by whom, the configuration says what; the runs do not read the
+  configuration yet. 7. Not built: GET /api/bi/v0/runs?updatedSince= (contract section 5). The AMS asks the BI itself, so the BI
+  has nothing to poll for; it stays planned.
+rationale: >-
+  Asking the BI from the AMS, with a token that lets it answer later, keeps the AMS in charge of what is asked and when, and
+  needs nothing from the BI but one route and one callback. A per-run token that is used once means a leaked callback address
+  or token can supply nothing else and nothing twice. Retrying with a growing delay rides out a BI that is down for an hour
+  without asking it every 15 minutes for a day; five attempts bound the noise and then a person decides. Settings errors are not
+  retried because retrying cannot fix them. Narrow grants, each backed by a trigger or a policy, keep the background service
+  from approving, publishing or skipping anything (DEC-006), and the version it adds can only be one the BI supplied.
+consequences: >-
+  Migration 0065 (forward-only): evidence_collection_run with its rules (one run per item and period, how a status may move, the
+  token cleared when a run ends, same-institution checks), evidence_request.collection_run_id, the notification kinds
+  collection_due, collection_late and collection_failed, the job type collect_tick, and the worker's narrow grants. The
+  environment gains BI_BASE_URL, BI_API_KEY, BI_ENDPOINTS and APP_PUBLIC_URL (all optional; without BI_BASE_URL a bi run fails
+  with that reason and nothing else is affected). The worker service now calls out to the BI. A long downtime of the worker makes
+  one run for every period missed (up to 500 per item and tick) when it returns. Docs: docs/ams-bi-contract-v0.md 3.6, 4.2, 5, 6.
+tags:
+  - ams
+last_updated: '2026-10-21'
+related_tasks:
+  - id: TASK-090
+    name: 'Evidence collection runs: scheduler, BI call, request, form, manual'
+    url: /TASKS.md#TASK-090
+related_decisions:
+  - id: DEC-031
+    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    url: /DECISIONS.md#DEC-031
 ---

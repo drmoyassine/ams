@@ -1,7 +1,7 @@
 // The fields of an evidence item (TASK-089, DEC-031), shared by "New evidence" and "Edit details": Title, Type, Definition, Collection
 // method with its own settings, Schedule, Owner. An item has ONE collection method: manual (the owner uploads, links or types it),
 // the online form (datasets), a request to a named person or email address, or the BI; Survey is reserved and shown as coming.
-// Nothing runs from the schedule yet: it says when the item is due again (the runs are TASK-090).
+// The schedule says when the item is due again; a job makes a run for each period and carries it out by the method (TASK-090).
 import { useMemo, useState } from 'react';
 import { SCHEDULE_EVERY, type BiQuery, type EvidenceItem, type EvidenceMethod, type ScheduleEvery } from '@ams/shared';
 import { ApiError } from '../lib/framework-api';

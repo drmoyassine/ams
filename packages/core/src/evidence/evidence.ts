@@ -3,7 +3,7 @@
 // offered it as a suggestion; linking it to the requirement is still a decision with its own reason and review.
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
-  accreditor, appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
+  accreditor, appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceCollectionRun, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
@@ -25,6 +25,7 @@ import { trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
 import { createNotification, dismissFor } from '../notifications/store.js';
 import { nextDue, type CalendarTerm } from './schedule.js';
+import { supplyOldestOpenRun } from '../collection/hook.js';
 
 type ItemRow = typeof evidenceItem.$inferSelect;
 type VersionRow = typeof evidenceVersion.$inferSelect;
@@ -39,8 +40,8 @@ export const versionDto = (v: VersionRow): EvidenceVersion => ({
   rowCount: Array.isArray((v.data as { rows?: unknown } | null)?.rows) ? (v.data as { rows: unknown[] }).rows.length : null,
 });
 /** What the repository shows about an item besides its own fields: its links, open requests and form. */
-interface ItemStats { linkCount: number; proposedLinkCount: number; openRequestCount: number; formOpen: boolean; pendingResponses: number }
-const NO_STATS: ItemStats = { linkCount: 0, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0 };
+interface ItemStats { linkCount: number; proposedLinkCount: number; openRequestCount: number; formOpen: boolean; pendingResponses: number; runCounts: { open: number; late: number; failed: number } }
+const NO_STATS: ItemStats = { linkCount: 0, proposedLinkCount: 0, openRequestCount: 0, formOpen: false, pendingResponses: 0, runCounts: { open: 0, late: 0, failed: 0 } };
 
 /** The stored schedule, read back as one (the database checks its shape; an unreadable one is treated as none rather than failing a list). */
 const scheduleOf = (r: ItemRow): Schedule | null => {
@@ -67,7 +68,7 @@ async function dueOf(ctx: Ctx, schedule: Schedule | null): Promise<Date | null> 
 
 /** Stats for many items in a fixed number of queries (one per kind of count, never one per item). */
 async function itemStats(ctx: Ctx, itemIds: string[]): Promise<Map<string, ItemStats>> {
-  const out = new Map(itemIds.map((id) => [id, { ...NO_STATS }]));
+  const out = new Map(itemIds.map((id) => [id, { ...NO_STATS, runCounts: { open: 0, late: 0, failed: 0 } }]));
   if (!itemIds.length) return out;
   const links = await ctx.tx.select({
     item: evidenceVersion.evidenceItemId, n: sql<number>`count(*)::int`,
@@ -79,6 +80,13 @@ async function itemStats(ctx: Ctx, itemIds: string[]): Promise<Map<string, ItemS
   const specs = await ctx.tx.select({ item: datasetSpec.evidenceItemId, open: datasetSpec.formOpen }).from(datasetSpec).where(inArray(datasetSpec.evidenceItemId, itemIds));
   const responses = await ctx.tx.select({ item: datasetResponse.evidenceItemId, n: sql<number>`count(*)::int` }).from(datasetResponse)
     .where(and(inArray(datasetResponse.evidenceItemId, itemIds), isNull(datasetResponse.includedInVersionId))).groupBy(datasetResponse.evidenceItemId);
+  const runs = await ctx.tx.select({
+    item: evidenceCollectionRun.evidenceItemId,
+    open: sql<number>`(count(*) filter (where ${evidenceCollectionRun.status} in ('pending', 'requested', 'late')))::int`,
+    late: sql<number>`(count(*) filter (where ${evidenceCollectionRun.status} = 'late'))::int`,
+    failed: sql<number>`(count(*) filter (where ${evidenceCollectionRun.status} = 'failed'))::int`,
+  }).from(evidenceCollectionRun).where(inArray(evidenceCollectionRun.evidenceItemId, itemIds)).groupBy(evidenceCollectionRun.evidenceItemId);
+  for (const r of runs) out.get(r.item)!.runCounts = { open: r.open, late: r.late, failed: r.failed };
   for (const l of links) Object.assign(out.get(l.item)!, { linkCount: l.n, proposedLinkCount: l.proposed });
   for (const r of requests) if (r.item) out.get(r.item)!.openRequestCount = r.n;
   for (const f of specs) out.get(f.item)!.formOpen = f.open;
@@ -220,13 +228,18 @@ const safeName = (s: string) => [...s.normalize('NFC')].map((ch) => (ch === '/' 
 export async function addFileVersion(ctx: Ctx, itemId: string, file: UploadedFile) {
   assertHuman(ctx);
   await assertPermitted(ctx, 'evidence:write', any);
-  return storeFileVersion(ctx, itemId, file);
+  const version = await storeFileVersion(ctx, itemId, file);
+  await supplyOldestOpenRun(ctx, itemId, version.id);
+  return version;
 }
 
 export interface UploadedFile { fileName: string; mime: string; bytes: Uint8Array; asOfDate?: string; notes?: string }
 
-/** Stores the file as the item's next version; the caller has already decided who may do this. */
-export async function storeFileVersion(ctx: Ctx, itemId: string, file: UploadedFile) {
+/**
+ * Stores the file as the item's next version; the caller has already decided who may do this. `opts.lineage` records where it came from
+ * (the BI's supply); `opts.system` is for a version the worker or a token-holder adds: it leaves the cycle hook alone (retired for evidence).
+ */
+export async function storeFileVersion(ctx: Ctx, itemId: string, file: UploadedFile, opts: { lineage?: Record<string, unknown>; system?: boolean } = {}) {
   if (!ctx.store) throw new ConflictError('file storage is not configured');
   const item = await getItem(ctx, itemId);
   if (item.status === 'archived') throw new ConflictError('this evidence is archived');
@@ -248,8 +261,9 @@ export async function storeFileVersion(ctx: Ctx, itemId: string, file: UploadedF
   const [v] = await guardIntegrity(() => ctx.tx.insert(evidenceVersion).values({
     institutionId: ctx.caller.institutionId, evidenceItemId: itemId, versionNo, filePath: key, sha256: stored.sha256, fileName,
     mime: file.mime || 'application/octet-stream', size: stored.size, asOfDate: file.asOfDate ?? null, notes: file.notes ?? null,
+    ...(opts.lineage ? { lineage: opts.lineage } : {}),
   }).returning());
-  await noteEvidenceVersion(ctx, itemId, { versionNo, what: fileName });
+  if (!opts.system) await noteEvidenceVersion(ctx, itemId, { versionNo, what: fileName });
   return versionDto(v!);
 }
 
@@ -264,6 +278,7 @@ export async function addUrlVersion(ctx: Ctx, itemId: string, input: { url: stri
     asOfDate: input.asOfDate ?? null, notes: input.notes ?? null,
   }).returning());
   await noteEvidenceVersion(ctx, itemId, { versionNo: v!.versionNo, what: input.url });
+  await supplyOldestOpenRun(ctx, itemId, v!.id);
   return versionDto(v!);
 }
 

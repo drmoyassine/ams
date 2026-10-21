@@ -1,7 +1,11 @@
 // How an evidence item is collected and when (TASK-089, DEC-031): the chips on the closed card (method, schedule, next due) and the
-// Collection section of the open one. Read only: the settings are edited in "Edit details". Nothing runs from the schedule yet.
+// Collection section of the open one: the settings are read only here (edited in "Edit details"), and its runs are listed below them (TASK-090):
+// one for each period of the schedule, with Run now, Retry and Skip. A "Late" or "Failed" chip tells the library which items need a look.
 import type { EvidenceItem } from '@ams/shared';
+import { useTranslation } from '../i18n';
+import { useEvidenceApi } from '../lib/evidence-api';
 import { Shaded } from './accordion';
+import { BiNotConfigured, CollectionRuns, useCollectionConfig } from './collection-runs';
 import { ContentText } from './content-text';
 import { useDirectory, type CycleApis } from './cycles/directory';
 import { EVERY_LABEL, METHOD_LABEL } from './evidence-item-form';
@@ -23,9 +27,12 @@ export const scheduleText = (item: Pick<EvidenceItem, 'schedule'>): string | nul
 const chip = 'rounded px-1.5 py-0.5';
 /** The chips of the closed card: how it is collected, how often, and the next due date. */
 export function CollectionChips({ item }: { item: EvidenceItem }) {
+  const { t } = useTranslation();
   const due = nextDueDay(item);
   return (
     <>
+      {(item.runCounts?.late ?? 0) > 0 && <span className={`${chip} bg-amber-50 text-amber-900`} data-testid="evidence-late">{t('coll.chip.late')}</span>}
+      {(item.runCounts?.failed ?? 0) > 0 && <span className={`${chip} bg-red-50 text-red-900`} data-testid="evidence-failed">{t('coll.chip.failed')}</span>}
       <span className={`${chip} bg-muted`} data-testid="evidence-method">{METHOD_LABEL[item.method]}</span>
       {item.schedule && <span className={`${chip} bg-muted`} data-testid="evidence-schedule">{scheduleText(item)}</span>}
       {item.schedule && due && <span className={`${chip} bg-muted`} data-testid="evidence-next-due">Next due {due}</span>}
@@ -39,8 +46,9 @@ function Row({ label, children, testId }: { label: string; children: React.React
 }
 
 /** The open card's Collection section: the method with its settings, the schedule, the next due date, the owner. */
-export function CollectionSection({ item, apis }: { item: EvidenceItem; apis?: CycleApis | undefined }) {
+export function CollectionSection({ item, apis, canWrite = false }: { item: EvidenceItem; apis?: CycleApis | undefined; canWrite?: boolean }) {
   const dir = useDirectory(apis);
+  const config = useCollectionConfig(useEvidenceApi(apis?.evidence), item.method === 'bi');
   const c = cfg(item);
   const query = (c.query ?? {}) as { metric?: string; dimensions?: string[] };
   const s = item.schedule;
@@ -72,6 +80,8 @@ export function CollectionSection({ item, apis }: { item: EvidenceItem; apis?: C
           The academic calendar has no term for the next semester, so the due date is not known. Add the terms in Settings, Organization; it is never guessed.
         </p>
       )}
+      {item.method === 'bi' && config.data && !config.data.bi.configured && <BiNotConfigured />}
+      <CollectionRuns item={item} canWrite={canWrite} apis={apis} />
     </section>
   );
 }

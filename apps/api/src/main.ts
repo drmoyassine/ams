@@ -5,7 +5,7 @@ import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PgBoss } from 'pg-boss';
 import pg from 'pg';
-import { bootstrapGarageFromEnv, ensureQueues, pgBossQueue, s3Store } from '@ams/core';
+import { biRuntimeFromEnv, bootstrapGarageFromEnv, ensureQueues, pgBossQueue, s3Store } from '@ams/core';
 import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
@@ -41,7 +41,7 @@ if (env.SEED_DEMO_FRAMEWORKS) {
   if (g.terms || g.mapped) console.log(JSON.stringify({ level: 'info', msg: 'seeded glossary', ...g }));
 }
 
-const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue: pgBossQueue(boss), store: s3Store(env) });
+const { app } = createApp({ pool, authenticate: sessionAuthenticator(auth, pool), authHandler: auth.handler, queue: pgBossQueue(boss), store: s3Store(env), bi: biRuntimeFromEnv(env) });
 
 const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
 if (existsSync(webRoot)) {

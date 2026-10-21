@@ -270,7 +270,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
                 ? <p className="whitespace-pre-line text-sm"><ContentText>{d.item.definition}</ContentText></p>
                 : <p className="text-sm text-muted-foreground">No definition.</p>}
             </div>
-            <CollectionSection item={d.item} apis={{ evidence: api, ...apis }} />
+            <CollectionSection item={d.item} apis={{ evidence: api, ...apis }} canWrite={canWrite} />
             <section aria-label="Versions" className="space-y-2">
               <Shaded>Versions</Shaded>
               <ul className="divide-y divide-border rounded-md border border-border text-sm">

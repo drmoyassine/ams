@@ -271,7 +271,7 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('audit_event_target_idx').on(t.targetType, t.targetId), index('audit_event_at_idx').on(t.at), oneOf('audit_event_actor_type_check', t.actorType, ACTOR_TYPES)]);
 
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import', 'translate'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'collect_tick', 'assistant', 'import', 'translate'] as const;
 const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
 export const job = pgTable('job', {
   ...base(), ...tenant(),
@@ -892,7 +892,7 @@ export const evidenceItem = pgTable('evidence_item', {
   /** How it is collected (one per item) and that method's settings, validated by Zod per method in the services (DEC-031). */
   method: text('method', { enum: EVIDENCE_METHODS }).notNull().default('manual'),
   methodConfig: jsonb('method_config').notNull().default(sql`'{}'::jsonb`),
-  /** `{ every, startDate, dueAfterDays, timezone }`, or null for no schedule. Nothing runs from it yet (TASK-090). */
+  /** `{ every, startDate, dueAfterDays, timezone }`, or null for no schedule. The collect_tick job makes a run per period from it (TASK-090). */
   schedule: jsonb('schedule'),
   /** The next due date of the schedule and the last time a run fired; kept by the services, null until there is one. */
   nextDueAt: timestamp('next_due_at', { withTimezone: true }),
@@ -929,6 +929,50 @@ export const evidenceVersion = pgTable('evidence_version', {
   check('evidence_version_content', sql`(${t.filePath} is not null and ${t.sha256} is not null) or ${t.url} is not null or ${t.data} is not null`),
 ]);
 
+export const COLLECTION_RUN_STATUS_VALUES = ['pending', 'requested', 'supplied', 'late', 'failed', 'skipped'] as const;
+/**
+ * One collection run (TASK-090, DEC-031): a period of an evidence item's schedule, made once (`evidence_item_id` + `scheduled_for`
+ * is unique, whatever a job's retries), carried out by the item's collection method and supplied by the evidence version that
+ * answers it. The worker is the scheduler and the executor, so it may insert runs and move them along (status, attempts, the BI
+ * token, the error, the version) but never skip one; a person skips, retries or supplies from the screen. The BI's callback
+ * token is kept only as a hash, expires, and is cleared the moment the run is supplied, skipped or failed (used once).
+ */
+export const evidenceCollectionRun = pgTable('evidence_collection_run', {
+  ...base(), ...tenant(),
+  evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
+  periodLabel: text('period_label').notNull(),
+  /** The first day of the period (the local date the schedule placed it on); one run per item and day. */
+  scheduledFor: date('scheduled_for').notNull(),
+  periodEnd: date('period_end'),
+  dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+  status: text('status', { enum: COLLECTION_RUN_STATUS_VALUES }).notNull().default('pending'),
+  trigger: text('trigger', { enum: ['schedule', 'manual'] }).notNull().default('schedule'),
+  versionId: uuid('version_id').references(() => evidenceVersion.id),
+  requestedAt: timestamp('requested_at', { withTimezone: true }),
+  respondedAt: timestamp('responded_at', { withTimezone: true }),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  /** When the scheduler tries a failed run again; null = it will not (the attempts are used up, or the cause is a setting). */
+  nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+  /** What the executor did and told: `startedAt`, `requestId`, `notified: { due, late, failed }`, `accepted`. */
+  details: jsonb('details').notNull().default(sql`'{}'::jsonb`),
+  callbackTokenHash: text('callback_token_hash'),
+  callbackExpiresAt: timestamp('callback_expires_at', { withTimezone: true }),
+  skipReason: text('skip_reason'),
+}, (t) => [
+  uniqueIndex('evidence_collection_run_period_idx').on(t.evidenceItemId, t.scheduledFor),
+  index('evidence_collection_run_status_idx').on(t.institutionId, t.status),
+  uniqueIndex('evidence_collection_run_token_idx').on(t.callbackTokenHash),
+  oneOf('evidence_collection_run_status_check', t.status, COLLECTION_RUN_STATUS_VALUES),
+  oneOf('evidence_collection_run_trigger_check', t.trigger, ['schedule', 'manual']),
+  check('evidence_collection_run_attempts_check', sql`${t.attempts} >= 0`),
+  check('evidence_collection_run_details_check', sql`jsonb_typeof(${t.details}) = 'object'`),
+  check('evidence_collection_run_supplied_check', sql`${t.status} <> 'supplied' or ${t.versionId} is not null`),
+  check('evidence_collection_run_skipped_check', sql`${t.status} <> 'skipped' or length(trim(coalesce(${t.skipReason}, ''))) > 0`),
+  check('evidence_collection_run_failed_check', sql`${t.status} <> 'failed' or ${t.lastError} is not null`),
+  check('evidence_collection_run_token_pair_check', sql`(${t.callbackTokenHash} is null) = (${t.callbackExpiresAt} is null)`),
+]);
+
 export const LINK_REVIEW = ['proposed', 'approved', 'rejected'] as const;
 /**
  * Evidence version → what it supports, with the reason (required). The target is either a requirement of an
@@ -956,11 +1000,12 @@ export const evidenceLink = pgTable('evidence_link', {
   check('evidence_link_one_target', sql`(${t.engagementRequirementId} is not null) <> (${t.internalFrameworkId} is not null and ${t.internalCode} is not null)`),
 ]);
 
-export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved'] as const;
+export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed'] as const;
 /**
  * An in-app notice for one person (TASK-088): something they proposed was decided (a link of evidence to a standard rejected, with
  * the reason, or approved by someone else). Row-level security shows each person only their own; anyone acting in the institution
- * may create one for another person; the worker may read them (email comes with SMTP, TASK-061) and never writes.
+ * may create one for another person; the worker may read them (email comes with SMTP, TASK-061) and, since TASK-090, create the
+ * `collection_*` ones (a run is due, late or failed) and no other kind.
  */
 export const notification = pgTable('notification', {
   ...base(), ...tenant(),
@@ -1006,8 +1051,11 @@ export const evidenceRequest = pgTable('evidence_request', {
   evidenceLinkId: uuid('evidence_link_id').references(() => evidenceLink.id, { onDelete: 'set null' }),
   /** For a form request: the response it was answered with. */
   responseId: uuid('response_id').references((): AnyPgColumn => datasetResponse.id),
+  /** A request made by an evidence collection run (the `request` method, TASK-090): its answer is a new version of the run's item. */
+  collectionRunId: uuid('collection_run_id').references((): AnyPgColumn => evidenceCollectionRun.id),
 }, (t) => [
-  check('evidence_request_target', sql`(${t.internalFrameworkId} is not null and ${t.internalCode} is not null) or ${t.dataItemId} is not null`),
+  check('evidence_request_target', sql`(${t.internalFrameworkId} is not null and ${t.internalCode} is not null) or ${t.dataItemId} is not null or ${t.collectionRunId} is not null`),
+  index('evidence_request_run_idx').on(t.collectionRunId),
   index('evidence_request_data_item_idx').on(t.dataItemId),
   index('evidence_request_internal_idx').on(t.internalFrameworkId, t.internalCode),
   index('evidence_request_assignee_idx').on(t.assigneeUserId),

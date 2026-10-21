@@ -92,6 +92,16 @@ async function resolveLink<T>(pool: pg.Pool, sqlText: string, arg: string, map: 
 export const resolveRequestLink = (pool: pg.Pool, tokenHash: string) =>
   resolveLink(pool, 'select * from app_resolve_request_link($1)', tokenHash, (r) => ({ requestId: r.request_id!, institutionId: r.institution_id! }));
 
+/**
+ * What a collection run holds of its BI callback token (TASK-090): the institution, the token's hash and expiry and the run's status, by run
+ * id, before any institution is known. Null when the run has no token (never issued, used, or cleared). The caller compares the hash in
+ * constant time; this only reads.
+ */
+export const resolveCollectionCallback = (pool: pg.Pool, runId: string) =>
+  resolveLink(pool, 'select * from app_resolve_collection_callback($1)', runId, (r) => ({
+    institutionId: r.institution_id!, tokenHash: r.token_hash!, expiresAt: new Date(r.expires_at!), status: r.status!,
+  }));
+
 /** Finds the data item whose open form a public link answers (DEC-020); null when the form is closed or the link off. */
 export const resolveFormLink = (pool: pg.Pool, token: string) =>
   resolveLink(pool, 'select * from app_resolve_form_link($1)', token, (r) => ({ itemId: r.evidence_item_id!, institutionId: r.institution_id! }));

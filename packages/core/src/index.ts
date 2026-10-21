@@ -44,3 +44,4 @@ export * from './evidence/forms.js';
 export * from './evidence/memory-store.js';
 export * from './evidence/s3-store.js';
 export * from './evidence/garage-bootstrap.js';
+export * from './collection/index.js';

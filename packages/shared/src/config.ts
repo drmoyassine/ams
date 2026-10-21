@@ -37,6 +37,26 @@ export const envSchema = z.object({
   OIDC_CLIENT_ID: z.string().min(1).optional(),
   OIDC_CLIENT_SECRET: z.string().min(1).optional(),
   OIDC_PROVIDER_ID: z.string().min(1).default('oidc'),
+  // The BI product that supplies evidence (TASK-090, docs/ams-bi-contract-v0.md). All optional: without BI_BASE_URL the `bi` collection
+  // method is "not configured" and its runs fail with a clear reason; nothing else is affected. HTTPS only (http only for localhost
+  // outside production). BI_ENDPOINTS maps the endpoint NAMES an evidence item may use (`endpointKey`) to paths on the BI, as JSON:
+  // {"warehouse":"/ams/collect/warehouse"}; a name that is not listed is refused, and nobody types an address. APP_PUBLIC_URL is the
+  // address the BI calls back (defaults to APP_URL).
+  BI_BASE_URL: z.string().url().optional(),
+  BI_API_KEY: z.string().min(1).optional(),
+  BI_ENDPOINTS: z.string().optional().transform((v, ctx) => {
+    if (!v) return {} as Record<string, string>;
+    try {
+      const o: unknown = JSON.parse(v);
+      if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('must be a JSON object of name -> path');
+      for (const [k, p] of Object.entries(o)) {
+        if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(k)) throw new Error(`"${k}" is not a valid endpoint name`);
+        if (typeof p !== 'string' || !/^\/(?!\/)[A-Za-z0-9_./-]*$/.test(p) || p.includes('..')) throw new Error(`the path of "${k}" must start with / and hold no address`);
+      }
+      return o as Record<string, string>;
+    } catch (e) { ctx.addIssue({ code: 'custom', message: `BI_ENDPOINTS ${(e as Error).message}` }); return z.NEVER; }
+  }),
+  APP_PUBLIC_URL: z.string().url().optional(),
   SMTP_URL: z.string().url().optional(),
   SMTP_FROM: z.string().optional(),
   // Encrypts secrets stored in the database (the AI provider key). Falls back to AUTH_SECRET when unset; changing it

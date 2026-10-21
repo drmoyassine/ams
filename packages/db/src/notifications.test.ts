@@ -53,10 +53,13 @@ describe('notification', () => {
     await expect(q(`insert into notification (institution_id, user_id, kind, title, body, ref_kind) values ($1, $2, 'link_rejected', 't', 'b', 'evidence_link')`, [ids.a, ids.ua1])).rejects.toThrow(/notification_ref_pair_check/);
   });
 
-  it('is read by the worker and never written by it', async () => {
+  it('is read by the worker, which may only create the notices of collection runs (TASK-090) and never change or delete any', async () => {
     const worker = as('ua2', 'a', 'ams_worker');
     expect((await db.as(worker, (c) => c.query(`select count(*)::int as n from notification`))).rows[0].n).toBeGreaterThan(0);
-    await expect(db.as(worker, (c) => notify(c, ids.ua1!, ids.a!))).rejects.toThrow(/permission denied/);
+    // A link notice is not the worker's to write; a collection notice is, for its own institution only.
+    await expect(db.as(worker, (c) => notify(c, ids.ua1!, ids.a!))).rejects.toThrow(/row-level security/);
+    await db.as(worker, (c) => notify(c, ids.ua1!, ids.a!, 'collection_due'));
+    await expect(db.as(worker, (c) => notify(c, ids.ub!, ids.b!, 'collection_due'))).rejects.toThrow(/same institution|row-level security/);
     await expect(db.as(worker, (c) => c.query(`update notification set read_at = now()`))).rejects.toThrow(/permission denied/);
     await expect(db.as(worker, (c) => c.query(`delete from notification`))).rejects.toThrow(/permission denied/);
   });

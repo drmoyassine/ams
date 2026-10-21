@@ -14,10 +14,11 @@ describe('route permission coverage', () => {
     expect(app.routes.length).toBeGreaterThan(0);
     expect(() => assertAllRoutesDeclared(app, registry)).not.toThrow();
     expect([...registry.declared.values()].every((a) => a.kind === 'public' || a.kind === 'permission' || a.kind === 'link')).toBe(true);
-    // Only the one-time response links (DEC-018) and public form links (DEC-020) take a link instead of a signed-in user.
+    // Only the one-time response links (DEC-018), public form links (DEC-020) and the BI's per-run callback (TASK-090) take a token instead of a signed-in user.
     const linkRoutes = [...registry.declared].filter(([, a]) => a.kind === 'link').map(([k]) => k);
     expect(linkRoutes.length).toBeGreaterThan(0);
-    expect(linkRoutes.every((k) => /\/api\/(response-links|form-links)\/:token/.test(k))).toBe(true);
+    expect(linkRoutes.every((k) => /\/api\/(response-links|form-links)\/:token|^POST \/api\/bi\/v0\/runs\/:id\/supply$/.test(k))).toBe(true);
+    expect(linkRoutes).toContain('POST /api/bi/v0/runs/:id/supply');
   });
 
   it('startup fails when a route is registered without requires(...)', () => {

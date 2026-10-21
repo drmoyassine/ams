@@ -12,6 +12,7 @@ import { ConflictError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { dataItem, insertDataVersion } from './dataset.js';
+import { supplyOldestOpenRun } from '../collection/hook.js';
 
 const any = { type: 'any' } as const;
 
@@ -127,5 +128,6 @@ export async function addResponsesToData(ctx: Ctx, itemId: string): Promise<Evid
     notes: `Added ${pending.length} form response${pending.length === 1 ? '' : 's'}`, sourceKind: spec!.sourceKind, extra: { form_responses: pending.length },
   });
   await ctx.tx.update(datasetResponse).set({ includedInVersionId: v.id }).where(inArray(datasetResponse.id, pending.map((p) => p.id)));
+  await supplyOldestOpenRun(ctx, itemId, v.id);
   return v;
 }

@@ -6,6 +6,7 @@ import { analysisRoutes } from './routes/analysis.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { engagementRoutes } from './routes/engagements.js';
 import { evidenceRoutes } from './routes/evidence.js';
+import { collectionRoutes } from './routes/collection.js';
 import { publicRoutes } from './routes/public.js';
 import { requestRoutes } from './routes/requests.js';
 import { datasetRoutes } from './routes/datasets.js';
@@ -96,6 +97,7 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', mappingRoutes(registry, deps, options))
     .route('/', evidenceRoutes(registry, deps, options))
     .route('/', requestRoutes(registry, deps, options))
+    .route('/', collectionRoutes(registry, deps, options))
     .route('/', datasetRoutes(registry, deps, options))
     .route('/', formRoutes(registry, deps, options))
 

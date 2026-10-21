@@ -15,7 +15,7 @@ import type { CyclesApi } from '../lib/cycles-api';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
-import { useMyNotifications, useMyWork } from './cycles/my-work';
+import { useMyNotifications, useMyRuns, useMyWork } from './cycles/my-work';
 
 const navLink = 'rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium';
 
@@ -29,13 +29,15 @@ export function MyRequestsLink({ api: override, enabled }: { api?: EvidenceApi; 
   return <Link to="/requests" className={navLink}>{t('nav.myRequests', { count: open })}</Link>;
 }
 
-/** "My work (N)": the stages I own, the approvals waiting for me in running cycles, the runs due of plans I own and my unread notifications; shown only while there are some. */
+/** "My work (N)": the stages I own, the approvals waiting for me in running cycles, the runs due of plans I own, the evidence runs I owe and my unread notifications; shown only while there are some. */
 export function MyWorkLink({ enabled, notify = false, api, evidence }: { enabled: boolean; notify?: boolean; api?: CyclesApi; evidence?: EvidenceApi }) {
   const { t } = useTranslation();
   const mine = useMyWork(api ? { cycles: api } : {}, enabled);
   const notes = useMyNotifications(evidence ? { evidence } : {}, notify);
-  const unread = (notes.data ?? []).filter((n) => !n.readAt).length;
-  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0) + unread;
+  // A notice about a run that is still open is not counted twice: the run itself is.
+  const unread = (notes.data ?? []).filter((n) => !n.readAt && !(n.run && (n.run.status === 'pending' || n.run.status === 'late'))).length;
+  const runs = useMyRuns(evidence ? { evidence } : {}, notify);
+  const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0) + unread + (runs.data?.length ?? 0);
   if ((!enabled && !notify) || count === 0) return null;
   return <Link to="/quality-management" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
 }

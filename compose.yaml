@@ -49,18 +49,18 @@ services:
   # the bucket before it serves, so by then both exist. (DEC-024)
   #
   # Network: only `agent` needs outbound internet (AI providers, embeddings). `app`, `parser` and `worker` need only
-  # postgres and garage. Nothing is restricted here, so this runs unchanged on Easypanel; restrict egress for the others
+  # postgres and garage, plus the BI (BI_BASE_URL) for `app` and `worker` when evidence is collected from one (TASK-090). Nothing is restricted here, so this runs unchanged on Easypanel; restrict egress for the others
   # on your host if you want to. The AI_* / *_API_KEY variables are read by `agent` (and by `parser` only for the
   # optional OCR of scanned pages, which falls back to "needs OCR" when it cannot reach a provider); `app` and `worker`
   # never need them.
 
   worker:
-    # General work: export, notify and the daily Trash purge (purge_trash). Needs neither document parsing nor a model.
+    # General work: export, notify, the daily Trash purge (purge_trash) and the evidence collection tick (collect_tick). Needs neither document parsing nor a model.
     build: { context: ., target: worker }
     env_file: .env
     environment:
       WORKER_NAME: worker
-      WORKER_QUEUES: export,notify,purge_trash
+      WORKER_QUEUES: export,notify,purge_trash,collect_tick
     depends_on:
       postgres: { condition: service_healthy }
       garage: { condition: service_healthy }

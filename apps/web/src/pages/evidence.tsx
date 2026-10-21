@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EvidenceItem } from '@ams/shared';
+import { COLLECTION_DUE_SOON_DAYS, type EvidenceItem } from '@ams/shared';
 import type { CycleApis } from '../components/cycles/directory';
 import { EvidenceCard } from '../components/evidence-card';
 import { RequestList } from '../components/evidence-requests';
@@ -8,6 +8,7 @@ import { NewEvidenceDialog } from '../components/link-evidence-dialog';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { useTranslation } from '../i18n';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { type FrameworkApi } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
@@ -22,12 +23,16 @@ const FILTERS = {
   datasets: { label: 'Datasets', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'dataset' },
   unlinked: { label: 'Not linked', keep: (e: EvidenceItem) => e.status === 'active' && e.linkCount === 0 },
   review: { label: 'To review', keep: (e: EvidenceItem) => e.status === 'active' && e.proposedLinkCount > 0 },
+  // Collection (TASK-090): what is coming up, late or failed on its schedule, so such items can be found.
+  dueSoon: { label: 'Due soon', labelKey: 'coll.filter.dueSoon', keep: (e: EvidenceItem) => e.status === 'active' && !!e.nextDueAt && Date.parse(e.nextDueAt) <= Date.now() + COLLECTION_DUE_SOON_DAYS * 86_400_000 },
+  late: { label: 'Late', labelKey: 'coll.filter.late', keep: (e: EvidenceItem) => e.status === 'active' && (e.runCounts?.late ?? 0) > 0 },
+  failed: { label: 'Failed', labelKey: 'coll.filter.failed', keep: (e: EvidenceItem) => e.status === 'active' && (e.runCounts?.failed ?? 0) > 0 },
   archived: { label: 'Archived', keep: (e: EvidenceItem) => e.status === 'archived' },
-} as const;
+} as const satisfies Record<string, { label: string; labelKey?: string; keep: (e: EvidenceItem) => boolean }>;
 type Filter = keyof typeof FILTERS;
 
 /** The evidence repository (PRD 9.1): stored once, versioned, linked many times; and every request for evidence. */
-export function EvidencePage({ api: override, framework: frameworkOverride, apis }: { api?: EvidenceApi; framework?: FrameworkApi; apis?: CycleApis }) {
+export function EvidencePage({ api: override, framework: frameworkOverride, apis, openItem }: { api?: EvidenceApi; framework?: FrameworkApi; apis?: CycleApis; /** An item to show open (the link of My work). */ openItem?: string }) {
   const api = useEvidenceApi(override);
   const framework = useApi(frameworkOverride);
   const me = useMe(framework);
@@ -43,21 +48,23 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
         ))}
       </div>
       {tab === 'library'
-        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(apis ? { apis } : {})} />
+        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
         : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
 
-function Library({ api, framework, canWrite, canReview, apis }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis }) {
+function Library({ api, framework, canWrite, canReview, apis, openItem }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis; openItem?: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [adding, setAdding] = useState(false);
-  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const [opened, setOpened] = useState<Set<string>>(() => new Set(openItem ? [openItem] : []));
   // Archived items come along so the Archived filter needs no second request.
   const list = useQuery({ queryKey: ['evidence', q, 'with-archived'], queryFn: () => api.list(q || undefined, { includeArchived: true }) });
   const shown = (list.data ?? []).filter(FILTERS[filter].keep);
+  const filterLabel = (k: Filter) => { const f: { label: string; labelKey?: string } = FILTERS[k]; return f.labelKey ? t(f.labelKey) : f.label; };
   const toggle = (id: string, open: boolean) => setOpened((s) => { const n = new Set(s); if (open) n.add(id); else n.delete(id); return n; });
 
   return (
@@ -67,7 +74,7 @@ function Library({ api, framework, canWrite, canReview, apis }: { api: EvidenceA
         <div role="group" aria-label="Show" className="flex min-w-0 max-w-full gap-1 overflow-x-auto pb-1 max-sm:w-full sm:flex-wrap sm:overflow-visible sm:pb-0">
           {(Object.keys(FILTERS) as Filter[]).map((k) => (
             <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{FILTERS[k].label}</button>
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{filterLabel(k)}</button>
           ))}
         </div>
         {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}

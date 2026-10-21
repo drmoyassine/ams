@@ -26,9 +26,9 @@ async function oldDatabase(label: string) {
   const url = admin.replace(/\/[^/]*$/, `/${name}`);
   const dir = mkdtempSync(join(tmpdir(), 'ams-mig-'));
   mkdirSync(join(dir, 'meta'));
-  for (const f of readdirSync(migrationsFolder)) if (f.endsWith('.sql') && !f.startsWith('0064')) copyFileSync(join(migrationsFolder, f), join(dir, f));
+  for (const f of readdirSync(migrationsFolder)) if (f.endsWith('.sql') && !f.startsWith('0064') && !f.startsWith('0065')) copyFileSync(join(migrationsFolder, f), join(dir, f));
   const journal = JSON.parse(readFileSync(join(migrationsFolder, 'meta/_journal.json'), 'utf8')) as { entries: { tag: string }[] };
-  journal.entries = journal.entries.filter((e) => e.tag !== TAG);
+  journal.entries = journal.entries.filter((e) => e.tag !== TAG && !e.tag.startsWith('0065'));
   writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify(journal));
   const pool = new pg.Pool({ connectionString: url, max: 1 });
   await migrate(drizzle(pool), { migrationsFolder: dir });

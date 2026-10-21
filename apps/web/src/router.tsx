@@ -151,7 +151,15 @@ const engagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/en
 function EngagementRoute() { const { id } = engagementRoute.useParams(); return <EngagementPage key={id} id={id} />; }
 const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagement-requirements/$id', component: () => <WorkspaceRoute /> });
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
-const evidenceRoute = createRoute({ getParentRoute: () => appRoute, path: '/evidence', component: () => <EvidencePage /> });
+const evidenceRoute = createRoute({
+  getParentRoute: () => appRoute, path: '/evidence', component: () => <EvidenceRoute />,
+  // An evidence item to open (the link of My work and of a notice about a collection run).
+  validateSearch: (s: Record<string, unknown>): { item?: string } => (typeof s.item === 'string' && /^[0-9a-f-]{36}$/i.test(s.item) ? { item: s.item } : {}),
+});
+function EvidenceRoute() {
+  const { item } = evidenceRoute.useSearch();
+  return <EvidencePage {...(item ? { openItem: item } : {})} />;
+}
 const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/forms/$id', component: () => <AnswerFormRoute /> });
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });

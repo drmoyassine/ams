@@ -1,5 +1,5 @@
 import type {
-  CreateFormRequest, DataForm, DataResponse, PublicForm, SubmitResponse,
+  CollectionConfig, CollectionRun, CreateFormRequest, DataForm, DataResponse, PublicForm, SubmitResponse,
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, Notification, RequirementContexts, ResubmitLink, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
@@ -40,6 +40,18 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     remove: (linkId: string) => api.api['evidence-links'][':id'].$delete({ param: { id: linkId } }).then((r) => unwrap<void>(r)),
     /** The proposer sends a rejected link back to review with a new reason (TASK-088). */
     resubmit: (linkId: string, json: ResubmitLink) => api.api['evidence-links'][':id'].resubmit.$post({ param: { id: linkId }, json }).then((r) => unwrap<EvidenceLink>(r)),
+
+    // Collection runs (TASK-090): one period of an item's schedule, carried out by its method
+    collectionConfig: () => api.api['collection-config'].$get().then((r) => unwrap<CollectionConfig>(r)),
+    /** `status` is one or more of pending, requested, supplied, late, failed, skipped (comma-separated); `mine` = runs of items I own. */
+    collectionRuns: (query: { status?: string; mine?: boolean; itemId?: string } = {}) => api.api['collection-runs'].$get({
+      query: { ...(query.status ? { status: query.status } : {}), ...(query.mine ? { mine: 'true' as const } : {}), ...(query.itemId ? { itemId: query.itemId } : {}) },
+    }).then((r) => unwrap<CollectionRun[]>(r)),
+    itemRuns: (id: string) => ev[':id'].runs.$get({ param: { id } }).then((r) => unwrap<CollectionRun[]>(r)),
+    runNow: (id: string) => ev[':id'].runs.now.$post({ param: { id } }).then((r) => unwrap<CollectionRun>(r)),
+    skipRun: (id: string, reason: string) => api.api['collection-runs'][':id'].skip.$post({ param: { id }, json: { reason } }).then((r) => unwrap<CollectionRun>(r)),
+    retryRun: (id: string) => api.api['collection-runs'][':id'].retry.$post({ param: { id } }).then((r) => unwrap<CollectionRun>(r)),
+    supplyRun: (id: string, versionId: string) => api.api['collection-runs'][':id'].supply.$post({ param: { id }, json: { versionId } }).then((r) => unwrap<CollectionRun>(r)),
 
     // My notifications (TASK-088): each person's own only
     notifications: () => api.api.notifications.$get().then((r) => unwrap<Notification[]>(r)),

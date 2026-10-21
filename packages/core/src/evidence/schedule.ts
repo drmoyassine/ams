@@ -8,7 +8,7 @@
 //       the start of each TERM of the academic calendar (TASK-081) on or after the start date. Where the calendar has no term for the
 //       time asked about, the answer says so with a gap: a term is never guessed.
 //
-// Nothing runs from a schedule yet: a job that fires it, makes a run per period and asks the BI is TASK-090.
+// The job that fires a schedule, makes a run per period and asks the BI is TASK-090 (packages/core/src/collection/).
 import type { Schedule } from '@ams/shared';
 import { plusDays, plusMonths } from '../cycles/recurrence.js';
 

@@ -86,19 +86,22 @@ export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
  * `import`: one stage of an AI document import run (docs/ai-import.md); like `analyse`, each stage queues the next.
  * `purge_trash`: a scheduled tick (daily, pg-boss schedule) that removes Trash items older than the retention and their
  * stored files, tenant by tenant under a system identity (DEC-026). It carries no job row.
+ * `collect_tick`: a scheduled tick (every 15 minutes, pg-boss schedule) that makes the due evidence collection runs, carries them out by
+ * the item's method (asks the BI, sends the request, opens the form, tells the owner), retries failed BI calls and marks late runs
+ * (TASK-090, DEC-031). Tenant by tenant under a system identity; no job row.
  */
-export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'assistant', 'import', 'translate'] as const;
+export const JOB_TYPES = ['extract_text', 'ocr', 'ai_extract', 'export', 'notify', 'analyse', 'purge_trash', 'collect_tick', 'assistant', 'import', 'translate'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 /**
  * Which background service takes each job type (DEC-024). Every job type belongs to exactly one group, so adding a type
  * forces a decision here (a test checks the table and the compose file agree).
- *   worker  general work that needs neither document parsing nor a model: exports, notifications, the daily Trash purge
+ *   worker  general work that needs neither document parsing nor a model: exports, notifications, the daily Trash purge, the evidence collection tick
  *   parser  reads documents (CPU and memory heavy)
  *   agent   everything that calls an AI provider; the only service that needs outbound internet; parses no documents
  */
 export const QUEUE_GROUPS = {
-  worker: ['export', 'notify', 'purge_trash'],
+  worker: ['export', 'notify', 'purge_trash', 'collect_tick'],
   parser: ['extract_text'],
   agent: ['analyse', 'ai_extract', 'ocr', 'assistant', 'import', 'translate'],
 } as const satisfies Record<string, readonly JobType[]>;
