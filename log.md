@@ -769,3 +769,7 @@ Owner: a URL wherever a document can be provided for scraping; cycle templates t
 ## 2026-10-22 — Plan: documents for the IQF and standards; embeddings
 
 Owner asked whether documents can furnish the IQF and external standards, and whether embeddings are on. Findings: external drafts can be furnished (merge by code, human edits kept); the IQF cannot; published versions are frozen; embeddings are built and used only for IQF mapping, off by default, unmeasured. Added TASK-107 and TASK-108.
+
+## 2026-10-22 — Decision: documents may propose wording edits
+
+Owner: uploaded documents may propose changes to the wording of requirements a person wrote, as a diff a person accepts (TASK-107). Assistant memory search by meaning: explained to the owner, recommendation is to keep words-and-codes only; awaiting the owner's yes or no.

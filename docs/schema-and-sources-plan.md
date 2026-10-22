@@ -98,7 +98,7 @@ First entities: evidence item, evidence version, dataset spec, program, course, 
 a **draft**: the analysis adds new requirements by code, updates the ones the AI wrote, and keeps what a person edited. Gaps: the
 **IQF has no Docs tab or analysis** (it is only extended by proposals from external standards and by hand); a **published** version is
 frozen, so documents must go to a new draft; URLs wait for TASK-102; proposing **edits to the wording** of human-written requirements
-as a reviewable diff does not exist (open question).
+as a reviewable diff does not exist: decided 2026-10-22 to build it (a diff per item that a person accepts or declines; never silent, never on a published version).
 
 **Embeddings (TASK-108).** Built (DEC-023, TASK-050/051): `embed()`, the `embedding` table, hybrid vector + word ranking, a Settings
 account and model with a probe for the dimension. Used only by the **IQF mapping** stage, **off by default**, and **not measured**
