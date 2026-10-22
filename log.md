@@ -765,3 +765,7 @@ Analysis and plan in docs/reports-and-cycles-plan.md. One report engine (M4) wra
 ## 2026-10-21 — Requirements: URLs as sources, template resources, schemas for everything
 
 Owner: a URL wherever a document can be provided for scraping; cycle templates take documents and URLs as resources (like org chart and programs); programs, courses and everything have schemas. Recorded as DEC-033 with the analysis and plan in docs/schema-and-sources-plan.md and TASK-102 to TASK-106 (pending). Open questions to the owner: HTML pages and domain allow-list, courses from a catalogue and member of several programs, read-only data dictionary versus custom fields, the program field list.
+
+## 2026-10-22 — Plan: documents for the IQF and standards; embeddings
+
+Owner asked whether documents can furnish the IQF and external standards, and whether embeddings are on. Findings: external drafts can be furnished (merge by code, human edits kept); the IQF cannot; published versions are frozen; embeddings are built and used only for IQF mapping, off by default, unmeasured. Added TASK-107 and TASK-108.

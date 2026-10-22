@@ -4345,3 +4345,67 @@ modified:
 # TASK-103 — Cycle template resources and AI-proposed stages
 
 Plan 2.2. New scope kind `cycle_template`; target proposes stages (name, process, checklist, outputs, inputs, owner rule, offsets); applied to a draft only, one undoable change; resources shown on cycles made from the template.
+
+## TASK-107 — Documents to furnish and update the IQF and published standards
+
+---
+id: TASK-107
+title: Documents to furnish and update the IQF and published standards
+description: >-
+  A Docs tab on the IQF (and on a published standard, which opens a new draft first): upload documents or URLs,
+  analyse them, review proposals, and merge into the draft version without touching human edits.
+status: pending
+priority: P1
+last_updated: '2026-10-22'
+generated:
+  by: agent/claude-code
+  at: '2026-10-22T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-102
+    name: Sources by URL for every document import
+    url: /TASKS.md#TASK-102
+related_decisions:
+  - id: DEC-023
+    name: Embeddings rank IQF mapping candidates; vectors are stored in plain PostgreSQL arrays
+    url: /DECISIONS.md#DEC-023
+modified:
+  by: agent/claude-code
+  at: '2026-10-22T09:00:00.000Z'
+---
+# TASK-107 — Documents to furnish and update the IQF and published standards
+
+The compiler already merges into an existing DRAFT of an external standard by code (adds new, updates AI-written rows, keeps human edits). Gaps: the IQF has no Docs tab or analysis; a published version is frozen so documents must go to a new draft. Build: IQF Docs tab (same engine on the internal framework, authority classes adapted), 'Add documents' on a published version that offers 'Start a new version', URL sources (TASK-102), and a clear result report (added, updated, kept human edits, notes). Proposing EDITS to the wording of existing human-written requirements as reviewable changes (a diff) is the open question.
+
+## TASK-108 — Meaning-based search and similar requirements; keep vectors current
+
+---
+id: TASK-108
+title: Meaning-based search and similar requirements; keep vectors current
+description: >-
+  Switch embeddings from mapping-only to a library feature: search the standards by meaning (Arabic and English), see
+  similar requirements, keep vectors current when text changes, and show their status in Settings.
+status: pending
+priority: P1
+last_updated: '2026-10-22'
+generated:
+  by: agent/claude-code
+  at: '2026-10-22T09:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+related_decisions:
+  - id: DEC-023
+    name: Embeddings rank IQF mapping candidates; vectors are stored in plain PostgreSQL arrays
+    url: /DECISIONS.md#DEC-023
+modified:
+  by: agent/claude-code
+  at: '2026-10-22T09:00:00.000Z'
+---
+# TASK-108 — Meaning-based search and similar requirements; keep vectors current
+
+DEC-023 built embed(), the embedding table, hybrid ranking and the Settings model; today only the IQF mapping stage uses them and they are OFF by default and not yet measured (TASK-056 decides the default from `pnpm analysis:eval-mapping`). Add: (1) re-embed on edit/publish via a job and a Rebuild action with a cost estimate; (2) a library search box that ranks requirements by hybrid meaning + code/term match; (3) a 'Similar requirements' list on a requirement and in the Map to IQF dialog; (4) read tool for the assistant over framework text; (5) status in Settings -> AI (counts, model, last run). Framework text only (DEC-023 point 5): evidence, datasets, memories, requests are never embedded; assistant memory search (TASK-068) needs its own decision. Scores are internal ranking, never shown as coverage or confidence.

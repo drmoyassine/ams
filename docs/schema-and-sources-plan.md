@@ -91,3 +91,19 @@ First entities: evidence item, evidence version, dataset spec, program, course, 
 2. Courses: do they come from a catalogue import now and the student system / BI later? Is a course a member of **several programs**?
 3. "Everything has a schema": a **read-only data dictionary** that the code derives from now; are **custom fields** per institution wanted later?
 4. Programs: is the field list above right? Anything missing (accreditation status, department, intake terms)?
+
+## 6. Added 2026-10-22: furnishing the IQF and standards by documents; embeddings
+
+**Documents to update or furnish standards (TASK-107).** An external standard can already be furnished by documents while its version is
+a **draft**: the analysis adds new requirements by code, updates the ones the AI wrote, and keeps what a person edited. Gaps: the
+**IQF has no Docs tab or analysis** (it is only extended by proposals from external standards and by hand); a **published** version is
+frozen, so documents must go to a new draft; URLs wait for TASK-102; proposing **edits to the wording** of human-written requirements
+as a reviewable diff does not exist (open question).
+
+**Embeddings (TASK-108).** Built (DEC-023, TASK-050/051): `embed()`, the `embedding` table, hybrid vector + word ranking, a Settings
+account and model with a probe for the dimension. Used only by the **IQF mapping** stage, **off by default**, and **not measured**
+(words-only recall@10 was 48.4%; TASK-056 decides the default). Not built: vectors kept current when text changes (a job and a Rebuild
+action), search by meaning in the library, "similar requirements", a read tool for the assistant, status in Settings. Framework
+text only: evidence, datasets, memories and requests are never embedded (DEC-023, DEC-013); the BI does retrieval over evidence
+(DEC-019). TASK-068's "meaning-based memory search" conflicts with that rule and needs its own decision.
+
