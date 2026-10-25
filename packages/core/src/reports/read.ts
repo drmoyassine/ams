@@ -1,8 +1,8 @@
 // Reading reports (TASK-091): the list with its counts, and the detail with the section tree, the resolved requirements
 // and the owners. The generated blocks render at read time later (TASK-093); the sections carry what people wrote.
 import { and, asc, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
-import { appUser, report, reportSection, reportSectionRequirement, requirement } from '@ams/db';
-import type { ReportDetail, ReportFilter, ReportSection, ReportSummary } from '@ams/shared';
+import { appUser, report, reportSection, reportSectionDecision, reportSectionRequirement, requirement, submissionSnapshot } from '@ams/db';
+import type { ReportDetail, ReportFilter, ReportSection, ReportSummary, SectionDecisionInfo } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { loadReport, subjectName, type Report } from './common.js';
 
@@ -27,7 +27,7 @@ const summaries = async (ctx: Ctx, rows: Report[]): Promise<ReportSummary[]> => 
       frameworkVersionId: r.frameworkVersionId, templateKey: r.templateKey, templateName: r.templateName,
       engagementId: r.engagementId, subjectKind: r.subjectKind, subjectId: r.subjectId,
       subjectName: r.subjectKind && r.subjectId ? subjects.get(`${r.subjectKind}:${r.subjectId}`) ?? null : null,
-      requiresAttestation: r.requiresAttestation, wordLimit: r.wordLimit,
+      requiresAttestation: r.requiresAttestation, wordLimit: r.wordLimit, submittedRef: r.submittedRef,
       sectionCount: c?.total ?? 0, approvedSections: c?.approved ?? 0,
       createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
     };
@@ -58,6 +58,22 @@ export async function loadSections(ctx: Ctx, reportId: string) {
   const ownerIds = [...new Set(rows.map((r) => r.ownerId).filter((v): v is string => typeof v === 'string'))];
   const owners = ownerIds.length ? await ctx.tx.select({ id: appUser.id, name: appUser.fullName }).from(appUser).where(inArray(appUser.id, ownerIds)) : [];
   const names = new Map(owners.map((o) => [o.id, o.name]));
+  // The latest decision per section (newest first, so the first seen wins): the writer reads it when a section comes back.
+  const decisions = ids.length ? await ctx.tx.select({
+    sectionId: reportSectionDecision.sectionId, decision: reportSectionDecision.decision,
+    note: reportSectionDecision.note, decidedBy: reportSectionDecision.decidedBy,
+    decidedByName: appUser.fullName, decidedAt: reportSectionDecision.decidedAt,
+  }).from(reportSectionDecision).innerJoin(appUser, eq(appUser.id, reportSectionDecision.decidedBy))
+    .where(inArray(reportSectionDecision.sectionId, ids)).orderBy(desc(reportSectionDecision.decidedAt)) : [];
+  const lastOf = new Map<string, SectionDecisionInfo>();
+  for (const d of decisions) {
+    if (!lastOf.has(d.sectionId)) {
+      lastOf.set(d.sectionId, {
+        decision: d.decision, note: d.note, decidedBy: d.decidedBy,
+        decidedByName: d.decidedByName ?? null, decidedAt: d.decidedAt.toISOString(),
+      });
+    }
+  }
   const linksOf = new Map<string, { requirementId: string; code: string; title: string }[]>();
   for (const l of links.sort((a, b) => a.displayOrder - b.displayOrder)) {
     linksOf.set(l.sectionId, [...(linksOf.get(l.sectionId) ?? []), { requirementId: l.requirementId, code: l.code, title: l.title }]);
@@ -69,6 +85,7 @@ export async function loadSections(ctx: Ctx, reportId: string) {
     status: r.status, wordLimit: r.wordLimit, wordCount: r.wordCount,
     columns: (r.columns as ReportSection['columns'] | null) ?? null, datasetBinding: r.datasetBinding ?? undefined,
     content: r.content,
+    lastDecision: lastOf.get(r.id) ?? null,
   }));
 }
 
@@ -83,5 +100,9 @@ export async function getReport(ctx: Ctx, id: string): Promise<ReportDetail> {
   }
   const tree = (parent: string | null): ReportSection[] => (byParent.get(parent) ?? []).map((s) => ({ ...s, children: tree(s.id) }));
   const [summary] = await summaries(ctx, [row]);
-  return { ...summary!, sections: tree(null), wordCount: flat.reduce((n, s) => n + (s.blockType === 'narrative' ? s.wordCount ?? 0 : 0), 0) };
+  const [snap] = await ctx.tx.select({ id: submissionSnapshot.id }).from(submissionSnapshot).where(eq(submissionSnapshot.reportId, id));
+  return {
+    ...summary!, sections: tree(null), wordCount: flat.reduce((n, s) => n + (s.blockType === 'narrative' ? s.wordCount ?? 0 : 0), 0),
+    snapshotId: snap?.id ?? null,
+  };
 }

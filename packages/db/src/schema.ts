@@ -1742,3 +1742,37 @@ export const reportSectionRequirement = pgTable('report_section_requirement', {
   uniqueIndex('report_section_requirement_idx').on(t.sectionId, t.requirementId),
   index('report_section_requirement_req_idx').on(t.requirementId),
 ]);
+
+/** One approve-or-return of a section (TASK-094): kept forever, the snapshot's manifest lists the approvals. */
+export const reportSectionDecision = pgTable('report_section_decision', {
+  ...base(), ...tenant(),
+  sectionId: uuid('section_id').notNull().references((): AnyPgColumn => reportSection.id),
+  decision: text('decision', { enum: ['approved', 'returned'] }).notNull(),
+  /** Why a section was returned (what to fix); required by the database for `returned`. */
+  note: text('note'),
+  decidedBy: uuid('decided_by').notNull().references((): AnyPgColumn => appUser.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('report_section_decision_section_idx').on(t.sectionId, t.decidedAt),
+  check('report_section_decision_decision_check', sql`${t.decision} in ('approved', 'returned')`),
+  // NULL passes a CHECK, so the note's presence must be explicit: a returned section always carries its note.
+  check('report_section_decision_note_check', sql`${t.decision} <> 'returned' or (${t.note} is not null and length(btrim(${t.note})) > 0)`),
+]);
+
+/** The submission snapshot (PRD §10.4 step 4): the whole report in one immutable manifest (PRD §6.9), one per report. */
+export const submissionSnapshot = pgTable('submission_snapshot', {
+  ...base(), ...tenant(),
+  reportId: uuid('report_id').notNull().references(() => report.id),
+  round: integer('round').notNull(),
+  /** Everything the accreditor would see: sections and content, requirements, approvals, attestation, cited evidence. */
+  manifest: jsonb('manifest').notNull(),
+  /** The stored files the manifest cites (letters, exports), for the TASK-093 export bundle. */
+  exportFiles: jsonb('export_files').notNull().default(sql`'[]'::jsonb`),
+  sha256: text('sha256').notNull(),
+}, (t) => [
+  uniqueIndex('submission_snapshot_report_idx').on(t.reportId),
+  check('submission_snapshot_round_check', sql`${t.round} >= 1`),
+  check('submission_snapshot_sha256_check', sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+  check('submission_snapshot_manifest_check', sql`jsonb_typeof(${t.manifest}) = 'object'`),
+  check('submission_snapshot_export_files_check', sql`jsonb_typeof(${t.exportFiles}) = 'array'`),
+]);

@@ -1,6 +1,10 @@
-// Reports through the typed client (TASK-091/092). Reads need report:read, writes report:write, managing report:manage —
-// the server decides; these calls only carry the shapes. The attestation letter goes up as the request body.
-import type { CreateReport, DeleteResult, ReportDetail, ReportFilter, ReportSummary, SetSectionOwner, UpdateSectionContent } from '@ams/shared';
+// Reports through the typed client (TASK-091/092/094). Reads need report:read, writes report:write, review report:review,
+// managing report:manage — the server decides; these calls only carry the shapes. The attestation letter goes up as the
+// request body.
+import type {
+  CreateReport, DecideSection, DeleteResult, MarkSubmitted, ReportDetail, ReportFilter, ReportSummary,
+  SetSectionOwner, SubmissionSnapshot, UpdateSectionContent,
+} from '@ams/shared';
 import { api as defaultApi } from './api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
@@ -23,6 +27,14 @@ export function reportApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) 
         method: 'POST', body: await readBytes(file), headers: { 'content-type': file.type || 'application/octet-stream' }, credentials: 'include',
       }).then((r) => unwrap<ReportDetail>(r));
     },
+    sendForReview: (id: string, sectionId: string) =>
+      rp[':id'].sections[':sectionId'].review.$post({ param: { id, sectionId } }).then((r) => unwrap<ReportDetail>(r)),
+    decideSection: (id: string, sectionId: string, json: DecideSection) =>
+      rp[':id'].sections[':sectionId'].decision.$post({ param: { id, sectionId }, json }).then((r) => unwrap<ReportDetail>(r)),
+    approveReport: (id: string) => rp[':id'].approve.$post({ param: { id } }).then((r) => unwrap<ReportDetail>(r)),
+    createSnapshot: (id: string) => rp[':id'].snapshot.$post({ param: { id } }).then((r) => unwrap<SubmissionSnapshot>(r)),
+    getSnapshot: (id: string) => rp[':id'].snapshot.$get({ param: { id } }).then((r) => unwrap<SubmissionSnapshot>(r)),
+    markSubmitted: (id: string, json: MarkSubmitted) => rp[':id'].submit.$post({ param: { id }, json }).then((r) => unwrap<ReportDetail>(r)),
   };
 }
 export type ReportApi = ReturnType<typeof reportApi>;

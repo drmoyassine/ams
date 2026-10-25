@@ -143,6 +143,24 @@ export const SetSectionOwnerSchema = z.object({
 }).strict();
 export type SetSectionOwner = z.infer<typeof SetSectionOwnerSchema>;
 
+// ---- Workflow (PRD 10.4 steps 2 to 5, TASK-094) -------------------------------------------------------------
+
+/** A reviewer's move on a section: approve it, or send it back with a note (what to fix); reopening an approved section
+ *  of an internally approved report is a `returned` too. The database refuses a `returned` without the note. */
+export const DecideSectionSchema = z.object({
+  decision: z.enum(['approved', 'returned']),
+  note: z.string().trim().min(1).max(2000).optional(),
+}).strict().refine((d) => d.decision !== 'returned' || d.note !== undefined, {
+  message: 'returning a section needs a note saying what to fix',
+});
+export type DecideSection = z.infer<typeof DecideSectionSchema>;
+
+/** "Mark submitted" (step 5): the accreditor's own reference (portal id, receipt) may be known now or later. */
+export const MarkSubmittedSchema = z.object({
+  ref: z.string().trim().min(1).max(300).optional(),
+}).strict();
+export type MarkSubmitted = z.infer<typeof MarkSubmittedSchema>;
+
 // ---- Responses ----------------------------------------------------------------------------------------------
 
 const iso = z.string();
@@ -151,6 +169,14 @@ export const SectionRequirementSchema = z.object({
   requirementId: z.string(), code: z.string(), title: z.string(),
 });
 export type SectionRequirement = z.infer<typeof SectionRequirementSchema>;
+
+/** The latest review decision on a section — what the writer reads when a section comes back (kept in report_section_decision). */
+export const SectionDecisionInfoSchema = z.object({
+  decision: z.enum(['approved', 'returned']),
+  note: z.string().nullable(),
+  decidedBy: z.string(), decidedByName: z.string().nullable(), decidedAt: iso,
+});
+export type SectionDecisionInfo = z.infer<typeof SectionDecisionInfoSchema>;
 
 /** A data_table's columns, from the template (a data_table section is born with them or with a dataset binding). */
 export const SectionColumnSchema = z.object({
@@ -167,6 +193,7 @@ export const ReportSectionSchema: z.ZodType<ReportSection> = z.lazy(() => z.obje
   status: z.enum(SECTION_STATUSES), wordLimit: z.number().nullable(), wordCount: z.number().nullable(),
   columns: z.array(SectionColumnSchema).nullable(), datasetBinding: z.unknown().optional(),
   content: z.unknown(),
+  lastDecision: SectionDecisionInfoSchema.nullable(),
   children: z.array(ReportSectionSchema),
 }));
 export interface ReportSection {
@@ -178,6 +205,7 @@ export interface ReportSection {
   status: SectionStatus; wordLimit: number | null; wordCount: number | null;
   columns: SectionColumn[] | null; datasetBinding?: unknown;
   content: unknown;
+  lastDecision: SectionDecisionInfo | null;
   children: ReportSection[];
 }
 
@@ -188,6 +216,7 @@ export const ReportSummarySchema = z.object({
   engagementId: z.string().nullable(), subjectKind: z.enum(REPORT_SUBJECT_KINDS).nullable(), subjectId: z.string().nullable(),
   subjectName: z.string().nullable(),
   requiresAttestation: z.boolean(), wordLimit: z.number().nullable(),
+  submittedRef: z.string().nullable(),
   sectionCount: z.number(), approvedSections: z.number(),
   createdAt: iso, updatedAt: iso,
 });
@@ -196,6 +225,7 @@ export type ReportSummary = z.infer<typeof ReportSummarySchema>;
 export const ReportDetailSchema = ReportSummarySchema.extend({
   sections: z.array(ReportSectionSchema),
   wordCount: z.number(),
+  snapshotId: z.string().nullable(),
 });
 export type ReportDetail = z.infer<typeof ReportDetailSchema>;
 
@@ -207,6 +237,7 @@ export type ReportDetail = z.infer<typeof ReportDetailSchema>;
 export const ReportDetailDocSchema = ReportSummarySchema.extend({
   sections: z.array(z.unknown()),
   wordCount: z.number(),
+  snapshotId: z.string().nullable(),
 });
 
 export const ReportFilterSchema = z.object({
@@ -218,3 +249,102 @@ export const ReportFilterSchema = z.object({
   q: z.string().trim().min(1).max(200).optional(),
 }).strict();
 export type ReportFilter = z.infer<typeof ReportFilterSchema>;
+
+// ---- Snapshots and the round diff (PRD 10.4 step 4, 11.4; TASK-094) -----------------------------------------
+
+/** One word-level piece of a section diff: what stayed, what the last round had, what this round adds. */
+export interface DiffChunk { t: 'same' | 'add' | 'del'; s: string }
+
+/** A section that changed since the previous round's snapshot; unchanged sections are not listed. */
+export interface SectionDiff { key: string; title: string; chunks: DiffChunk[] }
+
+/** Word-level diff of two texts: runs of non-whitespace compared by longest common subsequence, joined with single
+ *  spaces (the diff is for reading, not for rebuilding the original). Sides over 4000 words collapse to one replace. */
+export function diffWords(before: string, after: string): DiffChunk[] {
+  const a = before.normalize('NFC').trim().split(/\s+/).filter((w) => w.length > 0);
+  const b = after.normalize('NFC').trim().split(/\s+/).filter((w) => w.length > 0);
+  if (a.length === 0 && b.length === 0) return [];
+  if (a.length === 0) return [{ t: 'add', s: b.join(' ') }];
+  if (b.length === 0) return [{ t: 'del', s: a.join(' ') }];
+  const n = a.length, m = b.length;
+  const chunks: DiffChunk[] = [];
+  const push = (t: DiffChunk['t'], w: string) => {
+    const last = chunks[chunks.length - 1];
+    if (last && last.t === t) last.s = `${last.s} ${w}`;
+    else chunks.push({ t, s: w });
+  };
+  if (n > 4000 || m > 4000) {
+    push('del', a.join(' ')); push('add', b.join(' '));
+    return chunks;
+  }
+  // Longest common subsequence, table walked from the end; dp[i][j] = LCS length of a[i..] and b[j..].
+  const dp = new Uint32Array((n + 1) * (m + 1));
+  const at = (i: number, j: number) => i * (m + 1) + j;
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[at(i, j)] = a[i] === b[j] ? (dp[at(i + 1, j + 1)] ?? 0) + 1 : Math.max(dp[at(i + 1, j)] ?? 0, dp[at(i, j + 1)] ?? 0);
+    }
+  }
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { push('same', a[i]!); i++; j++; }
+    else if ((dp[at(i + 1, j)] ?? 0) >= (dp[at(i, j + 1)] ?? 0)) { push('del', a[i++]!); }
+    else { push('add', b[j++]!); }
+  }
+  while (i < n) push('del', a[i++]!);
+  while (j < m) push('add', b[j++]!);
+  return chunks;
+}
+
+/** A cited evidence version in a snapshot: what an `[E:…]` or an appendix item pointed at, with its hash. */
+export interface SnapshotEvidence {
+  versionId: string; evidenceItemId: string; title: string; versionNo: number;
+  fileName: string | null; sha256: string | null;
+}
+
+/** The approval that counts for a snapshot section: the latest `approved` decision (reopens start the review over). */
+export interface SnapshotApproval { decidedBy: string; decidedByName: string | null; decidedAt: string }
+
+export interface SnapshotSection {
+  id: string; key: string; title: string; blockType: BlockType;
+  wordCount: number | null;
+  requirements: SectionRequirement[];
+  approvals: SnapshotApproval[];
+  content: unknown;
+}
+
+/** Everything the accreditor would see, frozen: the report, its sections and content, the cited evidence with hashes,
+ *  the attestation, and the word-level changes against the previous round's snapshot (empty on the first round). */
+export interface SnapshotManifest {
+  report: {
+    id: string; title: string; round: number; kind: TemplateKind; language: string;
+    frameworkVersionId: string; templateKey: string; templateName: string;
+    engagementId: string | null; subjectKind: ReportSubjectKind | null; subjectId: string | null;
+    wordLimit: number | null; wordCount: number; requiresAttestation: boolean;
+    approvedAt: string; approvedBy: string; approvedByName: string | null;
+  };
+  sections: SnapshotSection[];
+  evidence: SnapshotEvidence[];
+  attestation: { signatoryName: string | null; fileName: string | null } | null;
+  changes: SectionDiff[];
+}
+
+export const SubmissionSnapshotSchema = z.object({
+  id: z.string(), reportId: z.string(), round: z.number(),
+  manifest: z.record(z.string(), z.unknown()),
+  sha256: z.string(), createdAt: iso,
+});
+export type SubmissionSnapshot = z.infer<typeof SubmissionSnapshotSchema>;
+
+/** The text a snapshot section is diffed on (plain text of a narrative; the rows of a table; labels of an appendix). */
+export function diffableText(section: Pick<SnapshotSection, 'blockType' | 'content'>): string {
+  const c = (section.content ?? {}) as { text?: unknown; rows?: unknown; items?: unknown; statement?: unknown };
+  if (section.blockType === 'narrative') return typeof c.text === 'string' ? c.text : '';
+  if (section.blockType === 'data_table' && Array.isArray(c.rows)) {
+    return c.rows.map((r) => Object.values((r ?? {}) as Record<string, unknown>).join(' ')).join('\n');
+  }
+  if (section.blockType === 'appendix' && Array.isArray(c.items)) {
+    return c.items.map((i) => String((i as { label?: unknown })?.label ?? '')).join('\n');
+  }
+  return typeof c.statement === 'string' ? c.statement : '';
+}

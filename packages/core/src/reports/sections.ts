@@ -8,6 +8,7 @@ import type { Ctx } from '../ctx.js';
 import { ValidationError } from '../ctx.js';
 import { nfc } from '../cycles/common.js';
 import { assertHuman } from '../framework/common.js';
+import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
 import { loadReport, loadSection, scopeOf } from './common.js';
 import { getReport } from './read.js';
@@ -60,6 +61,8 @@ export async function updateSectionContent(ctx: Ctx, sectionId: string, input: U
     const missing = items.filter((i) => !known.some((k) => k.id === i.evidenceVersionId));
     if (missing.length) throw new ValidationError(`${missing.length} of the attached files are not evidence of this institution.`);
   }
-  await ctx.tx.update(reportSection).set({ content }).where(eq(reportSection.id, sectionId));
+  // The database refuses words written after the report left the draft (or outside the section's own state); wrapped,
+  // so the refusal reaches the editor as a conflict instead of a crash.
+  await guardIntegrity(() => ctx.tx.update(reportSection).set({ content }).where(eq(reportSection.id, sectionId)));
   return getReport(ctx, section.reportId);
 }

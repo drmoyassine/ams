@@ -1,12 +1,17 @@
-// Reports (TASK-091/092, PRD 10): create one from a reviewed template, read it back as a section tree, rename it, save a
-// section's content, upload an attestation's signed letter, hand a section to a person, delete a draft to the Trash.
-// Reads need report:read; managing (create, rename, owners, delete) needs report:manage at the route and again at the
-// report's wrapper in the service; saving content and letters needs report:write (the service checks it at the wrapper).
-// The review moves and submission arrive with TASK-094.
+// Reports (TASK-091/092/094, PRD 10): create one from a reviewed template, read it back as a section tree, rename it,
+// save a section's content, upload an attestation's signed letter, hand a section to a person, delete a draft to the
+// Trash. Reads need report:read; managing (create, rename, owners, delete, snapshot, mark submitted) needs report:manage
+// at the route and again at the report's wrapper in the service; saving content and review moves need report:write /
+// report:review (the services check them at the wrapper). The submission snapshot is immutable (PRD 6.9).
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createReport, deleteReport, getReport, listReports, MAX_UPLOAD_BYTES, readAttestationLetter, saveAttestationLetter, setSectionOwner, updateReport, updateSectionContent, ValidationError } from '@ams/core';
 import {
-  CreateReportSchema, DeleteResultSchema, ReportDetailDocSchema, ReportDetailSchema, ReportFilterSchema, ReportSummarySchema, SetSectionOwnerSchema,
+  approveReport, createReport, createSnapshot, deleteReport, decideSection, getReport, getSnapshot, listReports,
+  markSubmitted, MAX_UPLOAD_BYTES, readAttestationLetter, saveAttestationLetter, setSectionOwner, submitSectionForReview,
+  updateReport, updateSectionContent, ValidationError,
+} from '@ams/core';
+import {
+  CreateReportSchema, DecideSectionSchema, DeleteResultSchema, MarkSubmittedSchema, ReportDetailDocSchema, ReportDetailSchema,
+  ReportFilterSchema, ReportSummarySchema, SetSectionOwnerSchema, SubmissionSnapshotSchema,
   UpdateReportSchema, UpdateSectionContentSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -20,6 +25,7 @@ export function reportRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
   const tag = ['reports'];
   const read = requires('report:read');
   const write = requires('report:write');
+  const review = requires('report:review');
   const manage = requires('report:manage');
   const reportOk = (description: string) => ({ 200: { description, ...json(ReportDetailDocSchema) }, ...errors });
   return new OpenAPIHono<AppEnv>(options)
@@ -105,5 +111,56 @@ export function reportRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
     }), async (c) => {
       const { sectionId } = c.req.valid('param');
       return c.json(detail(await setSectionOwner(c.get('ctx'), sectionId, c.req.valid('json'))), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/sections/{sectionId}/review', access: write, tags: tag,
+      description: 'The writer hands a draft or returned section to the reviewers. Only while the report is a draft.',
+      request: { params: sectionParam },
+      responses: reportOk('The report with the section in review'),
+    }), async (c) => {
+      const { sectionId } = c.req.valid('param');
+      return c.json(detail(await submitSectionForReview(c.get('ctx'), sectionId)), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/sections/{sectionId}/decision', access: review, tags: tag,
+      description: 'A reviewer approves a section in review, or returns it with a note (what to fix). Reopening an approved section of an internally approved report is a return too: the report goes back to draft and the review starts over. Every decision is kept.',
+      request: { params: sectionParam, body: { required: true, ...json(DecideSectionSchema) } },
+      responses: reportOk('The report with the section\'s new state'),
+    }), async (c) => {
+      const { sectionId } = c.req.valid('param');
+      return c.json(detail(await decideSection(c.get('ctx'), sectionId, c.req.valid('json'))), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/approve', access: review, tags: tag,
+      description: 'Internally approves the report. The database checks that every section is approved and the attestation is there, and stamps who approved and when. The wording is exactly "Internally approved" (DEC-005).',
+      request: { params: idParam },
+      responses: reportOk('The internally approved report'),
+    }), async (c) => c.json(detail(await approveReport(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/snapshot', access: manage, tags: tag,
+      description: 'Freezes the immutable submission snapshot: the whole report in one manifest (sections, requirements, approvals, attestation, cited evidence with hashes) and the word changes against the previous round\'s snapshot. One per report; never changed or removed (PRD 6.9). Only an internally approved report.',
+      request: { params: idParam },
+      responses: { 201: { description: 'The snapshot taken', ...json(SubmissionSnapshotSchema) }, ...errors },
+    }), async (c) => c.json(await createSnapshot(c.get('ctx'), c.req.valid('param').id), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/reports/{id}/snapshot', access: read, tags: tag,
+      description: 'The report\'s submission snapshot; there is none until a manager froze one.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The snapshot', ...json(SubmissionSnapshotSchema) }, ...errors },
+    }), async (c) => c.json(await getSnapshot(c.get('ctx'), c.req.valid('param').id), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/submit', access: manage, tags: tag,
+      description: 'Marks the report submitted. The snapshot must be taken first; the database stamps who submitted and when, and the engagement\'s submission milestone is completed. The accreditor\'s own reference may be sent now or never.',
+      request: { params: idParam, body: { required: true, ...json(MarkSubmittedSchema) } },
+      responses: reportOk('The submitted report'),
+    }), async (c) => {
+      const { id } = c.req.valid('param');
+      return c.json(detail(await markSubmitted(c.get('ctx'), id, c.req.valid('json'))), 200);
     });
 }
