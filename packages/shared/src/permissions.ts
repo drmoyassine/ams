@@ -20,19 +20,22 @@ export const PERMISSIONS = [
   // Quality Management cycles (DEC-029): read them; manage (templates, launch, owners, dates, cancel); work (fill the
   // outputs of stages: stage owners and named approvers can always act on their own stage or approval).
   'cycle:read', 'cycle:manage', 'cycle:work',
+  // Reports (PRD 10, TASK-091): read them; write sections (the owner drafts, anyone with the permission until review
+  // states arrive with TASK-094); review (approve or return a section); manage (create, delete, owners, title).
+  'report:read', 'report:write', 'report:review', 'report:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const READ: Permission[] = ['org:read', 'program:read', 'framework:read', 'engagement:read', 'evidence:read', 'cycle:read'];
+const READ: Permission[] = ['org:read', 'program:read', 'framework:read', 'engagement:read', 'evidence:read', 'cycle:read', 'report:read'];
 
 /** Role × permission. Where a role applies is decided by its scope (institution, org_unit, program, engagement). */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   admin: PERMISSIONS,
-  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review', 'engagement:create', 'evidence:write', 'evidence:review', 'cycle:manage', 'cycle:work'],
-  engagement_lead: [...READ, 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review', 'cycle:work'],
-  co_lead: [...READ, 'engagement:manage', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review', 'cycle:work'],
-  contributor: [...READ, 'engagement:work', 'evidence:write', 'cycle:work'],
-  reviewer: [...READ, 'framework:review', 'engagement:review', 'evidence:review'],
+  lead: [...READ, 'org:write', 'program:write', 'framework:write', 'framework:review', 'engagement:create', 'evidence:write', 'evidence:review', 'cycle:manage', 'cycle:work', 'report:write', 'report:review', 'report:manage'],
+  engagement_lead: [...READ, 'engagement:manage', 'engagement:lead', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review', 'cycle:work', 'report:write', 'report:review', 'report:manage'],
+  co_lead: [...READ, 'engagement:manage', 'engagement:work', 'engagement:review', 'evidence:write', 'evidence:review', 'cycle:work', 'report:write', 'report:review'],
+  contributor: [...READ, 'engagement:work', 'evidence:write', 'cycle:work', 'report:write'],
+  reviewer: [...READ, 'framework:review', 'engagement:review', 'evidence:review', 'report:review'],
   viewer: READ,
   external_reviewer: ['program:read'],  // read-only, one snapshot (P1); framework library is not exposed
 };

@@ -49,6 +49,7 @@ export function redeleteDescriptor(items: RestoredItem[], opts: { revertMerge?: 
     case 'evidence_link': { const id = first(p, 'evidence_link'); return id ? d('DELETE', `/api/evidence-links/${id}`) : null; }
     case 'milestone': { const id = first(p, 'milestone'); return id ? d('DELETE', `/api/milestones/${id}`) : null; }
     case 'cycle': { const id = str(root.cycleId); return id ? d('DELETE', `/api/cycles/${id}`) : null; }
+    case 'report': { const id = str(root.reportId); return id ? d('DELETE', `/api/reports/${id}`) : null; }
     default: return null;
   }
 }

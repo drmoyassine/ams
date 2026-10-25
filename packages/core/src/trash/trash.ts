@@ -21,7 +21,7 @@ type ItemRow = typeof trashItem.$inferSelect;
 export const KIND_PERMISSION: Record<TrashKind, Permission> = {
   requirement: 'framework:write', note: 'framework:write', source_document: 'framework:write', source_page: 'framework:write', report_template: 'framework:write',
   framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
-  org_unit: 'org:write', cycle: 'cycle:manage',
+  org_unit: 'org:write', cycle: 'cycle:manage', report: 'report:manage',
 };
 
 async function allowedKinds(ctx: Ctx): Promise<TrashKind[]> {

@@ -20,6 +20,7 @@ import { mappingRoutes } from './routes/mappings.js';
 import { requirementRoutes } from './routes/requirements.js';
 import { settingsRoutes } from './routes/settings.js';
 import { cycleRoutes } from './routes/cycles.js';
+import { reportRoutes } from './routes/reports.js';
 import { scopeRoutes } from './routes/scope.js';
 import { planRoutes } from './routes/plans.js';
 import { orgChartRoutes } from './routes/org-chart.js';
@@ -105,6 +106,9 @@ export function buildRoutes(registry: RouteRegistry, deps: ChainDeps, options: {
     .route('/', cycleRoutes(registry, deps, options))
     .route('/', scopeRoutes(registry, deps, options))
     .route('/', planRoutes(registry, deps, options))
+
+    // Reports (TASK-091).
+    .route('/', reportRoutes(registry, deps, options))
 
     // The in-app assistant (DEC-027).
     .route('/', assistantRoutes(registry, deps, options));

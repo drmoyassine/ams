@@ -16,6 +16,7 @@ export * from './jobs/pgboss-queue.js';
 export * from './jobs/purge-trash.js';
 export * from './trash/index.js';
 export * from './cycles/index.js';
+export * from './reports/index.js';
 export * from './scope/index.js';
 export * from './documents/index.js';
 export * from './assistant/index.js';

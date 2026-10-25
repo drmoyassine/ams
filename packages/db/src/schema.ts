@@ -5,6 +5,7 @@ import {
   CYCLE_ANCHOR_KINDS, CYCLE_DECISIONS, CYCLE_INPUT_SOURCES, CYCLE_ORIGINS, CYCLE_OUTPUT_KINDS, CYCLE_OUTPUT_STATES, CYCLE_PICK_KINDS, CYCLE_REF_KINDS,
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
+  BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -1106,7 +1107,7 @@ export const datasetResponse = pgTable('dataset_response', {
 // ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
 
 export const TRASH_KIND_VALUES = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit', 'cycle',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit', 'cycle', 'report',
 ] as const;
 /**
  * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are
@@ -1648,4 +1649,96 @@ export const cyclePlanSkip = pgTable('cycle_plan_skip', {
   reason: text('reason').notNull(),
 }, (t) => [
   uniqueIndex('cycle_plan_skip_idx').on(t.planId, sql`coalesce(${t.subjectKind}, '')`, sql`coalesce(${t.subjectId}, '00000000-0000-0000-0000-000000000000'::uuid)`, t.periodStart),
+]);
+
+// ---- Reports (PRD 10, TASK-091) -------------------------------------------------------------------------------
+
+// A report is made from a report template of one framework version: the template's sections become report_section rows at
+// creation (copied, so later template edits never change a report), requirement codes resolve to requirement ids then, and
+// section owners come from the engagement's requirement owners or the standards' champions. The internal approval is
+// labelled exactly that (DEC-005); the wrappers hold the links (milestone.report_id, cycle_output.report_id).
+
+/** The block types a section can hold (PRD 10.3, only these seven). */
+export const report = pgTable('report', {
+  ...base(), ...tenant(),
+  title: text('title').notNull(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  templateId: uuid('template_id').notNull().references(() => reportTemplate.id),
+  templateKey: text('template_key').notNull(),
+  templateName: text('template_name').notNull(),
+  kind: text('kind', { enum: TEMPLATE_KINDS }).notNull(),
+  language: text('language').notNull().default('en'),
+  /** The template's whole-report word limit, snapshotted (the sections carry their own). */
+  wordLimit: integer('word_limit'),
+  requiresAttestation: boolean('requires_attestation').notNull().default(false),
+  /** An accreditation report is for one engagement; a QA report is about a subject; exactly one of the two. */
+  engagementId: uuid('engagement_id').references(() => engagement.id),
+  subjectKind: text('subject_kind', { enum: REPORT_SUBJECT_KINDS }),
+  subjectId: uuid('subject_id'),
+  status: text('status', { enum: REPORT_STATUSES }).notNull().default('draft'),
+  /** Which submission round this report answers (reserved; M5 raises it for revising reports). */
+  round: integer('round').notNull().default(1),
+  /** Stamped by the rules trigger when the report becomes internally approved / submitted (094). */
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  approvedBy: uuid('approved_by').references((): AnyPgColumn => appUser.id),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  submittedBy: uuid('submitted_by').references((): AnyPgColumn => appUser.id),
+  submittedRef: text('submitted_ref'),
+}, (t) => [
+  index('report_institution_idx').on(t.institutionId, t.status),
+  index('report_version_idx').on(t.frameworkVersionId),
+  index('report_engagement_idx').on(t.engagementId),
+  index('report_subject_idx').on(t.institutionId, t.subjectKind, t.subjectId),
+  uniqueIndex('report_engagement_template_round_idx').on(t.engagementId, t.templateId, t.round),
+  oneOf('report_kind_check', t.kind, TEMPLATE_KINDS),
+  oneOf('report_status_check', t.status, REPORT_STATUSES),
+  oneOf('report_subject_kind_check', t.subjectKind, REPORT_SUBJECT_KINDS),
+  check('report_wrapper_check', sql`(${t.engagementId} is null) <> (${t.subjectKind} is null)`),
+  check('report_subject_pair_check', sql`(${t.subjectKind} is null) = (${t.subjectId} is null)`),
+  check('report_round_check', sql`${t.round} >= 1`),
+  check('report_submitted_stamp_check', sql`${t.status} <> 'submitted' or ${t.submittedAt} is not null`),
+  check('report_approved_stamp_check', sql`${t.status} <> 'internally_approved' or ${t.approvedAt} is not null`),
+]);
+
+export const reportSection = pgTable('report_section', {
+  ...base(), ...tenant(),
+  reportId: uuid('report_id').notNull().references(() => report.id),
+  key: text('key').notNull(),
+  parentId: uuid('parent_id').references((): AnyPgColumn => reportSection.id),
+  title: text('title').notNull(),
+  blockType: text('block_type', { enum: BLOCK_TYPES }).notNull(),
+  displayOrder: integer('display_order').notNull().default(0),
+  prompt: text('prompt'),
+  /** What the person writes, shaped by the block type (packages/shared/src/reports.ts validates the shape). */
+  content: jsonb('content').notNull().default(sql`'{}'::jsonb`),
+  status: text('status', { enum: SECTION_STATUSES }).notNull().default('draft'),
+  wordLimit: integer('word_limit'),
+  /** Recomputed on every narrative save; null for the other blocks until TASK-093 generates them. */
+  wordCount: integer('word_count'),
+  /** The template's grid definition and dataset binding, copied at creation (the report does not follow template edits). */
+  columns: jsonb('columns'),
+  datasetBinding: jsonb('dataset_binding'),
+  ownerId: uuid('owner_id').references((): AnyPgColumn => appUser.id),
+  /** Set when no requirement owner or champion could be found: flagged for a person, never guessed. */
+  ownerUnresolved: boolean('owner_unresolved').notNull().default(false),
+}, (t) => [
+  uniqueIndex('report_section_key_idx').on(t.reportId, t.key),
+  index('report_section_report_idx').on(t.reportId, t.displayOrder),
+  index('report_section_parent_idx').on(t.parentId),
+  index('report_section_owner_idx').on(t.ownerId),
+  oneOf('report_section_block_type_check', t.blockType, BLOCK_TYPES),
+  oneOf('report_section_status_check', t.status, SECTION_STATUSES),
+  check('report_section_content_check', sql`jsonb_typeof(${t.content}) = 'object'`),
+]);
+
+/** The requirements a section answers: the template's codes, resolved to ids when the report was created. */
+export const reportSectionRequirement = pgTable('report_section_requirement', {
+  ...base(), ...tenant(),
+  sectionId: uuid('section_id').notNull().references(() => reportSection.id),
+  requirementId: uuid('requirement_id').notNull().references(() => requirement.id),
+  code: text('code').notNull(),
+  displayOrder: integer('display_order').notNull().default(0),
+}, (t) => [
+  uniqueIndex('report_section_requirement_idx').on(t.sectionId, t.requirementId),
+  index('report_section_requirement_req_idx').on(t.requirementId),
 ]);

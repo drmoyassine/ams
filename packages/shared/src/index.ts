@@ -16,6 +16,7 @@ export * from './analysis.js';
 export * from './analysis-report.js';
 export * from './trash.js';
 export * from './cycles.js';
+export * from './reports.js';
 export * from './cycle-defaults.js';
 export * from './scope.js';
 export * from './plans.js';
