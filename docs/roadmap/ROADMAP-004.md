@@ -3,11 +3,11 @@ id: ROADMAP-004
 title: M3 — Evidence and datasets
 description: Evidence items, versions, reasoned links, review, stale flag, copy-forward, dataset items with manual upload
 quarter: Q1
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-07'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:34.350Z'
@@ -35,7 +35,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-020
 modified:
   by: agent/claude-code
-  at: '2026-10-07T10:29:21.873Z'
+  at: '2026-10-25T08:21:07.053Z'
 related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links
@@ -49,6 +49,9 @@ related_tasks:
   - id: TASK-042
     name: Form builder for data items, with form and sheet views
     url: /TASKS.md#TASK-042
+  - id: TASK-061
+    name: Backlog outside the framework compiler
+    url: /TASKS.md#TASK-061
 ---
 # ROADMAP-004 — M3 — Evidence and datasets
 

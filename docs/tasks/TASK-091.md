@@ -4,9 +4,9 @@ title: Report model and engine core
 description: >-
   Create a report from a template: report and section tables, requirement codes resolved, section owners from
   requirement owners or champions, statuses, permissions, Trash, Undo, audit and API.
-status: pending
+status: in-progress
 priority: P0
-last_updated: '2026-10-21'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-005
 modified:
   by: agent/claude-code
-  at: '2026-10-21T09:00:00.000Z'
+  at: '2026-10-25T08:21:16.986Z'
 ---
 # TASK-091 — Report model and engine core
 

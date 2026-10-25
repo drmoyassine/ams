@@ -19,11 +19,14 @@ related_decisions:
     url: /DECISIONS.md#DEC-002
 related_roadmap_items:
   - id: ROADMAP-002
-    name: M1 — Framework library
+    name: 'M1 — Framework library'
     url: /ROADMAP.md#ROADMAP-002
   - id: ROADMAP-012
     name: Settings, internal framework and glossary
     url: /ROADMAP.md#ROADMAP-012
+  - id: ROADMAP-013
+    name: 'Quality Management: cycles and reporting'
+    url: /ROADMAP.md#ROADMAP-013
 ---
 # one-platform-many-frameworks — Accreditor frameworks are configuration, not code
 

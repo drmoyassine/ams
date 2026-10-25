@@ -23,7 +23,7 @@ depends_on:
     url: /TASKS.md#TASK-053
 related_decisions:
   - id: DEC-024
-    name: Background work runs as three services from one codebase: worker, parser, agent
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
   - id: DEC-011
     name: liteparse for document parsing, co-developed to AMS requirements

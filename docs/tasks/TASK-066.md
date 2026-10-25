@@ -26,7 +26,7 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T18:00:00.000Z'
 ---
-# TASK-066 — In-app assistant, phase 1
+# TASK-066 — In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
 
 Built from docs/assistant-plan.md, phase 1. See the plan's Status section for what is where.
 

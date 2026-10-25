@@ -1,6 +1,6 @@
 ---
 id: TASK-076
-title: Programs from documents: upload, AI parse, drafts
+title: 'Programs from documents: upload, AI parse, drafts'
 description: >-
   On the Programs tab, upload a catalogue or program list, press Import, review the proposed programs beside the source
   page, and apply them as one undoable change
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-075
-    name: Documents and AI import foundation: registry, Docs tab, Documents area
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
     url: /TASKS.md#TASK-075
 related_decisions:
   - id: DEC-028

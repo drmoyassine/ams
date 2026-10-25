@@ -1,6 +1,6 @@
 ---
 id: TASK-068
-title: Assistant follow-ups: memory merging, meaning-based memory search, report chip
+title: 'Assistant follow-ups: memory merging, meaning-based memory search, report chip'
 description: >-
   Nightly merge of duplicate memories with contradiction flags, an amendment to DEC-023 before embedding memory text,
   the report run as a context chip
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-066
-    name: In-app assistant phase 1: conversations, memory, read-only tools
+    name: 'In-app assistant phase 1: conversations, memory, read-only tools'
     url: /TASKS.md#TASK-066
 related_decisions:
   - id: DEC-027

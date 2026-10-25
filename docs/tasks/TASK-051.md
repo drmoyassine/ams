@@ -1,6 +1,6 @@
 ---
 id: TASK-051
-title: Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings
+title: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
 description: >-
   Owner review of Settings -> AI: accounts saved once (keys encrypted at rest) and switched with a dropdown; OpenRouter
   as a standard provider; models fetched from the provider instead of typed; embeddings on any account that has them,

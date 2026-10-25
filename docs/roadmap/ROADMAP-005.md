@@ -3,11 +3,11 @@ id: ROADMAP-005
 title: M4 — Reports and submissions
 description: Templates to reports, seven block types, approvals, attestation, snapshots, DOCX/PDF/XLSX/ZIP export
 quarter: Q1
-status: Deferred
+status: In Progress
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:35.690Z'
@@ -20,8 +20,8 @@ related_decisions:
     name: Official accreditation status is separate from internal readiness; no compliance scores
     url: /DECISIONS.md#DEC-005
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:35.690Z'
+  by: agent/claude-code
+  at: '2026-10-25T08:21:08.585Z'
 related_tasks:
   - id: TASK-091
     name: Report model and engine core

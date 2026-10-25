@@ -1,6 +1,6 @@
 ---
 id: TASK-075
-title: Documents and AI import foundation: registry, Docs tab, Documents area
+title: 'Documents and AI import foundation: registry, Docs tab, Documents area'
 description: >-
   One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
   Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
@@ -17,7 +17,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
     url: /TASKS.md#TASK-069
 related_decisions:
   - id: DEC-028

@@ -237,6 +237,9 @@ related_roadmap_items:
   - id: ROADMAP-012
     name: Settings, internal framework and glossary
     url: /ROADMAP.md#ROADMAP-012
+  - id: ROADMAP-013
+    name: 'Quality Management: cycles and reporting'
+    url: /ROADMAP.md#ROADMAP-013
 ---
 
 WSCUC, ABET, NBAQ and PUC differ in vocabulary, hierarchy, lifecycle, report templates and decision language. All of that lives in a framework version: requirement tree, notes with authority, lifecycle template, report templates, decision/finding/response vocabularies. Success: a new accreditor is a configuration and review exercise, and the same code path runs an institution-level and a program-level engagement side by side. PRD §1, §5, §7.

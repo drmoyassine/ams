@@ -45,7 +45,7 @@ related_tasks:
     name: Nested cycles and cycles in Accreditations
     url: /TASKS.md#TASK-082
   - id: TASK-083
-    name: Start a cycle from the ⋯ menu, and Cycles panels
+    name: 'Start a cycle from the ⋯ menu, and Cycles panels'
     url: /TASKS.md#TASK-083
   - id: TASK-084
     name: Assistant and cycles
@@ -59,6 +59,9 @@ related_tasks:
   - id: TASK-087
     name: 'Simplify cycles: evidence collection, one owner'
     url: /TASKS.md#TASK-087
+  - id: TASK-088
+    name: 'Evidence links: reviewers approve their own, rejections give a reason, proposers are notified'
+    url: /TASKS.md#TASK-088
   - id: TASK-089
     name: 'Evidence schema: definition, dataset, collection method, schedule'
     url: /TASKS.md#TASK-089

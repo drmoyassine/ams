@@ -1,6 +1,6 @@
 ---
 id: TASK-074
-title: Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
+title: 'Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)'
 description: >-
   A read-only directory connector keeps the chart in step with a directory, with a what-would-change list, scheduled
   runs and locks on units a person edited
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-072
-    name: Org chart: visual builder (tree and chart view)
+    name: 'Org chart: visual builder (tree and chart view)'
     url: /TASKS.md#TASK-072
 related_decisions:
   - id: DEC-028

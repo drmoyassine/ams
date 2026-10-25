@@ -276,6 +276,9 @@ related_tasks:
   - id: TASK-031
     name: M2 acceptance test
     url: /TASKS.md#TASK-031
+  - id: TASK-100
+    name: Engagement subject may be an org unit
+    url: /TASKS.md#TASK-100
 ---
 
 Done when: WSCUC reaffirmation 2028 and ABET EAC initial 2027 generate correct milestones on one code path; roadmap guardrails hold. PRD §18.4 M2.
@@ -289,11 +292,11 @@ id: ROADMAP-004
 title: M3 — Evidence and datasets
 description: Evidence items, versions, reasoned links, review, stale flag, copy-forward, dataset items with manual upload
 quarter: Q1
-status: In Progress
+status: Completed
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-07'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:34.350Z'
@@ -321,7 +324,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-020
 modified:
   by: agent/claude-code
-  at: '2026-10-07T10:29:21.873Z'
+  at: '2026-10-25T08:21:07.053Z'
 related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links
@@ -335,6 +338,9 @@ related_tasks:
   - id: TASK-042
     name: Form builder for data items, with form and sheet views
     url: /TASKS.md#TASK-042
+  - id: TASK-061
+    name: Backlog outside the framework compiler
+    url: /TASKS.md#TASK-061
 ---
 
 Done when: one file supports WSCUC and ABET with different rationales; one dataset fills tables in two reports; re-upload after submission leaves the snapshot unchanged. PRD §18.4 M3.
@@ -348,11 +354,11 @@ id: ROADMAP-005
 title: M4 — Reports and submissions
 description: Templates to reports, seven block types, approvals, attestation, snapshots, DOCX/PDF/XLSX/ZIP export
 quarter: Q1
-status: Deferred
+status: In Progress
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:35.690Z'
@@ -365,8 +371,8 @@ related_decisions:
     name: Official accreditation status is separate from internal readiness; no compliance scores
     url: /DECISIONS.md#DEC-005
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:35.690Z'
+  by: agent/claude-code
+  at: '2026-10-25T08:21:08.585Z'
 related_tasks:
   - id: TASK-091
     name: Report model and engine core
@@ -473,6 +479,13 @@ priority: P0
 tags:
   - ams
 last_updated: '2026-10-12'
+related_tasks:
+  - id: TASK-053
+    name: The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
+    url: /TASKS.md#TASK-053
+  - id: TASK-058
+    name: Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+    url: /TASKS.md#TASK-058
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:39.872Z'
@@ -507,6 +520,61 @@ priority: P0
 tags:
   - ams
 last_updated: '2026-10-12'
+related_tasks:
+  - id: TASK-043
+    name: Read source files into page text (parseDocument and the extract_text job)
+    url: /TASKS.md#TASK-043
+  - id: TASK-044
+    name: AI connection, embeddings and Settings → AI
+    url: /TASKS.md#TASK-044
+  - id: TASK-045
+    name: Framework analysis runs (step C) — requirements from a draft's sources
+    url: /TASKS.md#TASK-045
+  - id: TASK-046
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
+    url: /TASKS.md#TASK-046
+  - id: TASK-047
+    name: Publishing is the review for external standards (DEC-022 publish gate)
+    url: /TASKS.md#TASK-047
+  - id: TASK-048
+    name: Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic
+    url: /TASKS.md#TASK-048
+  - id: TASK-049
+    name: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
+    url: /TASKS.md#TASK-049
+  - id: TASK-050
+    name: Analysis proposes links to the IQF and new IQF items; a person accepts them (step E)
+    url: /TASKS.md#TASK-050
+  - id: TASK-051
+    name: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
+    url: /TASKS.md#TASK-051
+  - id: TASK-052
+    name: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+    url: /TASKS.md#TASK-052
+  - id: TASK-054
+    name: Analysis report, run readiness checks, and the import page's approve-everything option removed (step F1)
+    url: /TASKS.md#TASK-054
+  - id: TASK-055
+    name: Create from files and the split-view review of an external standard's requirements
+    url: /TASKS.md#TASK-055
+  - id: TASK-056
+    name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+    url: /TASKS.md#TASK-056
+  - id: TASK-057
+    name: Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+    url: /TASKS.md#TASK-057
+  - id: TASK-059
+    name: Production check of the three background services and the parser image
+    url: /TASKS.md#TASK-059
+  - id: TASK-060
+    name: 'Compiler follow-ups: small gaps found while building steps A-F'
+    url: /TASKS.md#TASK-060
+  - id: TASK-107
+    name: Documents to furnish and update the IQF and published standards
+    url: /TASKS.md#TASK-107
+  - id: TASK-108
+    name: Meaning-based search and similar requirements; keep vectors current
+    url: /TASKS.md#TASK-108
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:41.356Z'
@@ -540,7 +608,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 
 | Step | What | Status |
 |---|---|---|
-| A | Read files: `parseDocument()` (owned @drmoyassine/liteparse for PDF, DOCX, XLSX, CSV, images; temporary fallback for PowerPoint, OpenDocument, RTF, legacy Office), `extract_text` job | Done — TASK-043, TASK-053 |
+| A | Read files: `parseDocument()` (PDF via liteparse; DOCX, XLSX, PPTX, CSV), `extract_text` job | Done — TASK-043 |
 | B | AI connection: `aiExtract`/`aiOcr`/`embed`, budget, call log, Settings → AI | Done — TASK-044 |
 | C | Analysis run: survey, structure, windowed extraction, quote check, write into the draft | Done — TASK-045 |
 | D | Gap finding and bounded recovery rounds; deletions remembered | Done — TASK-046 |
@@ -549,6 +617,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | F2 | Create from files and the split-view review (source viewer, Needs a look, merge, split) | Done — TASK-055 |
 | G | Real-document acceptance: §19.2 on WSCUC/PUC/ABET originals with a real key; compare with seed data | Needs the owner's run — TASK-056 |
 | H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Done — TASK-057 (tested with a fake model on invented documents; prompts to be tuned on the TASK-056 run) |
+
 
 Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):
 
@@ -638,7 +707,7 @@ quarter: Q4
 status: Completed
 priority: P0
 id: ROADMAP-012
-last_updated: '2026-10-06'
+last_updated: '2026-10-12'
 generated:
   by: agent/claude-code
   at: '2026-10-06T05:43:17.250Z'
@@ -678,28 +747,85 @@ related_tasks:
   - id: TASK-062
     name: Trash, Undo and the in-app confirmation dialog
     url: /TASKS.md#TASK-062
+  - id: TASK-063
+    name: Multi-select, bulk delete and drag and drop in the requirement trees
+    url: /TASKS.md#TASK-063
+  - id: TASK-064
+    name: In-app assistant for bulk edits (plan)
+    url: /TASKS.md#TASK-064
+  - id: TASK-065
+    name: Redo in the undo system
+    url: /TASKS.md#TASK-065
+  - id: TASK-066
+    name: In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
+    url: /TASKS.md#TASK-066
+  - id: TASK-067
+    name: 'Assistant phase 2: bulk edits confirmed in the chat'
+    url: /TASKS.md#TASK-067
+  - id: TASK-068
+    name: 'Assistant follow-ups: memory merging, meaning-based memory search, report chip'
+    url: /TASKS.md#TASK-068
+  - id: TASK-069
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
+    url: /TASKS.md#TASK-069
+  - id: TASK-070
+    name: 'Languages: secondary language, UI language and content switchers'
+    url: /TASKS.md#TASK-070
+  - id: TASK-071
+    name: Translate the IQF and the standards into the secondary language
+    url: /TASKS.md#TASK-071
+  - id: TASK-072
+    name: 'Org chart: visual builder (tree and chart view)'
+    url: /TASKS.md#TASK-072
+  - id: TASK-073
+    name: Org chart from an uploaded image
+    url: /TASKS.md#TASK-073
+  - id: TASK-074
+    name: 'Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)'
+    url: /TASKS.md#TASK-074
+  - id: TASK-075
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
+    url: /TASKS.md#TASK-075
+  - id: TASK-076
+    name: 'Programs from documents: upload, AI parse, drafts'
+    url: /TASKS.md#TASK-076
+  - id: TASK-102
+    name: Sources by URL for every document import
+    url: /TASKS.md#TASK-102
+  - id: TASK-103
+    name: Cycle template resources and AI-proposed stages
+    url: /TASKS.md#TASK-103
+  - id: TASK-104
+    name: Program schema
+    url: /TASKS.md#TASK-104
+  - id: TASK-105
+    name: 'Courses: entity, schema, tab and import'
+    url: /TASKS.md#TASK-105
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
 ---
 
 # Settings, internal framework and glossary
 
 Between M2 and M3. Settings (admin and leads): organization and branding, org chart, programs, the internal quality framework (built on the framework library), and the glossary that maps internal terms to each external standard's terms. Mappings from external requirements to internal nodes are edited on each external standard's own page, not in global settings. Evidence collected once on an internal node reaches mapped external requirements as suggested links (M3).
 
-<!-- End VEF generated items. -->
-
 Progress (2026-10-13): since this item was completed, the library screens gained a 30-day Trash with restore, Undo and Redo, in-app confirmations, multi-select with bulk delete, drag-and-drop re-parenting and reordering (TASK-062, TASK-063, TASK-065, DEC-026), Settings → AI with saved accounts and per-role models (TASK-051), and the in-app assistant's first phase with scoped memory (TASK-066, DEC-027). The assistant's bulk edits with in-chat confirmation are built (TASK-067); open here: follow-ups (TASK-068). The full picture is in docs/status.md.
+
+---
 
 ## ROADMAP-013 — Quality Management: cycles and reporting
 
 ---
 title: 'Quality Management: cycles and reporting'
 description: >-
-  Operate the Internal Quality Framework through cycles (stages with inputs, process, outputs, owner and dates) at any level,
-  with reports as stage outputs and inputs; one engine shared with Accreditations
+  Operate the Internal Quality Framework through cycles (stages with inputs, process, outputs, owner and dates) at any
+  level, with reports as stage outputs and inputs; one engine shared with Accreditations
 quarter: Q4
 status: In Progress
 priority: P1
 id: ROADMAP-013
-last_updated: '2026-10-19'
+last_updated: '2026-10-20'
 generated:
   by: agent/claude-code
   at: '2026-10-19T09:00:00.000Z'
@@ -712,10 +838,14 @@ modified:
   at: '2026-10-19T09:00:00.000Z'
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
 related_tasks:
   - id: TASK-077
@@ -751,6 +881,9 @@ related_tasks:
   - id: TASK-087
     name: 'Simplify cycles: evidence collection, one owner'
     url: /TASKS.md#TASK-087
+  - id: TASK-088
+    name: 'Evidence links: reviewers approve their own, rejections give a reason, proposers are notified'
+    url: /TASKS.md#TASK-088
   - id: TASK-089
     name: 'Evidence schema: definition, dataset, collection method, schedule'
     url: /TASKS.md#TASK-089
@@ -770,7 +903,6 @@ related_tasks:
     name: Assistant reads cycles, collection runs and reports
     url: /TASKS.md#TASK-101
 ---
-# ROADMAP-013 — Quality Management: cycles and reporting
 
 # Quality Management: cycles and reporting
 
@@ -779,3 +911,5 @@ The operating side of the Internal Quality Framework, next to Accreditations (ex
 Status (2026-10-20): simplified by the owner (DEC-030, TASK-087): cycles are about evidence items, have one owner, and are not linked to standards; accreditation cycles (TASK-082) and Quality Assurance / report cycles come later; TASK-083 is cancelled. The data model, services, API, template editor, screens, plans and the standards in operation (TASK-078 to TASK-081, TASK-086) are built.
 
 Status (2026-10-20, later): evidence is not collected by cycles any more (DEC-031, TASK-089): an evidence item carries its own definition, type (document or dataset), one collection method (manual, online form, request, BI; survey reserved) and an optional schedule, and the cycle UI no longer offers evidence items (cycles are for reports and Quality Assurance, coming). TASK-090 makes the schedules run: the scheduler, the runs, the BI call and callback, the request, the form and the owner's task.
+
+<!-- End VEF generated items. -->

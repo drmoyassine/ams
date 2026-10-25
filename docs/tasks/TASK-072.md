@@ -1,6 +1,6 @@
 ---
 id: TASK-072
-title: Org chart: visual builder (tree and chart view)
+title: 'Org chart: visual builder (tree and chart view)'
 description: >-
   Org units are edited in a drag-and-drop tree and drawn as a chart (zoom, pan, collapse, right-to-left aware, export as
   image), with a head and programs on each unit
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
     url: /TASKS.md#TASK-069
 related_decisions:
   - id: DEC-028

@@ -1,6 +1,6 @@
 ---
 id: TASK-060
-title: Compiler follow-ups: small gaps found while building steps A-F
+title: 'Compiler follow-ups: small gaps found while building steps A-F'
 description: >-
   Backlog of known small gaps in the analysis, review and parser paths, none blocking the first real run
 status: pending

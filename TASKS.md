@@ -1603,6 +1603,8 @@ Built: `dataset_spec.form_open` and `form_link_token`, and `dataset_response` (m
 
 Requests connected to forms: a request may ask for a data item's form instead of a file (`evidence_request.data_item_id`, `response_id`; migrations 0030-0031 keep either target fixed). From the Form tab, "Ask people to fill it in" sends one request per address; AMS users get "Fill in the form" under Requests, others a one-time link whose page shows the form. The request is what lets them answer, so it works while the form is closed to everyone else; one answer closes it and becomes a response waiting to be added to the data. Restricted data is not requested through links.
 
+---
+
 ## TASK-043 — Read source files into page text (parseDocument and the extract_text job)
 
 ---
@@ -1747,8 +1749,8 @@ Not done here: the full report and the review screen (step F); the publish gate 
 id: TASK-046
 title: Framework analysis check and recover (step D) — exhaustive but bounded
 description: >-
-  A deterministic gap finder and bounded recovery rounds between extraction and writing, so a framework analysis
-  finds what the first pass missed, confirms what is really absent, flags conflicts, and never re-adds what a person deleted
+  A deterministic gap finder and bounded recovery rounds between extraction and writing, so a framework analysis finds
+  what the first pass missed, confirms what is really absent, flags conflicts, and never re-adds what a person deleted
 status: completed
 priority: P0
 last_updated: '2026-10-09'
@@ -1803,9 +1805,9 @@ Not done here: the full report and the review screen (step F); a person cannot y
 id: TASK-047
 title: Publishing is the review for external standards (DEC-022 publish gate)
 description: >-
-  An external standard drafted by the framework analysis is published as a whole: pending AI rows no longer block
-  submit or publish, a required note still needs a verified quote, unverified requirement quotes are warnings, and the
-  per-line review labels and approve/reject controls are gone from external requirements and notes
+  An external standard drafted by the framework analysis is published as a whole: pending AI rows no longer block submit
+  or publish, a required note still needs a verified quote, unverified requirement quotes are warnings, and the per-line
+  review labels and approve/reject controls are gone from external requirements and notes
 status: completed
 priority: P0
 last_updated: '2026-10-10'
@@ -1895,54 +1897,55 @@ Tests: `model.test.ts` (per provider: endpoint, key header, image part, Base URL
 
 Not done here: no live call to any provider (no keys in the sandbox); prices are still entered by hand for every provider; a row created only to hold limits has provider `anthropic` and takes precedence over `AI_PROVIDER` in the environment.
 
-## TASK-052 — Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+---
+
+## TASK-049 — Background work runs as three services (worker, parser, agent); the app prepares Garage itself
 
 ---
-id: TASK-052
-title: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+id: TASK-049
+title: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
 description: >-
-  parseDocument() routes PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV/TSV and images through liteparse; the
-  home-made DOCX/XLSX/PPTX/CSV readers and fflate are removed; the parser Docker target installs LibreOffice and
-  ImageMagick; CI installs them for the tests
+  One worker becomes worker, parser and agent from one codebase, told apart by WORKER_QUEUES; framework analysis queues
+  document reading to the parser instead of parsing; the garage-init compose service is replaced by a bootstrap in the
+  app's startup
 status: completed
 priority: P1
 last_updated: '2026-10-11'
 generated:
   by: agent/claude-code
-  at: '2026-10-11T12:00:00.000Z'
+  at: '2026-10-11T09:00:00.000Z'
 roadmap_item:
   id: ROADMAP-009
   name: M7 — Framework compiler
   url: /ROADMAP.md#ROADMAP-009
 depends_on:
-  - id: TASK-043
-    name: Read source files into page text (parseDocument and the extract_text job)
-    url: /TASKS.md#TASK-043
+  - id: TASK-048
+    name: Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic
+    url: /TASKS.md#TASK-048
 related_decisions:
-  - id: DEC-011
-    name: liteparse for document parsing, co-developed to AMS requirements
-    url: /DECISIONS.md#DEC-011
+  - id: DEC-010
+    name: One middleware chain for every request and background job
+    url: /DECISIONS.md#DEC-010
+  - id: DEC-024
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
+    url: /DECISIONS.md#DEC-024
 modified:
   by: agent/claude-code
-  at: '2026-10-11T12:00:00.000Z'
+  at: '2026-10-11T09:00:00.000Z'
 ---
 
-Owner decision: all media are parsed with liteparse (DEC-011, one import point). TASK-043 had read DOCX/XLSX/PPTX/CSV with a small `fflate`/XML reader to avoid LibreOffice; that is reversed.
+Owner decisions: the single worker container becomes three services built from the same code (DEC-024), and `garage-init` goes away, its work moving into the app's startup.
 
 Built:
-- `parseDocument()` (`packages/core/src/framework/parse-document.ts`) hands every supported file to liteparse: PDF, DOC/DOCX/ODT/RTF, XLS/XLSX/ODS, CSV/TSV, PPT/PPTX/ODP, PNG/JPEG/TIFF/WebP/BMP/GIF. The home-made readers, `parseCsvRecords` and the `fflate` dependency are gone. Public shape unchanged (`{pageNo, text, method, needsOcr, warnings}`, NFC); methods: `pdf_text` (PDF, documents, images), `slide`, `sheet` (spreadsheets), `table` (CSV/TSV), `ocr` (after the hook). No migration needed.
-- Pages are what liteparse returns (see log.md 2026-10-11): printed pages for documents and sheets, a page per slide, one page per image. Sheet pages lose LibreOffice's "Page N" footer and the temp-file header.
-- `needsOcr` from liteparse's per-page reasons (`complexity`): `scanned`/`garbled`, or fewer than 20 characters for PDFs and images; the reason is added as a warning ("needs OCR: scanned"). A corrupted PDF text layer is still blanked. liteparse's own OCR stays off; the injected `ocrPage` hook (aiOcr) still gets a PNG of the page (a second liteparse call with screenshots for just those pages).
-- Safety: each file runs in a killable liteparse worker process with a time limit (`PARSER_TIMEOUT_SECONDS`, 300) and a page cap (`PARSER_MAX_PAGES`, 1000; the document warning says how many pages were read); `MAX_SOURCE_BYTES` is unchanged. Magic-number checks reject a file that is not what its name says before any converter runs. Failures are `DocumentReadError` (`unsupported`, `corrupt`, `converter_missing`, `timeout`); `extract_text` records `textStatus = failed` and the message ("LibreOffice is not installed on the parser service, so DOCX files cannot be read ...").
-- `findLibreOffice()`; the worker entry point logs `libreoffice found` (or a warning that it is not) when it takes `extract_text`.
-- Docker: the `parser` target alone installs `libreoffice-core`, `-writer`, `-calc`, `-impress`, `imagemagick`, `fonts-noto-core`, `fonts-liberation`, with `HOME=/home/node`. CI installs the same before the tests; the Office tests skip with a console message when `soffice` is absent.
-- Upload picker and API description list the new types. Fixtures (`parse-fixtures.ts`) build PDF, DOCX, XLSX, PPTX and PNG in code with a stored-zip writer (no library).
+- Roles by environment: `WORKER_QUEUES` (comma-separated job types, validated against `JOB_TYPES`; unset = all types; empty or unknown refused, including `WORKER_QUEUES=` set but empty) and `WORKER_NAME` (`packages/shared/src/config.ts`). `startWorker` subscribes only to those types (every queue is still created, so a job can be sent to any service) and returns what it subscribed to; the log line is `worker started` with `name` and `queues`.
+- `QUEUE_GROUPS` (`packages/shared/src/permissions.ts`): `worker` = export, notify; `parser` = extract_text; `agent` = analyse, ai_extract, ocr. `queues.test.ts` and `config.test.ts` check that every job type is in exactly one group and that `compose.yaml` (parsed with `yaml`, a worker dev dependency) gives each service the same `WORKER_QUEUES`, `WORKER_NAME`, build target and `service_healthy` dependencies.
+- Analysis `read` stage no longer parses: a source with a file and no page text gets an `extract_text` job (parser) and the `analyse` job re-queues itself 5 s later, up to 360 looks (about 30 min). The queued job and wait count are kept in `analysis_run.report.readJobs` (no migration). A reading that ends `ok: false` is recorded in `readErrors` and the run goes on, as before; a reading job that fails its last attempt, disappears or never finishes ends the run as failed with `reading "<title>" failed: ...` or `... did not finish in time ...; is the parser service running?`. `JobQueue.send` and `enqueueJob` take an optional `delaySeconds` (pg-boss `startAfter`).
+- Docker: targets `worker`, `parser`, `agent` (same entry point; the role comes from compose env); the app health check has a 180 s start period because the app now waits for Garage before listening.
+- Compose: `garage-init` removed; `app` has `GARAGE_ADMIN_URL=http://garage:3903` and `GARAGE_ADMIN_TOKEN`, depends on postgres and garage healthy; `worker`, `parser`, `agent` depend on postgres, garage and the app healthy. Comments say only the agent needs outbound internet. `scripts/smoke.sh` checks all three services logged `worker started`.
+- Garage bootstrap: `packages/core/src/evidence/garage-bootstrap.ts` (admin API v1: layout, key import, bucket, grant; each step checks first), run from `apps/api/src/main.ts` before the app serves, only when `GARAGE_ADMIN_URL` is set; fatal with a clear message otherwise; waits for Garage (`GARAGE_BOOTSTRAP_ATTEMPTS` x `GARAGE_BOOTSTRAP_DELAY_MS`, default 60 x 2 s). `scripts/garage-init.mjs` and its test are deleted; `garage-bootstrap.test.ts` covers first run, second run, partial state, wrong key format, Garage not ready then ready, never ready, refused token, hard refusal, retried network errors, and the env wrapper.
+- Docs: ARCHITECTURE.md (diagram and worker section), CLAUDE.md, AGENTS.md, `.env.example`, DEC-024.
 
-Worse than the old readers: Arabic word order in converted Office files (liteparse returns visual order); spreadsheets are space-aligned text (no `a | b`), wide sheets spill onto extra pages, and sheet names appear only if the file prints them; speaker notes are not read; DOCX pages follow the printed layout instead of headings; page fonts matter (a missing font changes the text).
-
-Not done: the Docker build was not run here (no registry); nothing in the OCR path was run against a real provider; an orphaned `soffice` after a timeout kill was not seen in tests but is not guarded against.
-
-Superseded in part by TASK-053 (2026-10-11): the owner decided on the owned `@drmoyassine/liteparse`, which is not the package built here. The upstream package and LibreOffice remain only as a temporary fallback for PowerPoint, OpenDocument, RTF and legacy Word/Excel; ImageMagick is no longer installed.
+Not done here: no Docker build or `docker compose up` in this sandbox, so the start order and health checks are verified by the parsed-compose test and `docker compose config` only, not on a live stack (CI `compose-smoke` will exercise it). The `parser` still calls a model for the optional OCR of scanned pages (inside `extract_text`), so it needs outbound internet only for that; without it those pages stay `needsOcr`. That OCR no longer counts against an analysis run's budget. `ocr` and `ai_extract` have no handlers yet; the agent subscribes to nothing for them until they exist.
 
 ---
 
@@ -2003,66 +2006,16 @@ Not done here: no real embedding endpoint or model was available, so only the le
 
 ---
 
-## TASK-049 — Background work runs as three services (worker, parser, agent); the app prepares Garage itself
-
----
-id: TASK-049
-title: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
-description: >-
-  One worker becomes worker, parser and agent from one codebase, told apart by WORKER_QUEUES; framework analysis queues
-  document reading to the parser instead of parsing; the garage-init compose service is replaced by a bootstrap in the
-  app's startup
-status: completed
-priority: P1
-last_updated: '2026-10-11'
-generated:
-  by: agent/claude-code
-  at: '2026-10-11T09:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-009
-  name: M7 — Framework compiler
-  url: /ROADMAP.md#ROADMAP-009
-depends_on:
-  - id: TASK-048
-    name: Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic
-    url: /TASKS.md#TASK-048
-related_decisions:
-  - id: DEC-010
-    name: One middleware chain for every request and background job
-    url: /DECISIONS.md#DEC-010
-  - id: DEC-024
-    name: 'Background work runs as three services from one codebase: worker, parser, agent'
-    url: /DECISIONS.md#DEC-024
-modified:
-  by: agent/claude-code
-  at: '2026-10-11T09:00:00.000Z'
----
-
-Owner decisions: the single worker container becomes three services built from the same code (DEC-024), and `garage-init` goes away, its work moving into the app's startup.
-
-Built:
-- Roles by environment: `WORKER_QUEUES` (comma-separated job types, validated against `JOB_TYPES`; unset = all types; empty or unknown refused, including `WORKER_QUEUES=` set but empty) and `WORKER_NAME` (`packages/shared/src/config.ts`). `startWorker` subscribes only to those types (every queue is still created, so a job can be sent to any service) and returns what it subscribed to; the log line is `worker started` with `name` and `queues`.
-- `QUEUE_GROUPS` (`packages/shared/src/permissions.ts`): `worker` = export, notify; `parser` = extract_text; `agent` = analyse, ai_extract, ocr. `queues.test.ts` and `config.test.ts` check that every job type is in exactly one group and that `compose.yaml` (parsed with `yaml`, a worker dev dependency) gives each service the same `WORKER_QUEUES`, `WORKER_NAME`, build target and `service_healthy` dependencies.
-- Analysis `read` stage no longer parses: a source with a file and no page text gets an `extract_text` job (parser) and the `analyse` job re-queues itself 5 s later, up to 360 looks (about 30 min). The queued job and wait count are kept in `analysis_run.report.readJobs` (no migration). A reading that ends `ok: false` is recorded in `readErrors` and the run goes on, as before; a reading job that fails its last attempt, disappears or never finishes ends the run as failed with `reading "<title>" failed: ...` or `... did not finish in time ...; is the parser service running?`. `JobQueue.send` and `enqueueJob` take an optional `delaySeconds` (pg-boss `startAfter`).
-- Docker: targets `worker`, `parser`, `agent` (same entry point; the role comes from compose env); the app health check has a 180 s start period because the app now waits for Garage before listening.
-- Compose: `garage-init` removed; `app` has `GARAGE_ADMIN_URL=http://garage:3903` and `GARAGE_ADMIN_TOKEN`, depends on postgres and garage healthy; `worker`, `parser`, `agent` depend on postgres, garage and the app healthy. Comments say only the agent needs outbound internet. `scripts/smoke.sh` checks all three services logged `worker started`.
-- Garage bootstrap: `packages/core/src/evidence/garage-bootstrap.ts` (admin API v1: layout, key import, bucket, grant; each step checks first), run from `apps/api/src/main.ts` before the app serves, only when `GARAGE_ADMIN_URL` is set; fatal with a clear message otherwise; waits for Garage (`GARAGE_BOOTSTRAP_ATTEMPTS` x `GARAGE_BOOTSTRAP_DELAY_MS`, default 60 x 2 s). `scripts/garage-init.mjs` and its test are deleted; `garage-bootstrap.test.ts` covers first run, second run, partial state, wrong key format, Garage not ready then ready, never ready, refused token, hard refusal, retried network errors, and the env wrapper.
-- Docs: ARCHITECTURE.md (diagram and worker section), CLAUDE.md, AGENTS.md, `.env.example`, DEC-024.
-
-Not done here: no Docker build or `docker compose up` in this sandbox, so the start order and health checks are verified by the parsed-compose test and `docker compose config` only, not on a live stack (CI `compose-smoke` will exercise it). The `parser` still calls a model for the optional OCR of scanned pages (inside `extract_text`), so it needs outbound internet only for that; without it those pages stay `needsOcr`. That OCR no longer counts against an analysis run's budget. `ocr` and `ai_extract` have no handlers yet; the agent subscribes to nothing for them until they exist.
-
-
-
 ## TASK-051 — Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings
 
 ---
 id: TASK-051
-title: Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings
+title: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
 description: >-
   Owner review of Settings -> AI: accounts saved once (keys encrypted at rest) and switched with a dropdown; OpenRouter
   as a standard provider; models fetched from the provider instead of typed; embeddings on any account that has them,
-  with the vector size detected; one cap (tokens, or USD where the provider lists the price) instead of four inputs;
-  and settings for reading scanned pages (OCR on/off, vision model, page cap, language hint)
+  with the vector size detected; one cap (tokens, or USD where the provider lists the price) instead of four inputs; and
+  settings for reading scanned pages (OCR on/off, vision model, page cap, language hint)
 status: completed
 priority: P1
 last_updated: '2026-10-11'
@@ -2111,6 +2064,57 @@ Not done here: no real provider was reachable, so every provider's list and embe
 
 ---
 
+## TASK-052 — Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+
+---
+id: TASK-052
+title: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+description: >-
+  parseDocument() routes PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV/TSV and images through liteparse; the
+  home-made DOCX/XLSX/PPTX/CSV readers and fflate are removed; the parser Docker target installs LibreOffice and
+  ImageMagick; CI installs them for the tests
+status: completed
+priority: P1
+last_updated: '2026-10-11'
+generated:
+  by: agent/claude-code
+  at: '2026-10-11T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-009
+  name: M7 — Framework compiler
+  url: /ROADMAP.md#ROADMAP-009
+depends_on:
+  - id: TASK-043
+    name: Read source files into page text (parseDocument and the extract_text job)
+    url: /TASKS.md#TASK-043
+related_decisions:
+  - id: DEC-011
+    name: liteparse for document parsing, co-developed to AMS requirements
+    url: /DECISIONS.md#DEC-011
+modified:
+  by: agent/claude-code
+  at: '2026-10-11T12:00:00.000Z'
+---
+
+Owner decision: all media are parsed with liteparse (DEC-011, one import point). TASK-043 had read DOCX/XLSX/PPTX/CSV with a small `fflate`/XML reader to avoid LibreOffice; that is reversed.
+
+Built:
+- `parseDocument()` (`packages/core/src/framework/parse-document.ts`) hands every supported file to liteparse: PDF, DOC/DOCX/ODT/RTF, XLS/XLSX/ODS, CSV/TSV, PPT/PPTX/ODP, PNG/JPEG/TIFF/WebP/BMP/GIF. The home-made readers, `parseCsvRecords` and the `fflate` dependency are gone. Public shape unchanged (`{pageNo, text, method, needsOcr, warnings}`, NFC); methods: `pdf_text` (PDF, documents, images), `slide`, `sheet` (spreadsheets), `table` (CSV/TSV), `ocr` (after the hook). No migration needed.
+- Pages are what liteparse returns (see log.md 2026-10-11): printed pages for documents and sheets, a page per slide, one page per image. Sheet pages lose LibreOffice's "Page N" footer and the temp-file header.
+- `needsOcr` from liteparse's per-page reasons (`complexity`): `scanned`/`garbled`, or fewer than 20 characters for PDFs and images; the reason is added as a warning ("needs OCR: scanned"). A corrupted PDF text layer is still blanked. liteparse's own OCR stays off; the injected `ocrPage` hook (aiOcr) still gets a PNG of the page (a second liteparse call with screenshots for just those pages).
+- Safety: each file runs in a killable liteparse worker process with a time limit (`PARSER_TIMEOUT_SECONDS`, 300) and a page cap (`PARSER_MAX_PAGES`, 1000; the document warning says how many pages were read); `MAX_SOURCE_BYTES` is unchanged. Magic-number checks reject a file that is not what its name says before any converter runs. Failures are `DocumentReadError` (`unsupported`, `corrupt`, `converter_missing`, `timeout`); `extract_text` records `textStatus = failed` and the message ("LibreOffice is not installed on the parser service, so DOCX files cannot be read ...").
+- `findLibreOffice()`; the worker entry point logs `libreoffice found` (or a warning that it is not) when it takes `extract_text`.
+- Docker: the `parser` target alone installs `libreoffice-core`, `-writer`, `-calc`, `-impress`, `imagemagick`, `fonts-noto-core`, `fonts-liberation`, with `HOME=/home/node`. CI installs the same before the tests; the Office tests skip with a console message when `soffice` is absent.
+- Upload picker and API description list the new types. Fixtures (`parse-fixtures.ts`) build PDF, DOCX, XLSX, PPTX and PNG in code with a stored-zip writer (no library).
+
+Worse than the old readers: Arabic word order in converted Office files (liteparse returns visual order); spreadsheets are space-aligned text (no `a | b`), wide sheets spill onto extra pages, and sheet names appear only if the file prints them; speaker notes are not read; DOCX pages follow the printed layout instead of headings; page fonts matter (a missing font changes the text).
+
+Not done: the Docker build was not run here (no registry); nothing in the OCR path was run against a real provider; an orphaned `soffice` after a timeout kill was not seen in tests but is not guarded against.
+
+Superseded in part by TASK-053 (2026-10-11): the owner decided on the owned `@drmoyassine/liteparse`, which is not the package built here. The upstream package and LibreOffice remain only as a temporary fallback for PowerPoint, OpenDocument, RTF and legacy Word/Excel; ImageMagick is no longer installed.
+
+---
+
 ## TASK-053 — The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
 
 ---
@@ -2142,7 +2146,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-11T15:00:00.000Z'
 ---
-# TASK-053 — The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
 
 Owner decision: switch from the unrelated upstream `@llamaindex/liteparse` (steps A–D, TASK-043/052) to the owned `@drmoyassine/liteparse` that DEC-011 and PRD Appendix D name. Supersedes the "LibreOffice for everything" part of TASK-052. Full findings: `docs/liteparse-appendix-d-status.md`.
 
@@ -2161,7 +2164,6 @@ Worse than before: DOCX has no page structure or table layout; single-sheet name
 
 Not done: the Docker build was not run (no registry); the D.3 corpus and a real vision model were not run; Appendix D remains open until the changes proposed in `docs/liteparse-appendix-d-status.md` land in a released liteparse.
 
-
 ---
 
 ## TASK-054 — Analysis report, run readiness checks, and the import page's approve-everything option removed (step F1)
@@ -2172,8 +2174,8 @@ title: Analysis report, run readiness checks, and the import page's approve-ever
 description: >-
   Each analysis run ends with an intelligence report (what was read and used, structure found, requirements, gaps and
   conflicts, suggested IQF links, a before-you-publish checklist) built on demand, served by the API and shown on a
-  Report tab that can be opened again later; the Analyse button checks readiness first; imports of external standards
-  no longer have an approve-everything path
+  Report tab that can be opened again later; the Analyse button checks readiness first; imports of external standards no
+  longer have an approve-everything path
 status: completed
 priority: P1
 last_updated: '2026-10-11'
@@ -2196,7 +2198,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-11T18:00:00.000Z'
 ---
-# TASK-054 — Analysis report, run readiness checks, and the import page's approve-everything option removed (step F1)
 
 Built (step F1 of ROADMAP-009 row F; "Create from files" and the split-view source viewer are built by another agent):
 - **Report builder** (`packages/core/src/framework/analysis/report.ts`, `getAnalysisReport`, `getLatestAnalysisReport`; DTO `AnalysisReport` v1 in `packages/shared/src/analysis-report.ts`). Computed on demand from the run's stored record and the draft as it is now, so it follows later edits; the run-time numbers (usage, duration, the stats the run wrote) are the frozen part (`requirements.atRun`). Sections: summary (who, when, duration; per source: role and who decided it, language, pages by file text / AI vision / not readable, warnings; analysis, vision and embedding models, tokens, cost, calls, recovery rounds), structure found (level names proposed and written, numbering, key terms, scope), requirements (counts by level, "n of m quotes found in the source" and the percentage, quote not found, low confidence, notes suggested and not confirmed, orphans, kept edits, deleted-and-not-re-added), gaps and conflicts (recovered, confirmed absent with reason, unresolved, conflicts with both wordings, pages not covered), IQF mapping (suggested links by relation, no suggestion, suggested new items, accepted / dismissed / waiting, words only or words and meaning), and a "Before you publish" checklist that reuses `validateVersion`. Every item carries ids and pages; no score, verdict or similarity number; a test scans the DTO and its Markdown for forbidden words. `reportToMarkdown` lives in shared (the screen's "Download as Markdown" and the test use it).
@@ -2209,8 +2210,6 @@ Built (step F1 of ROADMAP-009 row F; "Create from files" and the split-view sour
 
 Not done: report with embeddings was not run end to end (the hybrid label comes from the stored mapping); no Playwright check of the printed PDF (print CSS only); the parser-service heartbeat check.
 
-<!-- End VEF generated items. -->
-
 ---
 
 ## TASK-055 — Create from files and the split-view review of an external standard's requirements
@@ -2220,8 +2219,8 @@ id: TASK-055
 title: Create from files and the split-view review of an external standard's requirements
 description: >-
   External Standards gets a primary "Create from files" flow (accreditor, standard, edition, many files, progress and
-  retry, then the analysis); the Requirements tab gets a source viewer with the quote highlighted by the server's matcher,
-  "Needs a look" filters, and merge, split and move
+  retry, then the analysis); the Requirements tab gets a source viewer with the quote highlighted by the server's
+  matcher, "Needs a look" filters, and merge, split and move
 status: completed
 priority: P1
 last_updated: '2026-10-11'
@@ -2244,7 +2243,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-11T18:00:00.000Z'
 ---
-# TASK-055 — Create from files and the split-view review of an external standard's requirements
 
 Step F2 of ROADMAP-009 (PRD 15.1 steps 1 and 6).
 
@@ -2298,7 +2296,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T09:00:00.000Z'
 ---
-# TASK-056 — Real-document acceptance run (WSCUC, PUC, ABET) and tuning
 
 Step G of ROADMAP-009. Blocked on the owner's run: the keys are in the deployed app, not in the build sandbox.
 
@@ -2349,7 +2346,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-13T12:00:00.000Z'
 ---
-# TASK-057 — Read lifecycle, vocabularies, milestones and report templates from policy and template documents
 
 Step H of ROADMAP-009 (PRD 15.1 step 4, Appendix B kinds: report_section, milestone, decision, finding_severity, response_type, metadata).
 
@@ -2373,6 +2369,7 @@ Built (the prompts are written from the PRD's Appendix A fixtures, not from real
 - Tests (no network, invented documents in `config-fixture.ts`): pure merge tests (duplicates across windows, unverified quotes, schema refusals, keys, nesting, deliverable matching, `checkFrameworkConfig` reporting the due rule), the pipeline (stage routing, calls, lifecycle with due text copied and flagged, vocabularies, template with nesting and attestation, an Arabic policy with diacritics, human-edited parts and a deleted template untouched on re-run, a part made by a person kept, skipped when there is no such document, spend limit mid-stage with partial results written, resume after a failed job, a version taken out of draft, the readiness line, the report section and checklist), database tests for the worker's limits (empty/owned/edited/foreign parts, draft only, internal framework, no status/publication/review/delete, templates), UI tests for the report card, the Settings markers, the readiness line and the progress strip. The existing tests were updated for the extra guide survey call and two jobs.
 
 Not done: no check-and-recover rounds for configuration (a missed milestone or section is not asked for again; the flagged list and the report's "not found" lines are the equivalent); decision `follow_up` rules, `term_options` beyond what the text lists, `recurrence`, `next_cycle`, `reply_template_key`, `reply_due`, `item_categories` and table dataset bindings are not extracted (a reviewer sets them; a response whose reply is a report is written without `reply_kind` and says so); `requirement_codes` of template sections are not linked; the same template title in two documents would share a name in the report's "kept" wording; level names still come from the structure stage only. Not run on a real document.
+
 ---
 
 ## TASK-058 — Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
@@ -2405,7 +2402,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T09:00:00.000Z'
 ---
-# TASK-058 — Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
 
 ROADMAP-008, owner side. docs/liteparse-appendix-d-status.md lists, per requirement and per D.3 corpus case, what @drmoyassine/liteparse 0.5.0 does today (only LP5, the injectable vision hook, is fully met) and 11 proposed changes in priority order:
 1. Per-page PDF results with page-wise escalation.
@@ -2451,7 +2447,7 @@ depends_on:
     url: /TASKS.md#TASK-053
 related_decisions:
   - id: DEC-024
-    name: Background work runs as three services from one codebase: worker, parser, agent
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
   - id: DEC-011
     name: liteparse for document parsing, co-developed to AMS requirements
@@ -2460,7 +2456,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T09:00:00.000Z'
 ---
-# TASK-059 — Production check of the three background services and the parser image
 
 Owner and build-sandbox check; nothing here has been run on a real build because the sandbox cannot build Docker images.
 - `docker compose logs parser` shows "libreoffice found" (needed only for the temporary fallback formats). Run `soffice --version` as the node user in the parser container.
@@ -2477,9 +2472,8 @@ Owner and build-sandbox check; nothing here has been run on a real build because
 
 ---
 id: TASK-060
-title: Compiler follow-ups: small gaps found while building steps A-F
-description: >-
-  Backlog of known small gaps in the analysis, review and parser paths, none blocking the first real run
+title: 'Compiler follow-ups: small gaps found while building steps A-F'
+description: Backlog of known small gaps in the analysis, review and parser paths, none blocking the first real run
 status: pending
 priority: P2
 last_updated: '2026-10-12'
@@ -2502,7 +2496,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T09:00:00.000Z'
 ---
-# TASK-060 — Compiler follow-ups: small gaps found while building steps A-F
 
 Pick up as the real runs show which matter.
 - Undo for a deleted AI-made item that a person wants back (the dismissal record exists; no screen restores it).
@@ -2542,7 +2535,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T09:00:00.000Z'
 ---
-# TASK-061 — Backlog outside the framework compiler
 
 Not part of ROADMAP-009; recorded so the snapshot of 2026-10-12 is complete.
 - Reporting frequency for data items (deferred by the owner).
@@ -2585,7 +2577,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T12:00:00.000Z'
 ---
-# TASK-062 — Trash, Undo and the in-app confirmation dialog
 
 UX streamlining items 1, 2 and 5 (DEC-026). Full inventory, rules and the undo pattern: `docs/trash.md`.
 
@@ -2620,9 +2611,9 @@ decision; Trash for evidence items (no delete path exists); the audit event of a
 id: TASK-063
 title: Multi-select, bulk delete and drag and drop in the requirement trees
 description: >-
-  Requirements can be ticked (click, ctrl/cmd, shift, keyboard) and deleted or moved together, and dragged to re-parent and
-  re-order with mouse, touch or keyboard, in the quality framework and in an external standard; one batch move service
-  with one Undo
+  Requirements can be ticked (click, ctrl/cmd, shift, keyboard) and deleted or moved together, and dragged to re-parent
+  and re-order with mouse, touch or keyboard, in the quality framework and in an external standard; one batch move
+  service with one Undo
 status: completed
 priority: P1
 last_updated: '2026-10-12'
@@ -2645,7 +2636,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-12T18:00:00.000Z'
 ---
-# TASK-063 — Multi-select, bulk delete and drag and drop in the requirement trees
 
 UX streamlining items 3 and 4. Builds on TASK-062 (`deleteMany`, `previewDelete`, `deleteAllRequirements`, the Undo header).
 
@@ -2681,8 +2671,8 @@ Not done: the single-item move/indent/outdent keep their own Undo and do not ren
 id: TASK-064
 title: In-app assistant for bulk edits (plan)
 description: >-
-  Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, confirms them in the chat and applies them as
-  one undoable action; nothing built yet
+  Plan for an in-app AI assistant (bubble and side panel) that proposes bulk edits, confirms them in the chat and
+  applies them as one undoable action; nothing built yet
 status: completed
 priority: P2
 last_updated: '2026-10-12'
@@ -2695,19 +2685,20 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 related_decisions:
   - id: DEC-027
-    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    name: >-
+      The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped
+      memory
     url: /DECISIONS.md#DEC-027
   - id: DEC-006
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
   - id: DEC-024
-    name: Background work runs as three services from one codebase: worker, parser, agent
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
 modified:
   by: agent/claude-code
   at: '2026-10-12T15:00:00.000Z'
 ---
-# TASK-064 — In-app assistant for bulk edits (plan)
 
 Planning task. The plan is in docs/assistant-plan.md: a bubble opening a side panel, where a person describes a bulk change; the assistant reads the standards through read-only tools, proposes a change set (rule edits done by deterministic recipes, text edits written by the model within a cap), describes it in the chat, and applies it only when the person presses Do it, as one undoable group through the existing services. Runs as a job in the agent service; framework content only; never publishes or approves.
 
@@ -2742,13 +2733,14 @@ related_decisions:
     name: Deleted items stay in a 30-day Trash; undo is offered for reversible actions
     url: /DECISIONS.md#DEC-026
   - id: DEC-027
-    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    name: >-
+      The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped
+      memory
     url: /DECISIONS.md#DEC-027
 modified:
   by: agent/claude-code
   at: '2026-10-12T16:00:00.000Z'
 ---
-# TASK-065 — Redo in the undo system
 
 The undo system (TASK-062/063) reverses an action through a descriptor the server returns (the `X-Undo` header). Redo needs the mirror: when an undo is applied, the response carries the descriptor that re-does the action, and the client keeps a per-screen redo stack (cleared by any new action).
 
@@ -2767,8 +2759,9 @@ Done: see `docs/trash.md` ("Redo"). The API chain tags what a replayed request o
 id: TASK-066
 title: In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
 description: >-
-  The assistant bubble and panel, conversations kept per person, the `assistant` job in the agent service, read-only tools over
-  framework content, scoped memory with confirmation, and the Settings role and memory page; no write tools yet
+  The assistant bubble and panel, conversations kept per person, the `assistant` job in the agent service, read-only
+  tools over framework content, scoped memory with confirmation, and the Settings role and memory page; no write tools
+  yet
 status: completed
 priority: P2
 last_updated: '2026-10-12'
@@ -2785,13 +2778,14 @@ depends_on:
     url: /TASKS.md#TASK-064
 related_decisions:
   - id: DEC-027
-    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    name: >-
+      The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped
+      memory
     url: /DECISIONS.md#DEC-027
 modified:
   by: agent/claude-code
   at: '2026-10-12T18:00:00.000Z'
 ---
-# TASK-066 — In-app assistant, phase 1
 
 Built from docs/assistant-plan.md, phase 1. See the plan's Status section for what is where.
 
@@ -2806,10 +2800,11 @@ Built from docs/assistant-plan.md, phase 1. See the plan's Status section for wh
 
 ---
 id: TASK-067
-title: Assistant phase 2: bulk edits confirmed in the chat
+title: 'Assistant phase 2: bulk edits confirmed in the chat'
 description: >-
-  The assistant proposes changes to a draft, asks for confirmation in the chat, and applies them as one undoable group (built:
-  change sets, recipes, one-time confirmation token, one undo group with Redo, marking of texts the assistant wrote, evaluation set)
+  The assistant proposes changes to a draft, asks for confirmation in the chat, and applies them as one undoable group
+  (built: change sets, recipes, one-time confirmation token, one undo group with Redo, marking of texts the assistant
+  wrote, evaluation set)
 status: completed
 priority: P1
 last_updated: '2026-10-13'
@@ -2822,20 +2817,21 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-066
-    name: In-app assistant phase 1: conversations, memory, read-only tools
+    name: 'In-app assistant phase 1: conversations, memory, read-only tools'
     url: /TASKS.md#TASK-066
   - id: TASK-065
     name: Redo in the undo system
     url: /TASKS.md#TASK-065
 related_decisions:
   - id: DEC-027
-    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    name: >-
+      The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped
+      memory
     url: /DECISIONS.md#DEC-027
 modified:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-067 — Assistant phase 2: bulk edits confirmed in the chat
 
 Phase 2 of docs/assistant-plan.md (DEC-027). Built 2026-10-13; the plan's Status section says what is where.
 
@@ -2855,7 +2851,7 @@ Phase 2 of docs/assistant-plan.md (DEC-027). Built 2026-10-13; the plan's Status
 
 ---
 id: TASK-068
-title: Assistant follow-ups: memory merging, meaning-based memory search, report chip
+title: 'Assistant follow-ups: memory merging, meaning-based memory search, report chip'
 description: >-
   Nightly merge of duplicate memories with contradiction flags, an amendment to DEC-023 before embedding memory text,
   the report run as a context chip
@@ -2871,11 +2867,13 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-066
-    name: In-app assistant phase 1: conversations, memory, read-only tools
+    name: 'In-app assistant phase 1: conversations, memory, read-only tools'
     url: /TASKS.md#TASK-066
 related_decisions:
   - id: DEC-027
-    name: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
+    name: >-
+      The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped
+      memory
     url: /DECISIONS.md#DEC-027
   - id: DEC-023
     name: Embeddings rank IQF mapping candidates; vectors are stored in plain PostgreSQL arrays
@@ -2884,7 +2882,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-13T09:00:00.000Z'
 ---
-# TASK-068 — Assistant follow-ups: memory merging, meaning-based memory search, report chip
 
 Left over from phase 1 (docs/assistant-plan.md).
 
@@ -2900,7 +2897,7 @@ Left over from phase 1 (docs/assistant-plan.md).
 
 ---
 id: TASK-069
-title: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+title: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
 description: >-
   Organization becomes one screen with two tabs, Institution (details, logo, Languages, Org chart) and Programs; the
   institution logo is uploaded and shown in the app; Settings are readable by every role
@@ -2916,104 +2913,18 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-069 — Organization screen: Institution and Programs tabs, institution logo, read-only Settings
 
 Step 1 of docs/organization-plan.md. Two tabs only: Institution (details and logo, then the Languages and Org chart sections as they arrive) and Programs. Programs leaves the Settings sidebar (old address redirects). Institution logo reusing the accreditor-logo upload rules and shown in the header and sign-in page. Settings visible read-only to all roles, editing unchanged.
 
 Done 2026-10-13. Settings -> Organization is one screen with two deep-linkable tabs (`/settings/organization?tab=institution|programs`): Institution (Details, Logo, Org chart) and Programs; `/settings/programs` redirects and the sidebar entry is gone. Institution logo: PNG/JPEG/WebP by magic bytes, 512 KB, no SVG, one shared helper with the accreditor logo (`framework/logo-image.ts`), migration 0052, `PUT/GET/DELETE /api/institution/logo`, shown in the app header and on the sign-in page; the sign-in page reads the one public route `GET /api/public/branding` (display name, accent colour, logo URL only; `GET /api/public/branding/logo` serves the bytes). Settings is visible to everyone who holds `org:read` and every page is read-only (with a one-line note) for people who cannot edit; Trash (editors) and AI (administrators) stay hidden.
----
-
-## TASK-075 — Documents and AI import foundation: registry, Docs tab, Documents area
-
----
-id: TASK-075
-title: Documents and AI import foundation: registry, Docs tab, Documents area
-description: >-
-  One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
-  Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
-  their Docs tab
-status: completed
-priority: P2
-last_updated: '2026-10-14'
-generated:
-  by: agent/claude-code
-  at: '2026-10-13T14:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
-depends_on:
-  - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
-    url: /TASKS.md#TASK-069
-related_decisions:
-  - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
-    url: /DECISIONS.md#DEC-028
-  - id: DEC-006
-    name: Authority classification with deterministic quote verification; AI proposes, humans publish
-    url: /DECISIONS.md#DEC-006
-modified:
-  by: agent/claude-code
-  at: '2026-10-13T14:00:00.000Z'
----
-# TASK-075 — Documents and AI import foundation: registry, Docs tab, Documents area
-
-Section A of docs/organization-plan.md.
-- import_document table (scope kind and id, file, name, type, size, hash, language, uploader, time, read status, pages; Trash on delete); standards keep source_document and the Docs list reads both through one adapter. Evidence is never listed or sent to the AI.
-- One Docs tab component: list with who and when, upload (many files), open, re-read, delete, Import, and the history of imports with their reports; permissions follow the scope (read to see, write to upload and import).
-- Version page: Sources becomes the Docs tab beside Requirements, Mappings and Report; the IQF page and the Organization sections get a Docs tab.
-- Settings -> Documents: every upload the person may see, filters by place, uploader, date, type, status, each linking to where it is used.
-- Import engine: a target registry (Zod schema, versioned prompt, validator, proposal writer) and an `import` job in the agent service (read through the parser, extract, verify, propose) with budget, cancel, resume and a report; proposals are reviewed in an editable table beside the source page and applied as one undoable change; never overwrites a person's edits.
-
-Done 2026-10-14. One pattern for places where the AI reads uploaded documents (docs/ai-import.md). Registry `import_document` / `import_page` / `import_run` / `import_proposal` / `import_apply` (migration 0053; tenant RLS and audit; the worker role writes only runs, candidate proposals and pages). Scope registry (`packages/core/src/documents/scopes.ts`) and target registry (`registerImportTarget`; no production target yet), the `import` job in the agent service (read, extract, verify, propose, finalise; budget, cancel, resume), proposals edited, accepted or skipped and applied as ONE undoable group (`import_apply`, `POST /api/import-applies/{id}/undo|redo`), a run report, readiness checks. Standards adapter: the same list API returns a version's sources. Reusable `DocsTab` and `ImportReview`; the version page has a Docs tab (Requirements | Mappings | Report | Docs | Settings) holding what Settings -> Sources held (old addresses redirect); Settings -> Documents lists everything the person may see. Deleted documents go to the Trash (kind `import_document`). Evidence is never listed or sent.
-
----
-
-## TASK-076 — Programs from documents: upload, AI parse, drafts
-
----
-id: TASK-076
-title: Programs from documents: upload, AI parse, drafts
-description: >-
-  On the Programs tab, upload a catalogue or program list, press Import, review the proposed programs beside the source
-  page, and apply them as one undoable change
-status: completed
-priority: P2
-last_updated: '2026-10-13'
-generated:
-  by: agent/claude-code
-  at: '2026-10-13T14:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
-depends_on:
-  - id: TASK-075
-    name: Documents and AI import foundation: registry, Docs tab, Documents area
-    url: /TASKS.md#TASK-075
-related_decisions:
-  - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
-    url: /DECISIONS.md#DEC-028
-  - id: DEC-006
-    name: Authority classification with deterministic quote verification; AI proposes, humans publish
-    url: /DECISIONS.md#DEC-006
-modified:
-  by: agent/claude-code
-  at: '2026-10-13T14:00:00.000Z'
----
-# TASK-076 — Programs from documents: upload, AI parse, drafts
-
-Section C of docs/organization-plan.md. Extractor for programs (name in English and Arabic, degree level, owning unit, code, duration, mode, whatever the document states); unit matching uses the org chart, an unknown unit becomes a proposed unit; re-importing a newer document proposes only what changed; Programs gets a Docs tab.
-
-Built: import target `programs` (`packages/core/src/org/programs-import.ts`, prompt `import-programs.v1`) registered for the `programs` scope; Programs tab has a Docs tab with Import; review, apply and Undo/Redo use the shared engine. Tests: `org/programs-import.test.ts`, `programs-docs-ui.test.tsx`, responsive states.
 
 ---
 
@@ -3021,7 +2932,7 @@ Built: import target `programs` (`packages/core/src/org/programs-import.ts`, pro
 
 ---
 id: TASK-070
-title: Languages: secondary language, UI language and content switchers
+title: 'Languages: secondary language, UI language and content switchers'
 description: >-
   An administrator chooses one secondary language; each person picks the interface language; library screens switch
   between original, English and the secondary language; primary is always English
@@ -3037,22 +2948,23 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
     url: /TASKS.md#TASK-069
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-070 — Languages: secondary language, UI language and content switchers
 
 Section D of docs/organization-plan.md. Language registry (direction, font, native name), institution secondary-language setting (Institution tab, Languages section), per-person UI language (default from the institution), UI catalogues (English in the repository, the secondary produced by the translation job and reviewable), content switcher with fallback to English, right-to-left and CJK visual pass.
 
-
 **Done (2026-10-14).** Built: language registry (31 languages) in packages/shared; `institution.secondary_language` and `app_user.ui_locale` (migration 0057; `default_locale` now means the default interface language, English or the secondary); Languages section in Institution; header language menu with `PATCH /api/me/preferences`; the English catalogue (packages/shared/src/locales/en.ts), `ui_translation`, `GET /api/i18n/{language}` and the sign-in page's `GET /api/public/i18n`; the generic `translate` job (kind `ui`) in the agent service; RTL and script font stacks; `pnpm i18n:extract`, `pnpm i18n:coverage`, the `ams/no-literal-ui-text` lint warning and docs/i18n-coverage.md. Not in this task: the content switcher on library screens and content translation (TASK-071; the `useContentLanguage()` hook is in place), and converting the rest of the hard-coded English (see docs/i18n-coverage.md).
+
 ---
 
 ## TASK-071 — Translate the IQF and the standards into the secondary language
@@ -3075,11 +2987,13 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-070
-    name: Languages: secondary language, UI language and content switchers
+    name: 'Languages: secondary language, UI language and content switchers'
     url: /TASKS.md#TASK-070
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
   - id: DEC-021
     name: Framework analysis may send the institution's IQF text to the AI
@@ -3088,7 +3002,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-071 — Translate the IQF and the standards into the secondary language
 
 Section D of docs/organization-plan.md. content_translation table (entity, language, field, text, origin, reviewed, source hash); translate job in the agent service (framework text only, DEC-021; glossary-aware; spend cap; progress); review screen (accept, edit, retranslate; filters needs review and out of date); the existing translation_en becomes the English row; the assistant can offer to translate a selection.
 
@@ -3100,7 +3013,7 @@ Section D of docs/organization-plan.md. content_translation table (entity, langu
 
 ---
 id: TASK-072
-title: Org chart: visual builder (tree and chart view)
+title: 'Org chart: visual builder (tree and chart view)'
 description: >-
   Org units are edited in a drag-and-drop tree and drawn as a chart (zoom, pan, collapse, right-to-left aware, export as
   image), with a head and programs on each unit
@@ -3116,17 +3029,18 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
     url: /TASKS.md#TASK-069
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
   at: '2026-10-14T12:00:00.000Z'
 ---
-# TASK-072 — Org chart: visual builder (tree and chart view)
 
 Section E.1 of docs/organization-plan.md. Reuses the tree drag-and-drop, selection, Trash and Undo/Redo; configurable levels and types; names in both languages; each unit records its source (manual, image, directory). Lives in the Institution tab's Org chart section, with its Docs.
 
@@ -3138,7 +3052,6 @@ Built (section E.1 of docs/organization-plan.md; the image import and the direct
 - Tests: shared layout, core services (moves, deletes and restores, head, lock, types rules, edited marker, permissions, tenant isolation), API undo and redo of every mutation, database rules, UI (tree, keyboard drag, bulk delete, drawer, types manager, chart zoom, collapse, export, RTL, read-only), responsive states at 375, 768 and 1280.
 
 Not done: image import and directory sync (hooks exist: `source`, `locked`, `edited_by_person`); the Docs tab of the org chart (built in TASK-073); a real touch device was not used for pinch.
-
 
 ---
 
@@ -3162,14 +3075,16 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-072
-    name: Org chart: visual builder (tree and chart view)
+    name: 'Org chart: visual builder (tree and chart view)'
     url: /TASKS.md#TASK-072
   - id: TASK-075
-    name: Documents and AI import foundation: registry, Docs tab, Documents area
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
     url: /TASKS.md#TASK-075
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
   - id: DEC-006
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
@@ -3178,7 +3093,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-14T15:00:00.000Z'
 ---
-# TASK-073 — Org chart from an uploaded image
 
 Section E.2 of docs/organization-plan.md. The image and the names on it go to the AI vision model (decided, DEC-028). Proposal beside the image, editable, applied as one undoable group; never overwrites units a person edited.
 
@@ -3198,7 +3112,7 @@ Not done: the vision model was never run against a real chart (tests use fake mo
 
 ---
 id: TASK-074
-title: Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
+title: 'Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)'
 description: >-
   A read-only directory connector keeps the chart in step with a directory, with a what-would-change list, scheduled
   runs and locks on units a person edited
@@ -3214,22 +3128,112 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-072
-    name: Org chart: visual builder (tree and chart view)
+    name: 'Org chart: visual builder (tree and chart view)'
     url: /TASKS.md#TASK-072
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
   at: '2026-10-13T14:00:00.000Z'
 ---
-# TASK-074 — Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)
 
 Section E.3 and E.4 of docs/organization-plan.md. Connector interface with LDAP/LDAPS first; settings (server, bind account encrypted at rest, base DN, filters, attribute mapping); a scheduled job in the general worker service; diff before apply (or automatic apply); never deletes (Trash). Blocked on the owner: ask IT which protocols QuickLaunch exposes (SAML or OIDC for sign-in, SCIM, LDAP or an export for users and units) and request Active Directory access; a CSV import through the Docs pattern is the fallback.
 
-## TASK-077 — Quality Management: cycles and reporting (design)
+---
 
+## TASK-075 — Documents and AI import foundation: registry, Docs tab, Documents area
+
+---
+id: TASK-075
+title: 'Documents and AI import foundation: registry, Docs tab, Documents area'
+description: >-
+  One shared pattern for places where the AI reads uploaded documents and fills drafts: an upload registry, a reusable
+  Docs tab (who uploaded, when, status, import history), a general Documents area, and the standards' Sources becoming
+  their Docs tab
+status: completed
+priority: P2
+last_updated: '2026-10-14'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-069
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
+    url: /TASKS.md#TASK-069
+related_decisions:
+  - id: DEC-028
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+---
+
+Section A of docs/organization-plan.md.
+- import_document table (scope kind and id, file, name, type, size, hash, language, uploader, time, read status, pages; Trash on delete); standards keep source_document and the Docs list reads both through one adapter. Evidence is never listed or sent to the AI.
+- One Docs tab component: list with who and when, upload (many files), open, re-read, delete, Import, and the history of imports with their reports; permissions follow the scope (read to see, write to upload and import).
+- Version page: Sources becomes the Docs tab beside Requirements, Mappings and Report; the IQF page and the Organization sections get a Docs tab.
+- Settings -> Documents: every upload the person may see, filters by place, uploader, date, type, status, each linking to where it is used.
+- Import engine: a target registry (Zod schema, versioned prompt, validator, proposal writer) and an `import` job in the agent service (read through the parser, extract, verify, propose) with budget, cancel, resume and a report; proposals are reviewed in an editable table beside the source page and applied as one undoable change; never overwrites a person's edits.
+
+---
+
+## TASK-076 — Programs from documents: upload, AI parse, drafts
+
+---
+id: TASK-076
+title: 'Programs from documents: upload, AI parse, drafts'
+description: >-
+  On the Programs tab, upload a catalogue or program list, press Import, review the proposed programs beside the source
+  page, and apply them as one undoable change
+status: completed
+priority: P2
+last_updated: '2026-10-13'
+generated:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-075
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
+    url: /TASKS.md#TASK-075
+related_decisions:
+  - id: DEC-028
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    url: /DECISIONS.md#DEC-028
+  - id: DEC-006
+    name: Authority classification with deterministic quote verification; AI proposes, humans publish
+    url: /DECISIONS.md#DEC-006
+modified:
+  by: agent/claude-code
+  at: '2026-10-13T14:00:00.000Z'
+---
+
+Section C of docs/organization-plan.md. Extractor for programs (name in English and Arabic, degree level, owning unit, code, duration, mode, whatever the document states); unit matching uses the org chart, an unknown unit becomes a proposed unit; re-importing a newer document proposes only what changed; Programs gets a Docs tab.
+
+Built: import target `programs` (`packages/core/src/org/programs-import.ts`, prompt `import-programs.v1`) registered for the `programs` scope; Programs tab has a Docs tab with Import; review, apply and Undo/Redo use the shared engine. Tests: `org/programs-import.test.ts`, `programs-docs-ui.test.tsx`, responsive states.
+
+---
+
+## TASK-077 — Quality Management: cycles and reporting (design)
 
 ---
 id: TASK-077
@@ -3249,18 +3253,23 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-013
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
 modified:
   by: agent/claude-code
   at: '2026-10-15T09:00:00.000Z'
 ---
-# TASK-077 — Quality Management: cycles and reporting (design)
 
 Design agreed with the owner on 2026-10-15: docs/quality-management-plan.md and DEC-029. A cycle is ordered stages; each stage has inputs -> process -> outputs, a responsible unit, an owner and dates; reports are stage outputs or inputs; cycles can be built at any level, recur, nest and inherit down the IQF to mapped external standards. The menu item and placeholder page are in. Build: TASK-078 to TASK-085.
+
+---
 
 ## TASK-078 — Cycles: schema, permissions and core services
 
@@ -3286,13 +3295,14 @@ depends_on:
     url: /TASKS.md#TASK-077
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-19T12:00:00.000Z'
 ---
-# TASK-078 — Cycles: schema, permissions and core services
 
 Plan: docs/quality-management-plan.md (Schema). Migration with `cycle_template`, `cycle`, `cycle_stage`, `cycle_output`, `cycle_input` (tenant RLS, audit, Trash kind `cycle`); permissions `cycle:read`, `cycle:manage`, `cycle:work`; Zod schema for the template's `stages`; core services: launch a cycle from a template (resolve responsible unit and owner per stage, dates from offsets, wire inputs to outputs), start/complete/skip stages (completed only when required outputs are final), fill outputs (document upload, note, approval with approve / approve with conditions / return, where return reopens the producing stage), cancel with a reason; anchors checked by the service; Undo descriptors; db, core and API tests. Report outputs wait for TASK-085.
 
@@ -3304,6 +3314,8 @@ Built (2026-10-19; no screens, those are TASK-080, and the template editor is TA
 - Tests: database (tenant isolation, worker read-only, every guard), core (templates and validation, rule resolution including unresolved and ambiguous, wiring, previous-cycle inputs, stage and approval rules, returned reopens, permissions, Undo, Trash, tenants, NFC), API (a permission per route, owner-viewer works own stage, only the approver decides, upload and download, X-Undo), shared schemas, web client.
 
 Not done: screens (TASK-080), templates editor and defaults (TASK-079), recurrence, plans and terms (TASK-081), nesting and the Accreditations side (TASK-082), assistant tools (TASK-084), real report outputs (TASK-085: a report slot says "report pending" and can be marked final by hand until then).
+
+---
 
 ## TASK-079 — Cycle templates: Settings section, editor and shipped defaults
 
@@ -3329,13 +3341,14 @@ depends_on:
     url: /TASKS.md#TASK-078
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-19T12:00:00.000Z'
 ---
-# TASK-079 — Cycle templates: Settings section, editor and shipped defaults
 
 Plan: Templates. Draft -> published -> retired, version +1 on publish, running cycles keep their version. Defaults (data, never code, DEC-002): annual program report, periodic program review, admin unit review, internal audit, course assessment (semesterly), blank custom. Import of the institution's own templates through the Docs tab pattern comes later (TASK-075 engine).
 
@@ -3344,6 +3357,8 @@ Built (2026-10-19):
 - Editor (`/settings/quality-management/$templateId`, `apps/web/src/pages/settings/quality-management/`): name EN/AR, description, anchor kinds; stages in order (up/down buttons, keyboard accessible; no drag) each with names, process, checklist, unit rule, owner rule, start and length in days, outputs (kind, required, report template key, approver rule) and inputs (earlier stage's output picked from the stages above, previous cycle's output, or something picked). Live checks in plain words per stage with `validateTemplateStages` (reads a later stage, own stage, circle, missing stage or output), a missing name or number blocks only the save (the stored shape needs it), Publish runs the full check and lists what is wrong, a draft saves unfinished. Stage timeline preview. Published/retired shows read-only with "Revise to edit". Interface text goes through `t()` (`qmt.*`), Arabic fields `dir="auto"`.
 - Shipped defaults as data (`packages/shared/src/cycle-defaults.ts`): annual program report (Collect -> Self-evaluation -> Review by the head of the unit -> QA review -> Final report, last year's final report read by Collect via previous cycle), periodic program review, administrative unit review, internal audit, course assessment (every semester), custom (blank); English and Arabic names. `installDefaultTemplates(ctx)` (core) is idempotent by key, writes PUBLISHED version-1 templates with origin `default` only when the key is absent; route `POST /api/cycle-templates/install-defaults` (`cycle:manage`); "Add the default templates" when none exist, "Restore missing defaults" when some are missing.
 - No migration. Tests: shared (defaults valid, Arabic, internal wording), core `cycles/defaults.test.ts`, api `cycles.test.ts`, web `quality-management-ui.test.tsx` and `editor-model.test.ts`, responsive pages in `e2e/responsive.mjs` (list, new dialog, editor with five stages, a draft with a mistake, refused Publish, read-only; Arabic interface for the list and editor).
+
+---
 
 ## TASK-080 — Quality Management screens: cycles list, new cycle, cycle page, My work
 
@@ -3369,13 +3384,14 @@ depends_on:
     url: /TASKS.md#TASK-079
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-19T12:00:00.000Z'
 ---
-# TASK-080 — Quality Management screens: cycles list, new cycle, cycle page, My work
 
 Plan: Screens. Replaces the placeholder at /quality-management. Cycle page: stages as a timeline and a list with responsible unit, owner, dates, status, inputs (missing ones flagged, never blocking), process text and checklist, output slots and their state; approvals decided by the named approver; Arabic dir=auto; responsive at 375/768/1280; "Internally approved", never "met"/"compliant" (DEC-005).
 
@@ -3388,6 +3404,8 @@ Built (2026-10-19). Quality Management has three tabs, addressable as `?tab=stan
 - **Permissions in the UI mirror the API:** `cycle:manage` (the cycle's `canManage`) for the cycle's own settings, owners, units and dates; a stage owner or `cycle:work` works a stage (`canWork`); only the named approver decides (`canDecide`); everyone else is read-only.
 - **API/core gaps found and filled (no new business rule):** the cycle list gained `nextStage` (first stage not done, with owner, end date, late), `late` and `dueSoon` on each row and the filters `due=late|soon` and `aboutId` (anchor, subject or responsible unit), because the list screen needs them and could not get them from the 36 routes. Core test extended. No migration. The launch API has no dry run, so "before it starts" is the draft step of the dialog: cancelling there leaves a draft (delete it from the list, Undo available).
 - Tests: web `cycles-ui.test.tsx` (list, filters, unresolved flags, launch dialog, start, cancel, delete with Undo, cycle page flows by owner and by approver, return reopens the earlier stage, edit with Undo, blank draft building, previous cycle link, My work, read-only, menu count) and the updated `standards-ops-ui.test.tsx`; core `cycles.test.ts`; responsive pages `qm-cycles*`, `qm-cycle-page*`, `qm-my-work` and the Arabic interface for the list, page and My work (`e2e/responsive.mjs`, 375/768/1280).
+
+---
 
 ## TASK-081 — Cycle recurrence, academic terms and plans with inheritance
 
@@ -3414,13 +3432,14 @@ depends_on:
     url: /TASKS.md#TASK-080
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-19T18:00:00.000Z'
 ---
-# TASK-081 — Cycle recurrence, academic terms and plans with inheritance
 
 Plan: Worked examples, items 1, 3, 4. `cycle_plan`, `academic_term`, `cycle.plan_id`, `cycle.period_label`; inheritance: own plan or nearest ancestor's; an external requirement follows its mapped IQF node's plan unless it has its own; proposed runs listed for QA (auto-launch per template later, DEC-029).
 
@@ -3436,6 +3455,8 @@ Built (2026-10-19; migration 0062). The model, the engine, plans with inheritanc
 - Tests: pure recurrence (`recurrence.test.ts`) and plans (`plans.test.ts`: own, ancestor, whole standard, mapped, opt-out, applies_to x scope); core `plan-service.test.ts` (calendar, due runs, skip, launch from a proposal sets plan, period and previous, inheritance on a real database, decision dates, permissions, tenant); db `plans.test.ts` (overlap, RLS, worker read-only, same-institution checks, anchor shapes); api `plans.test.ts` (permissions, Undo, launch through `/api/cycles`); web `plans-ui.test.tsx`; the updated menu assertions of `standards-ops-ui.test.tsx`; responsive pages `settings-organization-academic-calendar`, `qm-cycles-due*`, `qm-plans*`, `quality-management-plan-*` (and the Arabic interface for the calendar, due list, plans and plan dialog) at 375/768/1280.
 - Not done, on purpose: nesting (TASK-082), the ⋯ "Start a cycle" changes (TASK-083), the assistant (TASK-084), automatic launch (a template flag may come later; no column now), inheritance of plans down the org chart (units and programs take their own plan only), notifications.
 
+---
+
 ## TASK-082 — Nested cycles and cycles in Accreditations
 
 ---
@@ -3443,8 +3464,7 @@ id: TASK-082
 title: Nested cycles and cycles in Accreditations
 description: >-
   A stage can run child cycles (yearly annual report during maintenance, interim report when the decision asks, ISO
-  surveillance); cycles anchored to an engagement appear in Accreditations; engagements can have an org unit as
-  subject
+  surveillance); cycles anchored to an engagement appear in Accreditations; engagements can have an org unit as subject
 status: cancelled
 priority: P2
 last_updated: '2026-10-15'
@@ -3461,17 +3481,20 @@ depends_on:
     url: /TASKS.md#TASK-081
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 ---
-# TASK-082 — Nested cycles and cycles in Accreditations
 
 Plan: Worked examples, items 2, 5, 6. `cycle.parent_cycle_id`, `parent_stage_id`; stage definition `child`; re-accreditation as the next run; `engagement.subject_type` gains `org_unit`; example templates for ABET, WSCUC and ISO maintenance shipped as data. Today's roadmap (milestones) stays as it is.
 
 Replaced (2026-10-21, docs/reports-and-cycles-plan.md): accreditation keeps its roadmap of milestones, not a second cycle engine. Milestones produce reports in TASK-096; recurring maintenance milestones come with M6; an org unit as an engagement subject is TASK-100.
+
+---
 
 ## TASK-083 — Start a cycle from the ⋯ menu, and Cycles panels
 
@@ -3497,28 +3520,32 @@ depends_on:
     url: /TASKS.md#TASK-080
 related_decisions:
   - id: DEC-030
-    name: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+    name: >-
+      Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+      first, accreditation and Quality Assurance / report cycles later
     url: /DECISIONS.md#DEC-030
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-20T12:00:00.000Z'
 ---
-# TASK-083 — Start a cycle from the ⋯ menu, and Cycles panels
 
 Plan: Cycles at any level.
 
 Superseded by TASK-087: no cycles from standards. The owner decided on 2026-10-20 (DEC-030) that cycles are not linked to standards or requirements, so "Start a cycle" in the ⋯ menu of standards, units and programs does not get built; an evidence item carries its own Cycle section instead (TASK-087), accreditations get theirs in TASK-082, and Quality Assurance / report cycles are parked.
+
+---
 
 ## TASK-084 — Assistant and cycles
 
 ---
 id: TASK-084
 title: Assistant and cycles
-description: >-
-  The assistant reads cycles (what is late, what waits on me) and can propose a cycle as a change the person confirms
+description: The assistant reads cycles (what is late, what waits on me) and can propose a cycle as a change the person confirms
 status: pending
 priority: P3
 last_updated: '2026-10-15'
@@ -3535,15 +3562,18 @@ depends_on:
     url: /TASKS.md#TASK-083
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 ---
-# TASK-084 — Assistant and cycles
 
 Plan: AI-aware. Read-only tools over cycles, stages, owners, dates, statuses and missing inputs; a `create_cycle` change operation through the existing confirmation flow (DEC-027); "Ask the assistant to draft it" in the Start-a-cycle dialog. Drafting report text and summaries stay deferred.
+
+---
 
 ## TASK-085 — Report outputs in cycles (shared report engine)
 
@@ -3569,17 +3599,20 @@ depends_on:
     url: /TASKS.md#TASK-080
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-15T12:00:00.000Z'
 ---
-# TASK-085 — Report outputs in cycles (shared report engine)
 
 Plan: Templates (report templates shared with Accreditations). Waits on the M4 report engine breakdown (owner to plan M4 together); until then cycles use document and note outputs.
 
 Replaced (2026-10-21) by TASK-098 (report output on cycles).
+
+---
 
 ## TASK-086 — IQF in operation: Link evidence, Assign scope, Assign champion, Create cycle
 
@@ -3605,13 +3638,14 @@ depends_on:
     url: /TASKS.md#TASK-078
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-19T12:00:00.000Z'
 ---
-# TASK-086 — IQF in operation: Link evidence, Assign scope, Assign champion, Create cycle
 
 Plan: docs/quality-management-plan.md (Standards in operation). `scope_level` (Settings -> Organization -> Institution; Institution, Unit, Program, Course placeholder), `requirement_scope`, `requirement_champion`; effective scope and champion resolved top-down, then through mappings for external requirements (union of scopes; champion only when the mapped nodes agree); overrides at any level; carried to the next version with mappings and evidence links. The IQF tree view in Quality Management with the new ⋯ menu; "Request evidence" leaves the menu (requested through cycles); Settings -> IQF stays authoring only. External standards get the same menu on their tree in Accreditations: values are inherited through mappings and labelled with their IQF source; any action on an inherited value creates an override, "Back to inherited" removes it.
 
@@ -3624,15 +3658,17 @@ Built (2026-10-19):
 
 Not done: the cycle page and Cycles tab (TASK-080), Course records (Course is a placeholder level), champion per item is not inherited between mapped nodes beyond the same agree rule, no Undo for removing several champions at once, the Create cycle link goes to /quality-management until the cycle page exists.
 
+---
+
 ## TASK-087 — Simplify cycles: evidence collection, one owner
 
 ---
 id: TASK-087
 title: 'Simplify cycles: evidence collection, one owner'
 description: >-
-  Cycles are no longer about standards: a cycle is about an evidence item (collect it regularly, have it reviewed), has one
-  owner that every stage follows unless overridden, and the unit is derived; Create cycle and Set cycle plan leave the
-  standards menus; accreditation is reserved and Quality Assurance / report cycles are parked
+  Cycles are no longer about standards: a cycle is about an evidence item (collect it regularly, have it reviewed), has
+  one owner that every stage follows unless overridden, and the unit is derived; Create cycle and Set cycle plan leave
+  the standards menus; accreditation is reserved and Quality Assurance / report cycles are parked
 status: completed
 priority: P1
 last_updated: '2026-10-20'
@@ -3655,16 +3691,19 @@ depends_on:
     url: /TASKS.md#TASK-086
 related_decisions:
   - id: DEC-030
-    name: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+    name: >-
+      Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+      first, accreditation and Quality Assurance / report cycles later
     url: /DECISIONS.md#DEC-030
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
 modified:
   by: agent/claude-code
   at: '2026-10-20T12:00:00.000Z'
 ---
-# TASK-087 — Simplify cycles: evidence collection, one owner
 
 Owner decision 2026-10-20 (DEC-030): the cycle model was too confusing, so it is simplified. Plan: docs/quality-management-plan.md ("Simplified 2026-10-20").
 
@@ -3680,14 +3719,17 @@ Built (2026-10-20), no migration:
 
 Not done: accreditation cycles (TASK-082), Quality Assurance / report cycles (their own task later), `requirementContexts` still computes the plans of a standard for the API although no screen shows them, notifications.
 
+---
+
 ## TASK-088 — Evidence links: reviewers approve their own, rejections give a reason, proposers are notified
 
 ---
 id: TASK-088
 title: 'Evidence links: reviewers approve their own, rejections give a reason, proposers are notified'
 description: >-
-  A link made by someone who may review it is approved at once; rejecting a link needs a reason; the proposer is told in the
-  app (a Notifications section in My work, counted in the menu) and can resubmit a rejected link or dismiss the notice
+  A link made by someone who may review it is approved at once; rejecting a link needs a reason; the proposer is told in
+  the app (a Notifications section in My work, counted in the menu) and can resubmit a rejected link or dismiss the
+  notice
 status: completed
 priority: P1
 last_updated: '2026-10-20'
@@ -3713,7 +3755,6 @@ modified:
   by: agent/claude-code
   at: '2026-10-20T14:00:00.000Z'
 ---
-# TASK-088 — Evidence links: reviewers approve their own, rejections give a reason, proposers are notified
 
 Owner request 2026-10-20.
 
@@ -3727,15 +3768,17 @@ Built (2026-10-20), migration `0063_notifications.sql` (journal idx 63):
 
 Not done: email of the same notices (TASK-061), notices for other events (requests, cycles), a "mark all read" action.
 
+---
+
 ## TASK-089 — Evidence schema: definition, dataset, collection method, schedule
 
 ---
 id: TASK-089
 title: 'Evidence schema: definition, dataset, collection method, schedule'
 description: >-
-  Fix the evidence item the BI builds against: a title, a type (document or dataset), a definition, one collection method with
-  its settings (manual, online form, request, BI; survey reserved) and an optional schedule; "description" and the type "data" go;
-  collecting is no longer a cycle, so the evidence item leaves the cycle screens
+  Fix the evidence item the BI builds against: a title, a type (document or dataset), a definition, one collection
+  method with its settings (manual, online form, request, BI; survey reserved) and an optional schedule; "description"
+  and the type "data" go; collecting is no longer a cycle, so the evidence item leaves the cycle screens
 status: completed
 priority: P1
 last_updated: '2026-10-20'
@@ -3755,16 +3798,19 @@ depends_on:
     url: /TASKS.md#TASK-087
 related_decisions:
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
   - id: DEC-030
-    name: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+    name: >-
+      Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+      first, accreditation and Quality Assurance / report cycles later
     url: /DECISIONS.md#DEC-030
 modified:
   by: agent/claude-code
   at: '2026-10-20T15:00:00.000Z'
 ---
-# TASK-089 — Evidence schema: definition, dataset, collection method, schedule
 
 Owner decision 2026-10-20 (DEC-031). The BI team builds against this schema (docs/ams-bi-contract-v0.md, sections 3 and 4), so it was fixed first. Plan: docs/quality-management-plan.md (the note under "Simplified 2026-10-20"). Migration 0064_evidence_schema.sql (journal idx 64, `when` 1792040000000, forward-only).
 
@@ -3782,15 +3828,17 @@ Decisions taken here (not in the brief): a dataset's definition is appended, not
 
 Not done: any run, scheduler, BI call or notification (TASK-090); the dataset's governed-metric source configuration and the `bi` method overlap and are to be reconciled (TASK-090, M9); the PRD §6 table still lists the old evidence item columns (the PRD is not edited without the owner; DEC-031 wins).
 
+---
+
 ## TASK-090 — Evidence collection runs: scheduler, BI call, request, form, manual
 
 ---
 id: TASK-090
 title: 'Evidence collection runs: scheduler, BI call, request, form, manual'
 description: >-
-  A job fires each evidence item's schedule and makes a run for the period; by the item's collection method it sends the BI API
-  request and waits for the answer, sends the request, opens the form or creates the owner's task; a run is pending, requested,
-  supplied, late, failed or skipped, and the BI's callback carries a one-time token
+  A job fires each evidence item's schedule and makes a run for the period; by the item's collection method it sends the
+  BI API request and waits for the answer, sends the request, opens the form or creates the owner's task; a run is
+  pending, requested, supplied, late, failed or skipped, and the BI's callback carries a one-time token
 status: completed
 priority: P1
 last_updated: '2026-10-21'
@@ -3807,16 +3855,19 @@ depends_on:
     url: /TASKS.md#TASK-089
 related_decisions:
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
   - id: DEC-032
-    name: 'Evidence collection runs: one run per period, carried out by the item''s method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times'
+    name: >-
+      Evidence collection runs: one run per period, carried out by the item's method; the AMS asks the BI and the BI
+      answers at once or by a one-time callback; a failed call is retried five times
     url: /DECISIONS.md#DEC-032
 modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-090 — Evidence collection runs: scheduler, BI call, request, form, manual
 
 Owner decision 2026-10-20 (DEC-031). TASK-089 gave every evidence item a collection method, its settings and a schedule, and a pure `nextOccurrences(schedule, from, count, terms)`; nothing runs from them yet. This task makes them run.
 
@@ -3850,6 +3901,8 @@ Decisions taken here (not in the brief, recorded in DEC-032 or here): the retry 
 
 Not done: `GET /api/bi/v0/runs?updatedSince=` (the AMS asks the BI itself); email for requests (TASK-061); a catch-up cap after a long worker downtime (it makes one run per missed period, up to 500 per item and tick); the dataset's `source_kind` / `source_config` are not read by the runs (the method says when and by whom, the configuration says what; reconcile in M9); the PRD §6 table is not edited (DEC-031 and DEC-032 win); the Settings page has no BI section (the not-configured state is on the item's Collection section).
 
+---
+
 ## TASK-091 — Report model and engine core
 
 ---
@@ -3858,9 +3911,9 @@ title: Report model and engine core
 description: >-
   Create a report from a template: report and section tables, requirement codes resolved, section owners from
   requirement owners or champions, statuses, permissions, Trash, Undo, audit and API.
-status: pending
+status: in-progress
 priority: P0
-last_updated: '2026-10-21'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
@@ -3870,11 +3923,12 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-005
 modified:
   by: agent/claude-code
-  at: '2026-10-21T09:00:00.000Z'
+  at: '2026-10-25T08:21:16.986Z'
 ---
-# TASK-091 — Report model and engine core
 
 PRD §10.1, §10.2, §10.4 step 1. Tables `report`, `report_section` (round field reserved for M5), created from `report_template.structure` of any framework version (external or IQF). Section owners default to the requirement's owner or, for IQF standards, the champion (TASK-086). Never 'met'/'compliant' (DEC-005). Plan: docs/reports-and-cycles-plan.md.
+
+---
 
 ## TASK-092 — Report editor: narrative, data table, attestation, appendix
 
@@ -3902,9 +3956,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-092 — Report editor: narrative, data table, attestation, appendix
 
 PRD §10.3 (narrative, data_table, attestation, appendix), §10.5 word counts. Full width, no side panels: the evidence panel opens as a sheet. Arabic dir=auto and RTL.
+
+---
 
 ## TASK-093 — Report generated blocks: compliance matrix, evidence index, feedback response
 
@@ -3912,8 +3967,8 @@ PRD §10.3 (narrative, data_table, attestation, appendix), §10.5 word counts. F
 id: TASK-093
 title: 'Report generated blocks: compliance matrix, evidence index, feedback response'
 description: >-
-  Generated blocks: the compliance matrix (internal wording), the evidence index, and the feedback response block
-  (empty until M5).
+  Generated blocks: the compliance matrix (internal wording), the evidence index, and the feedback response block (empty
+  until M5).
 status: pending
 priority: P1
 last_updated: '2026-10-21'
@@ -3935,9 +3990,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-093 — Report generated blocks: compliance matrix, evidence index, feedback response
 
 PRD §10.3 compliance_matrix, evidence_index, feedback_response. Matrix rows: code, title, internal status, approved evidence titles. No scores or 'compliant' (DEC-005).
+
+---
 
 ## TASK-094 — Report workflow, internal approval and submission snapshot
 
@@ -3965,9 +4021,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-094 — Report workflow, internal approval and submission snapshot
 
 PRD §10.4 steps 2 to 5, §11.4 diff. Snapshots are immutable by database triggers (PRD §6.9). 'Internally approved' wording.
+
+---
 
 ## TASK-095 — Report export: DOCX, PDF, XLSX evidence index, ZIP package
 
@@ -3998,9 +4055,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-095 — Report export: DOCX, PDF, XLSX evidence index, ZIP package
 
 PRD §10.5. One internal function `renderReport()` as the only import point of the rendering libraries (like parseDocument(), DEC-011). Real-document pass: the WSCUC report and a PUC report in Arabic.
+
+---
 
 ## TASK-096 — Reports in Accreditations: milestones produce reports
 
@@ -4008,8 +4066,8 @@ PRD §10.5. One internal function `renderReport()` as the only import point of t
 id: TASK-096
 title: 'Reports in Accreditations: milestones produce reports'
 description: >-
-  A milestone with a report deliverable creates its report, submitting completes the milestone, and recurring
-  milestones create a report each period.
+  A milestone with a report deliverable creates its report, submitting completes the milestone, and recurring milestones
+  create a report each period.
 status: pending
 priority: P1
 last_updated: '2026-10-21'
@@ -4031,9 +4089,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-096 — Reports in Accreditations: milestones produce reports
 
 Replaces the report part of TASK-082. Engagement milestones already carry `deliverable.report_template_key`, `report_id` and `recurrence`; nothing fills them yet.
+
+---
 
 ## TASK-097 — QA report templates on the IQF and shipped defaults
 
@@ -4041,8 +4100,8 @@ Replaces the report part of TASK-082. Engagement milestones already carry `deliv
 id: TASK-097
 title: QA report templates on the IQF and shipped defaults
 description: >-
-  Report templates on the IQF version's Templates tab, and shipped defaults as data for annual program report,
-  periodic review, admin unit review and internal audit, each matched to a cycle template.
+  Report templates on the IQF version's Templates tab, and shipped defaults as data for annual program report, periodic
+  review, admin unit review and internal audit, each matched to a cycle template.
 status: pending
 priority: P1
 last_updated: '2026-10-21'
@@ -4061,9 +4120,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-097 — QA report templates on the IQF and shipped defaults
 
 Plan docs/reports-and-cycles-plan.md section 2 rule 4. Defaults are data, never code per accreditor (DEC-002).
+
+---
 
 ## TASK-098 — Report output on cycles
 
@@ -4097,9 +4157,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-098 — Report output on cycles
 
 Replaces TASK-085. A report's requirement set for a subject = the IQF standards in the subject's scope (TASK-086); two approval layers: report sections, then cycle sign-off.
+
+---
 
 ## TASK-099 — Offer report cycles in the UI
 
@@ -4127,17 +4188,17 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-099 — Offer report cycles in the UI
 
 Report/QA cycles were parked by the owner (DEC-030) and are not offered in the UI today. Repeat is a switch on the cycle (every term or year), no plan inheritance tree.
+
+---
 
 ## TASK-100 — Engagement subject may be an org unit
 
 ---
 id: TASK-100
 title: Engagement subject may be an org unit
-description: >-
-  An engagement can be about an org unit (ISO for IT or Facilities), not only the institution or a program.
+description: An engagement can be about an org unit (ISO for IT or Facilities), not only the institution or a program.
 status: pending
 priority: P2
 last_updated: '2026-10-21'
@@ -4152,17 +4213,17 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-100 — Engagement subject may be an org unit
 
 `engagement.subject_type` gains `org_unit`; wizard, lists and RLS follow. Small; independent of M4.
+
+---
 
 ## TASK-101 — Assistant reads cycles, collection runs and reports
 
 ---
 id: TASK-101
 title: Assistant reads cycles, collection runs and reports
-description: >-
-  Read-only assistant tools: what is late, what is waiting on me, what a standard's evidence and mappings are.
+description: 'Read-only assistant tools: what is late, what is waiting on me, what a standard''s evidence and mappings are.'
 status: pending
 priority: P2
 last_updated: '2026-10-21'
@@ -4177,107 +4238,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
 ---
-# TASK-101 — Assistant reads cycles, collection runs and reports
 
 Safe and useful now. TASK-084 (the assistant proposes) waits for TASK-099.
 
-## TASK-106 — Entity schema registry and data dictionary
-
 ---
-id: TASK-106
-title: Entity schema registry and data dictionary
-description: >-
-  One declared schema per entity in packages/shared, from which the API, the AI extraction schemas, the review
-  choices, the BI contract and a read-only data dictionary are derived.
-status: pending
-priority: P1
-last_updated: '2026-10-21'
-generated:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
-related_decisions:
-  - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
-    url: /DECISIONS.md#DEC-033
-modified:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
----
-# TASK-106 — Entity schema registry and data dictionary
-
-Plan docs/schema-and-sources-plan.md 2.5. First entities: evidence item, evidence version, dataset spec, program, course, org unit, framework requirement, cycle template. A test fails when declared schema and database columns disagree. `GET /api/bi/v0/schema/{entity}` and docs/data-dictionary.md; Settings -> Data dictionary (read-only, export JSON/CSV).
-
-## TASK-104 — Program schema
-
----
-id: TASK-104
-title: Program schema
-description: >-
-  Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits,
-  language, campus, status, start year, description, tags, external id.
-status: pending
-priority: P1
-last_updated: '2026-10-21'
-generated:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
-depends_on:
-  - id: TASK-106
-    name: Entity schema registry and data dictionary
-    url: /TASKS.md#TASK-106
-related_decisions:
-  - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
-    url: /DECISIONS.md#DEC-033
-modified:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
----
-# TASK-104 — Program schema
-
-Plan 2.3. Additive migration, every existing row valid. The Programs import target writes the new fields; the Programs screen shows and edits them.
-
-## TASK-105 — Courses: entity, schema, tab and import
-
----
-id: TASK-105
-title: 'Courses: entity, schema, tab and import'
-description: >-
-  A real Course record with a declared schema, linked to programs many-to-many, a Courses tab under Settings ->
-  Organization with a Docs tab, and the Course scope level listing real courses.
-status: pending
-priority: P1
-last_updated: '2026-10-21'
-generated:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
-roadmap_item:
-  id: ROADMAP-012
-  name: Settings, internal framework and glossary
-  url: /ROADMAP.md#ROADMAP-012
-depends_on:
-  - id: TASK-106
-    name: Entity schema registry and data dictionary
-    url: /TASKS.md#TASK-106
-related_decisions:
-  - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
-    url: /DECISIONS.md#DEC-033
-modified:
-  by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
----
-# TASK-105 — Courses: entity, schema, tab and import
-
-Plan 2.4. `course`, `course_program` (role core/elective/service, year, term); Trash and Undo; import target from a course catalogue; DEC-028's two-tab Organization screen becomes three tabs (recorded in DEC-033).
 
 ## TASK-102 — Sources by URL for every document import
 
@@ -4299,15 +4263,18 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 related_decisions:
   - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
 ---
-# TASK-102 — Sources by URL for every document import
 
 Plan 2.1. One fetcher (one import point): HTTPS only, blocks private/loopback/link-local/metadata addresses (also after redirects and DNS), size/time/redirect limits, allowed content types incl. HTML (text extracted behind parseDocument()), no logins. `source_url`, `fetched_at`; Refresh. SSRF tests. Evidence is excluded (DEC-013).
+
+---
 
 ## TASK-103 — Cycle template resources and AI-proposed stages
 
@@ -4336,15 +4303,125 @@ depends_on:
     url: /TASKS.md#TASK-106
 related_decisions:
   - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
 ---
-# TASK-103 — Cycle template resources and AI-proposed stages
 
 Plan 2.2. New scope kind `cycle_template`; target proposes stages (name, process, checklist, outputs, inputs, owner rule, offsets); applied to a draft only, one undoable change; resources shown on cycles made from the template.
+
+---
+
+## TASK-104 — Program schema
+
+---
+id: TASK-104
+title: Program schema
+description: >-
+  Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits, language,
+  campus, status, start year, description, tags, external id.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
+related_decisions:
+  - id: DEC-033
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+
+Plan 2.3. Additive migration, every existing row valid. The Programs import target writes the new fields; the Programs screen shows and edits them.
+
+---
+
+## TASK-105 — Courses: entity, schema, tab and import
+
+---
+id: TASK-105
+title: 'Courses: entity, schema, tab and import'
+description: >-
+  A real Course record with a declared schema, linked to programs many-to-many, a Courses tab under Settings ->
+  Organization with a Docs tab, and the Course scope level listing real courses.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+depends_on:
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
+related_decisions:
+  - id: DEC-033
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+
+Plan 2.4. `course`, `course_program` (role core/elective/service, year, term); Trash and Undo; import target from a course catalogue; DEC-028's two-tab Organization screen becomes three tabs (recorded in DEC-033).
+
+---
+
+## TASK-106 — Entity schema registry and data dictionary
+
+---
+id: TASK-106
+title: Entity schema registry and data dictionary
+description: >-
+  One declared schema per entity in packages/shared, from which the API, the AI extraction schemas, the review choices,
+  the BI contract and a read-only data dictionary are derived.
+status: pending
+priority: P1
+last_updated: '2026-10-21'
+generated:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+roadmap_item:
+  id: ROADMAP-012
+  name: Settings, internal framework and glossary
+  url: /ROADMAP.md#ROADMAP-012
+related_decisions:
+  - id: DEC-033
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
+    url: /DECISIONS.md#DEC-033
+modified:
+  by: agent/claude-code
+  at: '2026-10-21T12:00:00.000Z'
+---
+
+Plan docs/schema-and-sources-plan.md 2.5. First entities: evidence item, evidence version, dataset spec, program, course, org unit, framework requirement, cycle template. A test fails when declared schema and database columns disagree. `GET /api/bi/v0/schema/{entity}` and docs/data-dictionary.md; Settings -> Data dictionary (read-only, export JSON/CSV).
+
+---
 
 ## TASK-107 — Documents to furnish and update the IQF and published standards
 
@@ -4352,8 +4429,8 @@ Plan 2.2. New scope kind `cycle_template`; target proposes stages (name, process
 id: TASK-107
 title: Documents to furnish and update the IQF and published standards
 description: >-
-  A Docs tab on the IQF (and on a published standard, which opens a new draft first): upload documents or URLs,
-  analyse them, review proposals, and merge into the draft version without touching human edits.
+  A Docs tab on the IQF (and on a published standard, which opens a new draft first): upload documents or URLs, analyse
+  them, review proposals, and merge into the draft version without touching human edits.
 status: pending
 priority: P1
 last_updated: '2026-10-22'
@@ -4376,9 +4453,10 @@ modified:
   by: agent/claude-code
   at: '2026-10-22T09:00:00.000Z'
 ---
-# TASK-107 — Documents to furnish and update the IQF and published standards
 
 The compiler already merges into an existing DRAFT of an external standard by code (adds new, updates AI-written rows, keeps human edits). Gaps: the IQF has no Docs tab or analysis; a published version is frozen so documents must go to a new draft. Build: IQF Docs tab (same engine on the internal framework, authority classes adapted), 'Add documents' on a published version that offers 'Start a new version', URL sources (TASK-102), and a clear result report (added, updated, kept human edits, notes). DECIDED 2026-10-22 (owner): documents may also PROPOSE EDITS to the wording of existing human-written requirements, shown as a diff (current text beside the proposed text, with the quote it came from) that a person accepts or declines per item; never applied silently, never to a published version (new draft first), Undo after applying.
+
+---
 
 ## TASK-108 — Meaning-based search and similar requirements; keep vectors current
 
@@ -4406,6 +4484,7 @@ modified:
   by: agent/claude-code
   at: '2026-10-22T09:00:00.000Z'
 ---
-# TASK-108 — Meaning-based search and similar requirements; keep vectors current
 
 DEC-023 built embed(), the embedding table, hybrid ranking and the Settings model; today only the IQF mapping stage uses them and they are OFF by default and not yet measured (TASK-056 decides the default from `pnpm analysis:eval-mapping`). Add: (1) re-embed on edit/publish via a job and a Rebuild action with a cost estimate; (2) a library search box that ranks requirements by hybrid meaning + code/term match; (3) a 'Similar requirements' list on a requirement and in the Map to IQF dialog; (4) read tool for the assistant over framework text; (5) status in Settings -> AI (counts, model, last run). Framework text only (DEC-023 point 5): evidence, datasets, memories, requests are never embedded; assistant memory search (TASK-068) needs its own decision. Scores are internal ranking, never shown as coverage or confidence.
+
+<!-- End VEF generated items. -->

@@ -1,6 +1,6 @@
 ---
 id: TASK-067
-title: Assistant phase 2: bulk edits confirmed in the chat
+title: 'Assistant phase 2: bulk edits confirmed in the chat'
 description: >-
   The assistant proposes changes to a draft, asks for confirmation in the chat, and applies them as one undoable group (built:
   change sets, recipes, one-time confirmation token, one undo group with Redo, marking of texts the assistant wrote, evaluation set)
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-066
-    name: In-app assistant phase 1: conversations, memory, read-only tools
+    name: 'In-app assistant phase 1: conversations, memory, read-only tools'
     url: /TASKS.md#TASK-066
   - id: TASK-065
     name: Redo in the undo system

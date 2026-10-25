@@ -8,6 +8,61 @@ priority: P0
 tags:
   - ams
 last_updated: '2026-10-12'
+related_tasks:
+  - id: TASK-043
+    name: Read source files into page text (parseDocument and the extract_text job)
+    url: /TASKS.md#TASK-043
+  - id: TASK-044
+    name: 'AI connection, embeddings and Settings → AI'
+    url: /TASKS.md#TASK-044
+  - id: TASK-045
+    name: 'Framework analysis runs (step C) — requirements from a draft''s sources'
+    url: /TASKS.md#TASK-045
+  - id: TASK-046
+    name: 'Framework analysis check and recover (step D) — exhaustive but bounded'
+    url: /TASKS.md#TASK-046
+  - id: TASK-047
+    name: Publishing is the review for external standards (DEC-022 publish gate)
+    url: /TASKS.md#TASK-047
+  - id: TASK-048
+    name: 'Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic'
+    url: /TASKS.md#TASK-048
+  - id: TASK-049
+    name: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
+    url: /TASKS.md#TASK-049
+  - id: TASK-050
+    name: Analysis proposes links to the IQF and new IQF items; a person accepts them (step E)
+    url: /TASKS.md#TASK-050
+  - id: TASK-051
+    name: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
+    url: /TASKS.md#TASK-051
+  - id: TASK-052
+    name: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+    url: /TASKS.md#TASK-052
+  - id: TASK-054
+    name: 'Analysis report, run readiness checks, and the import page''s approve-everything option removed (step F1)'
+    url: /TASKS.md#TASK-054
+  - id: TASK-055
+    name: 'Create from files and the split-view review of an external standard''s requirements'
+    url: /TASKS.md#TASK-055
+  - id: TASK-056
+    name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+    url: /TASKS.md#TASK-056
+  - id: TASK-057
+    name: Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+    url: /TASKS.md#TASK-057
+  - id: TASK-059
+    name: Production check of the three background services and the parser image
+    url: /TASKS.md#TASK-059
+  - id: TASK-060
+    name: 'Compiler follow-ups: small gaps found while building steps A-F'
+    url: /TASKS.md#TASK-060
+  - id: TASK-107
+    name: Documents to furnish and update the IQF and published standards
+    url: /TASKS.md#TASK-107
+  - id: TASK-108
+    name: Meaning-based search and similar requirements; keep vectors current
+    url: /TASKS.md#TASK-108
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:41.356Z'

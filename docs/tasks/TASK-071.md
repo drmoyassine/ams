@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-070
-    name: Languages: secondary language, UI language and content switchers
+    name: 'Languages: secondary language, UI language and content switchers'
     url: /TASKS.md#TASK-070
 related_decisions:
   - id: DEC-028

@@ -1,6 +1,6 @@
 ---
 id: TASK-069
-title: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+title: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
 description: >-
   Organization becomes one screen with two tabs, Institution (details, logo, Languages, Org chart) and Programs; the
   institution logo is uploaded and shown in the app; Settings are readable by every role

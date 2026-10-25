@@ -22,7 +22,7 @@ related_decisions:
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
   - id: DEC-024
-    name: Background work runs as three services from one codebase: worker, parser, agent
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
 modified:
   by: agent/claude-code

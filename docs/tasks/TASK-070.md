@@ -1,6 +1,6 @@
 ---
 id: TASK-070
-title: Languages: secondary language, UI language and content switchers
+title: 'Languages: secondary language, UI language and content switchers'
 description: >-
   An administrator chooses one secondary language; each person picks the interface language; library screens switch
   between original, English and the secondary language; primary is always English
@@ -16,7 +16,7 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-069
-    name: Organization screen: Institution and Programs tabs, institution logo, read-only Settings
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
     url: /TASKS.md#TASK-069
 related_decisions:
   - id: DEC-028

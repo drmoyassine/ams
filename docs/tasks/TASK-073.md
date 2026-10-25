@@ -16,10 +16,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-012
 depends_on:
   - id: TASK-072
-    name: Org chart: visual builder (tree and chart view)
+    name: 'Org chart: visual builder (tree and chart view)'
     url: /TASKS.md#TASK-072
   - id: TASK-075
-    name: Documents and AI import foundation: registry, Docs tab, Documents area
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
     url: /TASKS.md#TASK-075
 related_decisions:
   - id: DEC-028

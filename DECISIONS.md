@@ -154,6 +154,9 @@ related_tasks:
   - id: TASK-031
     name: M2 acceptance test
     url: /TASKS.md#TASK-031
+  - id: TASK-046
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
+    url: /TASKS.md#TASK-046
 ---
 
 Source: PRD §0, §2 P1, §7. (docs/PRD.md).
@@ -367,6 +370,36 @@ related_tasks:
   - id: TASK-027
     name: Requirement workspace service
     url: /TASKS.md#TASK-027
+  - id: TASK-045
+    name: Framework analysis runs (step C) — requirements from a draft's sources
+    url: /TASKS.md#TASK-045
+  - id: TASK-046
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
+    url: /TASKS.md#TASK-046
+  - id: TASK-047
+    name: Publishing is the review for external standards (DEC-022 publish gate)
+    url: /TASKS.md#TASK-047
+  - id: TASK-056
+    name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+    url: /TASKS.md#TASK-056
+  - id: TASK-057
+    name: Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+    url: /TASKS.md#TASK-057
+  - id: TASK-064
+    name: In-app assistant for bulk edits (plan)
+    url: /TASKS.md#TASK-064
+  - id: TASK-073
+    name: Org chart from an uploaded image
+    url: /TASKS.md#TASK-073
+  - id: TASK-075
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
+    url: /TASKS.md#TASK-075
+  - id: TASK-076
+    name: 'Programs from documents: upload, AI parse, drafts'
+    url: /TASKS.md#TASK-076
+  - id: TASK-088
+    name: 'Evidence links: reviewers approve their own, rejections give a reason, proposers are notified'
+    url: /TASKS.md#TASK-088
 ---
 
 Source: PRD §6.3, §15, §16, invariants 1–3, 7. (docs/PRD.md).
@@ -569,6 +602,9 @@ related_tasks:
   - id: TASK-028
     name: Engagement API routes and permissions
     url: /TASKS.md#TASK-028
+  - id: TASK-049
+    name: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
+    url: /TASKS.md#TASK-049
 ---
 
 Source: PRD §18.3, M0 tests. (docs/PRD.md).
@@ -589,12 +625,36 @@ decision: >-
   repository, release with semver, pin in AMS. Gate the framework compiler (M7) on the Appendix D test corpus.
 rationale: One isomorphic parser with native → OCR → VLM cascade that the team controls.
 consequences: >-
-  Parallel workstream in a second repository; accreditor documents stay private to AMS fixtures.
-  Amendment (2026-10-11, TASK-053, replacing the TASK-052 text): the parser is the owned `@drmoyassine/liteparse` (pure JS: pdfjs-dist, mammoth, SheetJS; sharp and @napi-rs/canvas render scanned pages; the vision model is injected as aiOcr), pinned at 0.5.0 and imported only in parseDocument(). TASK-052 had wrongly used the unrelated upstream `@llamaindex/liteparse` (PDFium + LibreOffice) and wrote that all formats go through LibreOffice; that is withdrawn.
-  The owned library does not read PowerPoint, OpenDocument, RTF or legacy DOC/XLS. Those formats (and only those) are read by a TEMPORARY fallback, `parse-document-fallback.ts`, which uses the upstream package and LibreOffice (the parser image keeps LibreOffice for it; ImageMagick is no longer installed). It is deleted when the owned library reads them. The fallback list, the Appendix D status of the owned library (LP1–LP10 and the D.3 corpus, with what the AMS wrapper does to compensate) and the changes proposed for the liteparse repository are in docs/liteparse-appendix-d-status.md. The app, worker and agent images carry none of the converters.
+  Parallel workstream in a second repository; accreditor documents stay private to AMS fixtures. Amendment (2026-10-11,
+  TASK-053, replacing the TASK-052 text): the parser is the owned `@drmoyassine/liteparse` (pure JS: pdfjs-dist,
+  mammoth, SheetJS; sharp and @napi-rs/canvas render scanned pages; the vision model is injected as aiOcr), pinned at
+  0.5.0 and imported only in parseDocument(). TASK-052 had wrongly used the unrelated upstream `@llamaindex/liteparse`
+  (PDFium + LibreOffice) and wrote that all formats go through LibreOffice; that is withdrawn. The owned library does
+  not read PowerPoint, OpenDocument, RTF or legacy DOC/XLS. Those formats (and only those) are read by a TEMPORARY
+  fallback, `parse-document-fallback.ts`, which uses the upstream package and LibreOffice (the parser image keeps
+  LibreOffice for it; ImageMagick is no longer installed). It is deleted when the owned library reads them. The fallback
+  list, the Appendix D status of the owned library (LP1–LP10 and the D.3 corpus, with what the AMS wrapper does to
+  compensate) and the changes proposed for the liteparse repository are in docs/liteparse-appendix-d-status.md. The app,
+  worker and agent images carry none of the converters.
 tags:
   - ams
 last_updated: '2026-10-11'
+related_tasks:
+  - id: TASK-043
+    name: Read source files into page text (parseDocument and the extract_text job)
+    url: /TASKS.md#TASK-043
+  - id: TASK-052
+    name: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
+    url: /TASKS.md#TASK-052
+  - id: TASK-053
+    name: The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks
+    url: /TASKS.md#TASK-053
+  - id: TASK-058
+    name: Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+    url: /TASKS.md#TASK-058
+  - id: TASK-059
+    name: Production check of the three background services and the parser image
+    url: /TASKS.md#TASK-059
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:22.919Z'
@@ -634,6 +694,22 @@ consequences: Some provider-specific features are reached through provider optio
 tags:
   - ams
 last_updated: '2026-10-05'
+related_tasks:
+  - id: TASK-044
+    name: AI connection, embeddings and Settings → AI
+    url: /TASKS.md#TASK-044
+  - id: TASK-045
+    name: Framework analysis runs (step C) — requirements from a draft's sources
+    url: /TASKS.md#TASK-045
+  - id: TASK-046
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
+    url: /TASKS.md#TASK-046
+  - id: TASK-048
+    name: Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic
+    url: /TASKS.md#TASK-048
+  - id: TASK-051
+    name: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
+    url: /TASKS.md#TASK-051
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:24.320Z'
@@ -687,6 +763,9 @@ related_tasks:
   - id: TASK-039
     name: Evidence repository, versions and reasoned links
     url: /TASKS.md#TASK-039
+  - id: TASK-045
+    name: Framework analysis runs (step C) — requirements from a draft's sources
+    url: /TASKS.md#TASK-045
 ---
 
 Source: PRD §20. (docs/PRD.md).
@@ -1018,8 +1097,6 @@ related_tasks:
     url: /TASKS.md#TASK-042
 ---
 
-<!-- End VEF generated items. -->
-
 ---
 
 ## DEC-021 — Framework analysis may send the institution's IQF text to the AI
@@ -1035,7 +1112,9 @@ decision: >-
   IQF standard text (codes, titles, descriptions) may be sent to the AI model during framework analysis. Evidence files
   and dataset contents are still never sent (DEC-013, DEC-019).
 rationale: The IQF is the institution's own framework, not evidence; the owner approved it.
-consequences: Amends DEC-013. AI output about the IQF stays a proposal until a person accepts it. AI provider, model, key and spend limit are editable in Settings → AI.
+consequences: >-
+  Amends DEC-013. AI output about the IQF stays a proposal until a person accepts it. AI provider, model, key and spend
+  limit are editable in Settings → AI.
 tags:
   - ams
 last_updated: '2026-10-08'
@@ -1043,6 +1122,16 @@ related_decisions:
   - id: DEC-013
     name: AI processing approved for framework source documents; evidence not sent in the MVP
     url: /DECISIONS.md#DEC-013
+related_tasks:
+  - id: TASK-044
+    name: AI connection, embeddings and Settings → AI
+    url: /TASKS.md#TASK-044
+  - id: TASK-050
+    name: Analysis proposes links to the IQF and new IQF items; a person accepts them (step E)
+    url: /TASKS.md#TASK-050
+  - id: TASK-071
+    name: Translate the IQF and the standards into the secondary language
+    url: /TASKS.md#TASK-071
 ---
 
 ---
@@ -1070,6 +1159,31 @@ related_decisions:
   - id: DEC-006
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
+related_tasks:
+  - id: TASK-045
+    name: Framework analysis runs (step C) — requirements from a draft's sources
+    url: /TASKS.md#TASK-045
+  - id: TASK-046
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
+    url: /TASKS.md#TASK-046
+  - id: TASK-047
+    name: Publishing is the review for external standards (DEC-022 publish gate)
+    url: /TASKS.md#TASK-047
+  - id: TASK-050
+    name: Analysis proposes links to the IQF and new IQF items; a person accepts them (step E)
+    url: /TASKS.md#TASK-050
+  - id: TASK-054
+    name: Analysis report, run readiness checks, and the import page's approve-everything option removed (step F1)
+    url: /TASKS.md#TASK-054
+  - id: TASK-055
+    name: Create from files and the split-view review of an external standard's requirements
+    url: /TASKS.md#TASK-055
+  - id: TASK-057
+    name: Read lifecycle, vocabularies, milestones and report templates from policy and template documents
+    url: /TASKS.md#TASK-057
+  - id: TASK-060
+    name: 'Compiler follow-ups: small gaps found while building steps A-F'
+    url: /TASKS.md#TASK-060
 ---
 
 ---
@@ -1082,9 +1196,9 @@ title: Embeddings rank IQF mapping candidates; vectors are stored in plain Postg
 status: accepted
 context: >-
   Mapping an external standard to the IQF is similarity matching between short texts, often across languages (Arabic
-  accreditor wording against English IQF wording) and vocabularies. Full-text and trigram search match shared words only.
-  Anthropic offers no embedding model, so a second, configurable provider is needed.
-decision: >-
+  accreditor wording against English IQF wording) and vocabularies. Full-text and trigram search match shared words
+  only. Anthropic offers no embedding model, so a second, configurable provider is needed.
+decision: |-
   1. An embedding model ranks candidates; it never decides. The shortlist goes to aiExtract, which proposes
      covers / partly_covers / related with a reason, and a person accepts. Similarity scores are internal ranking only,
      never shown as a match, coverage or confidence percentage.
@@ -1122,6 +1236,28 @@ related_decisions:
   - id: DEC-008
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
+related_tasks:
+  - id: TASK-044
+    name: AI connection, embeddings and Settings → AI
+    url: /TASKS.md#TASK-044
+  - id: TASK-050
+    name: Analysis proposes links to the IQF and new IQF items; a person accepts them (step E)
+    url: /TASKS.md#TASK-050
+  - id: TASK-051
+    name: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
+    url: /TASKS.md#TASK-051
+  - id: TASK-056
+    name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
+    url: /TASKS.md#TASK-056
+  - id: TASK-068
+    name: 'Assistant follow-ups: memory merging, meaning-based memory search, report chip'
+    url: /TASKS.md#TASK-068
+  - id: TASK-107
+    name: Documents to furnish and update the IQF and published standards
+    url: /TASKS.md#TASK-107
+  - id: TASK-108
+    name: Meaning-based search and similar requirements; keep vectors current
+    url: /TASKS.md#TASK-108
 ---
 
 ---
@@ -1134,8 +1270,8 @@ title: 'Background work runs as three services from one codebase: worker, parser
 status: accepted
 context: >-
   One worker process took every job type. Reading documents (liteparse) is CPU and memory heavy and can starve the
-  model-calling steps of a framework analysis; only the model-calling steps need outbound internet; and a single
-  process cannot be sized, restarted or network-restricted per kind of work. The object store was prepared by a separate
+  model-calling steps of a framework analysis; only the model-calling steps need outbound internet; and a single process
+  cannot be sized, restarted or network-restricted per kind of work. The object store was prepared by a separate
   one-shot compose service (garage-init), which hosts such as Easypanel handled poorly.
 decision: >-
   1. Three services, one image definition and one entry point (apps/worker/dist/main.js). The role comes from the
@@ -1149,7 +1285,8 @@ decision: >-
   3. The agent does not parse documents. When an analysis source has a file but no page text, the read stage queues an
      extract_text job (the parser takes it) and the analyse job re-queues itself with a delay, a bounded number of times;
      a failed or never-finished reading ends the run with a clear message.
-  4. Only the agent needs outbound internet (AI providers, embeddings). The parser calls a provider only for the optional
+  4. Only the agent needs outbound internet (AI providers, embeddings). The parser calls a provider only for the
+  optional
      OCR of scanned pages and degrades to "needs OCR" without one. Nothing is enforced in compose, so it runs unchanged on
      shared hosts; the split makes egress restrictable on the others.
   5. The app prepares the Garage object store itself before it serves (layout, S3 key, bucket, grant), only when
@@ -1180,6 +1317,16 @@ related_decisions:
   - id: DEC-008
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
+related_tasks:
+  - id: TASK-049
+    name: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
+    url: /TASKS.md#TASK-049
+  - id: TASK-059
+    name: Production check of the three background services and the parser image
+    url: /TASKS.md#TASK-059
+  - id: TASK-064
+    name: In-app assistant for bulk edits (plan)
+    url: /TASKS.md#TASK-064
 ---
 
 ---
@@ -1193,11 +1340,12 @@ status: accepted
 context: >-
   Settings → AI held one connection (provider, key, model) plus a separate embeddings endpoint with its own key, a typed
   vector dimension and four limit and price inputs. Switching between an OpenAI and a Gemini meant retyping keys,
-  OpenRouter had to be set up as a generic OpenAI-compatible server, the same OpenAI key could not serve embeddings, model
-  names had to be typed from memory, prices had to be looked up by hand, and the reading (OCR) of scanned pages silently used
-  the analysis model with no settings of its own.
+  OpenRouter had to be set up as a generic OpenAI-compatible server, the same OpenAI key could not serve embeddings,
+  model names had to be typed from memory, prices had to be looked up by hand, and the reading (OCR) of scanned pages
+  silently used the analysis model with no settings of its own.
 decision: >-
-  1. Accounts. A saved connection is a row in ai_account (tenant RLS, audit): a label, a provider (anthropic, openai, google,
+  1. Accounts. A saved connection is a row in ai_account (tenant RLS, audit): a label, a provider (anthropic, openai,
+  google,
      openrouter, openai_compatible), a Base URL for openai_compatible only, and an API key encrypted at rest with the
      existing AES-256-GCM / APP_SECRET helper. The key is write-only: the API returns whether one is set and its last 4
      characters. Changing an account's provider removes its key unless a new one comes in the same save. An account in
@@ -1216,13 +1364,15 @@ decision: >-
      id, name, kind (chat, embedding, other), image support and, when the provider's own list gives them, prices
      (OpenRouter does). Cached in memory for 10 minutes per account, with a Refresh. A failure shows its reason and the
      screen falls back to typing a model id. No model identifiers or prices are written in the repository.
-  4. One cap per analysis run, no price inputs. The unit is tokens (always available, provider independent) or US dollars
+  4. One cap per analysis run, no price inputs. The unit is tokens (always available, provider independent) or US
+  dollars
      (only when the analysis model's price is known from the provider's list, stored when the model is chosen). The
      four previous limit and price inputs are gone from the screen and the API.
   5. Reading settings. "Read scanned pages with AI (OCR)" on or off, the reading model (item 2), "Max AI-read pages per
      file" (default 200; the rest stay flagged needsOcr with a warning, as when OCR is off or unavailable) and an optional
      language hint (Auto by default). They are read by extract_text through the normal identity-carrying job transaction.
-  6. Migration 0045 (forward-only) turns the existing saved connection and embeddings endpoint into accounts, copying the
+  6. Migration 0045 (forward-only) turns the existing saved connection and embeddings endpoint into accounts, copying
+  the
      key ciphertext unchanged (same APP_SECRET, nothing to retype), points the assignments at them, and clears the legacy
      key columns. The legacy provider, Base URL and key columns stay, unused, so a rolling deploy never meets a missing
      column; a later migration may drop them.
@@ -1233,10 +1383,10 @@ rationale: >-
 consequences: >-
   Extends DEC-012 (provider choice is configuration; model.ts stays the single import point) and DEC-023 (embeddings are
   assigned like any role; the endpoint is an account, the dimension is detected). Embeddings are no longer limited to a
-  separate OpenAI-compatible endpoint: OpenAI, Google and OpenRouter work directly. A USD cap exists only where a provider's
-  list publishes prices; OCR calls are counted with the analysis model's price when a USD cap is in force. The model-list
-  call is an extra outbound request from the API process (not the worker), to the account's provider only. If APP_SECRET
-  changes, stored account keys must be entered again, as before.
+  separate OpenAI-compatible endpoint: OpenAI, Google and OpenRouter work directly. A USD cap exists only where a
+  provider's list publishes prices; OCR calls are counted with the analysis model's price when a USD cap is in force.
+  The model-list call is an extra outbound request from the API process (not the worker), to the account's provider
+  only. If APP_SECRET changes, stored account keys must be entered again, as before.
 tags:
   - ams
 last_updated: '2026-10-11'
@@ -1253,6 +1403,10 @@ related_decisions:
   - id: DEC-008
     name: Host-agnostic deployment on open standards
     url: /DECISIONS.md#DEC-008
+related_tasks:
+  - id: TASK-051
+    name: 'Settings -> AI redesigned: saved accounts, one model per role, fetched model lists, a single cap, reading settings'
+    url: /TASKS.md#TASK-051
 ---
 
 ---
@@ -1261,15 +1415,16 @@ related_decisions:
 
 ---
 id: DEC-026
-title: 'Deleted items stay in a 30-day Trash; undo is offered for reversible actions'
+title: Deleted items stay in a 30-day Trash; undo is offered for reversible actions
 status: accepted
 context: >-
   Deleting was final. A requirement with sub-items could not be deleted until its children were deleted one by one (the
-  owner built an IQF from the template as a test and could not get rid of the standards), nothing could be taken back, and
-  deletes were confirmed with the browser's own window.confirm, which cannot be styled, tested or read like the rest of the
-  app. Soft-delete columns on every table would touch every query and every unique index.
+  owner built an IQF from the template as a test and could not get rid of the standards), nothing could be taken back,
+  and deletes were confirmed with the browser's own window.confirm, which cannot be styled, tested or read like the rest
+  of the app. Soft-delete columns on every table would touch every query and every unique index.
 decision: >-
-  1. Snapshot, not soft delete. A delete writes a trash_item row (tenant RLS; kind, label, context, payload jsonb, counts,
+  1. Snapshot, not soft delete. A delete writes a trash_item row (tenant RLS; kind, label, context, payload jsonb,
+  counts,
      deleted_by, deleted_at, expires_at, restored_at, group_id) holding the rows of the whole deleted subtree with their
      dependents exactly as stored, and deletes the rows, in ONE transaction through the normal five-step chain. No
      deleted_at column anywhere; no query changes. Rows keep their ids on restore. Items deleted by one action share a
@@ -1278,7 +1433,8 @@ decision: >-
      job type purge_trash, in the general worker queue group, deletes expired rows and the stored files they name, tenant
      by tenant, as a system actor with the worker role. The worker role may delete only expired trash_item rows of its
      tenant; it learns which tenants have expired rows from one narrow SECURITY DEFINER function.
-  3. Deleting with children. Deleting a requirement deletes its subtree, notes and the links to other standards that name
+  3. Deleting with children. Deleting a requirement deletes its subtree, notes and the links to other standards that
+  name
      a code that goes with it, with the counts in the confirm question. deleteMany (a list of ids, one transaction, one
      group; an id inside another selected id's subtree counts once) serves one, a subtree and multi-select;
      deleteAllRequirements(versionId) empties a draft; deleteVersion and deleteFramework delete a draft or in-review
@@ -1294,24 +1450,25 @@ decision: >-
      group and move the children and notes back) and split (unsplit). The client shows a toast (role=status, 9 s, Undo
      button, stacking) and Ctrl/Cmd+Z for the latest action of the current screen when focus is not in a text field
      (20 per screen). A refused undo shows the server's reason.
-  6. In-app confirmation everywhere. useConfirm() opens a Dialog (focus moves in, is trapped and returns; Escape cancels;
+  6. In-app confirmation everywhere. useConfirm() opens a Dialog (focus moves in, is trapped and returns; Escape
+  cancels;
      danger tone; full screen on phones). window.confirm, alert and prompt are forbidden in apps/web by lint.
   7. Not covered, on purpose: audit events, published or retired versions, official status history and snapshots,
      evidence items and files and datasets (no delete path), engagements, credentials (AI accounts), access grants.
      docs/trash.md has the full inventory.
 rationale: >-
   Deleting a branch of a framework is routine editing; making it safe (30 days, one click to undo) removes the need to
-  empty a subtree by hand and the fear of a wrong click. A snapshot keeps the live tables and their constraints exactly as
-  they are, so the immutability triggers, unique indexes and queries are untouched, and an audit trail still shows the
-  delete and the restore under the person's name.
+  empty a subtree by hand and the fear of a wrong click. A snapshot keeps the live tables and their constraints exactly
+  as they are, so the immutability triggers, unique indexes and queries are untouched, and an audit trail still shows
+  the delete and the restore under the person's name.
 consequences: >-
-  Adds migration 0046 (trash_item, its policies, the worker purge grant, three narrow SQL functions, a trigger that clears
-  a dismissal when an AI row is inserted by a person) and the job type purge_trash (compose WORKER_QUEUES for the worker
-  service includes it). A very large version is one jsonb payload. A link between standards is deleted with the last
-  requirement that bears its code, which changes the earlier behaviour (it was left dangling). Evidence links and requests
-  keyed by an IQF item's code stay where they are. ObjectStore gains delete(key), used only by the Trash. Editing a
-  requirement no longer resets its language, assessability and position to the defaults (the update schema had applied the
-  create schema's defaults).
+  Adds migration 0046 (trash_item, its policies, the worker purge grant, three narrow SQL functions, a trigger that
+  clears a dismissal when an AI row is inserted by a person) and the job type purge_trash (compose WORKER_QUEUES for the
+  worker service includes it). A very large version is one jsonb payload. A link between standards is deleted with the
+  last requirement that bears its code, which changes the earlier behaviour (it was left dangling). Evidence links and
+  requests keyed by an IQF item's code stay where they are. ObjectStore gains delete(key), used only by the Trash.
+  Editing a requirement no longer resets its language, assessability and position to the defaults (the update schema had
+  applied the create schema's defaults).
 tags:
   - ams
 last_updated: '2026-10-12'
@@ -1326,8 +1483,18 @@ related_decisions:
     name: External standards drafted by analysis are gated by publishing, not by per-line approval
     url: /DECISIONS.md#DEC-022
   - id: DEC-024
-    name: Background work runs as three services from one codebase: worker, parser, agent
+    name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
+related_tasks:
+  - id: TASK-062
+    name: Trash, Undo and the in-app confirmation dialog
+    url: /TASKS.md#TASK-062
+  - id: TASK-063
+    name: Multi-select, bulk delete and drag and drop in the requirement trees
+    url: /TASKS.md#TASK-063
+  - id: TASK-065
+    name: Redo in the undo system
+    url: /TASKS.md#TASK-065
 ---
 
 ---
@@ -1336,13 +1503,13 @@ related_decisions:
 
 ---
 id: DEC-027
-title: 'The in-app assistant is a companion that inherits the user''s privileges, edits only drafts, and keeps scoped memory'
+title: The in-app assistant is a companion that inherits the user's privileges, edits only drafts, and keeps scoped memory
 status: accepted
 context: >-
   The owner wants an AI-native assistant inside the app, a bubble opening a panel, able to run bulk edits (for example
   moving every indicator's statement into its title). AI proposes and humans publish (DEC-006); framework text may go to
   the model (DEC-021); AI runs only in the worker (DEC-024).
-decision: >-
+decision: |-
   1. The assistant acts as the signed-in person with exactly that person's permissions; it can do nothing they cannot do
      by hand. 2. Its model is the analysis model by default (an Assistant role in Settings -> AI -> Models). 3. It edits
      only drafts (it may create one); it never publishes, approves or touches a published version. There is no preview
@@ -1354,11 +1521,14 @@ decision: >-
      scoped to the institution, a standard, a version or an engagement); it inherits the user's privileges because it is
      read through the same authorization as the screens; it is written only with the person's confirmation and never
      from text found in documents. 6. Evidence content is out of scope for the assistant.
-rationale: The owner decided; it keeps AI proposing and people deciding, and makes access rules the single source of who sees what.
+rationale: >-
+  The owner decided; it keeps AI proposing and people deciding, and makes access rules the single source of who sees
+  what.
 consequences: >-
-  Redo is added to the undo system (today Undo only). New tables (assistant_conversation, assistant_message, memory_item, one-time confirmation tokens) with tenant RLS; an `assistant` job type in the
-  agent queue group; a Settings role and a memory page. Meaning-based memory retrieval needs an amendment to DEC-023
-  (embeddings are limited to framework text). Plan: docs/assistant-plan.md, TASK-064.
+  Redo is added to the undo system (today Undo only). New tables (assistant_conversation, assistant_message,
+  memory_item, one-time confirmation tokens) with tenant RLS; an `assistant` job type in the agent queue group; a
+  Settings role and a memory page. Meaning-based memory retrieval needs an amendment to DEC-023 (embeddings are limited
+  to framework text). Plan: docs/assistant-plan.md, TASK-064.
 tags:
   - ams
 last_updated: '2026-10-12'
@@ -1372,6 +1542,22 @@ related_decisions:
   - id: DEC-024
     name: 'Background work runs as three services from one codebase: worker, parser, agent'
     url: /DECISIONS.md#DEC-024
+related_tasks:
+  - id: TASK-064
+    name: In-app assistant for bulk edits (plan)
+    url: /TASKS.md#TASK-064
+  - id: TASK-065
+    name: Redo in the undo system
+    url: /TASKS.md#TASK-065
+  - id: TASK-066
+    name: In-app assistant, phase 1 (plumbing, conversations, memory, read-only answers)
+    url: /TASKS.md#TASK-066
+  - id: TASK-067
+    name: 'Assistant phase 2: bulk edits confirmed in the chat'
+    url: /TASKS.md#TASK-067
+  - id: TASK-068
+    name: 'Assistant follow-ups: memory merging, meaning-based memory search, report chip'
+    url: /TASKS.md#TASK-068
 ---
 
 ---
@@ -1380,23 +1566,26 @@ related_decisions:
 
 ---
 id: DEC-028
-title: 'Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab'
+title: >-
+  Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language;
+  org-chart images may go to the vision model; every AI-import place gets a Docs tab
 status: accepted
 context: >-
-  The owner wants a secondary language alongside English, an org chart built visually, from an image and from a directory,
-  Programs under Organization, and a shared way to upload a document and have the AI fill drafts wherever that applies.
+  The owner wants a secondary language alongside English, an org chart built visually, from an image and from a
+  directory, Programs under Organization, and a shared way to upload a document and have the AI fill drafts wherever
+  that applies.
 decision: >-
   1. Settings -> Organization has two tabs: Institution (details, logo, Languages, Org chart) and Programs. 2. The
   institution has one secondary language at a time; the primary language is always English. 3. Translations are stored
   beside the English, never over it, marked as AI translation until a person reviews them; translations of external
   standards are shown beside the original with the label "Translation, not the official wording"; the accreditor's words
-  stay the official text. 4. The interface language is chosen per person, defaulting to the institution's setting.
-  5. Images of org charts, and the names on them, may be sent to the AI vision model (an addition to DEC-021, which
-  covered standards text). 6. Wherever the AI reads uploaded documents and fills drafts, that place has a Docs tab
-  listing its uploads with who uploaded them and when, and there is a general Documents area; AI output is always a
-  proposal reviewed by a person (DEC-006); evidence is never part of this and is never sent to the AI. 7. Directory
-  sync is a read-only connector (LDAP first, behind a connector interface, no vendor SDKs); which directory is used is to
-  be confirmed with the institution's IT.
+  stay the official text. 4. The interface language is chosen per person, defaulting to the institution's setting. 5.
+  Images of org charts, and the names on them, may be sent to the AI vision model (an addition to DEC-021, which covered
+  standards text). 6. Wherever the AI reads uploaded documents and fills drafts, that place has a Docs tab listing its
+  uploads with who uploaded them and when, and there is a general Documents area; AI output is always a proposal
+  reviewed by a person (DEC-006); evidence is never part of this and is never sent to the AI. 7. Directory sync is a
+  read-only connector (LDAP first, behind a connector interface, no vendor SDKs); which directory is used is to be
+  confirmed with the institution's IT.
 rationale: The owner decided; one pattern for document import avoids a separate upload and review flow in every place.
 consequences: >-
   New tables: import_document, import_run and proposals, content_translation, ui_translation; an `import` job in the
@@ -1412,49 +1601,80 @@ related_decisions:
   - id: DEC-006
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
+related_tasks:
+  - id: TASK-069
+    name: 'Organization screen: Institution and Programs tabs, institution logo, read-only Settings'
+    url: /TASKS.md#TASK-069
+  - id: TASK-070
+    name: 'Languages: secondary language, UI language and content switchers'
+    url: /TASKS.md#TASK-070
+  - id: TASK-071
+    name: Translate the IQF and the standards into the secondary language
+    url: /TASKS.md#TASK-071
+  - id: TASK-072
+    name: 'Org chart: visual builder (tree and chart view)'
+    url: /TASKS.md#TASK-072
+  - id: TASK-073
+    name: Org chart from an uploaded image
+    url: /TASKS.md#TASK-073
+  - id: TASK-074
+    name: 'Org chart: directory sync (LDAP first, QuickLaunch and Active Directory to be confirmed)'
+    url: /TASKS.md#TASK-074
+  - id: TASK-075
+    name: 'Documents and AI import foundation: registry, Docs tab, Documents area'
+    url: /TASKS.md#TASK-075
+  - id: TASK-076
+    name: 'Programs from documents: upload, AI parse, drafts'
+    url: /TASKS.md#TASK-076
+  - id: TASK-077
+    name: 'Quality Management: cycles and reporting (design)'
+    url: /TASKS.md#TASK-077
+---
+
 ---
 
 ## DEC-029 — Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs
 
 ---
 id: DEC-029
-title: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+title: >-
+  Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage
+  outputs or inputs
 status: accepted
 context: >-
   The owner added a Quality Management menu item above Accreditations (formerly Engagements) to operationalise the IQF,
-  and asked for careful thought on how cycles are defined: at the level of the whole IQF, a standard or sub-standard, and
-  evidence collection, and the same for external standards.
+  and asked for careful thought on how cycles are defined: at the level of the whole IQF, a standard or sub-standard,
+  and evidence collection, and the same for external standards.
 decision: >-
   1. Quality Management runs the IQF through cycles; TASK-077 covers cycles and reporting only. 2. A cycle is made of
   ordered stages and has a status; each stage has inputs -> process -> outputs, an owner, a start date and an end date.
   3. A report is an output of a stage or an input to one (including the previous cycle's report); a review is a stage
-  whose output is an approval, so there is no separate review engine. 4. Every cycle and every stage has a responsible unit
-  (org chart) and an owner (a person), given in the template as rules and resolved when the cycle is launched. 5. Cycle templates live in Settings, with
-  defaults (annual program report, periodic program review, admin unit review, internal audit, custom); report
-  templates are shared with Accreditations. 6. The design is additive: new tables, nothing in engagements changes. 7.
-  Deferred, each its own task if wanted: KPIs, outcome assessment, the shared action register and AI help. 8. Internal approval is never "met" or
-  "compliant" (DEC-005).
-  9. A cycle can be built at any level: it has one anchor (institution, unit, program, IQF or external standard at any
-  depth, requirement, evidence item, engagement) and optionally a subject; it can be started from the ⋯ menu of almost
-  anything, with the templates that fit that anchor. 10. Cycles are AI-aware: the assistant reads them and may propose a
-  cycle as a change a person confirms (DEC-006, DEC-027). 11. Cycles recur (every term, year or N years, or when the
-  previous one ends) and nest (a stage runs a child cycle, e.g. maintenance runs a yearly annual report); re-accreditation
-  is the next run. 12. A cycle plan attaches a template and recurrence to an anchor; IQF nodes inherit their nearest
-  ancestor's plan, external requirements mapped to the IQF follow the IQF's plan by default, and any level can
-  override or opt out. 13. Cycles anchored to an accreditation are managed in Accreditations, all others in Quality
-  Management; one engine. Accreditor cycles (ABET, WSCUC, ISO) are templates, never code (DEC-002).
-  14. The ⋯ menu of an IQF node is Link evidence, Assign scope, Assign champion,
-  Create cycle; it lives on the IQF tree in Quality Management (operations, not settings); evidence is requested through
-  cycles. 15. Scope is a level (Institution, Unit, Program, Course, from a list in Settings -> Organization; Course a
-  placeholder for now) plus an optional list; champions are overall plus optional per scoped item; both cascade
-  top-down with overrides, and external requirements inherit them through mappings with optional overrides; external standards get the same
-  menu on their tree in Accreditations.
+  whose output is an approval, so there is no separate review engine. 4. Every cycle and every stage has a responsible
+  unit (org chart) and an owner (a person), given in the template as rules and resolved when the cycle is launched. 5.
+  Cycle templates live in Settings, with defaults (annual program report, periodic program review, admin unit review,
+  internal audit, custom); report templates are shared with Accreditations. 6. The design is additive: new tables,
+  nothing in engagements changes. 7. Deferred, each its own task if wanted: KPIs, outcome assessment, the shared action
+  register and AI help. 8. Internal approval is never "met" or "compliant" (DEC-005). 9. A cycle can be built at any
+  level: it has one anchor (institution, unit, program, IQF or external standard at any depth, requirement, evidence
+  item, engagement) and optionally a subject; it can be started from the ⋯ menu of almost anything, with the templates
+  that fit that anchor. 10. Cycles are AI-aware: the assistant reads them and may propose a cycle as a change a person
+  confirms (DEC-006, DEC-027). 11. Cycles recur (every term, year or N years, or when the previous one ends) and nest (a
+  stage runs a child cycle, e.g. maintenance runs a yearly annual report); re-accreditation is the next run. 12. A cycle
+  plan attaches a template and recurrence to an anchor; IQF nodes inherit their nearest ancestor's plan, external
+  requirements mapped to the IQF follow the IQF's plan by default, and any level can override or opt out. 13. Cycles
+  anchored to an accreditation are managed in Accreditations, all others in Quality Management; one engine. Accreditor
+  cycles (ABET, WSCUC, ISO) are templates, never code (DEC-002). 14. The ⋯ menu of an IQF node is Link evidence, Assign
+  scope, Assign champion, Create cycle; it lives on the IQF tree in Quality Management (operations, not settings);
+  evidence is requested through cycles. 15. Scope is a level (Institution, Unit, Program, Course, from a list in
+  Settings -> Organization; Course a placeholder for now) plus an optional list; champions are overall plus optional per
+  scoped item; both cascade top-down with overrides, and external requirements inherit them through mappings with
+  optional overrides; external standards get the same menu on their tree in Accreditations.
 rationale: >-
-  The owner asked for a simple, additive model that can describe any cycle and any report: stages with inputs,
-  process and outputs cover review chains, reports and continuity between cycles without separate engines.
+  The owner asked for a simple, additive model that can describe any cycle and any report: stages with inputs, process
+  and outputs cover review chains, reports and continuity between cycles without separate engines.
 consequences: >-
-  New tables cycle_template, cycle, cycle_stage, cycle_output, cycle_input; a Settings section for cycle templates;
-  the Quality Management list, cycle page and My work. Plan: docs/quality-management-plan.md, TASK-077.
+  New tables cycle_template, cycle, cycle_stage, cycle_output, cycle_input; a Settings section for cycle templates; the
+  Quality Management list, cycle page and My work. Plan: docs/quality-management-plan.md, TASK-077.
 tags:
   - ams
 last_updated: '2026-10-15'
@@ -1466,81 +1686,139 @@ related_decisions:
     name: Authority classification with deterministic quote verification; AI proposes, humans publish
     url: /DECISIONS.md#DEC-006
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
   - id: DEC-030
-    name: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+    name: >-
+      Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+      first, accreditation and Quality Assurance / report cycles later
     url: /DECISIONS.md#DEC-030
+related_roadmap_items:
+  - id: ROADMAP-013
+    name: 'Quality Management: cycles and reporting'
+    url: /ROADMAP.md#ROADMAP-013
+related_tasks:
+  - id: TASK-077
+    name: 'Quality Management: cycles and reporting (design)'
+    url: /TASKS.md#TASK-077
+  - id: TASK-078
+    name: 'Cycles: schema, permissions and core services'
+    url: /TASKS.md#TASK-078
+  - id: TASK-079
+    name: 'Cycle templates: Settings section, editor and shipped defaults'
+    url: /TASKS.md#TASK-079
+  - id: TASK-080
+    name: 'Quality Management screens: cycles list, new cycle, cycle page, My work'
+    url: /TASKS.md#TASK-080
+  - id: TASK-081
+    name: Cycle recurrence, academic terms and plans with inheritance
+    url: /TASKS.md#TASK-081
+  - id: TASK-082
+    name: Nested cycles and cycles in Accreditations
+    url: /TASKS.md#TASK-082
+  - id: TASK-083
+    name: Start a cycle from the ⋯ menu, and Cycles panels
+    url: /TASKS.md#TASK-083
+  - id: TASK-084
+    name: Assistant and cycles
+    url: /TASKS.md#TASK-084
+  - id: TASK-085
+    name: Report outputs in cycles (shared report engine)
+    url: /TASKS.md#TASK-085
+  - id: TASK-086
+    name: 'IQF in operation: Link evidence, Assign scope, Assign champion, Create cycle'
+    url: /TASKS.md#TASK-086
+  - id: TASK-087
+    name: 'Simplify cycles: evidence collection, one owner'
+    url: /TASKS.md#TASK-087
+---
+
 ---
 
 ## DEC-030 — Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later
 
 ---
 id: DEC-030
-title: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+title: >-
+  Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+  first, accreditation and Quality Assurance / report cycles later
 status: accepted
 context: >-
-  After the cycle screens (TASK-080), plans (TASK-081) and the standards menu (TASK-086) were built, the owner found the cycle
-  model too confusing to use: a cycle could be about a standard, a requirement, a unit, a program or the institution, had a
-  subject, a lead, a responsible unit and a unit and an owner per stage, and a plan could be set on any standard and inherited
-  down the tree and through mappings. The owner decided on 2026-10-20 to simplify before more is built on it.
+  After the cycle screens (TASK-080), plans (TASK-081) and the standards menu (TASK-086) were built, the owner found the
+  cycle model too confusing to use: a cycle could be about a standard, a requirement, a unit, a program or the
+  institution, had a subject, a lead, a responsible unit and a unit and an owner per stage, and a plan could be set on
+  any standard and inherited down the tree and through mappings. The owner decided on 2026-10-20 to simplify before more
+  is built on it.
 decision: >-
   1. Cycles are NOT linked to requirements, standards or sub-standards, in the institution's framework or in an external
   one. The service refuses a NEW cycle or plan anchored on a requirement or a standard version (`requirement`,
-  `framework_version`, plan kinds `requirement` and `framework`); cycles and plans that already exist stay readable (and a
-  plan that exists can still be changed or removed). Scope and champion stay on standards as plain facts, and Link evidence
-  and Map to IQF stay. The ⋯ menu of a standard is Link evidence, Assign scope, Assign champion (no Create cycle, no Set
-  cycle plan…), and the hover cards show scope and champion only. 2. A cycle attaches to: (a) an evidence item, an
-  evidence collection cycle or plan: built now; (b) an accreditation (an engagement): the anchor kind stays reserved, built
-  later in TASK-082, not offered yet; (c) Quality Assurance / report cycles on a unit, program or the institution: out of
-  scope for now. For (c) the engine, the data, the services and the API keep working (a unit, program or institution cycle or
-  plan can still be created through the API, and existing ones are listed), but no screen offers them and templates made only
-  for them are labelled "for Quality Assurance / report cycles (coming)" in Settings and are not offered when starting a
-  cycle; they will be taken up separately. 3. A cycle has ONE point of responsibility: a single owner (a person; the
-  `lead_user_id` column). It cascades to every stage by default (the template rule "Cycle owner") and can be overridden per
-  stage on the cycle page; changing the cycle's owner moves the stages that follow it and leaves those with an owner of their
-  own. The screens show "Owner" only: "Lead" and "Responsible unit" are gone from the cycle header, the launch dialog, the
-  list and its filters. The responsible unit column stays (it carries the permission check) and is DERIVED, never asked:
-  the evidence item's owner unit, else a unit the owner heads, else a unit the owner holds a role in (by name), else the
-  institution's top unit. 4. Template owner rules in the editor are "Cycle owner" (the default), a named role, or "Head of
-  the evidence's owner unit" (new rule `head_of_evidence_unit`); the older rules (head of the unit, head of the unit above)
-  keep working when a template holds them, and the editor no longer edits a stage's unit rule. The launch dialog asks four
-  things (template, evidence item, owner, start date) and shows only what the rules could not settle ("Choose an owner for
-  stage X"). 5. Evidence collection: on an evidence item's card, a Cycle section shows its plan, the next due date, the
-  open cycle and the past ones, with "Collect this regularly" (template, repeat, first due date, owner; the evidence item's
-  owner is the default), "Start a cycle now" and "Stop repeating" (removed when it never made a cycle, switched off when it
-  did). A plan on an evidence item that names no one to narrow it is about the item itself (one run per period). When a run
+  `framework_version`, plan kinds `requirement` and `framework`); cycles and plans that already exist stay readable (and
+  a plan that exists can still be changed or removed). Scope and champion stay on standards as plain facts, and Link
+  evidence and Map to IQF stay. The ⋯ menu of a standard is Link evidence, Assign scope, Assign champion (no Create
+  cycle, no Set cycle plan…), and the hover cards show scope and champion only. 2. A cycle attaches to: (a) an evidence
+  item, an evidence collection cycle or plan: built now; (b) an accreditation (an engagement): the anchor kind stays
+  reserved, built later in TASK-082, not offered yet; (c) Quality Assurance / report cycles on a unit, program or the
+  institution: out of scope for now. For (c) the engine, the data, the services and the API keep working (a unit,
+  program or institution cycle or plan can still be created through the API, and existing ones are listed), but no
+  screen offers them and templates made only for them are labelled "for Quality Assurance / report cycles (coming)" in
+  Settings and are not offered when starting a cycle; they will be taken up separately. 3. A cycle has ONE point of
+  responsibility: a single owner (a person; the `lead_user_id` column). It cascades to every stage by default (the
+  template rule "Cycle owner") and can be overridden per stage on the cycle page; changing the cycle's owner moves the
+  stages that follow it and leaves those with an owner of their own. The screens show "Owner" only: "Lead" and
+  "Responsible unit" are gone from the cycle header, the launch dialog, the list and its filters. The responsible unit
+  column stays (it carries the permission check) and is DERIVED, never asked: the evidence item's owner unit, else a
+  unit the owner heads, else a unit the owner holds a role in (by name), else the institution's top unit. 4. Template
+  owner rules in the editor are "Cycle owner" (the default), a named role, or "Head of the evidence's owner unit" (new
+  rule `head_of_evidence_unit`); the older rules (head of the unit, head of the unit above) keep working when a template
+  holds them, and the editor no longer edits a stage's unit rule. The launch dialog asks four things (template, evidence
+  item, owner, start date) and shows only what the rules could not settle ("Choose an owner for stage X"). 5. Evidence
+  collection: on an evidence item's card, a Cycle section shows its plan, the next due date, the open cycle and the past
+  ones, with "Collect this regularly" (template, repeat, first due date, owner; the evidence item's owner is the
+  default), "Start a cycle now" and "Stop repeating" (removed when it never made a cycle, switched off when it did). A
+  plan on an evidence item that names no one to narrow it is about the item itself (one run per period). When a run
   falls due it is in Cycles, Due to launch and, for the plan's owner, in My work with a Start; the owner may launch and
-  start a run of their own plan without cycle:manage. A shipped template "Evidence collection" (Collect, then Review by a named
-  approver, internally approved) is installed by "Add the default templates" and restored by "Restore missing defaults"; in
-  Collect, a new version added to THAT evidence item while the stage is in progress writes and finalizes the stage's output
-  (completing the stage stays with the owner). 6. This changes parts of DEC-029: items 4 (units and owners per cycle and stage),
-  9 (a cycle at any level, started from the ⋯ menu of almost anything), 12 (plans inherited down the IQF and through
-  mappings) and 14 (the ⋯ menu of an IQF node includes Create cycle); the rest of DEC-029 (stages with inputs, process and
-  outputs, reports as outputs, "Internally approved", AI proposes and humans confirm) stands.
+  start a run of their own plan without cycle:manage. A shipped template "Evidence collection" (Collect, then Review by
+  a named approver, internally approved) is installed by "Add the default templates" and restored by "Restore missing
+  defaults"; in Collect, a new version added to THAT evidence item while the stage is in progress writes and finalizes
+  the stage's output (completing the stage stays with the owner). 6. This changes parts of DEC-029: items 4 (units and
+  owners per cycle and stage), 9 (a cycle at any level, started from the ⋯ menu of almost anything), 12 (plans inherited
+  down the IQF and through mappings) and 14 (the ⋯ menu of an IQF node includes Create cycle); the rest of DEC-029
+  (stages with inputs, process and outputs, reports as outputs, "Internally approved", AI proposes and humans confirm)
+  stands.
 rationale: >-
   The owner asked for one clear thing first: a person responsible for collecting a piece of evidence regularly, with a
   reviewer. Standards need no cycles of their own: they are served by the evidence linked to them. One owner removes the
-  question of who a cycle belongs to; a unit that is derived removes a question nobody could answer for an evidence item.
-  Keeping the engine and its data, and only changing what is offered and what is refused for new work, keeps the way open
-  for accreditation cycles (TASK-082) and Quality Assurance / report cycles without a migration.
+  question of who a cycle belongs to; a unit that is derived removes a question nobody could answer for an evidence
+  item. Keeping the engine and its data, and only changing what is offered and what is refused for new work, keeps the
+  way open for accreditation cycles (TASK-082) and Quality Assurance / report cycles without a migration.
 consequences: >-
   No migration: the unit and owner columns stay, and the new rule is data in the template. New: the Cycle section of an
   evidence item, a simpler launch dialog and plan dialog, an owner cascade, My work lists due runs, Evidence collection
   template. Removed: Create cycle and Set cycle plan… on standards, the plan line of the hover cards, the unit and
   program pickers of the cycle screens, the standard-anchored plan dialog. TASK-083 (start a cycle from the ⋯ menu of
-  anything) is cancelled by TASK-087. Plan: docs/quality-management-plan.md ("Simplified 2026-10-20"). Items 2(a) and 5 (evidence
-  collection as a cycle) were changed the same day by DEC-031: collecting is a schedule and a method on the evidence item.
+  anything) is cancelled by TASK-087. Plan: docs/quality-management-plan.md ("Simplified 2026-10-20"). Items 2(a) and 5
+  (evidence collection as a cycle) were changed the same day by DEC-031: collecting is a schedule and a method on the
+  evidence item.
 tags:
   - ams
 last_updated: '2026-10-20'
 related_tasks:
+  - id: TASK-083
+    name: Start a cycle from the ⋯ menu, and Cycles panels
+    url: /TASKS.md#TASK-083
   - id: TASK-087
     name: 'Simplify cycles: evidence collection, one owner'
     url: /TASKS.md#TASK-087
+  - id: TASK-089
+    name: 'Evidence schema: definition, dataset, collection method, schedule'
+    url: /TASKS.md#TASK-089
 related_decisions:
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
   - id: DEC-002
     name: Accreditor frameworks are versioned configuration; no accreditor-specific code
@@ -1549,64 +1827,73 @@ related_decisions:
     name: Official accreditation status is separate from internal readiness; no compliance scores
     url: /DECISIONS.md#DEC-005
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
+---
+
 ---
 
 ## DEC-031 — An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are
 
 ---
 id: DEC-031
-title: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+title: >-
+  An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+  schedule; collecting is not a staged cycle, reports are
 status: accepted
 context: >-
-  The evidence item was loosely defined (a title, a free "description", a type of document or "data"), and TASK-087 made the way
-  to collect it regularly a cycle: a template, a plan, a cycle with stages Collect and Review, launched by a person. The owner
-  decided on 2026-10-20 that this is too heavy for what the BI team needs, which is a precise definition of what to supply, how
-  it is collected and when. The BI builds against this schema (docs/ams-bi-contract-v0.md, sections 3 and 4), so it is fixed
-  before more is built on it.
+  The evidence item was loosely defined (a title, a free "description", a type of document or "data"), and TASK-087 made
+  the way to collect it regularly a cycle: a template, a plan, a cycle with stages Collect and Review, launched by a
+  person. The owner decided on 2026-10-20 that this is too heavy for what the BI team needs, which is a precise
+  definition of what to supply, how it is collected and when. The BI builds against this schema
+  (docs/ams-bi-contract-v0.md, sections 3 and 4), so it is fixed before more is built on it.
 decision: >-
-  1. An evidence item has a title, a type, a definition, an owner, a confidentiality, tags and a status. "Description" goes away
-  everywhere (column, API, screens, exports, tests): it is the definition. The type is document or dataset (the old "data" is
-  renamed dataset in the database, the API, the screens and the contract). A dataset keeps its columns and grain (the dataset
-  specification); the definition that used to sit on that specification is merged into the item's: copied when the item has
-  none, appended after a blank line when both have text and differ, and the old column is dropped. 2. An item has ONE collection
-  method: manual (the owner uploads a file, registers a link or types the data), form (the dataset's online form and
-  spreadsheet template, unchanged), request (ask a named person of the AMS or an email address, the existing evidence
-  requests), bi (the BI supplies it) or survey (reserved: shown as "coming", not selectable, but accepted by the enum). Each
-  method has its own settings, checked by Zod and by the database: manual takes instructions and an expected format; form takes
-  none and needs a dataset; request takes exactly one of a person or an email address, and a note; bi takes an endpoint NAME
-  (resolved from the server's environment, never an address typed by a person), a structured query (a metric, dimensions and
-  filters, as data, never SQL), a period grain and a timeout, and may be a document or a dataset (a dataset is recommended).
-  3. An item may have a schedule: every day, week, month, quarter, semester or year, from a start date, due so many days after
-  each period starts, in a time zone. No schedule is allowed. A semester is a term of the academic calendar (TASK-081); a period
-  the calendar does not define is flagged and never guessed. Dates are calendar arithmetic in the schedule's time zone and
-  are placed at the local midnight that begins them, so daylight saving never moves them. The services keep the next due time and
-  the last run time on the item. 4. Collecting evidence is a schedule plus a method on the item, not a staged cycle. Cycles
-  are for reports and Quality Assurance (coming) and, later, accreditation: the evidence item is no longer offered as the
-  anchor of a cycle or a plan (the evidence card has no Cycle section, the Cycles tab has no New cycle, the Plans tab has no New
-  plan); the shipped "Evidence collection" template stays defined but is not offered and is labelled "coming" in Settings; the
-  cycle engine, its data and its API are untouched, and existing cycles and plans stay listed and usable. This changes the
-  evidence part of DEC-030 (items 2a and 5); the rest of DEC-030 stands. 5. Nothing runs yet. A job that fires the schedule,
-  makes a run for each period (pending, requested, supplied, late, failed or skipped) and, by method, sends the BI request,
-  sends the request, opens the form or creates the owner's task is TASK-090; so is the one-time token for the BI's callback.
+  1. An evidence item has a title, a type, a definition, an owner, a confidentiality, tags and a status. "Description"
+  goes away everywhere (column, API, screens, exports, tests): it is the definition. The type is document or dataset
+  (the old "data" is renamed dataset in the database, the API, the screens and the contract). A dataset keeps its
+  columns and grain (the dataset specification); the definition that used to sit on that specification is merged into
+  the item's: copied when the item has none, appended after a blank line when both have text and differ, and the old
+  column is dropped. 2. An item has ONE collection method: manual (the owner uploads a file, registers a link or types
+  the data), form (the dataset's online form and spreadsheet template, unchanged), request (ask a named person of the
+  AMS or an email address, the existing evidence requests), bi (the BI supplies it) or survey (reserved: shown as
+  "coming", not selectable, but accepted by the enum). Each method has its own settings, checked by Zod and by the
+  database: manual takes instructions and an expected format; form takes none and needs a dataset; request takes exactly
+  one of a person or an email address, and a note; bi takes an endpoint NAME (resolved from the server's environment,
+  never an address typed by a person), a structured query (a metric, dimensions and filters, as data, never SQL), a
+  period grain and a timeout, and may be a document or a dataset (a dataset is recommended). 3. An item may have a
+  schedule: every day, week, month, quarter, semester or year, from a start date, due so many days after each period
+  starts, in a time zone. No schedule is allowed. A semester is a term of the academic calendar (TASK-081); a period the
+  calendar does not define is flagged and never guessed. Dates are calendar arithmetic in the schedule's time zone and
+  are placed at the local midnight that begins them, so daylight saving never moves them. The services keep the next due
+  time and the last run time on the item. 4. Collecting evidence is a schedule plus a method on the item, not a staged
+  cycle. Cycles are for reports and Quality Assurance (coming) and, later, accreditation: the evidence item is no longer
+  offered as the anchor of a cycle or a plan (the evidence card has no Cycle section, the Cycles tab has no New cycle,
+  the Plans tab has no New plan); the shipped "Evidence collection" template stays defined but is not offered and is
+  labelled "coming" in Settings; the cycle engine, its data and its API are untouched, and existing cycles and plans
+  stay listed and usable. This changes the evidence part of DEC-030 (items 2a and 5); the rest of DEC-030 stands. 5.
+  Nothing runs yet. A job that fires the schedule, makes a run for each period (pending, requested, supplied, late,
+  failed or skipped) and, by method, sends the BI request, sends the request, opens the form or creates the owner's task
+  is TASK-090; so is the one-time token for the BI's callback.
 rationale: >-
-  The BI team needs to know exactly what evidence to supply, in what form, how it is asked for and when; that is a property of
-  the evidence item, not of a workflow around it. One method per item keeps the question "how do we get this?" to one answer; a
-  schedule on the item answers "when?" without a plan, a template and a launch. Reports, which really are staged work with
-  inputs, outputs and approvals, keep the cycle engine. Keeping the dataset's columns where they were, and the form, the
-  requests and the BI adapter as they are, means nothing already built is thrown away.
+  The BI team needs to know exactly what evidence to supply, in what form, how it is asked for and when; that is a
+  property of the evidence item, not of a workflow around it. One method per item keeps the question "how do we get
+  this?" to one answer; a schedule on the item answers "when?" without a plan, a template and a launch. Reports, which
+  really are staged work with inputs, outputs and approvals, keep the cycle engine. Keeping the dataset's columns where
+  they were, and the form, the requests and the BI adapter as they are, means nothing already built is thrown away.
 consequences: >-
-  Migration 0064 (forward-only): description becomes definition, data becomes dataset in the rows and the checks, the dataset
-  definition is merged and its column dropped, the columns method (default manual), method_config, schedule, next_due_at and
-  last_run_at are added with checks, and a trigger keeps what an item names (owner, owner unit, the person a request goes to) inside
-  its institution. A dataset whose online form is in use (open, or with responses) becomes method form; every other row is manual
-  with no schedule. The two database rules that named the old type now say dataset. Row-level security, audit, stamping and the
-  worker's read-only grants are unchanged. The API takes and returns definition, method, methodConfig, schedule, nextDueAt and
-  lastRunAt, and refuses description and the old type. The semester next-due time is computed when the item is saved; if the
-  academic calendar changes later it is recomputed when the item is next saved, or by the scheduler (TASK-090). The dataset's
-  source kind and source configuration (manual upload or governed metric, PRD 9.4) are untouched and overlap with the bi method;
-  they are to be reconciled in TASK-090 or M9. Plan: docs/quality-management-plan.md (the note under "Simplified 2026-10-20").
+  Migration 0064 (forward-only): description becomes definition, data becomes dataset in the rows and the checks, the
+  dataset definition is merged and its column dropped, the columns method (default manual), method_config, schedule,
+  next_due_at and last_run_at are added with checks, and a trigger keeps what an item names (owner, owner unit, the
+  person a request goes to) inside its institution. A dataset whose online form is in use (open, or with responses)
+  becomes method form; every other row is manual with no schedule. The two database rules that named the old type now
+  say dataset. Row-level security, audit, stamping and the worker's read-only grants are unchanged. The API takes and
+  returns definition, method, methodConfig, schedule, nextDueAt and lastRunAt, and refuses description and the old type.
+  The semester next-due time is computed when the item is saved; if the academic calendar changes later it is recomputed
+  when the item is next saved, or by the scheduler (TASK-090). The dataset's source kind and source configuration
+  (manual upload or governed metric, PRD 9.4) are untouched and overlap with the bi method; they are to be reconciled in
+  TASK-090 or M9. Plan: docs/quality-management-plan.md (the note under "Simplified 2026-10-20").
 tags:
   - ams
 last_updated: '2026-10-20'
@@ -1619,77 +1906,98 @@ related_tasks:
     url: /TASKS.md#TASK-090
 related_decisions:
   - id: DEC-030
-    name: 'Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection first, accreditation and Quality Assurance / report cycles later'
+    name: >-
+      Quality Management is simplified: cycles are not linked to standards; a cycle has one owner; evidence collection
+      first, accreditation and Quality Assurance / report cycles later
     url: /DECISIONS.md#DEC-030
   - id: DEC-029
-    name: 'Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are stage outputs or inputs'
+    name: >-
+      Quality Management: a cycle is ordered stages, each with inputs, process, outputs, owner and dates; reports are
+      stage outputs or inputs
     url: /DECISIONS.md#DEC-029
   - id: DEC-019
     name: Evidence may be shared with a connected BI product whose AI may process it
     url: /DECISIONS.md#DEC-019
   - id: DEC-020
-    name: Data can be collected through forms, with an optional public link; responses join the data only when a person adds them
+    name: >-
+      Data can be collected through forms, with an optional public link; responses join the data only when a person adds
+      them
     url: /DECISIONS.md#DEC-020
   - id: DEC-032
-    name: 'Evidence collection runs: one run per period, carried out by the item''s method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times'
+    name: >-
+      Evidence collection runs: one run per period, carried out by the item's method; the AMS asks the BI and the BI
+      answers at once or by a one-time callback; a failed call is retried five times
     url: /DECISIONS.md#DEC-032
+related_roadmap_items:
+  - id: ROADMAP-013
+    name: 'Quality Management: cycles and reporting'
+    url: /ROADMAP.md#ROADMAP-013
+---
+
 ---
 
 ## DEC-032 — Evidence collection runs: one run per period, carried out by the item's method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times
 
 ---
 id: DEC-032
-title: 'Evidence collection runs: one run per period, carried out by the item''s method; the AMS asks the BI and the BI answers at once or by a one-time callback; a failed call is retried five times'
+title: >-
+  Evidence collection runs: one run per period, carried out by the item's method; the AMS asks the BI and the BI answers
+  at once or by a one-time callback; a failed call is retried five times
 status: accepted
 context: >-
-  DEC-031 gave every evidence item one collection method and a schedule, and left open what happens when a period begins:
-  how a run is made, how the BI is asked and how it answers, whether a failed call is tried again and how often, whether a late
-  run keeps asking, and what the background service may write. The BI team builds against docs/ams-bi-contract-v0.md, so the
-  shapes had to be fixed before the BI is built. TASK-090 builds it; these are the decisions it took, within the owner's brief.
+  DEC-031 gave every evidence item one collection method and a schedule, and left open what happens when a period
+  begins: how a run is made, how the BI is asked and how it answers, whether a failed call is tried again and how often,
+  whether a late run keeps asking, and what the background service may write. The BI team builds against
+  docs/ams-bi-contract-v0.md, so the shapes had to be fixed before the BI is built. TASK-090 builds it; these are the
+  decisions it took, within the owner's brief.
 decision: >-
-  1. A run is one period of an item's schedule, made once (the database allows one run per item and period, whatever a job's
-  retries). A tick job, collect_tick, runs every 15 minutes in the general worker service (a pg-boss schedule, no job row), works
-  each institution under a system identity with the worker's database role, makes the due runs, carries them out and marks late
-  the runs past their due time. The first tick of a schedule makes only the period that is current (a schedule that began years ago
-  never makes years of runs); after that every period that began since the last one; never before the start date; a semester the
-  academic calendar does not define makes nothing and the gap stays visible on the item. 2. By method: manual tells the owner
-  (in-app notice and My work) and is supplied by the owner's next new version of the item; form opens the dataset's online form
-  and is supplied when responses are added to the data; request sends an evidence request for the run (a file request for a
-  document, a form request for a dataset) and is supplied by its answer, which becomes a new version of the item itself; bi asks
-  the BI. A new version of an item, by a person, supplies its oldest open run whatever the method. Email is not sent yet (SMTP,
-  TASK-061): a request to an address without an account waits, and its owner is told to copy its link from the Requests tab.
-  3. The call to the BI: POST {BI_BASE_URL}/ams/collect (the path of an item's endpoint name, when it has one, comes from the
-  server's BI_ENDPOINTS, never from a person), bearer BI_API_KEY, https only (http to localhost outside production), with the run,
-  the evidence item (and a dataset's columns), the period, the structured query, the callback address and a per-run one-time
-  token. 200 with rows, a file or an address, asOf and lineage is the supply; 202 means the BI will call back; any other answer, an
-  error or a timeout fails the run. The callback, POST /api/bi/v0/runs/{id}/supply, has no session: its only credential is the
-  run's token (kept as a hash, compared in constant time, expiring after 14 days, cleared the moment the run is supplied, skipped
-  or failed), and a body that does not fit the item is refused with 422 and the issues. The BI's lineage is stored under
-  lineage.bi; the version's origin is bi. 4. Retry: a failed BI call is tried again by later ticks after 15 minutes, 1 hour, 4
-  hours and 12 hours, five attempts in all; then it stays failed and the owner is told once; a person can always retry or skip it.
-  A failure that is a setting (no BI configured, an endpoint name the server does not know, a dataset without columns) is not
-  retried by itself. A late run does not keep asking: its owner is told once, and it still takes a supply. 5. The worker may make
-  and move runs (status, attempts, the BI token, the error, the version), add only a version whose lineage names the BI, send only
-  the request of a run, open (never close) a form, tell people (the collection notices only), and keep an item's next due and
-  last run times; it cannot skip a run, answer or cancel a request, or change anything else. The scheduler does not see
-  restricted items, so it does not collect them. 6. The dataset's source configuration (manual upload or governed metric) and
-  the bi method stay as DEC-031 left them: the method says when and by whom, the configuration says what; the runs do not read the
-  configuration yet. 7. Not built: GET /api/bi/v0/runs?updatedSince= (contract section 5). The AMS asks the BI itself, so the BI
-  has nothing to poll for; it stays planned.
+  1. A run is one period of an item's schedule, made once (the database allows one run per item and period, whatever a
+  job's retries). A tick job, collect_tick, runs every 15 minutes in the general worker service (a pg-boss schedule, no
+  job row), works each institution under a system identity with the worker's database role, makes the due runs, carries
+  them out and marks late the runs past their due time. The first tick of a schedule makes only the period that is
+  current (a schedule that began years ago never makes years of runs); after that every period that began since the last
+  one; never before the start date; a semester the academic calendar does not define makes nothing and the gap stays
+  visible on the item. 2. By method: manual tells the owner (in-app notice and My work) and is supplied by the owner's
+  next new version of the item; form opens the dataset's online form and is supplied when responses are added to the
+  data; request sends an evidence request for the run (a file request for a document, a form request for a dataset) and
+  is supplied by its answer, which becomes a new version of the item itself; bi asks the BI. A new version of an item,
+  by a person, supplies its oldest open run whatever the method. Email is not sent yet (SMTP, TASK-061): a request to an
+  address without an account waits, and its owner is told to copy its link from the Requests tab. 3. The call to the BI:
+  POST {BI_BASE_URL}/ams/collect (the path of an item's endpoint name, when it has one, comes from the server's
+  BI_ENDPOINTS, never from a person), bearer BI_API_KEY, https only (http to localhost outside production), with the
+  run, the evidence item (and a dataset's columns), the period, the structured query, the callback address and a per-run
+  one-time token. 200 with rows, a file or an address, asOf and lineage is the supply; 202 means the BI will call back;
+  any other answer, an error or a timeout fails the run. The callback, POST /api/bi/v0/runs/{id}/supply, has no session:
+  its only credential is the run's token (kept as a hash, compared in constant time, expiring after 14 days, cleared the
+  moment the run is supplied, skipped or failed), and a body that does not fit the item is refused with 422 and the
+  issues. The BI's lineage is stored under lineage.bi; the version's origin is bi. 4. Retry: a failed BI call is tried
+  again by later ticks after 15 minutes, 1 hour, 4 hours and 12 hours, five attempts in all; then it stays failed and
+  the owner is told once; a person can always retry or skip it. A failure that is a setting (no BI configured, an
+  endpoint name the server does not know, a dataset without columns) is not retried by itself. A late run does not keep
+  asking: its owner is told once, and it still takes a supply. 5. The worker may make and move runs (status, attempts,
+  the BI token, the error, the version), add only a version whose lineage names the BI, send only the request of a run,
+  open (never close) a form, tell people (the collection notices only), and keep an item's next due and last run times;
+  it cannot skip a run, answer or cancel a request, or change anything else. The scheduler does not see restricted
+  items, so it does not collect them. 6. The dataset's source configuration (manual upload or governed metric) and the
+  bi method stay as DEC-031 left them: the method says when and by whom, the configuration says what; the runs do not
+  read the configuration yet. 7. Not built: GET /api/bi/v0/runs?updatedSince= (contract section 5). The AMS asks the BI
+  itself, so the BI has nothing to poll for; it stays planned.
 rationale: >-
-  Asking the BI from the AMS, with a token that lets it answer later, keeps the AMS in charge of what is asked and when, and
-  needs nothing from the BI but one route and one callback. A per-run token that is used once means a leaked callback address
-  or token can supply nothing else and nothing twice. Retrying with a growing delay rides out a BI that is down for an hour
-  without asking it every 15 minutes for a day; five attempts bound the noise and then a person decides. Settings errors are not
-  retried because retrying cannot fix them. Narrow grants, each backed by a trigger or a policy, keep the background service
-  from approving, publishing or skipping anything (DEC-006), and the version it adds can only be one the BI supplied.
+  Asking the BI from the AMS, with a token that lets it answer later, keeps the AMS in charge of what is asked and when,
+  and needs nothing from the BI but one route and one callback. A per-run token that is used once means a leaked
+  callback address or token can supply nothing else and nothing twice. Retrying with a growing delay rides out a BI that
+  is down for an hour without asking it every 15 minutes for a day; five attempts bound the noise and then a person
+  decides. Settings errors are not retried because retrying cannot fix them. Narrow grants, each backed by a trigger or
+  a policy, keep the background service from approving, publishing or skipping anything (DEC-006), and the version it
+  adds can only be one the BI supplied.
 consequences: >-
-  Migration 0065 (forward-only): evidence_collection_run with its rules (one run per item and period, how a status may move, the
-  token cleared when a run ends, same-institution checks), evidence_request.collection_run_id, the notification kinds
-  collection_due, collection_late and collection_failed, the job type collect_tick, and the worker's narrow grants. The
-  environment gains BI_BASE_URL, BI_API_KEY, BI_ENDPOINTS and APP_PUBLIC_URL (all optional; without BI_BASE_URL a bi run fails
-  with that reason and nothing else is affected). The worker service now calls out to the BI. A long downtime of the worker makes
-  one run for every period missed (up to 500 per item and tick) when it returns. Docs: docs/ams-bi-contract-v0.md 3.6, 4.2, 5, 6.
+  Migration 0065 (forward-only): evidence_collection_run with its rules (one run per item and period, how a status may
+  move, the token cleared when a run ends, same-institution checks), evidence_request.collection_run_id, the
+  notification kinds collection_due, collection_late and collection_failed, the job type collect_tick, and the worker's
+  narrow grants. The environment gains BI_BASE_URL, BI_API_KEY, BI_ENDPOINTS and APP_PUBLIC_URL (all optional; without
+  BI_BASE_URL a bi run fails with that reason and nothing else is affected). The worker service now calls out to the BI.
+  A long downtime of the worker makes one run for every period missed (up to 500 per item and tick) when it returns.
+  Docs: docs/ams-bi-contract-v0.md 3.6, 4.2, 5, 6.
 tags:
   - ams
 last_updated: '2026-10-21'
@@ -1699,50 +2007,81 @@ related_tasks:
     url: /TASKS.md#TASK-090
 related_decisions:
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
+---
+
 ---
 
 ## DEC-033 — Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema
 
 ---
 id: DEC-033
-title: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+title: >-
+  Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas;
+  every entity has a declared schema
 status: accepted
 context: >-
-  The owner asked (2026-10-21) that wherever a document can be provided for scraping a URL can be provided as well; that cycle
-  templates take documents and URLs as resources like the org chart and programs; and that programs, courses and, in general,
-  everything has a schema. The BI team builds against the AMS's schemas (docs/ams-bi-contract-v0.md), so they must be declared.
+  The owner asked (2026-10-21) that wherever a document can be provided for scraping a URL can be provided as well; that
+  cycle templates take documents and URLs as resources like the org chart and programs; and that programs, courses and,
+  in general, everything has a schema. The BI team builds against the AMS's schemas (docs/ams-bi-contract-v0.md), so
+  they must be declared.
 decision: >-
-  1. A URL is accepted wherever an uploaded document is accepted for AI import (standards, Programs, Org chart, Glossary, cycle
-  templates, Courses, create-from-files). The AMS fetches it, stores a snapshot with its address and time, and from then on it is
-  an ordinary source; a refresh fetches again and keeps the old version. One internal fetcher, HTTPS only, never to private
-  addresses, with size, time and redirect limits; no logins. Evidence is not part of this (DEC-013). 2. A cycle template has a Docs
-  tab: its documents and URLs are kept as resources, and an import target proposes stages from them for a person to review and
-  apply to the draft template. 3. A program has a declared schema: code, names, degree level, discipline, owning unit, mode,
-  duration, credits, language, campus, status, start year, description, tags, external id. 4. A course is a real record with a
-  declared schema (code, titles, description, credits, level, language, owning unit, status, external id) linked to programs
-  many-to-many; the Course scope level lists real courses; Settings -> Organization gets a Courses tab. 5. Every entity has one
-  declared schema in packages/shared from which the API validation, the AI extraction schema, the review choices, the BI contract
-  and a read-only data dictionary are derived; a test keeps declared schema and database columns in agreement.
+  1. A URL is accepted wherever an uploaded document is accepted for AI import (standards, Programs, Org chart,
+  Glossary, cycle templates, Courses, create-from-files). The AMS fetches it, stores a snapshot with its address and
+  time, and from then on it is an ordinary source; a refresh fetches again and keeps the old version. One internal
+  fetcher, HTTPS only, never to private addresses, with size, time and redirect limits; no logins. Evidence is not part
+  of this (DEC-013). 2. A cycle template has a Docs tab: its documents and URLs are kept as resources, and an import
+  target proposes stages from them for a person to review and apply to the draft template. 3. A program has a declared
+  schema: code, names, degree level, discipline, owning unit, mode, duration, credits, language, campus, status, start
+  year, description, tags, external id. 4. A course is a real record with a declared schema (code, titles, description,
+  credits, level, language, owning unit, status, external id) linked to programs many-to-many; the Course scope level
+  lists real courses; Settings -> Organization gets a Courses tab. 5. Every entity has one declared schema in
+  packages/shared from which the API validation, the AI extraction schema, the review choices, the BI contract and a
+  read-only data dictionary are derived; a test keeps declared schema and database columns in agreement.
 rationale: >-
-  One declared shape per entity removes drift between the database, the API, the imports and the BI, and lets the BI team build
-  against something fixed. A URL is the same document by another route, so it needs a fetch step and nothing else.
+  One declared shape per entity removes drift between the database, the API, the imports and the BI, and lets the BI
+  team build against something fixed. A URL is the same document by another route, so it needs a fetch step and nothing
+  else.
 consequences: >-
-  New: a URL fetcher and snapshots with source_url and fetched_at; a cycle_template scope kind and import target; program
-  columns; course and course_program tables and a Courses tab; an entity schema registry and a data dictionary. Plan:
-  docs/schema-and-sources-plan.md, TASK-102 to TASK-106.
+  New: a URL fetcher and snapshots with source_url and fetched_at; a cycle_template scope kind and import target;
+  program columns; course and course_program tables and a Courses tab; an entity schema registry and a data dictionary.
+  Plan: docs/schema-and-sources-plan.md, TASK-102 to TASK-106.
 tags:
   - ams
 last_updated: '2026-10-21'
 related_decisions:
   - id: DEC-028
-    name: Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
+    name: >-
+      Organization has two tabs; one secondary language; translations of standards are unofficial; per-person UI
+      language; org-chart images may go to the vision model; every AI-import place gets a Docs tab
     url: /DECISIONS.md#DEC-028
   - id: DEC-031
-    name: 'An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional schedule; collecting is not a staged cycle, reports are'
+    name: >-
+      An evidence item is a title, a type (document or dataset) and a definition, collected by one method on an optional
+      schedule; collecting is not a staged cycle, reports are
     url: /DECISIONS.md#DEC-031
   - id: DEC-013
     name: AI processing approved for framework source documents; evidence not sent in the MVP
     url: /DECISIONS.md#DEC-013
+related_tasks:
+  - id: TASK-102
+    name: Sources by URL for every document import
+    url: /TASKS.md#TASK-102
+  - id: TASK-103
+    name: Cycle template resources and AI-proposed stages
+    url: /TASKS.md#TASK-103
+  - id: TASK-104
+    name: Program schema
+    url: /TASKS.md#TASK-104
+  - id: TASK-105
+    name: 'Courses: entity, schema, tab and import'
+    url: /TASKS.md#TASK-105
+  - id: TASK-106
+    name: Entity schema registry and data dictionary
+    url: /TASKS.md#TASK-106
 ---
+
+<!-- End VEF generated items. -->

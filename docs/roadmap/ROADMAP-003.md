@@ -58,6 +58,9 @@ related_tasks:
   - id: TASK-031
     name: M2 acceptance test
     url: /TASKS.md#TASK-031
+  - id: TASK-100
+    name: Engagement subject may be an org unit
+    url: /TASKS.md#TASK-100
 ---
 # ROADMAP-003 — M2 — Engagements and roadmaps
 

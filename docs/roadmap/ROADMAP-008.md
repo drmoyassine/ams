@@ -8,6 +8,13 @@ priority: P0
 tags:
   - ams
 last_updated: '2026-10-12'
+related_tasks:
+  - id: TASK-053
+    name: 'The owned @drmoyassine/liteparse is the parser; a temporary fallback reads the formats it lacks'
+    url: /TASKS.md#TASK-053
+  - id: TASK-058
+    name: Hand the Appendix D changes to the liteparse repository and remove the temporary fallback
+    url: /TASKS.md#TASK-058
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:39.872Z'
