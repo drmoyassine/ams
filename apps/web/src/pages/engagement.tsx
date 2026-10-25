@@ -12,6 +12,7 @@ import { useAction } from '../lib/use-action';
 import { can, useMe } from '../lib/me';
 import { MembersTab } from './engagement/members-tab';
 import { RequirementsTab } from './engagement/requirements-tab';
+import { ReportsTab } from './engagement/reports-tab';
 import { RoadmapTab } from './engagement/roadmap-tab';
 import { TemplateUpdatePanel } from './engagement/template-update';
 
@@ -40,13 +41,18 @@ function KeyDates({ api, id, dates, canEdit }: { api: EngagementApi; id: string;
   );
 }
 
-const TABS = [['roadmap', 'Roadmap'], ['requirements', 'Requirements'], ['members', 'Members']] as const;
+const TABS = [['roadmap', 'Roadmap'], ['requirements', 'Requirements'], ['reports', 'Reports'], ['members', 'Members']] as const;
 
-export function EngagementPage({ id, api: override }: { id: string; api?: EngagementApi }) {
+export function EngagementPage({ id, api: override, initialTab, onTab }: {
+  id: string; api?: EngagementApi;
+  /** Opens on a tab from the address (?tab=reports); the tab keys are TABS'. */
+  initialTab?: (typeof TABS)[number][0]; onTab?: (tab: (typeof TABS)[number][0]) => void;
+}) {
   const api = useEngagementApi(override);
   const qc = useQueryClient();
   const me = useMe(api);
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>('roadmap');
+  const [tab, setTabRaw] = useState<(typeof TABS)[number][0]>(initialTab ?? 'roadmap');
+  const setTab = (next: (typeof TABS)[number][0]) => { setTabRaw(next); onTab?.(next); };
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const { data, isError, error: loadError } = useQuery({ queryKey: ['engagement', id], queryFn: () => api.get(id) });
@@ -107,6 +113,7 @@ export function EngagementPage({ id, api: override }: { id: string; api?: Engage
         ))}
       </div>
       {tab === 'roadmap' && <RoadmapTab api={api} detail={data} canManage={canManage && active} onChanged={refresh} />}
+      {tab === 'reports' && <ReportsTab detail={data} canManage={canManage && active} />}
       {tab === 'requirements' && <RequirementsTab api={api} detail={data} canManage={canManage && active} />}
       {tab === 'members' && <MembersTab api={api} detail={data} me={me.data} onChanged={refresh} />}
     </section>

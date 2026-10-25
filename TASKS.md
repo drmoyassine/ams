@@ -3938,9 +3938,9 @@ title: 'Report editor: narrative, data table, attestation, appendix'
 description: >-
   The section tree and editors for narrative (Tiptap, Arabic RTL, prompt, linked requirements and approved evidence,
   inline citations), data table (dataset binding), attestation and appendix, with word counts and limits.
-status: pending
+status: completed
 priority: P0
-last_updated: '2026-10-21'
+last_updated: '2026-10-25'
 generated:
   by: agent/claude-code
   at: '2026-10-21T09:00:00.000Z'
@@ -3954,7 +3954,7 @@ depends_on:
     url: /TASKS.md#TASK-091
 modified:
   by: agent/claude-code
-  at: '2026-10-21T09:00:00.000Z'
+  at: '2026-10-25T12:15:15.076Z'
 ---
 
 PRD §10.3 (narrative, data_table, attestation, appendix), §10.5 word counts. Full width, no side panels: the evidence panel opens as a sheet. Arabic dir=auto and RTL.

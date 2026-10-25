@@ -66,14 +66,16 @@ export async function loadSections(ctx: Ctx, reportId: string) {
     id: r.id, key: r.key, parentId: r.parentId, title: r.title, blockType: r.blockType, displayOrder: r.displayOrder,
     prompt: r.prompt, requirements: linksOf.get(r.id) ?? [],
     ownerId: r.ownerId, ownerName: r.ownerId ? names.get(r.ownerId) ?? null : null, ownerUnresolved: r.ownerUnresolved,
-    status: r.status, wordLimit: r.wordLimit, wordCount: r.wordCount, content: r.content,
+    status: r.status, wordLimit: r.wordLimit, wordCount: r.wordCount,
+    columns: (r.columns as ReportSection['columns'] | null) ?? null, datasetBinding: r.datasetBinding ?? undefined,
+    content: r.content,
   }));
 }
 
 export async function getReport(ctx: Ctx, id: string): Promise<ReportDetail> {
   const row = await loadReport(ctx, id);
   const flat = await loadSections(ctx, id);
-  const byParent = new Map<string | null, typeof flat>();
+  const byParent = new Map<string | null, ReportSection[]>();
   for (const s of flat) {
     const list = byParent.get(s.parentId) ?? [];
     list.push(s as ReportSection);

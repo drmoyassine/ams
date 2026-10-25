@@ -69,7 +69,9 @@ export const NoteSchema = z.object({
 export const TemplateSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), key: z.string(), name: z.string(),
   kind: z.enum(['application', 'readiness', 'self_study', 'follow_up', 'annual', 'response', 'other']), language: z.string(),
-  structure: z.unknown(), wordLimit: z.number().nullable(), requiresAttestation: z.boolean(), ...provenance,
+  structure: z.unknown(), wordLimit: z.number().nullable(), requiresAttestation: z.boolean(),
+  /** A report is made from a reviewed template only; the editor greys the rest (TASK-092). */
+  ...provenance,
   /** A person changed this AI-made template: a new analysis run leaves it as it is. */
   editedByPerson: z.boolean().optional(),
 });

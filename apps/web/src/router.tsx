@@ -4,6 +4,7 @@ import { authClient } from './lib/auth';
 import { can, useMe } from './lib/me';
 import { defaultSettingsApi } from './lib/settings-api';
 import { EngagementPage } from './pages/engagement';
+import { ReportPage } from './pages/reports/report-page';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
 import { QualityManagementPage, QM_TABS, type QmTab } from './pages/quality-management';
@@ -147,8 +148,23 @@ function CycleRoute() {
 }
 const engagementsRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements', component: () => <EngagementsPage /> });
 const newEngagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/new', component: () => <NewEngagementPage /> });
-const engagementRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagements/$id', component: () => <EngagementRoute /> });
-function EngagementRoute() { const { id } = engagementRoute.useParams(); return <EngagementPage key={id} id={id} />; }
+const engagementRoute = createRoute({
+  getParentRoute: () => appRoute, path: '/engagements/$id', component: () => <EngagementRoute />,
+  validateSearch: (s: Record<string, unknown>): { tab?: 'roadmap' | 'requirements' | 'reports' | 'members' } =>
+    (['roadmap', 'requirements', 'reports', 'members'].includes(s.tab as string) ? { tab: s.tab as 'reports' } : {}),
+});
+function EngagementRoute() {
+  const { id } = engagementRoute.useParams();
+  const { tab } = engagementRoute.useSearch();
+  const navigate = engagementRoute.useNavigate();
+  return <EngagementPage key={id} id={id} initialTab={tab} onTab={(next) => { void navigate({ search: next === 'roadmap' ? {} : { tab: next }, replace: true }); }} />;
+}
+const reportRoute = createRoute({ getParentRoute: () => appRoute, path: '/reports/$id', component: () => <ReportRoute /> });
+function ReportRoute() {
+  const { id } = reportRoute.useParams();
+  const navigate = reportRoute.useNavigate();
+  return <ReportPage key={id} id={id} onBack={() => { void navigate({ to: '/engagements/$id', params: { id }, search: { tab: 'reports' } }); }} />;
+}
 const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/engagement-requirements/$id', component: () => <WorkspaceRoute /> });
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
 const evidenceRoute = createRoute({
@@ -164,7 +180,7 @@ const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/fo
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

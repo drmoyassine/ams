@@ -1,9 +1,10 @@
-// Reports (TASK-091, PRD 10): create one from a reviewed template, read it back as a section tree, rename it, save a
-// section's content, hand a section to a person, delete a draft to the Trash. Reads need report:read; managing (create,
-// rename, owners, delete) needs report:manage at the route and again at the report's wrapper in the service; saving
-// content needs report:write (the service checks it at the wrapper). The review moves and submission arrive with TASK-094.
+// Reports (TASK-091/092, PRD 10): create one from a reviewed template, read it back as a section tree, rename it, save a
+// section's content, upload an attestation's signed letter, hand a section to a person, delete a draft to the Trash.
+// Reads need report:read; managing (create, rename, owners, delete) needs report:manage at the route and again at the
+// report's wrapper in the service; saving content and letters needs report:write (the service checks it at the wrapper).
+// The review moves and submission arrive with TASK-094.
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { createReport, deleteReport, getReport, listReports, setSectionOwner, updateReport, updateSectionContent } from '@ams/core';
+import { createReport, deleteReport, getReport, listReports, MAX_UPLOAD_BYTES, readAttestationLetter, saveAttestationLetter, setSectionOwner, updateReport, updateSectionContent, ValidationError } from '@ams/core';
 import {
   CreateReportSchema, DeleteResultSchema, ReportDetailDocSchema, ReportDetailSchema, ReportFilterSchema, ReportSummarySchema, SetSectionOwnerSchema,
   UpdateReportSchema, UpdateSectionContentSchema, toDto,
@@ -67,6 +68,33 @@ export function reportRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
     }), async (c) => {
       const { sectionId } = c.req.valid('param');
       return c.json(detail(await updateSectionContent(c.get('ctx'), sectionId, c.req.valid('json'))), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/reports/{id}/sections/{sectionId}/attestation', access: write, tags: tag,
+      description: 'The request body is the signed letter itself; its Content-Type is recorded. Stored under the report and set on the section whole (key, name, mime, size), keeping the signatory and statement. Only while the report is a draft.',
+      request: { params: sectionParam, query: z.object({ fileName: z.string().min(1) }) },
+      responses: { 201: { description: 'The letter stored', ...json(ReportDetailDocSchema) }, ...errors },
+    }), async (c) => {
+      const declared = Number(c.req.header('content-length') ?? 0);
+      if (declared > MAX_UPLOAD_BYTES) throw new ValidationError(`the file is larger than ${Math.round(MAX_UPLOAD_BYTES / 1048576)} MB`);
+      const { sectionId } = c.req.valid('param');
+      const bytes = new Uint8Array(await c.req.arrayBuffer());
+      const mime = (c.req.header('content-type') ?? 'application/octet-stream').split(';')[0]!.trim();
+      return c.json(detail(await saveAttestationLetter(c.get('ctx'), sectionId, {
+        fileName: c.req.valid('query').fileName, mime, bytes,
+      })), 201);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/reports/{id}/sections/{sectionId}/letter', access: read, tags: tag,
+      description: 'The stored signed letter of an attestation section.',
+      request: { params: sectionParam },
+      responses: { 200: { description: 'The stored file', content: { 'application/octet-stream': { schema: z.string() } } }, ...errors },
+    }), async (c) => {
+      const f = await readAttestationLetter(c.get('ctx'), c.req.valid('param').sectionId);
+      const disposition = `inline; filename*=UTF-8''${encodeURIComponent(f.fileName)}`;
+      return c.body(f.bytes as unknown as ArrayBuffer, 200, { 'content-type': f.mime, 'content-disposition': disposition, 'x-content-type-options': 'nosniff' }) as never;
     })
 
     .openapi(secured(registry, deps, {

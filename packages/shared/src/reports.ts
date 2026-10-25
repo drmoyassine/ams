@@ -152,6 +152,12 @@ export const SectionRequirementSchema = z.object({
 });
 export type SectionRequirement = z.infer<typeof SectionRequirementSchema>;
 
+/** A data_table's columns, from the template (a data_table section is born with them or with a dataset binding). */
+export const SectionColumnSchema = z.object({
+  key: z.string(), label: z.string(), type: z.enum(['text', 'number', 'date', 'enum']), options: z.array(z.string()).optional(),
+});
+export type SectionColumn = z.infer<typeof SectionColumnSchema>;
+
 export const ReportSectionSchema: z.ZodType<ReportSection> = z.lazy(() => z.object({
   id: z.string(), key: z.string(), parentId: z.string().nullable(),
   title: z.string(), blockType: z.enum(BLOCK_TYPES), displayOrder: z.number(),
@@ -159,6 +165,7 @@ export const ReportSectionSchema: z.ZodType<ReportSection> = z.lazy(() => z.obje
   requirements: z.array(SectionRequirementSchema),
   ownerId: z.string().nullable(), ownerName: z.string().nullable(), ownerUnresolved: z.boolean(),
   status: z.enum(SECTION_STATUSES), wordLimit: z.number().nullable(), wordCount: z.number().nullable(),
+  columns: z.array(SectionColumnSchema).nullable(), datasetBinding: z.unknown().optional(),
   content: z.unknown(),
   children: z.array(ReportSectionSchema),
 }));
@@ -169,6 +176,7 @@ export interface ReportSection {
   requirements: SectionRequirement[];
   ownerId: string | null; ownerName: string | null; ownerUnresolved: boolean;
   status: SectionStatus; wordLimit: number | null; wordCount: number | null;
+  columns: SectionColumn[] | null; datasetBinding?: unknown;
   content: unknown;
   children: ReportSection[];
 }

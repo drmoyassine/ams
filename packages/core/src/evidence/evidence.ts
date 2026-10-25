@@ -221,7 +221,6 @@ export async function getEvidence(ctx: Ctx, id: string): Promise<EvidenceDetail>
   return { item: (await describeItems(ctx, [row]))[0]!, versions: versions.map(versionDto), links };
 }
 
-/** A file name safe to keep in a storage key and a header: path separators and control characters become _. */
 const safeName = (s: string) => [...s.normalize('NFC')].map((ch) => (ch === '/' || ch === '\\' || ch.charCodeAt(0) < 32 ? '_' : ch)).join('').slice(0, 200) || 'file';
 
 /** Stores an uploaded file as the item's next version. The stored size and SHA-256 are what the version records. */
