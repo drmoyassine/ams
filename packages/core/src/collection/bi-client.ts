@@ -15,6 +15,9 @@ export interface BiConfig {
   publicUrl: string | null;
   /** `production` forbids plain http even to localhost. */
   production: boolean;
+  /** BI_PRIVATE_HOST: one single-label host name (a Compose service such as `bi-api`) that may be called over plain http, in
+   * production too, because it resolves only on the private network both products share (co-deployment, DEC-034). */
+  privateHost?: string | null;
 }
 
 export type BiCall = { url: string; apiKey: string | null; body: BiCollectRequest; timeoutMs: number };
@@ -33,10 +36,11 @@ export class BiCallError extends Error {
 /** What the server tells the screens and the scheduler about the BI. */
 export interface BiRuntime { config: BiConfig; client: BiClient | null }
 
-export function biConfigFromEnv(env: { BI_BASE_URL?: string | undefined; BI_API_KEY?: string | undefined; BI_ENDPOINTS?: Record<string, string> | undefined; APP_PUBLIC_URL?: string | undefined; APP_URL?: string | undefined; NODE_ENV?: string | undefined }): BiConfig {
+export function biConfigFromEnv(env: { BI_BASE_URL?: string | undefined; BI_API_KEY?: string | undefined; BI_ENDPOINTS?: Record<string, string> | undefined; APP_PUBLIC_URL?: string | undefined; APP_URL?: string | undefined; NODE_ENV?: string | undefined; BI_PRIVATE_HOST?: string | undefined }): BiConfig {
   return {
     baseUrl: env.BI_BASE_URL?.trim() || null, apiKey: env.BI_API_KEY?.trim() || null, endpoints: env.BI_ENDPOINTS ?? {},
     publicUrl: env.APP_PUBLIC_URL?.trim() || env.APP_URL?.trim() || null, production: env.NODE_ENV === 'production',
+    privateHost: env.BI_PRIVATE_HOST?.trim().toLowerCase() || null,
   };
 }
 
@@ -44,14 +48,16 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 /**
  * The address to POST to: the base address plus the path of the item's endpoint name (default `/ams/collect`). HTTPS only; plain http is
- * allowed to localhost outside production (tests, a developer's BI). A name the server does not know is refused, not guessed.
+ * allowed to localhost outside production (tests, a developer's BI), and to the one private host of a co-deployment (BI_PRIVATE_HOST,
+ * DEC-034). A name the server does not know is refused, not guessed.
  */
 export function resolveBiUrl(config: BiConfig, endpointKey: string | undefined): string {
   if (!config.baseUrl) throw new BiCallError('The BI is not configured: set BI_BASE_URL (and BI_API_KEY) on the server.', false);
   let base: URL;
   try { base = new URL(config.baseUrl); } catch { throw new BiCallError('BI_BASE_URL is not a valid address.', false); }
-  const secure = base.protocol === 'https:' || (base.protocol === 'http:' && !config.production && LOOPBACK.has(base.hostname));
-  if (!secure) throw new BiCallError('BI_BASE_URL must be an https address (http is allowed only to localhost, and never in production).', false);
+  const privateHost = !!config.privateHost && /^[a-z][a-z0-9-]{0,62}$/.test(config.privateHost) && base.hostname === config.privateHost;
+  const secure = base.protocol === 'https:' || (base.protocol === 'http:' && (privateHost || (!config.production && LOOPBACK.has(base.hostname))));
+  if (!secure) throw new BiCallError('BI_BASE_URL must be an https address (http is allowed only to localhost outside production, or to BI_PRIVATE_HOST).', false);
   let path = '/ams/collect';
   if (endpointKey) {
     const p = config.endpoints[endpointKey];

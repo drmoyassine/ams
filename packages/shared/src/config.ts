@@ -44,6 +44,9 @@ export const envSchema = z.object({
   // address the BI calls back (defaults to APP_URL).
   BI_BASE_URL: z.string().url().optional(),
   BI_API_KEY: z.string().min(1).optional(),
+  // Co-deployment (DEC-034): the BI's service name on the private network both products share (e.g. `bi-api`), which BI_BASE_URL may
+  // then call over plain http. One label only (no dots), so it can never name a host on the internet.
+  BI_PRIVATE_HOST: z.string().regex(/^[a-z][a-z0-9-]{0,62}$/, 'BI_PRIVATE_HOST must be one lower-case name without dots, such as bi-api').optional(),
   BI_ENDPOINTS: z.string().optional().transform((v, ctx) => {
     if (!v) return {} as Record<string, string>;
     try {

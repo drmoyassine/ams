@@ -447,6 +447,13 @@ describe('bi: the AMS asks the BI', () => {
     expect(() => resolveBiUrl(config({ baseUrl: 'http://localhost:9000', production: true }), undefined)).toThrow(/https/);
     expect(resolveBiUrl(config({ baseUrl: 'https://bi.example.org/base/' }), 'warehouse')).toBe('https://bi.example.org/base/ams/collect/warehouse');
   });
+
+  it('calls the private host of a co-deployment over http, in production too, and no other host (DEC-034)', () => {
+    expect(resolveBiUrl(config({ baseUrl: 'http://bi-api:4000', production: true, privateHost: 'bi-api' }), undefined)).toBe('http://bi-api:4000/ams/collect');
+    expect(() => resolveBiUrl(config({ baseUrl: 'http://bi.example.org', production: true, privateHost: 'bi-api' }), undefined)).toThrow(/https/);
+    expect(() => resolveBiUrl(config({ baseUrl: 'http://bi.example.org', production: false, privateHost: 'bi.example.org' }), undefined)).toThrow(/https/);
+    expect(() => resolveBiUrl(config({ baseUrl: 'http://bi-api:4000', production: true }), undefined)).toThrow(/https/);
+  });
 });
 
 describe('the HTTP client', () => {

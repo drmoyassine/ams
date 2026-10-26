@@ -809,3 +809,7 @@ The first full-suite run after the environment fixes still failed 5 of 2 091. Th
 - **Learning.** When a fix normalises `path.relative` output, grep the repo for the same pattern instead of trusting the one file that failed: the identical helper existed twice and failed three tests.
 - **Learning.** A provider SDK constructed without an explicit baseURL inherits the ambient endpoint variables; a test that asserts a fixed endpoint must clear them, and product code that promises a fixed endpoint must pass one.
 - **Learning.** When a trigger pairs a transition table with a conditional refinement of one move, the refinement's message is the one raised — assert the message the design speaks, not the nearest guard's.
+
+## 2026-10-26 — Co-deployment with the BI (DEC-034)
+
+The BI product starts in its own repository (drmoyassine/ai-native-bi, same stack). The owner wants a mode where both run in one Compose project and share resources. Recorded as DEC-034: one PostgreSQL server and one Garage store shared, but separate databases, roles and buckets, and the products still talk only through the contract. The AMS's https-only rule for calling the BI gained one exception, `BI_PRIVATE_HOST`: a single-label name (a Compose service such as `bi-api`) that may be called over plain http, in production too, because such a name resolves only on the private network. The combined Compose file lives in the BI repository and builds the AMS from its checkout; the AMS's own compose.yaml is unchanged.
