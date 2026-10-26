@@ -1,0 +1,59 @@
+name: Contract sync to the BI
+
+# When the AMS <-> BI contract changes on main, open (or update) a pull request on drmoyassine/ai-native-bi with the new copy of
+# docs/ams-bi-contract-v0.md and the AMS schema sources it is built from, so the BI updates packages/contract in review.
+# The AMS owns the contract (DEC-032, DEC-034); the BI never edits its copy by hand.
+#
+# Needs one repository secret here, BI_REPO_TOKEN: a fine-grained personal access token limited to drmoyassine/ai-native-bi
+# with Contents: read and write, and Pull requests: read and write.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/ams-bi-contract-v0.md
+      - packages/shared/src/collection.ts
+      - packages/shared/src/dataset.ts
+      - packages/shared/src/evidence.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ams
+      - uses: actions/checkout@v6
+        with:
+          repository: drmoyassine/ai-native-bi
+          token: ${{ secrets.BI_REPO_TOKEN }}
+          path: bi
+      - name: Copy the contract and its schema sources
+        run: |
+          mkdir -p bi/docs/ams-source
+          cp ams/docs/ams-bi-contract-v0.md bi/docs/ams-bi-contract-v0.md
+          cp ams/packages/shared/src/collection.ts ams/packages/shared/src/dataset.ts ams/packages/shared/src/evidence.ts bi/docs/ams-source/
+          printf '%s\n' "Copied from drmoyassine/ams@${GITHUB_SHA} by .github/workflows/contract-sync.yml. Do not edit; mirror changes into packages/contract." > bi/docs/ams-source/README.md
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          path: bi
+          token: ${{ secrets.BI_REPO_TOKEN }}
+          branch: ams-contract-sync
+          delete-branch: true
+          commit-message: "Contract: sync from drmoyassine/ams@${{ github.sha }}"
+          title: "Contract: sync from the AMS"
+          body: |
+            The AMS changed the contract or its schema sources in drmoyassine/ams@${{ github.sha }}.
+
+            - `docs/ams-bi-contract-v0.md`: the contract copy
+            - `docs/ams-source/`: the AMS's Zod sources (`collection.ts`, `dataset.ts`, `evidence.ts`)
+
+            Before merging, mirror any change into `packages/contract` and its test.
