@@ -16,7 +16,7 @@ const scan = (dirs: string[], pattern: RegExp, allowed: (rel: string) => boolean
   const offenders: string[] = [];
   for (const d of dirs) {
     for (const file of sources(join(ROOT, d))) {
-      const rel = relative(ROOT, file);
+      const rel = relative(ROOT, file).replace(/\\/g, '/');
       if (!allowed(rel) && pattern.test(readFileSync(file, 'utf8'))) offenders.push(rel);
     }
   }

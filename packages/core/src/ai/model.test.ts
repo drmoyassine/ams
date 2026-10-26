@@ -8,15 +8,23 @@ import { createEmbeddingModel, createModel } from './model.js';
 
 interface Seen { url: string; headers: Record<string, string>; body: string }
 let seen: Seen[];
+const savedEnv: Record<string, string | undefined> = {};
+const ENDPOINT_ENV = ['ANTHROPIC_BASE_URL', 'OPENAI_BASE_URL', 'GOOGLE_GENERATIVE_AI_BASE_URL'];
 const realFetch = globalThis.fetch;
 beforeEach(() => {
   seen = [];
+  // The provider SDKs fall back to ambient endpoint variables when the config has no Base URL; a box that exports
+  // them (a gateway setup) would otherwise point these stubbed requests somewhere else than the provider's own.
+  for (const v of ENDPOINT_ENV) { savedEnv[v] = process.env[v]; delete process.env[v]; }
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     seen.push({ url: String(input instanceof Request ? input.url : input), headers: Object.fromEntries(new Headers(init?.headers).entries()), body: String(init?.body ?? '') });
     return new Response(JSON.stringify({ error: { message: 'stubbed' } }), { status: 500, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
 });
-afterEach(() => { globalThis.fetch = realFetch; });
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  for (const v of ENDPOINT_ENV) { if (savedEnv[v] === undefined) delete process.env[v]; else process.env[v] = savedEnv[v]; }
+});
 
 const IMAGE = new Uint8Array([1, 2, 3, 4, 5, 6]);
 const IMAGE_B64 = Buffer.from(IMAGE).toString('base64');

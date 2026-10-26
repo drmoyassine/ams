@@ -153,7 +153,7 @@ describe('section and report lifecycle', () => {
       await db.su.query(`update report_section set status = 'in_review' where id = $1`, [id]);
       await db.su.query(`update report_section set status = 'approved' where id = $1`, [id]);
     }
-    await fails(`update report set status = 'draft' where id = $1`, [ids.report2], 'cannot become'); // approved stays
+    await fails(`update report set status = 'draft' where id = $1`, [ids.report2], 'returns to draft only when one of its sections was reopened'); // approved stays: the demotion is never a move of its own
     await db.as({ userId: ids.other, institutionId: ids.inst }, async (c) => {
       await c.query(`update report set status = 'internally_approved' where id = $1`, [ids.report]);
       expect((await c.query(`select approved_by from report where id = $1`, [ids.report])).rows[0]!.approved_by).toBe(ids.other);
