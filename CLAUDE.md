@@ -18,6 +18,8 @@ Loaded at the start of every Claude session in this repo. This file covers proje
 | **`/roadmap`** | Manage canonical `docs/roadmap/` items and project ROADMAP.md | When direction changes, when breaking down themes |
 | **`/bugs`** | Manage GitHub Issues (list, create, resolve, sync) | When triaging failures, when reporting bugs |
 | **`/decisions`** | Manage canonical `docs/decisions/` items and project DECISIONS.md | When making architectural/product decisions |
+| **`/request`** | File a request for the BI (`for-bi` issue, carried by the issue bridge) | When the AMS needs something from the BI, or hands code over |
+| **`/inbox`** | List and work the BI's requests (`from-bi` issues); closing one reports back | Start of a session; when the BI asked for something |
 | **`/apply`** | Migrate docs into the framework standard (multi-agent: discover → extract → cross-link → validate) | One-shot — adopting the framework, or migrating bare-ID docs to `id+name+url` |
 
 Skills are **manual invoke only**. No auto-trigger.
@@ -87,9 +89,9 @@ Tasks/Roadmap/Vision link to **DECISIONS.md**, not to log.md. The decision is th
 ## Requests to and from the BI
 
 The BI (drmoyassine/ai-native-bi) and the AMS talk through GitHub Issues, bridged by `.github/workflows/issue-bridge.yml`:
-- **Need something from the BI?** Open an issue here labelled `for-bi`. It is copied to the BI (labelled `from-ams` there) and
+- **Need something from the BI?** `/request`, or open an issue here labelled `for-bi`. It is copied to the BI (labelled `from-ams` there) and
   linked; when the BI closes its copy, this issue gets the outcome and is closed.
-- **At the start of a session, check `from-bi` issues** (requests the BI made of the AMS). Close one when it is done or declined,
+- **At the start of a session, run `/inbox`** (open `from-bi` issues: requests the BI made of the AMS). Close one when it is done or declined,
   with a last comment saying what was done (commit or PR) or why not: that comment is what the BI receives.
 - The contract stays one-way: the BI asks for a contract change with an issue; the AMS changes `docs/ams-bi-contract-v0.md` and
   the `contract-sync` workflow opens the pull request on the BI.
