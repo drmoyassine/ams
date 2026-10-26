@@ -84,6 +84,16 @@ TASKS.md
 
 Tasks/Roadmap/Vision link to **DECISIONS.md**, not to log.md. The decision is the source of truth for *"what we decided"*; the log is the narrative history of *how we got there*.
 
+## Requests to and from the BI
+
+The BI (drmoyassine/ai-native-bi) and the AMS talk through GitHub Issues, bridged by `.github/workflows/issue-bridge.yml`:
+- **Need something from the BI?** Open an issue here labelled `for-bi`. It is copied to the BI (labelled `from-ams` there) and
+  linked; when the BI closes its copy, this issue gets the outcome and is closed.
+- **At the start of a session, check `from-bi` issues** (requests the BI made of the AMS). Close one when it is done or declined,
+  with a last comment saying what was done (commit or PR) or why not: that comment is what the BI receives.
+- The contract stays one-way: the BI asks for a contract change with an issue; the AMS changes `docs/ams-bi-contract-v0.md` and
+  the `contract-sync` workflow opens the pull request on the BI.
+
 ## Critical constraints
 
 These are the PRD's non-negotiables. Breaking one is a bug even if tests pass.
