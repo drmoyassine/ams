@@ -17,9 +17,12 @@ import { useAction } from '../../lib/use-action';
 import { GlossaryPage } from './glossary';
 import { DATE, STATUS_LABEL } from '../frameworks';
 import { IqfRequirements } from './iqf-requirements';
+import { WordingProposals } from './wording-proposals';
+import { VersionDocs } from '../version/docs-tab';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
+  { id: 'docs', label: 'Documents' },
   { id: 'terms', label: 'Terms' },
 ] as const;
 
@@ -128,7 +131,19 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
                     <Button type="button" onClick={() => act(() => api.applyQualityTemplate(current!.id))}>Start from the generic template</Button>
                   </div>
                 )}
+                <WordingProposals api={api} versionId={current!.id} editable={canWrite && current!.status === 'draft'} />
                 <IqfRequirements key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} {...(evidence ? { evidence } : {})} />
+              </div>
+            )}
+            {tab === 'docs' && (
+              <div className="space-y-4">
+                {canWrite && current!.status === 'published' && current!.id === latest.id && (
+                  <div className="rounded-md border border-dashed border-border p-3 text-sm">
+                    <p className="mb-2">This version is published and fixed, so new documents belong to the next one. Start it — the items and evidence carry over — upload the documents there, and analyse them.</p>
+                    <Button type="button" onClick={() => act(async () => { const v = await api.newQualityVersion(); setPick(v.id); })}>Start a new version</Button>
+                  </div>
+                )}
+                <VersionDocs api={api} version={{ ...current!, internal: true }} me={me.data} internal />
               </div>
             )}
             {tab === 'terms' && <GlossaryPage api={glossary} settings={settings} embedded />}

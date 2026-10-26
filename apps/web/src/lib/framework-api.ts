@@ -3,6 +3,7 @@ import type {
   ContentTranslationField, ContentTranslationMap, ContentTranslationPage, ContentTranslationRow, ContentTranslationStatus, SaveContentTranslation, TranslationRun,
   DeletePreview, DeleteResult, MoveManyInput, AcceptCoversResult, AcceptIqfProposal, AnalysisReport, AnalysisRun, ImportResultSchema, IqfItemProposal, IqfProposals, Me, NewVersionResultSchema, Preflight, NoteSchema, RequirementDetailSchema, RequirementSchema, SourceDocumentSchema,
   SourcePageSchema, SourcePageViewSchema, ReviewItemsSchema, StandardFromFilesSchema, SourceLimitsSchema, MergeResultSchema, SplitResultSchema, TemplateSchema, QualityFrameworkSchema, MappingsSchema, MappingSchema, ValidationResultSchema, VersionSchema, FrameworkListItemSchema,
+  WordingProposal,
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
 import { documentsApi } from './documents-api';
@@ -192,6 +193,9 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     /** Can an analysis start now? The checks, and the first blocking reason. */
     analysisPreflight: (versionId: string) => v[':id'].analysis.preflight.$get({ param: { id: versionId } }).then((r) => unwrap<Preflight>(r)),
     cancelAnalysis: (id: string) => api.api.analysis[':id'].cancel.$post({ param: { id } }).then((r) => unwrap<AnalysisRun>(r)),
+    /** Wording proposals (TASK-107): proposed replacements for an item's wording, decided by a person. */
+    wordingProposals: (versionId: string) => v[':id']['wording-proposals'].$get({ param: { id: versionId } }).then((r) => unwrap<WordingProposal[]>(r)),
+    decideWordingProposal: (id: string, accept: boolean) => api.api['wording-proposals'][':id'].decide.$post({ param: { id }, json: { accept } }).then((r) => unwrap<WordingProposal>(r)),
     /** The IQF / a standard in the secondary language (TASK-071): status, the map the content switcher reads, the review table, edits, runs. */
     contentTranslationStatus: (versionId: string) => v[':id'].translations.$get({ param: { id: versionId } }).then((r) => unwrap<ContentTranslationStatus>(r)),
     contentTranslationMap: (versionId: string) => v[':id'].translations.map.$get({ param: { id: versionId } }).then((r) => unwrap<ContentTranslationMap>(r)),

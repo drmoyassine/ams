@@ -9,7 +9,7 @@ import { aiReadiness } from '../../ai/settings.js';
 import { enqueueJob } from '../../jobs/jobs.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from '../common.js';
 import { guardIntegrity } from '../errors.js';
-import { ANALYSIS_PROMPTS } from './schemas.js';
+import { analysisPrompts } from './schemas.js';
 
 export async function getAnalysisRunRow(ctx: Ctx, id: string) {
   const [row] = await ctx.tx.select().from(analysisRun).where(eq(analysisRun.id, id));
@@ -18,30 +18,31 @@ export async function getAnalysisRunRow(ctx: Ctx, id: string) {
 }
 
 /**
- * Starts analysing a draft version's sources. Refused unless the version is a draft of an external standard, AI is
- * switched on and set up (Settings -> AI), the version has sources with a file or page text, and no run is active.
+ * Starts analysing a draft version's sources — an external standard's, or the internal quality framework's own documents
+ * (TASK-107). Refused unless the version is a draft, AI is switched on and set up (Settings -> AI), the version has
+ * sources with a file or page text, and no run is active.
  */
 export async function startAnalysis(ctx: Ctx, versionId: string) {
   await require_(ctx, 'framework:write');
   assertHuman(ctx);
   const v = await getDraftVersion(ctx, versionId);
   if (v.status !== 'draft') throw new ConflictError(`only a draft version can be analysed (this one is ${v.status})`);
-  if (await isInternalVersion(ctx, versionId)) throw new ConflictError('the internal quality framework is not analysed from sources');
-  const ready = await aiReadiness(ctx);
-  if (!ready.ok) throw new ConflictError(ready.reason);
+  const internal = await isInternalVersion(ctx, versionId);
   const [src] = await ctx.tx.select({
     n: sql<number>`count(*)::int`,
     usable: sql<number>`count(*) filter (where source_document.file_name is not null or exists (select 1 from source_page p where p.source_document_id = source_document.id))::int`,
   }).from(sourceDocument).where(eq(sourceDocument.frameworkVersionId, versionId));
-  if (!src?.n) throw new ConflictError('add the accreditor\'s documents under Sources first');
+  if (!src?.n) throw new ConflictError(internal ? 'add the institution\'s documents under Docs first' : 'add the accreditor\'s documents under Sources first');
   if (!src.usable) throw new ConflictError('upload a source file or type in its pages first; there is nothing to analyse');
+  const ready = await aiReadiness(ctx);
+  if (!ready.ok) throw new ConflictError(ready.reason);
   const [active] = await ctx.tx.select({ id: analysisRun.id }).from(analysisRun)
     .where(and(eq(analysisRun.frameworkVersionId, versionId), inArray(analysisRun.status, [...ACTIVE_ANALYSIS_STATUSES])));
   if (active) throw new ConflictError('an analysis of this version is already running');
 
   const [row] = await guardIntegrity(() => ctx.tx.insert(analysisRun).values({
     institutionId: ctx.caller.institutionId, frameworkVersionId: versionId, status: 'queued', stage: 'read',
-    progress: { stage: 'read', cursor: 0 }, promptVersions: ANALYSIS_PROMPTS, startedBy: ctx.caller.userId, startedAt: new Date(),
+    progress: { stage: 'read', cursor: 0 }, promptVersions: analysisPrompts(internal), startedBy: ctx.caller.userId, startedAt: new Date(),
   }).returning());
   const run = row!;
   await enqueueJob(ctx, { type: 'analyse', payload: { runId: run.id, stage: 'read', cursor: 0 } });

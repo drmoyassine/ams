@@ -17,7 +17,7 @@ import type { AnalysisMapping, AnalysisProgress, AnalysisStage } from '@ams/shar
 import type { Ctx } from '../../ctx.js';
 import { aiExtract, BudgetExceeded, type AiRuntime } from '../../ai/index.js';
 import { rankBySimilarity, requirementEmbeddingItems, upsertEmbeddings } from '../../ai/embeddings.js';
-import { getVersion } from '../common.js';
+import { getVersion, isInternalVersion } from '../common.js';
 import { candidatesOf, loadIqf, naturalCompare, nextFreeCode, usableCode, type Iqf, type IqfItem } from './iqf-context.js';
 import { MapSchema, NewIqfSchema } from './mapping-schemas.js';
 import { normalizeCode } from './merge.js';
@@ -80,6 +80,8 @@ const embedStage: MappingStageFn = async (ctx, run, _cursor, runtime) => {
   const iqf = await loadIqf(ctx);
   const reqs = await eligibleRequirements(ctx, run.frameworkVersionId);
   const skip = (why: string): MappingStep => ({ next: FINALISE, report: { mapping: emptyMapping({ skipped: why, requirements: reqs.length, iqfVersionId: iqf?.version?.id ?? null }) } });
+  // The internal quality framework is its own frame (TASK-107): there is no external IQF to map it onto.
+  if (await isInternalVersion(ctx, run.frameworkVersionId)) return skip('This is the internal quality framework: the institution\'s own frame, so there is nothing to map it onto.');
   if (!iqf || !iqf.version) return skip('There is no quality framework to map onto yet: set it up in Settings.');
   if (iqf.items.length === 0) return skip('The quality framework has no items yet, so there is nothing to link to.');
   if (reqs.length === 0) return skip('This version has no requirements with wording to map.');

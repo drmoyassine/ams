@@ -17,22 +17,26 @@
 //             or guidance document: which lifecycle, vocabularies and report templates they hold, extracted by window and written
 //             into the draft's configuration as proposals; human edits win. Placed after `write` (the requirements are settled)
 //             and before the mapping (the costly part, which a spend limit should be the one to cut).
+//   wording   the internal framework only (TASK-107; external versions pass straight on): one window per job, the AI proposes
+//             improved wording for items a person wrote, with the quote it came from. Each proposal is stored as a diff
+//             (wording_proposal) and decided by a person; nothing is applied here.
 //   embed, map, propose_new   the IQF mapping (step E, mapping-stages.ts): suggested links and suggested new IQF items
 //   finalise  one job: counts, and the run succeeds
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
-import { analysisRun, extractionItem, frameworkVersion, job, requirement, sourceDocument, sourcePage } from '@ams/db';
+import { analysisRun, extractionItem, frameworkVersion, job, requirement, sourceDocument, sourcePage, wordingProposal } from '@ams/db';
 import { ACTIVE_ANALYSIS_STATUSES, ANALYSIS_STAGES, type AnalysisGap, type AnalysisProgress, type AnalysisRuntimeInfo, type AnalysisStage, type AnalysisStats, type AnalysisUsage } from '@ams/shared';
 import { z } from 'zod';
 import type { Ctx } from '../../ctx.js';
 import { AiDisabledError, AiNotConfiguredError, aiExtract, BudgetExceeded, type AiRuntime } from '../../ai/index.js';
 import { loadAiRuntime, maxRecoveryRounds } from '../../ai/settings.js';
 import { enqueueJob } from '../../jobs/jobs.js';
-import { getVersion } from '../common.js';
+import { getVersion, isInternalVersion } from '../common.js';
+import { verifyQuote } from '../quote-match.js';
 import { formatPages, NOTE_ROLES, pageWindows, REQUIREMENT_ROLES, type DocInfo } from './merge.js';
 import { findGaps } from './gaps.js';
 import { gapCounts, planTasks, reconcileGaps, type RecoveryState, type RecoveryStop } from './recovery.js';
 import { getAnalysisRunRow } from './runs.js';
-import { ANALYSIS_PROMPTS, ExtractSchema, RecoverSchema, StructureSchema, SURVEY_ROLE_TO_DOCUMENT_ROLE, SurveySchema, type Structure } from './schemas.js';
+import { ExtractSchema, RecoverSchema, StructureSchema, SURVEY_ROLE_TO_DOCUMENT_ROLE, SurveySchema, promptsOf, WordSchema, type Structure } from './schemas.js';
 import { isMappingStage, MAPPING_STEPS, mappingBudgetStop } from './mapping-stages.js';
 import { configBudgetStop, configCandidates, CONFIG_STEPS, isConfigStage, skipConfig } from './config-stages.js';
 import { loadRunState, writeAnalysis } from './write.js';
@@ -62,6 +66,8 @@ interface Report {
   /** Step D: every gap found, with where it ended up, and the state of the recovery rounds. */
   gaps?: AnalysisGap[];
   recovery?: RecoveryState;
+  /** The wording stage (TASK-107): set when the spend limit ended it. */
+  wording?: { stopped: 'budget' | null };
   [k: string]: unknown;
 }
 type Next = { stage: AnalysisStage; cursor: number } | 'done';
@@ -162,7 +168,7 @@ async function survey(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, re
   if (!d) return { next: { stage: 'structure', cursor: 0 } };
   const pages = (await pagesOf(ctx, d.id)).slice(0, SURVEY_PAGES);
   const input = [`Document: ${d.title}`, `Pages: ${d.pages}${d.pages > SURVEY_PAGES ? ` (the first ${SURVEY_PAGES} are shown)` : ''}`, '', formatPages(pages, SURVEY_CHARS)].join('\n');
-  const { data } = await aiExtract({ task: 'survey', promptVersion: ANALYSIS_PROMPTS.survey, input, schema: SurveySchema, runtime });
+  const { data } = await aiExtract({ task: 'survey', promptVersion: promptsOf(run).survey, input, schema: SurveySchema, runtime });
   const proposed = SURVEY_ROLE_TO_DOCUMENT_ROLE[data.role];
   // The survey decides the role only where no person has: a role a person chose is never replaced.
   const apply = d.roleOrigin !== 'manual';
@@ -194,10 +200,12 @@ async function structure(ctx: Ctx, run: Run, _cursor: number, runtime: AiRuntime
   for (const d of docs.filter((x) => REQUIREMENT_ROLES.has(x.role))) {
     parts.push('', `Excerpt of "${d.title}":`, formatPages((await pagesOf(ctx, d.id)).slice(0, STRUCTURE_PAGES), STRUCTURE_CHARS));
   }
-  const { data } = await aiExtract({ task: 'structure', promptVersion: ANALYSIS_PROMPTS.structure, input: parts.join('\n'), schema: StructureSchema, runtime });
+  const { data } = await aiExtract({ task: 'structure', promptVersion: promptsOf(run).structure, input: parts.join('\n'), schema: StructureSchema, runtime });
 
   // Level names apply to the draft at once (the owner's decision), unless a person has named the levels differently
-  // since: they keep theirs when the current names are neither empty nor what an earlier run set.
+  // since: they keep theirs when the current names are neither empty nor what an earlier run set. An internal framework
+  // names its own levels (DEC-016): the model's are recorded on the run, never applied.
+  const internal = await isInternalVersion(ctx, run.frameworkVersionId);
   const [v] = await ctx.tx.select({ levelLabels: frameworkVersion.levelLabels }).from(frameworkVersion).where(eq(frameworkVersion.id, run.frameworkVersionId));
   const current = ((v?.levelLabels as string[] | undefined) ?? []);
   const [prev] = await ctx.tx.select({ report: analysisRun.report }).from(analysisRun)
@@ -206,7 +214,7 @@ async function structure(ctx: Ctx, run: Run, _cursor: number, runtime: AiRuntime
   const previouslySet = ((prev?.report as Report | undefined)?.structure?.levelLabelsApplied ?? null);
   const same = (a: string[], b: string[] | null) => !!b && a.length === b.length && a.every((x, i) => x === b[i]);
   let applied: string[] | null = null;
-  if (data.level_labels.length && (current.length === 0 || same(current, previouslySet))) {
+  if (!internal && data.level_labels.length && (current.length === 0 || same(current, previouslySet))) {
     await ctx.tx.update(frameworkVersion).set({ levelLabels: data.level_labels }).where(eq(frameworkVersion.id, run.frameworkVersionId));
     applied = data.level_labels;
   }
@@ -232,7 +240,7 @@ async function extract(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, r
   const [doc] = await ctx.tx.select().from(sourceDocument).where(eq(sourceDocument.id, w.documentId));
   const pages = await pagesOf(ctx, w.documentId, w.pages);
   const header = [...docHeader(doc, w.documentId, report), `This window: pages ${w.pages[0]} to ${w.pages[w.pages.length - 1]}.`].join('\n');
-  const { data } = await aiExtract({ task: 'extract', promptVersion: ANALYSIS_PROMPTS.extract, input: `${header}\n\n${formatPages(pages)}`, schema: ExtractSchema, runtime });
+  const { data } = await aiExtract({ task: 'extract', promptVersion: promptsOf(run).extract, input: `${header}\n\n${formatPages(pages)}`, schema: ExtractSchema, runtime });
 
   // The raw answer is kept item by item for the record; the write stage reads it back from here.
   const rows = data.items.map((item, i) => ({
@@ -317,7 +325,7 @@ async function recover(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, r
     '', formatPages(pages), '',
     'Questions:', ...task.questions.map((q) => `- id ${q.id}: ${q.text}`),
   ].join('\n');
-  const { data } = await aiExtract({ task: 'recover', promptVersion: ANALYSIS_PROMPTS.recover, input, schema: RecoverSchema, runtime });
+  const { data } = await aiExtract({ task: 'recover', promptVersion: promptsOf(run).recover, input, schema: RecoverSchema, runtime });
 
   const answers = new Map(data.answers.map((a) => [a.id, a]));
   const gapsNow = [...(report.gaps ?? [])];
@@ -353,11 +361,12 @@ async function recover(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, r
 
 async function write(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime, report: Report): Promise<Step> {
   const stats = await writeAnalysis(ctx, run, docInfo(await sources(ctx, run.frameworkVersionId), report));
-  // Then step H when there is a policy, report template or guidance document to read; otherwise straight to the mapping.
+  // Then step H when there is a policy, report template or guidance document to read; otherwise straight on (the internal
+  // framework reads the wording stage, an external one goes to the mapping).
   const configDocs = await configCandidates(ctx, run.frameworkVersionId);
   const toConfig: Step = configDocs.length
     ? { next: { stage: 'config_survey', cursor: 0 }, progress: { configDocsTotal: configDocs.length, configDocsDone: 0 } }
-    : skipConfig();
+    : await skipConfig(ctx, run.frameworkVersionId);
   const finish = (st: AnalysisStats, extra: Partial<Report> = {}): Step => ({ ...toConfig, report: { ...toConfig.report, stats: st, ...extra } });
   if (!report.recovery) return finish(stats);
   // Each gap links to the requirement card it is about, now that the rows exist.
@@ -365,6 +374,74 @@ async function write(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime, r
     .map((r) => [normalizeCode(r.code), r.id]));
   const gapList = (report.gaps ?? []).map((g) => ({ ...g, requirementId: g.code ? ids.get(normalizeCode(g.code)) ?? null : null }));
   return finish({ ...stats, ...gapCounts(gapList), recoveryRounds: report.recovery.rounds.length }, { gaps: gapList });
+}
+
+// ---- wording (TASK-107, internal framework only) --------------------------------------------------------------------
+
+/** Items the wording prompt is shown at most, and how much of each item's wording. */
+const WORD_ITEMS_MAX = 200;
+const WORD_TEXT_CHARS = 600;
+
+/**
+ * The wording stage: window by window over the same windows the extraction read, the model may propose improved wording
+ * for an item a person wrote or has since edited, quoting the passage it based the proposal on. Every proposal lands in
+ * `wording_proposal` as a diff — current text beside proposed text — and a person accepts or declines it; nothing is
+ * applied here. An external version passes straight through to the mapping.
+ */
+async function wording(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report): Promise<Step> {
+  if (!(await isInternalVersion(ctx, run.frameworkVersionId))) return { next: { stage: 'embed', cursor: 0 } };
+  const windows = report.plan?.windows ?? [];
+  const w = windows[cursor];
+  if (!w) return { next: { stage: 'embed', cursor: 0 } };
+  const [doc] = await ctx.tx.select().from(sourceDocument).where(eq(sourceDocument.id, w.documentId));
+  const pages = await pagesOf(ctx, w.documentId, w.pages);
+  const internalOnly = (r: { origin: string; editedByPerson: boolean }) => r.origin !== 'ai' || r.editedByPerson;
+  const rows = await ctx.tx.select({ id: requirement.id, code: requirement.code, text: requirement.officialText, origin: requirement.origin, editedByPerson: requirement.editedByPerson })
+    .from(requirement).where(eq(requirement.frameworkVersionId, run.frameworkVersionId)).orderBy(asc(requirement.code));
+  // One proposal per item per run, and never a second copy while one is still waiting for a decision.
+  const proposedHere = new Set((await ctx.tx.select({ requirementId: wordingProposal.requirementId })
+    .from(wordingProposal)
+    .where(and(eq(wordingProposal.analysisRunId, run.id), eq(wordingProposal.status, 'pending')))).map((r) => r.requirementId));
+  const waiting = new Set((await ctx.tx.select({ requirementId: wordingProposal.requirementId })
+    .from(wordingProposal)
+    .where(and(eq(wordingProposal.frameworkVersionId, run.frameworkVersionId), eq(wordingProposal.status, 'pending')))).map((r) => r.requirementId));
+  const items = rows.filter((r) => internalOnly(r) && !!r.text?.trim() && !proposedHere.has(r.id) && !waiting.has(r.id)).slice(0, WORD_ITEMS_MAX);
+  if (items.length) {
+    const header = [...docHeader(doc, w.documentId, report), `This window: pages ${w.pages[0]} to ${w.pages[w.pages.length - 1]}.`].join('\n');
+    const input = [
+      header, '', formatPages(pages), '',
+      'Items of the framework:', ...items.map((r) => `- [${r.code}] ${(r.text ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, WORD_TEXT_CHARS)}`),
+    ].join('\n');
+    const { data } = await aiExtract({ task: 'wording', promptVersion: promptsOf(run).wording, input, schema: WordSchema, runtime });
+    const pageTexts = new Map(pages.map((p) => [p.pageNo, p.text]));
+    const byCode = new Map(items.map((r) => [r.code, r]));
+    const asked = new Set(w.pages);
+    let proposed = 0;
+    for (const item of data.items) {
+      const req = byCode.get(item.code);
+      if (!req || !asked.has(item.source.page)) continue;
+      if (!verifyQuote(item.source.quote, pageTexts, item.source.page).verified) continue;
+      const proposedText = item.proposed_text.trim();
+      const currentText = (req.text ?? '').trim();
+      if (!proposedText || proposedText === currentText) continue;
+      await ctx.tx.insert(wordingProposal).values({
+        institutionId: ctx.caller.institutionId, frameworkVersionId: run.frameworkVersionId, requirementId: req.id, analysisRunId: run.id,
+        sourceDocumentId: w.documentId, sourcePage: item.source.page, sourceQuote: item.source.quote,
+        currentText, proposedText, reason: item.reason?.trim() || null, status: 'pending',
+      });
+      proposed++;
+    }
+    const progress = run.progress as AnalysisProgress;
+    const total = (progress.wordingProposed ?? 0) + proposed;
+    // The stats exist by now (write ran before this stage); they carry the count to the run's report.
+    return {
+      next: cursor + 1 < windows.length ? { stage: 'wording', cursor: cursor + 1 } : { stage: 'embed', cursor: 0 },
+      progress: { wordingProposed: total },
+      ...(report.stats ? { report: { stats: { ...report.stats, wordingProposed: total } } } : {}),
+    };
+  }
+  // Nothing left to propose on in any window: skip the rest.
+  return { next: { stage: 'embed', cursor: 0 } };
 }
 
 async function pagesRead(ctx: Ctx, run: Run) {
@@ -379,7 +456,7 @@ async function finalise(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime
 }
 
 const STEPS: Record<AnalysisStage, (ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report) => Promise<Step>> = {
-  read, survey, structure, extract, gaps, recover, write, ...CONFIG_STEPS, ...MAPPING_STEPS, finalise,
+  read, survey, structure, extract, gaps, recover, write, wording, ...CONFIG_STEPS, ...MAPPING_STEPS, finalise,
 };
 
 // ---- Bookkeeping ---------------------------------------------------------------------------------------------------
@@ -468,6 +545,12 @@ export async function analyseJob(ctx: Ctx, payload: Record<string, unknown>) {
     if (e instanceof BudgetExceeded && isConfigStage(p.stage)) {
       // The spend limit ends the configuration reading, not the run: what was found so far is still checked and written.
       const s = configBudgetStop(report);
+      await save(ctx, run, p.stage, s, usage, runtime);
+      return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
+    }
+    if (e instanceof BudgetExceeded && p.stage === 'wording') {
+      // The spend limit ends the wording proposals, not the run: those made so far stay, waiting for a person.
+      const s: Step = { next: { stage: 'embed', cursor: 0 }, report: { wording: { stopped: 'budget' } } };
       await save(ctx, run, p.stage, s, usage, runtime);
       return { ...base, next: s.next, stopped: e.message, ai: runtime.calls };
     }

@@ -4,6 +4,7 @@ export * from './runs.js';
 export * from './write.js';
 export * from './stages.js';
 export * from './fixture.js';
+export * from './internal-fixture.js';
 export * from './gaps.js';
 export * from './recovery.js';
 export * from './shortlist.js';

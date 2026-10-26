@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Framework analysis (PRD 15, step C): a background run that reads a draft version's sources and writes requirements and
  * notes into that draft in the accreditor's exact wording. Each stage is its own small job; the run records where it is.
  */
-export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'config_survey', 'config_extract', 'config_write', 'embed', 'map', 'propose_new', 'finalise'] as const;
+export const ANALYSIS_STAGES = ['read', 'survey', 'structure', 'extract', 'gaps', 'recover', 'write', 'config_survey', 'config_extract', 'config_write', 'wording', 'embed', 'map', 'propose_new', 'finalise'] as const;
 export type AnalysisStage = (typeof ANALYSIS_STAGES)[number];
 
 export const ANALYSIS_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled'] as const;
@@ -39,6 +39,8 @@ export const AnalysisProgressSchema = z.object({
   configWindowsDone: z.number().int().optional(),
   configWindowsTotal: z.number().int().optional(),
   configItems: z.number().int().optional(),
+  /** Wording proposals (TASK-107, internal framework only): proposed so far, or skipped without a run of the stage. */
+  wordingProposed: z.number().int().optional(),
 });
 export type AnalysisProgress = z.infer<typeof AnalysisProgressSchema>;
 
@@ -86,6 +88,9 @@ export const AnalysisStatsSchema = z.object({
   configItems: z.number().int().optional(),
   configWritten: z.number().int().optional(),
   configFlagged: z.number().int().optional(),
+  // Wording proposals (TASK-107). Optional: external runs and runs without wording proposals have none.
+  /** Wording improvements proposed for existing, human-written items (internal framework only). */
+  wordingProposed: z.number().int().optional(),
 });
 export type AnalysisStats = z.infer<typeof AnalysisStatsSchema>;
 
@@ -268,3 +273,30 @@ export const AnalysisRunSchema = z.object({
   report: z.record(z.string(), z.unknown()),
 });
 export type AnalysisRun = z.infer<typeof AnalysisRunSchema>;
+
+// ---- Wording proposals (TASK-107, internal framework only) ------------------------------------------------------------
+
+export const WORDING_PROPOSAL_STATUSES = ['pending', 'accepted', 'declined'] as const;
+export type WordingProposalStatus = (typeof WORDING_PROPOSAL_STATUSES)[number];
+
+/** One proposal to replace an item's wording, carrying the quote it came from; a person accepts or declines it (DEC-006). */
+export const WordingProposalSchema = z.object({
+  id: z.string(),
+  frameworkVersionId: z.string(),
+  requirementId: z.string(),
+  /** The item's code as it is now, for the review list. */
+  requirementCode: z.string(),
+  analysisRunId: z.string().nullable(),
+  sourceDocumentId: z.string().nullable(),
+  sourcePage: z.number().int().nullable(),
+  sourceQuote: z.string(),
+  /** The item's wording as the proposal saw it (a snapshot; the item may have changed since). */
+  currentText: z.string(),
+  proposedText: z.string(),
+  reason: z.string().nullable(),
+  status: z.enum(WORDING_PROPOSAL_STATUSES),
+  decidedBy: z.string().nullable(),
+  decidedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type WordingProposal = z.infer<typeof WordingProposalSchema>;

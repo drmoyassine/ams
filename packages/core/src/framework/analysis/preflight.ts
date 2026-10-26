@@ -14,17 +14,16 @@ export async function analysisPreflight(ctx: Ctx, versionId: string): Promise<Pr
   const checks: PreflightCheck[] = [];
   const internal = await isInternalVersion(ctx, versionId);
 
-  if (internal) checks.push({ id: 'draft', status: 'problem', message: 'The internal quality framework is not analysed from sources.', fix: null });
-  else if (v.status !== 'draft') checks.push({ id: 'draft', status: 'problem', message: `Only a draft can be analysed (this version is ${v.status.replace('_', ' ')}). Start a new version to analyse again.`, fix: { label: 'Start a new version', where: 'version' } });
+  if (v.status !== 'draft') checks.push({ id: 'draft', status: 'problem', message: `Only a draft can be analysed (this version is ${v.status.replace('_', ' ')}). Start a new version to analyse again.`, fix: { label: 'Start a new version', where: 'version' } });
   else checks.push({ id: 'draft', status: 'ok', message: 'This version is a draft.', fix: null });
 
   const [src] = await ctx.tx.select({
     n: sql<number>`count(*)::int`,
     usable: sql<number>`count(*) filter (where source_document.file_name is not null or exists (select 1 from source_page p where p.source_document_id = source_document.id))::int`,
   }).from(sourceDocument).where(eq(sourceDocument.frameworkVersionId, versionId));
-  if (!src?.n) checks.push({ id: 'sources', status: 'problem', message: 'Add the accreditor\'s documents under Sources first.', fix: { label: 'Add sources', where: 'sources' } });
-  else if (!src.usable) checks.push({ id: 'sources', status: 'problem', message: 'Upload a source file or type in its pages first; there is nothing to read yet.', fix: { label: 'Open Sources', where: 'sources' } });
-  else checks.push({ id: 'sources', status: 'ok', message: `${src.n} ${src.n === 1 ? 'source' : 'sources'} to read.`, fix: null });
+  if (!src?.n) checks.push({ id: 'sources', status: 'problem', message: internal ? 'Add the institution\'s documents under Docs first.' : 'Add the accreditor\'s documents under Sources first.', fix: { label: internal ? 'Add documents' : 'Add sources', where: internal ? 'docs' : 'sources' } });
+  else if (!src.usable) checks.push({ id: 'sources', status: 'problem', message: 'Upload a document file or type in its pages first; there is nothing to read yet.', fix: { label: internal ? 'Open Docs' : 'Open Sources', where: internal ? 'docs' : 'sources' } });
+  else checks.push({ id: 'sources', status: 'ok', message: `${src.n} ${src.n === 1 ? 'document' : 'documents'} to read.`, fix: null });
 
   // Informational: policy, report-template and guidance documents are also read, for the lifecycle, vocabularies and templates.
   const [cfg] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(sourceDocument)

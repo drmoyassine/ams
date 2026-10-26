@@ -62,7 +62,7 @@ describe('quality framework settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Set up' }));
     const version = (await screen.findByLabelText('Version')) as HTMLSelectElement;
     expect(version.selectedOptions[0]!.textContent).toBe('1 · Draft');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Terms']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Requirements', 'Documents', 'Terms']);
     const standards = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(standards.textContent).toContain('Mission and governance'));
     // each standard is a closed accordion labelled "Standard 1.0", with its sub-standards ("Standard 3.2") listed right under it, indented
@@ -125,6 +125,41 @@ describe('quality framework settings', () => {
     await waitFor(() => expect((screen.getByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
     expect(await screen.findByRole('button', { name: '+ Standard' })).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('list', { name: 'Standards' }).textContent).toContain('Internationalisation')); // carried over
+  });
+
+  it('shows the analysis\'s wording proposals above the standards, and a person declines and accepts each one', async () => {
+    const user = userEvent.setup();
+    const api = apiFor('lead');
+    const draft = (await api.qualityFramework()).versions.at(-1)!; // the draft the previous test started
+    const item = (await api.requirements(draft.id)).find((r) => r.code === '9')!;
+    const run = await one(
+      `insert into analysis_run (institution_id, framework_version_id, status, stage, progress, prompt_versions, started_by, started_at)
+       values ($1, $2, 'succeeded', 'finalise', '{}', '{}', $3, now()) returning id`, [ids.inst, draft.id, ids.lead]);
+    const propose = (quote: string, proposed: string) => one(
+      `insert into wording_proposal (institution_id, framework_version_id, requirement_id, analysis_run_id, source_quote, current_text, proposed_text, reason)
+       values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+      [ids.inst, draft.id, item.id, run, quote, item.officialText, proposed, 'The policy adds a sentence.']);
+    await propose('a grand ceremony is held', `${item.officialText} A grand ceremony is held.`);
+    await propose('agreements are reviewed yearly', `${item.officialText} Formal agreements are reviewed yearly.`);
+
+    render(wrap(<QualityFrameworkPage api={api} {...extra('lead')} />));
+    const inbox = await screen.findByRole('region', { name: 'Wording proposals' });
+    expect(inbox.textContent).toContain('2 waiting for you');
+    expect(within(inbox).getAllByText('Item 9')).toHaveLength(2);
+    expect(inbox.textContent).toContain('agreements are reviewed yearly');
+
+    // Decline the first (the list orders same-second rows arbitrarily); the other stays pending and acceptable.
+    await user.click(within(inbox).getAllByRole('button', { name: 'Decline' })[0]!);
+    expect(await within(inbox).findByText(/Declined/)).toBeTruthy();
+    await user.click(within(inbox).getByRole('button', { name: 'Accept' }));
+    expect(await within(inbox).findByText(/Accepted/)).toBeTruthy();
+    expect(await within(inbox).findByText('all decided')).toBeTruthy();
+    const decided = ((await db.su.query(`select status, proposed_text from wording_proposal where requirement_id = $1`, [item.id])).rows) as { status: string; proposed_text: string }[];
+    expect(decided.map((d) => d.status).sort()).toEqual(['accepted', 'declined']);
+    const accepted = decided.find((d) => d.status === 'accepted')!;
+    const rows = await api.requirements(draft.id);
+    expect(rows.find((r) => r.id === item.id)!.officialText).toBe(accepted.proposed_text); // exactly the accepted diff applied
+    expect(rows.find((r) => r.id === item.id)!.reviewStatus).toBe('pending'); // an acceptance is one edit, back to review
   });
 
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {

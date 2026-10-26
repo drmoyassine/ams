@@ -538,6 +538,37 @@ export const analysisRun = pgTable('analysis_run', {
 ]);
 
 /**
+ * A wording proposal (TASK-107, wording stage): the analysis found a document passage that states one existing item's
+ * requirement better than the item does. The quote it came from and the text it proposes to replace are carried on the
+ * row; a person accepts or declines (a decision edits the draft's requirement and is undone like any edit). Only the
+ * status can change after the insert; the database's checks enforce that, and that a decision names who made it.
+ */
+export const WORDING_PROPOSAL_STATUSES = ['pending', 'accepted', 'declined'] as const;
+export const wordingProposal = pgTable('wording_proposal', {
+  ...base(), ...tenant(),
+  frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
+  requirementId: uuid('requirement_id').notNull().references(() => requirement.id),
+  /** The run that proposed it; kept when the run row goes. */
+  analysisRunId: uuid('analysis_run_id').references((): AnyPgColumn => analysisRun.id),
+  sourceDocumentId: uuid('source_document_id').references(() => sourceDocument.id),
+  sourcePage: integer('source_page'),
+  sourceQuote: text('source_quote').notNull(),
+  currentText: text('current_text').notNull(),
+  proposedText: text('proposed_text').notNull(),
+  reason: text('reason'),
+  status: text('status', { enum: WORDING_PROPOSAL_STATUSES }).notNull().default('pending'),
+  decidedBy: uuid('decided_by').references(() => appUser.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+}, (t) => [
+  index('wording_proposal_version_idx').on(t.frameworkVersionId, t.status),
+  oneOf('wording_proposal_status_check', t.status, WORDING_PROPOSAL_STATUSES),
+  check('wording_proposal_current_text_check', sql`length(btrim(${t.currentText})) > 0`),
+  check('wording_proposal_proposed_text_check', sql`length(btrim(${t.proposedText})) > 0`),
+  check('wording_proposal_source_quote_check', sql`length(btrim(${t.sourceQuote})) > 0`),
+  check('wording_proposal_decision_check', sql`(${t.status} = 'pending') = (${t.decidedBy} is null and ${t.decidedAt} is null)`),
+]);
+
+/**
  * A run of the generic `translate` job (TASK-070): one kind of text (`ui` now; content kinds join in TASK-071), one language,
  * optionally one scope (e.g. a framework version). Progress, spend and the items set aside are kept on the row; the job takes one
  * batch per step, so a stopped or cancelled run resumes where the pending items are.

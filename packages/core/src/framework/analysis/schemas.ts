@@ -2,8 +2,19 @@
 import { z } from 'zod';
 import { CONFIG_PROMPTS } from './config-schemas.js';
 
-/** Prompt versions this code is written against; recorded on the run. */
-export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1', ...CONFIG_PROMPTS } as const;
+/** Prompt versions this code is written against; recorded on the run. The v2 variants (TASK-107) are the internal
+ *  framework's: the same stages on the institution's own documents. The run records the map it uses. */
+export const ANALYSIS_PROMPTS = { survey: 'v1', structure: 'v1', extract: 'v1', recover: 'v1', map: 'v1', newiqf: 'v1', wording: 'v1', ...CONFIG_PROMPTS } as const;
+export const ANALYSIS_PROMPTS_EXTERNAL = ANALYSIS_PROMPTS;
+export const ANALYSIS_PROMPTS_INTERNAL = { ...ANALYSIS_PROMPTS, survey: 'v2', structure: 'v2', extract: 'v2', recover: 'v2' } as const;
+export const analysisPrompts = (internal: boolean) => (internal ? ANALYSIS_PROMPTS_INTERNAL : ANALYSIS_PROMPTS_EXTERNAL);
+/** The tasks the analysis can ask the model, and the prompt version this code uses for each. */
+export type AnalysisPromptTask = keyof typeof ANALYSIS_PROMPTS;
+/** The prompt versions a run used, read back from the run row (older runs may miss a task: fall back to the current). */
+export const promptsOf = (run: { promptVersions?: unknown }): Record<AnalysisPromptTask, string> => {
+  const stored = (run.promptVersions && typeof run.promptVersions === 'object' ? run.promptVersions : {}) as Partial<Record<AnalysisPromptTask, string>>;
+  return { ...ANALYSIS_PROMPTS, ...stored };
+};
 
 /** The survey's roles. "examples" is stored as the library's `sample_report` role, which never yields requirements. */
 export const SURVEY_ROLES = ['standards', 'guidance', 'policy_procedure', 'report_template', 'examples', 'other'] as const;
@@ -52,6 +63,17 @@ export const ExtractItemSchema = z.object({
 export type ExtractItem = z.infer<typeof ExtractItemSchema>;
 
 export const ExtractSchema = z.object({ items: z.array(ExtractItemSchema) });
+
+/** TASK-107, the wording stage: a proposal to replace one existing, human-written item's wording. */
+export const WordItemSchema = z.object({
+  temp_id: z.string(),
+  code: z.string(),
+  source: z.object({ page: z.number().int(), quote: z.string() }),
+  proposed_text: z.string(),
+  reason: z.string().nullish(),
+});
+export type WordItem = z.infer<typeof WordItemSchema>;
+export const WordSchema = z.object({ items: z.array(WordItemSchema) });
 
 /** Step D: one answer per question of a recovery call. */
 export const RecoverSchema = z.object({

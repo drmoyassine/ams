@@ -7,25 +7,25 @@ status: In Progress
 priority: P0
 tags:
   - ams
-last_updated: '2026-10-12'
+last_updated: '2026-10-26'
 related_tasks:
   - id: TASK-043
     name: Read source files into page text (parseDocument and the extract_text job)
     url: /TASKS.md#TASK-043
   - id: TASK-044
-    name: 'AI connection, embeddings and Settings → AI'
+    name: AI connection, embeddings and Settings → AI
     url: /TASKS.md#TASK-044
   - id: TASK-045
-    name: 'Framework analysis runs (step C) — requirements from a draft''s sources'
+    name: Framework analysis runs (step C) — requirements from a draft's sources
     url: /TASKS.md#TASK-045
   - id: TASK-046
-    name: 'Framework analysis check and recover (step D) — exhaustive but bounded'
+    name: Framework analysis check and recover (step D) — exhaustive but bounded
     url: /TASKS.md#TASK-046
   - id: TASK-047
     name: Publishing is the review for external standards (DEC-022 publish gate)
     url: /TASKS.md#TASK-047
   - id: TASK-048
-    name: 'Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic'
+    name: Settings -> AI offers OpenAI, Google and any OpenAI-compatible server next to Anthropic
     url: /TASKS.md#TASK-048
   - id: TASK-049
     name: Background work runs as three services (worker, parser, agent); the app prepares Garage itself
@@ -40,10 +40,10 @@ related_tasks:
     name: Every format is read by liteparse; the parser image includes LibreOffice and ImageMagick
     url: /TASKS.md#TASK-052
   - id: TASK-054
-    name: 'Analysis report, run readiness checks, and the import page''s approve-everything option removed (step F1)'
+    name: Analysis report, run readiness checks, and the import page's approve-everything option removed (step F1)
     url: /TASKS.md#TASK-054
   - id: TASK-055
-    name: 'Create from files and the split-view review of an external standard''s requirements'
+    name: Create from files and the split-view review of an external standard's requirements
     url: /TASKS.md#TASK-055
   - id: TASK-056
     name: Real-document acceptance run (WSCUC, PUC, ABET) and tuning
@@ -84,9 +84,11 @@ related_decisions:
     name: AI processing approved for framework source documents; evidence not sent in the MVP
     url: /DECISIONS.md#DEC-013
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:41.356Z'
+  by: agent/claude-code
+  at: '2026-10-26T10:53:05.313Z'
 ---
+# ROADMAP-009 — M7 — Framework compiler
+
 # ROADMAP-009 — M7 — Framework compiler
 
 Done when PRD §19.2 passes on the WSCUC 2023 Handbook and the scanned PUC 2019 guide.
@@ -94,6 +96,9 @@ Done when PRD §19.2 passes on the WSCUC 2023 Handbook and the scanned PUC 2019 
 Extended (2026-10-08) to the owner's document-intelligence requirement: a standard is created from its files; an
 analysis finds the accreditor's own structure, drafts requirements in its exact wording, proposes IQF links or new IQF
 items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023).
+
+Pulled ahead of M4's remainder on the owner's priority (2026-10-26): upload documents and generate IQF content first;
+M4's TASK-093/095/096 wait.
 
 | Step | What | Status |
 |---|---|---|
@@ -106,6 +111,7 @@ items, and ends with a report the user can return to (DEC-021, DEC-022, DEC-023)
 | F2 | Create from files and the split-view review (source viewer, Needs a look, merge, split) | Done — TASK-055 |
 | G | Real-document acceptance: §19.2 on WSCUC/PUC/ABET originals with a real key; compare with seed data | Needs the owner's run — TASK-056 |
 | H | Other document roles: lifecycle, vocabularies, report templates from policy/template documents | Done — TASK-057 (tested with a fake model on invented documents; prompts to be tuned on the TASK-056 run) |
+| I | The institution's own framework from its own documents: internal prompt variants, the institution's level names kept (DEC-016), mapping skipped, wording proposed as diffs a person accepts or declines | Done — TASK-107 (upload-based; URLs come with TASK-102) |
 
 
 Snapshot 2026-10-13 — what is left (full picture: docs/status.md) (steps A–F are built and tested with a fake model; none has run on a real accreditor document yet):

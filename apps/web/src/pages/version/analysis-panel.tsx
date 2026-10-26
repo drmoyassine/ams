@@ -11,7 +11,7 @@ const STAGE_LABEL: Record<AnalysisStage, string> = {
   read: 'Reading the files', survey: 'Looking at each document', structure: 'Finding how the standards are organised',
   extract: 'Taking out requirements and notes', gaps: 'Checking for gaps', recover: 'Asking about the gaps',
   write: 'Checking quotes and writing to the draft', config_survey: 'Looking for the lifecycle, vocabularies and report templates', config_extract: 'Reading the process and template documents',
-  config_write: 'Checking quotes and writing the configuration', embed: 'Preparing to compare with your quality framework', map: 'Suggesting links to your quality framework',
+  config_write: 'Checking quotes and writing the configuration', wording: 'Proposing better wording for your items', embed: 'Preparing to compare with your quality framework', map: 'Suggesting links to your quality framework',
   propose_new: 'Drafting new quality framework items', finalise: 'Finishing',
 };
 const STATUS_LABEL: Record<AnalysisStatus, string> = { queued: 'Queued', running: 'Running', succeeded: 'Finished', failed: 'Stopped', cancelled: 'Cancelled' };
@@ -56,10 +56,12 @@ export function progressText(r: AnalysisRun): string {
   if (r.stage === 'config_survey' && p.configDocsTotal) parts.push(`document ${Math.min((p.configDocsDone ?? 0) + 1, p.configDocsTotal)} of ${p.configDocsTotal}`);
   if (r.stage === 'config_extract' && p.configWindowsTotal) parts.push(`${p.configWindowsDone ?? 0}/${p.configWindowsTotal} windows`);
   if (config && p.configItems !== undefined && r.stage !== 'config_survey') parts.push(`${n(p.configItems)} configuration item${p.configItems === 1 ? '' : 's'} so far`);
-  if (p.windowsTotal && !checking && !config && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${p.windowsDone ?? 0}/${p.windowsTotal} windows`);
+  // The wording stage re-reads the extraction's windows and counts its own thing; the windows/items lines are the extraction's.
+  if (p.windowsTotal && !checking && !config && r.stage !== 'wording' && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${p.windowsDone ?? 0}/${p.windowsTotal} windows`);
   if (r.stage === 'map' && p.mapTotal) parts.push(`${Math.min(p.mapDone ?? 0, p.mapTotal)}/${p.mapTotal} requirements`);
   if (r.stage === 'propose_new' && p.groupsTotal) parts.push(`${Math.min(p.groupsDone ?? 0, p.groupsTotal)}/${p.groupsTotal} groups`);
-  if (p.items !== undefined && !config && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${n(p.items)} item${p.items === 1 ? '' : 's'} so far`);
+  if (r.stage === 'wording') { if (p.wordingProposed) parts.push(`${n(p.wordingProposed)} wording proposal${p.wordingProposed === 1 ? '' : 's'} so far`); }
+  else if (p.items !== undefined && !config && r.stage !== 'map' && r.stage !== 'propose_new' && r.stage !== 'embed') parts.push(`${n(p.items)} item${p.items === 1 ? '' : 's'} so far`);
   parts.push(spendText(r.usage));
   return parts.join(' · ');
 }
@@ -81,6 +83,7 @@ export function statsText(s: AnalysisStats | undefined): string {
     ...(s.dismissedSkipped ? [`${plural(s.dismissedSkipped, 'item')} you deleted ${s.dismissedSkipped === 1 ? 'was' : 'were'} not re-added`] : []),
     ...(s.configWritten ? [`${plural(s.configWritten, 'configuration item')} written`] : []),
     ...(s.configFlagged ? [`${s.configFlagged} kept out as flagged`] : []),
+    ...(s.wordingProposed ? [`${plural(s.wordingProposed, 'wording proposal')} made`] : []),
   ].join(' · ');
 }
 

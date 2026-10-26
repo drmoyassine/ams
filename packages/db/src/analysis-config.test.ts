@@ -61,7 +61,7 @@ describe('the worker writing configuration into a draft version', () => {
     await db.as(worker(), (c) => c.query(`update framework_version set response_vocab = '[{"code":"l","label":"L"}]' where id = $1`, [imported]));
   });
 
-  it('writes only into a draft, never the quality framework, and never status, publication or review', async () => {
+  it('writes only into a draft, and never status, publication or review', async () => {
     const { v } = await version('draft');
     await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [v]);
     await expect(db.as(worker(), (c) => c.query(`update framework_version set lifecycle_template = $2 where id = $1`, [v, LIFE]))).rejects.toThrow(/only into a draft/);
@@ -72,11 +72,12 @@ describe('the worker writing configuration into a draft version', () => {
       `update framework_version set published_by = null where id = $1`,
     ]) await expect(db.as(worker(), (c) => c.query(sql, [v])), sql).rejects.toThrow(/permission denied/);
     await expect(db.as(worker(), (c) => c.query(`delete from framework_version where id = $1`, [v]))).rejects.toThrow(/permission denied/);
-    // The internal quality framework is proposed to, never written, by the worker.
+    // The internal quality framework drafts like any draft (TASK-107): the config-marking rule applies, not a blanket
+    // refusal — and its level_labels stay the institution's (asserted with the requirement guard in mapping-proposals).
     const acc = await one(`select accreditor_id id from framework where id = $1`, [ids.fw]);
     const iqf = await one(`insert into framework (institution_id, accreditor_id, name, scope, internal) values ($1, $2, 'Quality', 'institution', true) returning id`, [ids.inst, acc]);
-    const iv = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'q') returning id`, [ids.inst, iqf]);
-    await expect(db.as(worker(), (c) => c.query(`update framework_version set decision_vocab = '[]' where id = $1`, [iv]))).rejects.toThrow(/quality framework/);
+    const iv = await one(`insert into framework_version (institution_id, framework_id, edition, decision_vocab) values ($1, $2, 'q', '[{"code":"d","label":"D"}]') returning id`, [ids.inst, iqf]);
+    await expect(db.as(worker(), (c) => c.query(`update framework_version set decision_vocab = '[]' where id = $1`, [iv]))).rejects.toThrow(/was not written by the analysis/);
     // A published version is immutable to everyone.
     await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [v]);
     await db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [v, ids.user]);

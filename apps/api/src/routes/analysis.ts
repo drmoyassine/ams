@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
-import { analysisPreflight, cancelAnalysis, getAnalysisReport, getAnalysisRun, getLatestAnalysisReport, listAnalysisRuns, startAnalysis } from '@ams/core';
-import { AnalysisReportSchema, AnalysisRunSchema, PreflightSchema, toDto } from '@ams/shared';
+import { analysisPreflight, cancelAnalysis, decideWordingProposal, getAnalysisReport, getAnalysisRun, getLatestAnalysisReport, listAnalysisRuns, listWordingProposals, startAnalysis } from '@ams/core';
+import { AnalysisReportSchema, AnalysisRunSchema, PreflightSchema, toDto, WordingProposalSchema } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -56,5 +56,19 @@ export function analysisRoutes(registry: RouteRegistry, deps: ChainDeps, options
       description: 'Stops a queued or running analysis after its current step. What it wrote so far stays in the draft.',
       request: { params: idParam },
       responses: { 200: { description: 'Cancelled', ...json(AnalysisRunSchema) }, ...errors },
-    }), async (c) => c.json(toDto(AnalysisRunSchema, await cancelAnalysis(c.get('ctx'), c.req.valid('param').id)), 200));
+    }), async (c) => c.json(toDto(AnalysisRunSchema, await cancelAnalysis(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/wording-proposals', access: requires('framework:read'), tags: tag,
+      description: 'The version\'s wording proposals (TASK-107): proposed replacements for an item\'s wording, each with the quote it came from, waiting for a person\'s decision.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The proposals, newest first', ...json(z.array(WordingProposalSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(WordingProposalSchema), await listWordingProposals(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/wording-proposals/{id}/decide', access: requires('framework:write'), tags: tag,
+      description: 'Accepts or declines one pending wording proposal. Accepting writes the proposed wording onto the item (undoable, like any edit) and declines the item\'s other pending proposals.',
+      request: { params: idParam, body: { content: { 'application/json': { schema: z.object({ accept: z.boolean() }) } }, required: true } },
+      responses: { 200: { description: 'The decided proposal', ...json(WordingProposalSchema) }, ...errors },
+    }), async (c) => c.json(toDto(WordingProposalSchema, await decideWordingProposal(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200));
 }

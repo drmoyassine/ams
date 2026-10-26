@@ -20,7 +20,7 @@ import {
 } from '@ams/shared';
 import type { Ctx } from '../../ctx.js';
 import { aiExtract, type AiRuntime } from '../../ai/index.js';
-import { getVersion } from '../common.js';
+import { getVersion, isInternalVersion } from '../common.js';
 import {
   CONFIG_ITEM_KIND, CONFIG_LOG_KINDS, CONFIG_PROMPTS, CONFIG_ROLES, ConfigSurveySchema, LifecycleExtractSchema, LifecycleItemSchema, TemplateExtractSchema, TemplateItemSchema, VocabExtractSchema, VocabItemSchema,
 } from './config-schemas.js';
@@ -45,6 +45,10 @@ export const CONFIG_SURVEY_PAGES = 150;
 const CONFIG_SURVEY_CHARS = 400;
 const WRITE = { stage: 'config_write', cursor: 0 } as const satisfies { stage: AnalysisStage; cursor: number };
 const EMBED = { stage: 'embed', cursor: 0 } as const satisfies { stage: AnalysisStage; cursor: number };
+/** The wording stage (TASK-107): only the internal framework reads it; an external version has nothing for it. */
+const WORDING = { stage: 'wording', cursor: 0 } as const satisfies { stage: AnalysisStage; cursor: number };
+/** Where the configuration hands on to: the internal framework goes on to the wording stage, an external one to the mapping. */
+const afterConfig = async (ctx: Ctx, versionId: string) => ((await isInternalVersion(ctx, versionId)) ? WORDING : EMBED);
 
 export const CONFIG_STAGES: readonly AnalysisStage[] = ['config_survey', 'config_extract', 'config_write'];
 export const isConfigStage = (stage: string): boolean => (CONFIG_STAGES as readonly string[]).includes(stage);
@@ -55,7 +59,8 @@ const emptyConfig = (over: Partial<AnalysisConfig> = {}): AnalysisConfig => ({ s
 const configOf = (report: Reports): AnalysisConfig => (report.config as AnalysisConfig | undefined) ?? emptyConfig();
 
 /** The step that leaves the configuration stages out and says so (called by `write` when there is nothing to read). */
-export const skipConfig = (): ConfigStep => ({ next: EMBED, report: { config: emptyConfig({ skipped: NO_CONFIG_DOCS }) } });
+export const skipConfig = (ctx: Ctx, versionId: string): Promise<ConfigStep> =>
+  afterConfig(ctx, versionId).then((next) => ({ next, report: { config: emptyConfig({ skipped: NO_CONFIG_DOCS }) } }));
 
 /** The spend limit ends the configuration reading, not the run: what was found so far is still checked and written. */
 export function configBudgetStop(report: Reports): ConfigStep {
@@ -344,7 +349,7 @@ const configWrite: ConfigStageFn = async (ctx, run, _cursor, _runtime, report) =
     ...(report.stats as AnalysisStats),
     configItems: results.length, configWritten: results.filter((r) => r.status === 'written').length, configFlagged: results.filter((r) => r.status === 'flagged').length,
   } : undefined;
-  return { next: EMBED, report: { config: { ...cfg, result }, ...(stats ? { stats } : {}) } };
+  return { next: await afterConfig(ctx, versionId), report: { config: { ...cfg, result }, ...(stats ? { stats } : {}) } };
 };
 
 export const CONFIG_STEPS: Record<'config_survey' | 'config_extract' | 'config_write', ConfigStageFn> = {

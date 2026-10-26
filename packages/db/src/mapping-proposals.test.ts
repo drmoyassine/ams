@@ -74,15 +74,27 @@ describe('the worker and suggested links (requirement_mapping)', () => {
 });
 
 describe('the worker and the quality framework itself', () => {
-  it('cannot add, change or delete anything in the IQF, even in its draft', async () => {
-    const iqfReq = (code: string) => `insert into requirement (institution_id, framework_version_id, code, level_label, title, origin) values ('${ids.inst}', '${ids.iqfV}', '${code}', 'Standard', 'T', 'ai')`;
-    await expect(db.as(worker(), (c) => c.query(iqfReq('X1')))).rejects.toThrow(/does not write the institution's quality framework/);
+  it('drafts unreviewed AI proposals into the IQF draft like into an external one, and nothing beyond that (TASK-107)', async () => {
+    const req = (version: string, code: string, over = '') =>
+      `insert into requirement (institution_id, framework_version_id, code, level_label, title, origin ${over ? `, ${over.split('|')[0]}` : ''}) values ('${ids.inst}', '${version}', '${code}', 'Standard', 'T', 'ai' ${over ? `, ${over.split('|')[1]}` : ''})`;
+    // The analysis of the IQF's own documents drafts into it, as unreviewed AI rows only.
+    await db.as(worker(), (c) => c.query(req(ids.iqfV!, 'X1')));
+    // A person's or reviewed row stays out of reach, as anywhere.
     const mine = await one(`insert into requirement (institution_id, framework_version_id, code, level_label, title, origin) values ($1, $2, 'Q9', 'Standard', 'T', 'ai') returning id`, [ids.inst, ids.iqfV]);
-    await expect(db.as(worker(), (c) => c.query(`update requirement set title = 'x' where id = $1`, [mine]))).rejects.toThrow(/does not write the institution's quality framework/);
-    await expect(db.as(worker(), (c) => c.query(`update framework_version set level_labels = '["A"]' where id = $1`, [ids.iqfV]))).rejects.toThrow(/does not write the institution's quality framework/);
+    await db.as(app(), (c) => c.query(`update requirement set title = 'person' where id = $1`, [mine]));
+    await expect(db.as(worker(), (c) => c.query(`update requirement set title = 'x' where id = $1`, [mine]))).rejects.toThrow(/a person made, edited or reviewed/);
+    await expect(db.as(worker(), (c) => c.query(`update requirement set review_status = 'approved' where id = $1`, [mine]))).rejects.toThrow(/permission denied/);
+    // The institution names its own levels (DEC-016): the worker proposes them on the run, never on the version.
+    await expect(db.as(worker(), (c) => c.query(`update framework_version set level_labels = '["A"]' where id = $1`, [ids.iqfV]))).rejects.toThrow(/the institution names the levels of its own framework/);
     await expect(db.as(worker(), (c) => c.query(`delete from requirement where id = $1`, [mine]))).rejects.toThrow(/permission denied/);
+    // And a published IQF version is immutable, as anywhere.
+    const done = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, '9') returning id`, [ids.inst, ids.iqf]);
+    await db.su.query(`update requirement set review_status = 'approved', reviewed_by = $2, reviewed_at = now() where framework_version_id = $1`, [done, ids.user]);
+    await db.su.query(`update framework_version set status = 'in_review' where id = $1`, [done]);
+    await db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [done, ids.user]);
+    await expect(db.as(worker(), (c) => c.query(req(done, 'X2')))).rejects.toThrow(/immutable|writes only into a draft framework version/);
     // An external draft is still the worker's to draft into.
-    await db.as(worker(), (c) => c.query(`insert into requirement (institution_id, framework_version_id, code, level_label, title, origin) values ('${ids.inst}', '${ids.extV}', 'E1', 'Standard', 'T', 'ai')`));
+    await db.as(worker(), (c) => c.query(req(ids.extV!, 'E1')));
   });
 
   it('a person-accepted AI item in the IQF publishes without a source page once approved; an external AI item still needs one', async () => {

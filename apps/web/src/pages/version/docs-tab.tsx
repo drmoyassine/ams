@@ -33,12 +33,13 @@ export function readStatus(d: Pick<DocumentRow, 'status' | 'pageCount' | 'needsO
 }
 
 /** Adds a source (with its original, optionally) or changes how one is described. */
-function SourceDialog({ editing, error, onSave, onClose }: {
+function SourceDialog({ editing, error, onSave, onClose, internal }: {
   editing: SourceDocument | null; error: string; onSave: (v: { title: string; role: SourceRole | null; authority: SourceAuthority; language: string; file: File | null }) => Promise<unknown>; onClose: () => void;
+  /** The institution's own framework (TASK-107): its own documents, called documents, not sources. */ internal?: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const heading = editing ? 'Edit source' : 'New source';
+  const heading = editing ? (internal ? 'Edit document' : 'Edit source') : internal ? 'New document' : 'New source';
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -76,7 +77,7 @@ function SourceDialog({ editing, error, onSave, onClose }: {
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={busy}>{editing ? 'Save' : 'Add source'}</Button>
+          <Button type="submit" disabled={busy}>{editing ? 'Save' : internal ? 'Add document' : 'Add source'}</Button>
         </div>
       </form>
     </Dialog>
@@ -148,9 +149,10 @@ const asSource = (d: DocumentRow): SourceDocument => ({
  * held: each source's role and authority, its original file, the text of its pages (quotes are verified against that text) and the
  * Analysis panel. Editable while the version is a draft.
  */
-export function VersionDocs({ api, version, me, onShowRequirement, onShowReport, focusPage }: {
+export function VersionDocs({ api, version, me, onShowRequirement, onShowReport, focusPage, internal }: {
   api: FrameworkApi; version: Version; me: Me | undefined; onShowRequirement?: (id: string) => void; onShowReport?: (runId: string) => void;
   /** Opens a source on a page and scrolls to it (a link from the report). */ focusPage?: { documentId: string; page: number; n: number };
+  /** The institution's own framework (TASK-107): its own documents, called documents, not sources. */ internal?: boolean;
 }) {
   const qc = useQueryClient();
   const docs = api.docs;
@@ -188,18 +190,18 @@ export function VersionDocs({ api, version, me, onShowRequirement, onShowReport,
     void qc.invalidateQueries({ queryKey: ['requirements', version.id] });
     void qc.invalidateQueries({ queryKey: ['version', version.id] });
   }, [qc, version.id]);
-  const fixedNote = version.status !== 'draft' ? `The sources of a ${version.status === 'in_review' ? 'version in review' : 'published version'} are fixed with it; start a new version to change them.` : undefined;
+  const fixedNote = version.status !== 'draft' ? `The ${internal ? 'documents' : 'sources'} of a ${version.status === 'in_review' ? 'version in review' : 'published version'} are fixed with it; start a new version to change them.` : undefined;
 
   return (
     <>
     <DocsTab
       scopeKind="framework_version" scopeId={version.id} targets={targets.data ?? []} canWrite={writer} editable={version.status === 'draft'} {...(fixedNote ? { fixedNote } : {})} api={docs}
-      label="Docs" onDocuments={setList}
+      label={internal ? 'Documents' : 'Docs'} onDocuments={setList}
       header={(version.status === 'draft' || version.status === 'in_review') && (
         <AnalysisPanel api={api} versionId={version.id} editable={editable} hasSources={list.length > 0} onWritten={written}
           documentTitle={(id) => list.find((d) => d.id === id)?.name ?? 'a source'} onShowPage={showPage} {...(onShowRequirement ? { onShowRequirement } : {})} {...(onShowReport ? { onShowReport } : {})} />
       )}
-      actions={editable ? <Button type="button" onClick={() => setDialog({ kind: 'add' })}>+ Source</Button> : null}
+      actions={editable ? <Button type="button" onClick={() => setDialog({ kind: 'add' })}>{internal ? '+ Document' : '+ Source'}</Button> : null}
       renderRow={(d, ctx) => {
         const role = d.roleOrigin === 'unset' || !d.role ? 'Role not set' : `${ROLE_LABEL[d.role as SourceRole] ?? d.role}${d.roleOrigin === 'ai' ? ' (AI)' : ''}`;
         const pages = d.pageCount ?? 0;
@@ -240,7 +242,7 @@ export function VersionDocs({ api, version, me, onShowRequirement, onShowReport,
     />
     {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
     {dialog?.kind === 'add' && (
-      <SourceDialog editing={null} error={error} onClose={close} onSave={async (v) => {
+      <SourceDialog internal={internal} editing={null} error={error} onClose={close} onSave={async (v) => {
         setError('');
         const doc = await run(() => api.addDocument(version.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }));
         if (!doc) return;
@@ -251,7 +253,7 @@ export function VersionDocs({ api, version, me, onShowRequirement, onShowReport,
       }} />
     )}
     {dialog?.kind === 'edit' && (
-      <SourceDialog editing={asSource(dialog.doc)} error={error} onClose={close} onSave={async (v) => {
+      <SourceDialog internal={internal} editing={asSource(dialog.doc)} error={error} onClose={close} onSave={async (v) => {
         setError('');
         if (await run(() => api.updateDocument(dialog.doc.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }))) { await refresh(); close(); }
       }} />
