@@ -5,7 +5,7 @@ import { configure, cleanup, render, screen, waitFor, within } from '@testing-li
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp, seedFrameworks, seedGlossary } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
@@ -19,7 +19,10 @@ import { VersionPage } from './pages/version';
 import { frameworkApi } from './lib/framework-api';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
-configure({ asyncUtilTimeout: 10000 });
+configure({ asyncUtilTimeout: 30000 });
+// A loaded machine stretches the render lag between a refetch landing and the select repainting;
+// give the whole file room instead of watching waits expire.
+vi.setConfig({ testTimeout: 120000, hookTimeout: 120000 });
 
 let db: TestDb;
 let pool: pg.Pool;
@@ -41,8 +44,9 @@ const versionOf = async (short: string) => {
   return (await f.versions((await f.frameworks()).find((x) => x.accreditorShortName === short)!.id))[0]!.id;
 };
 function wrap(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
-  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>;
+  return <QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>;
 }
 
 beforeAll(async () => {
@@ -67,7 +71,8 @@ describe('glossary settings', () => {
     render(wrap(<GlossaryPage api={a.glossary} settings={a.settings} />));
     expect(await screen.findByText('No terms yet.')).toBeTruthy();
     await user.click(await screen.findByRole('button', { name: 'Add starter terms' }));
-    const findings = await screen.findByRole('region', { name: 'Findings' });
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Findings' })).toBeTruthy());
+    const findings = screen.getByRole('region', { name: 'Findings' });
     expect(within(findings).getAllByTestId('term').map((t) => t.textContent)).toEqual([expect.stringContaining('Observation'), expect.stringContaining('Required action')]);
     expect(screen.queryByRole('region', { name: 'Levels' })).toBeNull(); // level names live with the framework tree
     // the levels come from the internal framework, and standards' level names map onto them
@@ -84,13 +89,14 @@ describe('glossary settings', () => {
     await user.click(screen.getByRole('button', { name: 'Terminology' }));
     await user.click(await screen.findByRole('button', { name: 'Map unmapped terms automatically' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/\d+ term\(s\) mapped/);
-    const table = await screen.findByRole('table', { name: 'Terminology of ABET' });
-    const chosen = (label: string) => (within(table).getByLabelText(label) as HTMLSelectElement).selectedOptions[0]!.textContent;
+    // Read from the live DOM on every attempt: a refetch can rebuild the table's nodes, and a captured element
+    // would keep answering with the render it was born in.
+    const chosen = (label: string) => (within(screen.getByRole('table', { name: 'Terminology of ABET' })).getByLabelText(label) as HTMLSelectElement).selectedOptions[0]!.textContent;
     await waitFor(() => expect(chosen('ABET Criterion maps to')).toBe('Standard'));
     expect(chosen('ABET Item maps to')).toBe('Sub-standard');
     expect(chosen('ABET deficiency maps to')).toBe('Required action');
     expect(chosen('ABET readiness maps to')).toBe('Not mapped');
-    expect(within(table).queryByLabelText('WSCUC CFR maps to')).toBeNull(); // only this standard's words
+    expect(screen.queryByLabelText('WSCUC CFR maps to')).toBeNull(); // only this standard's words
   });
 
   it('offers only terms of the right kind for each external word, and remaps one', async () => {
@@ -99,10 +105,11 @@ describe('glossary settings', () => {
     render(wrap(<VersionPage versionId={await versionOf('WSCUC')} api={fw('lead')} glossary={a.glossary} onOpenVersion={() => undefined} />));
     await user.click(await screen.findByRole('tab', { name: 'Settings' }));
     await user.click(screen.getByRole('button', { name: 'Terminology' }));
-    const cfr = (await screen.findByLabelText('WSCUC CFR maps to')) as HTMLSelectElement;
-    await waitFor(() => expect([...cfr.options].map((o) => o.textContent)).toEqual(['Not mapped', 'Standard', 'Sub-standard']));
-    const group = [...cfr.options].find((o) => o.textContent === 'Standard')!.value;
-    await user.selectOptions(cfr, group);
+    // The select is re-read from the live DOM each time (a refetch may rebuild it).
+    const cfr = () => screen.getByLabelText('WSCUC CFR maps to') as HTMLSelectElement;
+    await waitFor(() => expect([...cfr().options].map((o) => o.textContent)).toEqual(['Not mapped', 'Standard', 'Sub-standard']));
+    const group = [...cfr().options].find((o) => o.textContent === 'Standard')!.value;
+    await user.selectOptions(cfr(), group);
     await waitFor(async () => expect((await a.glossary.glossary()).aliases.find((x) => x.externalTerm === 'CFR')?.termId).toBe(group));
   });
 

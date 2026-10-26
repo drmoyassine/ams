@@ -1,10 +1,9 @@
 // SAML spike (TASK-006): can @better-auth/sso complete a SAML login against a standards-compliant IdP?
-// The IdP here is a local mock built with samlify; a real IdP (QuickLaunch) has not been exercised.
-import { execSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+// The IdP here is a local mock built with samlify; a real IdP (QuickLaunch) has not been exercised. The mock IdP
+// signs with the committed throwaway keypair in ../fixtures (self-signed, mock-idp, ten years) — nothing real.
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import pg from 'pg';
 import * as samlify from 'samlify';
@@ -25,10 +24,8 @@ beforeAll(async () => {
 afterAll(async () => { await pool.end(); await db.close(); });
 
 it('completes a SAML login against a mock IdP', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'idp-'));
-  execSync(`openssl req -x509 -newkey rsa:2048 -nodes -keyout ${dir}/k.pem -out ${dir}/c.pem -days 2 -subj "/CN=mock-idp" 2>/dev/null`);
-  const key = readFileSync(`${dir}/k.pem`, 'utf8');
-  const cert = readFileSync(`${dir}/c.pem`, 'utf8');
+  const key = readFileSync(resolve(import.meta.dirname, '../fixtures/mock-idp-key.pem'), 'utf8');
+  const cert = readFileSync(resolve(import.meta.dirname, '../fixtures/mock-idp-cert.pem'), 'utf8');
   const certBody = cert.replace(/-----[A-Z ]+-----|\s/g, '');
   const idpEntity = 'https://idp.test/';
   const idpXml = `<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="${idpEntity}"><IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol" WantAuthnRequestsSigned="false"><KeyDescriptor use="signing"><KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><X509Data><X509Certificate>${certBody}</X509Certificate></X509Data></KeyInfo></KeyDescriptor><NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</NameIDFormat><SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://idp.test/sso"/><SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://idp.test/sso"/></IDPSSODescriptor></EntityDescriptor>`;

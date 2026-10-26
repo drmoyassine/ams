@@ -67,8 +67,17 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
   const [adding, setAdding] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState('');
   const act = useAction(setError);
-  const refresh = async () => { await qc.invalidateQueries({ queryKey: ['glossary'] }); await qc.invalidateQueries({ queryKey: ['external-terms'] }); };
-  const run = useMutation({ mutationFn: async (fn: () => Promise<unknown>) => { setError(null); setMessage(null); return act(fn); }, onSuccess: refresh });
+  // The invalidation is part of the mutation's own promise, not an onSuccess callback: a callback that lives on the
+  // component's observer is silently dropped if the component is replaced mid-mutation, and the page then shows stale terms.
+  const run = useMutation({
+    mutationFn: async (fn: () => Promise<unknown>) => {
+      setError(null); setMessage(null);
+      const r = await act(fn);
+      await qc.invalidateQueries({ queryKey: ['glossary'] });
+      await qc.invalidateQueries({ queryKey: ['external-terms'] });
+      return r;
+    },
+  });
   const terms = (glossary.data?.terms ?? []).filter((t) => t.kind !== 'level');
 
   return (
@@ -78,8 +87,10 @@ export function GlossaryPage({ api: override, settings, embedded = false }: { ap
       <ReadOnlyNote show={!embedded && !!me.data && !canEdit} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
-      {terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}
-      {canEdit && terms.length === 0 && <Button type="button" onClick={() => run.mutate(async () => { const r = await api.seedDefaults(); setMessage(`${r.added} starter terms added.`); })}>Add starter terms</Button>}
+      {/* Only called empty once the first fetch has landed: a seed fired while that fetch is still in flight
+          has its refresh swallowed (invalidateQueries dedupes against the running fetch, whose success clears the flag). */}
+      {glossary.isSuccess && terms.length === 0 && <p className="text-sm text-muted-foreground">No terms yet.</p>}
+      {canEdit && glossary.isSuccess && terms.length === 0 && <Button type="button" onClick={() => run.mutate(async () => { const r = await api.seedDefaults(); setMessage(`${r.added} starter terms added.`); })}>Add starter terms</Button>}
       {terms.length > 0 && (
         <Card>
           <div className="divide-y divide-border">

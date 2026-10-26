@@ -311,7 +311,8 @@ describe('parser import points (DEC-011)', () => {
       else if (/\.(ts|tsx|mjs)$/.test(e) && !/\.test\.tsx?$/.test(e)) yield path;
     }
   }
-  const importers = (pattern: RegExp) => ['apps', 'packages'].flatMap((d) => [...files(join(root, d))]).filter((f) => pattern.test(readFileSync(f, 'utf8'))).map((f) => relative(root, f));
+  // Forward slashes everywhere: `relative` answers the platform separator, and the expectations name repo paths.
+  const importers = (pattern: RegExp) => ['apps', 'packages'].flatMap((d) => [...files(join(root, d))]).filter((f) => pattern.test(readFileSync(f, 'utf8'))).map((f) => relative(root, f).replace(/\\/g, '/'));
 
   it('imports the owned parser only in parse-document.ts and the temporary upstream fallback only in parse-document-fallback.ts', () => {
     expect(importers(/['"]@drmoyassine\/liteparse(\/[\w/-]+)?['"]/)).toEqual(['packages/core/src/framework/parse-document.ts']);

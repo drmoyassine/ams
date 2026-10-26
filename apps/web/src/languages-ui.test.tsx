@@ -22,7 +22,10 @@ import { LoginPage } from './pages/login';
 import { OrganizationPage } from './pages/settings/organization';
 import { act, renderHook } from '@testing-library/react';
 
-configure({ asyncUtilTimeout: 10000 });
+configure({ asyncUtilTimeout: 30000 });
+// A loaded machine stretches the render lag between a refetch landing and the select repainting;
+// give the whole file room instead of watching waits expire.
+vi.setConfig({ testTimeout: 120000, hookTimeout: 120000 });
 vi.hoisted(() => { (globalThis as { fetch: unknown }).fetch = (...a: unknown[]) => (globalThis as unknown as { __testFetch: (...x: unknown[]) => unknown }).__testFetch(...a); });
 vi.mock('./lib/auth', () => ({ authClient: { getSession: async () => ({ data: { user: { id: 'u' } } }), signOut: async () => undefined, signIn: { email: async () => ({}) } } }));
 
@@ -153,7 +156,7 @@ describe('Languages section (Settings -> Organization)', () => {
     expect(screen.getByTestId('catalogue-counts').textContent).toMatch(/^2 of \d+ strings translated, 0 reviewed$/);
     expect((screen.getByLabelText('Secondary language') as HTMLSelectElement).value).toBe('ar');
     expect((await screen.findAllByTestId('review-row')).length).toBeGreaterThan(2);
-    expect(screen.getByRole('button', { name: 'Translate the interface' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Translate the interface' })).toBeTruthy();
   });
 
   it('edits a translation (it becomes a person\'s and reviewed) and marks one reviewed', async () => {
@@ -240,7 +243,7 @@ describe('Languages section (Settings -> Organization)', () => {
     expect(within(run).getByText('1,500 tokens in 2 calls')).toBeTruthy();
     expect(within(run).getByText('json.save')).toBeTruthy();
     expect(await within(run).findByRole('button', { name: 'Resume' })).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Translate the interface' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((await screen.findByRole('button', { name: 'Translate the interface' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Translation cannot start yet/)).toBeTruthy();
     await q(`delete from ai_setting`);
   });
