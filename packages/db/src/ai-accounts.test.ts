@@ -111,6 +111,10 @@ describe('migration 0045: saved settings become accounts', () => {
     // Embeddings switched on without an endpoint cannot stay on.
     await ins('embedOnly', 'embed_enabled, embed_model', [true, 'orphan']);
     await runMigrations(url);
+    // Migration 0070 moved everything to the ams schema; a connection opened before it still looks in public.
+    await su.end();
+    su = new pg.Client({ connectionString: url });
+    await su.connect();
   }, 60000);
 
   afterAll(async () => {
