@@ -132,7 +132,7 @@ describe('analysis API', () => {
     await db.su.query(`update framework_version set status = 'published', published_at = now(), published_by = $2 where id = $1`, [v, ids.admin]);
     expect((await call('lead', 'POST', `/api/framework-versions/${v}/analysis`)).status).toBe(409);
     const empty = await one(`insert into framework_version (institution_id, framework_id, edition) values ($1, $2, 'empty') returning id`, [ids.inst, ids.fw]);
-    expect((await call('lead', 'POST', `/api/framework-versions/${empty}/analysis`)).body.message).toMatch(/Sources first/);
+    expect((await call('lead', 'POST', `/api/framework-versions/${empty}/analysis`)).body.message).toMatch(/on the Docs tab first/);
     await db.su.query(`insert into ai_setting (institution_id, model, enabled) values ($1, 'm', false)`, [ids.inst]);
     const off = await call('lead', 'POST', `/api/framework-versions/${await draft('off')}/analysis`);
     expect(off.status).toBe(409);

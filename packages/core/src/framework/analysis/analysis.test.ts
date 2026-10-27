@@ -275,7 +275,7 @@ describe('framework analysis', () => {
       const fw = await createFramework(c, { accreditorId: acc.id, name: 'S', scope: 'institution' });
       return (await createVersion(c, { frameworkId: fw.id, edition: 'D' })).id;
     });
-    await expect(as('alo', (c) => startAnalysis(c, empty))).rejects.toThrow(/Sources first/);
+    await expect(as('alo', (c) => startAnalysis(c, empty))).rejects.toThrow(/on the Docs tab first/);
     await w.db.su.query(`insert into ai_setting (institution_id, model, enabled) values ($1, 'm', false)`, [w.ids.inst]);
     await expect(as('alo', (c) => startAnalysis(c, v.versionId))).rejects.toThrow(/switched off/);
     await w.db.su.query(`delete from ai_setting where institution_id = $1`, [w.ids.inst]);
