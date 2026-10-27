@@ -273,10 +273,15 @@ sign-in in the AMS's audit trail is **[planned]**.
 AMS instead of derived; the audit event per sign-in.
 
 ### 6.3 General rules
-**Co-deployment (DEC-034).** Both products may run in one Compose project (the BI repository's `compose.together.yaml`): one PostgreSQL
-server and one Garage store, but the BI has its own database, role and bucket and never reads the AMS's. On that private network the
-AMS calls the BI over plain http only to the one host named `BI_PRIVATE_HOST` (a single-label service name, e.g. `BI_BASE_URL=http://bi-api:4000`),
-and the BI calls back the AMS's internal address (`APP_PUBLIC_URL=http://app:3000`). Nothing else in this contract changes.
+**Co-deployment (DEC-034, revised 2026-10-27).** Both products may run in one Compose project (the BI repository's
+`compose.together.yaml`) on **one PostgreSQL database** and one Garage store. Each product owns its schemas and roles: the AMS
+lives in `ams` (and its job queue in `pgboss`); the BI owns its own schemas (its tables in `bi`, its job queue in a schema of its
+own, never `pgboss`) and `public`, which is **reserved for the BI's analytic data**. No role of one product has a privilege on the
+other's schemas: the AMS's migration 0070 lets only `ams_app` and `ams_worker` use `ams`, and leaves `public` empty and closed
+until the BI grants its own role. Neither product queries the other's schemas; they talk only through this contract. The AMS
+calls the BI over **https** wherever it runs; plain http is allowed only to the one host named `BI_PRIVATE_HOST` (a single-label
+service name, e.g. `BI_BASE_URL=http://bi-api:4000`), because only a private network keeps the key and tokens off the wire. The
+BI calls back the AMS's internal address (`APP_PUBLIC_URL=http://app:3000`). Nothing else in this contract changes.
 
 ## 7. What the BI team can build now
 

@@ -826,3 +826,9 @@ The BI asked (its #10, our issue 3) to act as a person with that person's rights
 - **Learning.** The plugin refuses an authorization request whose `resource` is not seeded and linked to the client (`invalid_target`); config-defined clients are written straight to `oauthClient` with the plugin's own secret hash (SHA-256, base64url unpadded), because its create-client routes need a signed-in session.
 - **Learning.** Replaying a used refresh token revokes the whole chain, including the newest token: a test that reuses an old one must come last.
 - **Learning.** The plugin's documentation site was not reachable from the box; the type definitions and a throwaway end-to-end test were enough to learn the flow (sign-in, `/login?…&sig=` for a person not signed in, authorize, token, verify against JWKS, refresh).
+
+## 2026-10-27 — One database, a schema per product (DEC-034 revised)
+
+The owner preferred one database with a schema per product to a database per product, and reserved `public` for the BI's analytic data. Migration 0070 renames `public` to `ams` (every object moves with the schema; catalogue references are by identity), creates an empty, closed `public`, sets the database's default search path to `ams`, re-points the 37 `SET search_path = public` SECURITY DEFINER functions, and lets only `ams_app` / `ams_worker` use `ams`. `ams-schema.test.ts` proves a role of another product sees neither `ams` nor `public`. The BI side (its role and schemas on the shared database, its job queue out of `pgboss`) is asked of the BI through the issue bridge.
+- **Learning.** `ALTER DATABASE ... SET search_path` reaches new connections only; a migration that renames the schema must also `SET search_path` for the rest of its own run. A role-level setting (the BI's) wins over the database's.
+- **Learning.** The AMS's migrations now need the database owner or a superuser (the default Compose `POSTGRES_USER` is a superuser).
