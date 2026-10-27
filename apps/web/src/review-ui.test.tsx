@@ -131,7 +131,7 @@ describe('Create from files', () => {
     await user.type(within(dialog).getByLabelText('Edition'), '2027');
     expect(within(dialog).getByText(/the analysis can suggest them later/)).toBeTruthy();
     expect(submit.disabled).toBe(true); // no files yet
-    const input = within(dialog).getByLabelText('Choose files') as HTMLInputElement;
+    const input = within(dialog).getByLabelText('Files to upload') as HTMLInputElement;
     expect(input.multiple).toBe(true);
     await user.upload(input, [pdf('Handbook 2027.pdf', 2 * 1048576), new File(['x'], 'دليل المعايير.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), sized(pdf('Huge.pdf'), 80 * 1048576)]);
     const rows = await within(dialog).findAllByTestId('chosen-file');
@@ -161,7 +161,7 @@ describe('Create from files', () => {
     await user.type(within(dialog).getByLabelText('Standard name'), 'Institutional Standards');
     await user.selectOptions(within(dialog).getByLabelText('Scope'), 'both');
     await user.type(within(dialog).getByLabelText('Edition'), '2027');
-    await user.upload(within(dialog).getByLabelText('Choose files'), [pdf('Handbook.pdf'), pdf('دليل.pdf')]);
+    await user.upload(within(dialog).getByLabelText('Files to upload'), [pdf('Handbook.pdf'), pdf('دليل.pdf')]);
     await user.click(within(dialog).getByRole('button', { name: 'Create and analyse' }));
 
     const summary = await within(dialog).findByTestId('created-summary');
@@ -199,7 +199,7 @@ describe('Create from files', () => {
     expect(within(dialog).queryByLabelText('Accreditor name')).toBeNull();
     await user.type(within(dialog).getByLabelText('Standard name'), 'Programme Standards');
     await user.type(within(dialog).getByLabelText('Edition'), '2028');
-    await user.upload(within(dialog).getByLabelText('Choose files'), [pdf('first.pdf'), pdf('second.pdf')]);
+    await user.upload(within(dialog).getByLabelText('Files to upload'), [pdf('first.pdf'), pdf('second.pdf')]);
     await user.click(within(dialog).getByRole('button', { name: 'Create and analyse' }));
 
     const retry = await within(dialog).findByRole('button', { name: 'Retry second.pdf' });
@@ -227,7 +227,7 @@ describe('Create from files', () => {
     await waitFor(() => expect((within(dialog).getByLabelText('Accreditor') as HTMLSelectElement).options.length).toBe(2));
     await user.type(within(dialog).getByLabelText('Standard name'), 'programme standards'); // the accreditor has one by this name already
     await user.type(within(dialog).getByLabelText('Edition'), '2029');
-    await user.upload(within(dialog).getByLabelText('Choose files'), [pdf('a.pdf')]);
+    await user.upload(within(dialog).getByLabelText('Files to upload'), [pdf('a.pdf')]);
     await user.click(within(dialog).getByRole('button', { name: 'Create and analyse' }));
     const alert = await within(dialog).findByRole('alert');
     expect(alert.textContent).toMatch(/already has a standard called/);
@@ -316,7 +316,7 @@ describe('the source of a requirement', () => {
     const { sheet } = await showSource(user, 'y1');
     await user.click(await within(sheet).findByRole('button', { name: 'Open in Docs' }));
     const sources = await screen.findByRole('region', { name: 'Docs' });
-    const handbook = await within(sources).findByRole('region', { name: 'Handbook' });
+    const handbook = await within(sources).findByRole('article', { name: 'Handbook' });
     expect(await within(handbook).findByRole('tab', { name: '1', selected: true })).toBeTruthy();
   });
 

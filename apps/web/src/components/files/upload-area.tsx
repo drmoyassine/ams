@@ -1,22 +1,22 @@
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '../../lib/framework-api';
-import { FILE_ACCEPT } from '../../lib/source-files';
+import type { UploadKind } from '../../lib/file-rules';
 import { Button } from '../ui/button';
+import { FileDrop } from './file-drop';
 
 interface Item { key: number; file: File; state: 'waiting' | 'uploading' | 'done' | 'failed'; message: string }
 const CONCURRENCY = 2;
 let counter = 0;
 
 /**
- * Drag and drop (or choose) many files. Each file uploads on its own, two at a time, with its own state and, when it fails, the
- * server's reason and a Retry; the others carry on. `onUpload` stores one file and rejects with the reason it was refused.
+ * Drag and drop (or choose) files and store each one at once (`FileDrop` + a queue). Each file uploads on its own, two at a time, with
+ * its own state and, when it fails, the server's reason and a Retry; the others carry on. `onUpload` stores one file and rejects with
+ * the reason it was refused.
  */
-export function UploadArea({ onUpload, onSettled, label = 'Upload documents' }: {
-  onUpload: (file: File) => Promise<unknown>; /** Called when the queue is empty (refresh the list). */ onSettled?: () => void; label?: string;
+export function UploadArea({ onUpload, onSettled, label = 'Upload documents', kind = 'document', multiple = true }: {
+  onUpload: (file: File) => Promise<unknown>; /** Called when the queue is empty (refresh the list). */ onSettled?: () => void; label?: string; kind?: UploadKind; multiple?: boolean;
 }) {
   const [items, setItems] = useState<Item[]>([]);
-  const [over, setOver] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
   const live = useRef<Item[]>([]);
   const running = useRef(0);
   const set = useCallback((next: Item[]) => { live.current = next; setItems(next); }, []);
@@ -39,8 +39,7 @@ export function UploadArea({ onUpload, onSettled, label = 'Upload documents' }: 
     }
   }, [onUpload, onSettled, patch]);
 
-  const add = (files: FileList | File[] | null) => {
-    const list = [...(files ?? [])];
+  const add = (list: File[]) => {
     if (!list.length) return;
     set([...live.current.filter((i) => i.state !== 'done'), ...list.map((file) => ({ key: ++counter, file, state: 'waiting' as const, message: '' }))]);
     pump();
@@ -50,15 +49,7 @@ export function UploadArea({ onUpload, onSettled, label = 'Upload documents' }: 
 
   return (
     <div className="space-y-2">
-      <div role="group" aria-label={label}
-        onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}
-        className={`flex flex-wrap items-center gap-3 rounded-lg border-2 border-dashed p-4 text-sm ${over ? 'border-primary bg-primary/5' : 'border-border'}`}>
-        <span className="min-w-0 flex-1 text-muted-foreground">Drop files here, or choose them. PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV or images; many at a time.</span>
-        <input ref={input} type="file" multiple accept={FILE_ACCEPT} aria-label="Files to upload" className="sr-only" tabIndex={-1}
-          onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
-        <Button type="button" variant="outline" onClick={() => input.current?.click()}>Choose files</Button>
-      </div>
+      <FileDrop onFiles={add} label={label} kind={kind} multiple={multiple} />
       {items.length > 0 && (
         <ul aria-label="Uploads" aria-live="polite" className="space-y-1 text-sm">
           {items.map((i) => (

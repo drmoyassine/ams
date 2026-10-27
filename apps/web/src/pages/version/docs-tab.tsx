@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DocumentRow, Me } from '@ams/shared';
-import { AccordionCard, Shaded } from '../../components/accordion';
+import { Shaded } from '../../components/accordion';
 import { useConfirm } from '../../components/confirm-dialog';
-import { ContentText } from '../../components/content-text';
 import { Dialog } from '../../components/dialog';
-import { DocsTab, StatusChip, UploadedBy } from '../../components/docs';
+import { DocsTab } from '../../components/docs';
+import { useFilePicker } from '../../components/files';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { AnalysisPanel } from './analysis-panel';
 import type { FrameworkApi, SourceAuthority, SourceDocument, SourceRole, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
-import { FILE_ACCEPT, formatBytes } from '../../lib/source-files';
 import { useAction } from '../../lib/use-action';
 
 export const ROLE_LABEL: Record<SourceRole, string> = {
@@ -20,64 +19,43 @@ export const ROLE_LABEL: Record<SourceRole, string> = {
 };
 export const AUTHORITY_LABEL: Record<SourceAuthority, string> = { binding: 'Binding', interpretive: 'Interpretive', informational: 'Informational' };
 const select = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm';
-/** Where reading a source's file stands, in words (the standards' wording; the generic chip says the same in one word). */
-export function readStatus(d: Pick<DocumentRow, 'status' | 'pageCount' | 'needsOcrPages'>): string {
-  const pages = d.pageCount ?? 0;
-  switch (d.status) {
-    case 'queued': case 'reading': return 'Reading the file…';
-    case 'read': return `Read: ${pages} page${pages === 1 ? '' : 's'}`;
-    case 'needs_ocr': { const n = d.needsOcrPages; return `Read: ${pages} page${pages === 1 ? '' : 's'}, ${n} need${n === 1 ? 's' : ''} OCR`; }
-    case 'failed': return 'The file could not be read. Check that it is a PDF, Word, Excel, PowerPoint, OpenDocument, RTF, CSV or image file that opens.';
-    default: return 'Not read yet';
-  }
-}
-
-/** Adds a source (with its original, optionally) or changes how one is described. */
-function SourceDialog({ editing, error, onSave, onClose, internal }: {
-  editing: SourceDocument | null; error: string; onSave: (v: { title: string; role: SourceRole | null; authority: SourceAuthority; language: string; file: File | null }) => Promise<unknown>; onClose: () => void;
-  /** The institution's own framework (TASK-107): its own documents, called documents, not sources. */ internal?: boolean;
+/** Changes how a document is described: its title, what it is, its authority and its language. (New documents come in by dropping the files.) */
+function DetailsDialog({ doc, error, onSave, onClose }: {
+  doc: SourceDocument; error: string; onSave: (v: { title: string; role: SourceRole | null; authority: SourceAuthority; language: string }) => Promise<unknown>; onClose: () => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const heading = editing ? (internal ? 'Edit document' : 'Edit source') : internal ? 'New document' : 'New source';
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     setBusy(true);
-    void onSave({ title: String(f.get('title')).trim(), role: (String(f.get('role')) || null) as SourceRole | null, authority: String(f.get('authority')) as SourceAuthority, language: String(f.get('language')).trim() || 'en', file })
+    void onSave({ title: String(f.get('title')).trim(), role: (String(f.get('role')) || null) as SourceRole | null, authority: String(f.get('authority')) as SourceAuthority, language: String(f.get('language')).trim() || 'en' })
       .finally(() => setBusy(false));
   };
   return (
     <Dialog labelledBy="source-dialog-title" onClose={onClose}>
       <div className="mb-4 flex items-start justify-between gap-2">
-        <h2 id="source-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{heading}</h2>
+        <h2 id="source-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">Edit details</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-      <form onSubmit={submit} className="space-y-3" aria-label={heading}>
-        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={editing?.title ?? ''} required autoFocus dir="auto" /></label>
+      <form onSubmit={submit} className="space-y-3" aria-label="Edit details">
+        <label className="flex flex-col text-sm">Title<Input name="title" aria-label="Title" defaultValue={doc.title} required autoFocus dir="auto" /></label>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_6rem]">
           <label className="flex flex-col text-sm">What it is
-            <select name="role" aria-label="What it is" defaultValue={editing?.role ?? 'standards'} className={select}>
-              {!editing && <option value="">Not sure: the analysis decides</option>}
+            <select name="role" aria-label="What it is" defaultValue={doc.role} className={select}>
               {(Object.keys(ROLE_LABEL) as SourceRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>
           </label>
           <label className="flex flex-col text-sm">Authority
-            <select name="authority" aria-label="Authority" defaultValue={editing?.authority ?? 'binding'} className={select}>
+            <select name="authority" aria-label="Authority" defaultValue={doc.authority} className={select}>
               {(Object.keys(AUTHORITY_LABEL) as SourceAuthority[]).map((a) => <option key={a} value={a}>{AUTHORITY_LABEL[a]}</option>)}
             </select>
           </label>
-          <label className="flex flex-col text-sm">Language<Input name="language" aria-label="Language" defaultValue={editing?.language ?? 'en'} /></label>
+          <label className="flex flex-col text-sm">Language<Input name="language" aria-label="Language" defaultValue={doc.language} /></label>
         </div>
-        {!editing && (
-          <label className="flex flex-col text-sm">Original file (optional)
-            <input aria-label="Original file" type="file" accept={FILE_ACCEPT} className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
-        )}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={busy}>{editing ? 'Save' : internal ? 'Add document' : 'Add source'}</Button>
+          <Button type="submit" disabled={busy}>Save</Button>
         </div>
       </form>
     </Dialog>
@@ -144,15 +122,15 @@ const asSource = (d: DocumentRow): SourceDocument => ({
 });
 
 /**
- * A version's Docs tab (TASK-075): the accreditor's documents its requirements and notes come from, in the shared Docs tab (who
- * uploaded each and when, status, drag-and-drop upload, open, read again, delete to the Trash), with what the old Sources section
- * held: each source's role and authority, its original file, the text of its pages (quotes are verified against that text) and the
- * Analysis panel. Editable while the version is a draft.
+ * A version's Docs tab (TASK-075): the shared Docs tab (drop files to add documents; who uploaded each and when, status, open, read
+ * again, delete to the Trash) with what only standards have: each document's role and authority (the analysis fills the role when
+ * it was left open; Edit details changes both), Replace file, the text of its pages (quotes are verified against it; closed until
+ * opened) and, below the list, the Analysis panel. Editable while the version is a draft.
  */
 export function VersionDocs({ api, version, me, onShowRequirement, onShowReport, focusPage, internal }: {
   api: FrameworkApi; version: Version; me: Me | undefined; onShowRequirement?: (id: string) => void; onShowReport?: (runId: string) => void;
-  /** Opens a source on a page and scrolls to it (a link from the report). */ focusPage?: { documentId: string; page: number; n: number };
-  /** The institution's own framework (TASK-107): its own documents, called documents, not sources. */ internal?: boolean;
+  /** Opens a document on a page and scrolls to it (a link from the report). */ focusPage?: { documentId: string; page: number; n: number };
+  /** The institution's own framework (TASK-107): the tab is called Documents, not Docs. */ internal?: boolean;
 }) {
   const qc = useQueryClient();
   const docs = api.docs;
@@ -161,7 +139,7 @@ export function VersionDocs({ api, version, me, onShowRequirement, onShowReport,
   const [list, setList] = useState<DocumentRow[]>([]);
   const targets = useQuery({ queryKey: ['import-targets', 'framework_version', version.id], queryFn: () => docs.targets({ kind: 'framework_version', id: version.id }) });
   const [open, setOpen] = useState<Set<string>>(new Set());
-  // A gap's link to a source page: open that source on that page and scroll to it.
+  // A gap's link to a document page: open that document's page text on that page and scroll to it.
   const [focus, setFocus] = useState<{ documentId: string; page: number; n: number } | null>(null);
   const showPage = useCallback((documentId: string, page: number) => {
     setOpen((s) => new Set([...s, documentId]));
@@ -173,89 +151,57 @@ export function VersionDocs({ api, version, me, onShowRequirement, onShowReport,
     const el = document.getElementById(`source-${focus.documentId}`);
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, [focus, list.length]);
-  const [dialog, setDialog] = useState<{ kind: 'add' } | { kind: 'edit'; doc: DocumentRow } | null>(null);
+  const [editing, setEditing] = useState<DocumentRow | null>(null);
   const [error, setError] = useState('');
   const run = useAction(setError);
   const refresh = () => qc.invalidateQueries({ queryKey: ['docs', 'framework_version', version.id] });
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const close = () => { setDialog(null); setError(''); };
-  const pickFile = (doc: DocumentRow) => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = FILE_ACCEPT;
-    input.onchange = () => { const f = input.files?.[0]; if (f) void run(() => api.uploadSourceFile(doc.id, f)).then(refresh); };
-    input.click();
-  };
+  const close = () => { setEditing(null); setError(''); };
+  const replacing = useRef<DocumentRow | null>(null);
+  const picker = useFilePicker({ label: 'Replace file', onFiles: ([f]) => { const doc = replacing.current; if (doc && f) void run(() => api.uploadSourceFile(doc.id, f)).then(refresh); } });
   const written = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ['docs', 'framework_version', version.id] });
     void qc.invalidateQueries({ queryKey: ['requirements', version.id] });
     void qc.invalidateQueries({ queryKey: ['version', version.id] });
   }, [qc, version.id]);
-  const fixedNote = version.status !== 'draft' ? `The ${internal ? 'documents' : 'sources'} of a ${version.status === 'in_review' ? 'version in review' : 'published version'} are fixed with it; start a new version to change them.` : undefined;
+  const fixedNote = version.status !== 'draft' ? `The documents of a ${version.status === 'in_review' ? 'version in review' : 'published version'} are fixed with it; start a new version to change them.` : undefined;
 
   return (
     <>
     <DocsTab
       scopeKind="framework_version" scopeId={version.id} targets={targets.data ?? []} canWrite={writer} editable={version.status === 'draft'} {...(fixedNote ? { fixedNote } : {})} api={docs}
       label={internal ? 'Documents' : 'Docs'} onDocuments={setList}
-      header={(version.status === 'draft' || version.status === 'in_review') && (
+      footer={(version.status === 'draft' || version.status === 'in_review') && (
         <AnalysisPanel api={api} versionId={version.id} editable={editable} hasSources={list.length > 0} onWritten={written}
-          documentTitle={(id) => list.find((d) => d.id === id)?.name ?? 'a source'} onShowPage={showPage} {...(onShowRequirement ? { onShowRequirement } : {})} {...(onShowReport ? { onShowReport } : {})} />
+          documentTitle={(id) => list.find((d) => d.id === id)?.name ?? 'a document'} onShowPage={showPage} {...(onShowRequirement ? { onShowRequirement } : {})} {...(onShowReport ? { onShowReport } : {})} />
       )}
-      actions={editable ? <Button type="button" onClick={() => setDialog({ kind: 'add' })}>{internal ? '+ Document' : '+ Source'}</Button> : null}
-      renderRow={(d, ctx) => {
-        const role = d.roleOrigin === 'unset' || !d.role ? 'Role not set' : `${ROLE_LABEL[d.role as SourceRole] ?? d.role}${d.roleOrigin === 'ai' ? ' (AI)' : ''}`;
-        const pages = d.pageCount ?? 0;
-        return (
-          <AccordionCard label={d.name} tag={role} title={d.name} testId="source-document" domId={`source-${d.id}`} open={open.has(d.id)} onToggle={() => toggle(d.id)}
-            menuLabel={`Actions for ${d.name}`}
-            menu={editable ? [
-              { label: 'Edit', onSelect: () => setDialog({ kind: 'edit', doc: d }) },
-              { label: d.hasFile ? 'Replace file' : 'Upload file', onSelect: () => pickFile(d) },
-              { label: 'Delete', onSelect: () => ctx.remove(d) },
-            ] : []}
-            meta={<span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-              <span>{AUTHORITY_LABEL[d.authority as SourceAuthority] ?? d.authority}</span>
-              <span>{pages} page{pages === 1 ? '' : 's'}</span>
-              {d.hasFile && <span className="rounded bg-muted px-1.5 py-0.5">File</span>}
-              <StatusChip doc={d} />
-            </span>}>
-            <div className="space-y-1">
-              <Shaded>Original</Shaded>
-              {d.hasFile
-                ? <p className="text-sm"><a className="underline" href={api.sourceFileUrl(d.id)} target="_blank" rel="noreferrer"><ContentText>{d.fileName ?? 'file'}</ContentText></a> <span className="text-xs text-muted-foreground">{d.size !== null ? formatBytes(d.size) : ''}</span></p>
-                : <p className="text-sm text-muted-foreground">No file uploaded.{editable ? ' Use the ⋯ menu to upload it.' : ''}</p>}
-              <p className="text-xs text-muted-foreground"><UploadedBy doc={d} /></p>
-              {d.hasFile && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {editable && <Button type="button" variant="outline" disabled={d.status === 'queued'} onClick={() => ctx.readAgain(d)}>{d.status === 'not_read' || d.status === 'queued' ? 'Read this file' : 'Read this file again'}</Button>}
-                  <span role="status" aria-label={`Reading status of ${d.name}`} className="text-xs text-muted-foreground">{readStatus(d)}</span>
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Shaded>Pages</Shaded>
-              <Pages api={api} doc={{ id: d.id, title: d.name, textStatus: d.status }} editable={editable} onChange={() => void refresh()} {...(focus?.documentId === d.id ? { focus } : {})} />
-            </div>
-          </AccordionCard>
-        );
-      }}
+      rowExtras={(d) => ({
+        domId: `source-${d.id}`,
+        chips: (
+          <>
+            <Shaded>{d.roleOrigin === 'unset' || !d.role ? 'Role not set' : `${ROLE_LABEL[d.role as SourceRole] ?? d.role}${d.roleOrigin === 'ai' ? ' (AI)' : ''}`}</Shaded>
+            <Shaded>{AUTHORITY_LABEL[d.authority as SourceAuthority] ?? d.authority ?? ''}</Shaded>
+          </>
+        ),
+        menu: editable ? [
+          { label: 'Edit details', onSelect: () => setEditing(d) },
+          { label: d.hasFile ? 'Replace file' : 'Upload file', onSelect: () => { replacing.current = d; picker.open(); } },
+        ] : [],
+        detailsLabel: 'Page text', open: open.has(d.id), onToggle: () => toggle(d.id),
+        details: (
+          <>
+            <p className="text-xs text-muted-foreground">Quotes in notes are checked against this text. Correct it where the reading went wrong.</p>
+            <Pages api={api} doc={{ id: d.id, title: d.name, textStatus: d.status }} editable={editable} onChange={() => void refresh()} {...(focus?.documentId === d.id ? { focus } : {})} />
+          </>
+        ),
+      })}
     />
-    {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    {dialog?.kind === 'add' && (
-      <SourceDialog internal={internal} editing={null} error={error} onClose={close} onSave={async (v) => {
+    {picker.input}
+    {error && !editing && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {editing && (
+      <DetailsDialog doc={asSource(editing)} error={error} onClose={close} onSave={async (v) => {
         setError('');
-        const doc = await run(() => api.addDocument(version.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }));
-        if (!doc) return;
-        if (v.file && !(await run(() => api.uploadSourceFile(doc.id, v.file!)))) { await refresh(); return; }
-        await refresh();
-        setOpen((s) => new Set([...s, doc.id]));
-        close();
-      }} />
-    )}
-    {dialog?.kind === 'edit' && (
-      <SourceDialog internal={internal} editing={asSource(dialog.doc)} error={error} onClose={close} onSave={async (v) => {
-        setError('');
-        if (await run(() => api.updateDocument(dialog.doc.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }))) { await refresh(); close(); }
+        if (await run(() => api.updateDocument(editing.id, { title: v.title, ...(v.role ? { role: v.role } : {}), authority: v.authority, language: v.language }))) { await refresh(); close(); }
       }} />
     )}
     </>

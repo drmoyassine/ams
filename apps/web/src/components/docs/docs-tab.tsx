@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DocScopeKind, DocumentRow, ImportTargetInfo } from '@ams/shared';
 import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
+import { ActionsMenu } from '../accordion';
 import { useAction } from '../../lib/use-action';
 import { useConfirm } from '../confirm-dialog';
 import { Button } from '../ui/button';
@@ -9,7 +10,7 @@ import { ImportPanel } from './import-panel';
 import { ImportReportView } from './import-report';
 import { ImportReview } from './import-review';
 import { sizeAndPages, StatusChip, UploadedBy } from './parts';
-import { UploadArea } from './upload-area';
+import { UploadArea } from '../files';
 
 /** What a custom row gets to work with. */
 export interface DocsRowContext {
@@ -25,6 +26,25 @@ export interface DocsRowContext {
   menu: (doc: DocumentRow) => { label: string; onSelect: () => void }[];
 }
 
+/**
+ * What a place adds to the one document row (DRY: every Docs tab draws the same row). The standards add the role and authority
+ * chips, the ⋯ menu's Edit details and Replace file, and the page text under the row.
+ */
+export interface DocsRowExtras {
+  /** Small labels after the status chip. */
+  chips?: ReactNode;
+  /** More actions, in a ⋯ menu beside Open, Read again and Delete. */
+  menu?: { label: string; onSelect: () => void }[];
+  /** A section under the row, closed until the person opens it with the button named `detailsLabel`. */
+  details?: ReactNode;
+  detailsLabel?: string;
+  /** Controlled open state (a link elsewhere may need to open the section); without these the row keeps its own. */
+  open?: boolean;
+  onToggle?: () => void;
+  /** The row's DOM id, for links that scroll to it. */
+  domId?: string;
+}
+
 export interface DocsTabProps {
   /** The place: a standards version (`framework_version`), Programs, the org chart, the glossary... */
   scopeKind: DocScopeKind;
@@ -38,10 +58,12 @@ export interface DocsTabProps {
   /** Said instead of the upload area when `editable` is false. */
   fixedNote?: string;
   api?: DocumentsApi;
-  /** Content above the list (the standards' Analysis panel). */
+  /** Content above the list. */
   header?: ReactNode;
-  /** Draws one row yourself (the standards' cards with the page editor). Default: a plain card. */
-  renderRow?: (doc: DocumentRow, ctx: DocsRowContext) => ReactNode;
+  /** Content under the list and the import buttons (the standards' Analysis panel: add and read the documents first, then analyse). */
+  footer?: ReactNode;
+  /** What this place adds to each row. */
+  rowExtras?: (doc: DocumentRow, ctx: DocsRowContext) => DocsRowExtras | undefined;
   /** Told the list whenever it loads (the host may need the titles and the count). */
   onDocuments?: (docs: DocumentRow[]) => void;
   /** Extra controls beside the upload area (the standards' "+ Source"). */
@@ -59,7 +81,7 @@ const active = (d: DocumentRow) => d.status === 'queued' || d.status === 'readin
  * Trash, with Undo); an Import button per target with its readiness check and live progress; and the history of imports with a link
  * to each one's proposals (the review) and report. Shows only what the person may read; upload, delete and import need `canWrite`.
  */
-export function DocsTab({ scopeKind, scopeId, targets, canWrite, editable = true, fixedNote, api: apiProp, header, renderRow, onDocuments, actions, onFix, label = 'Docs' }: DocsTabProps) {
+export function DocsTab({ scopeKind, scopeId, targets, canWrite, editable = true, fixedNote, api: apiProp, header, footer, rowExtras, onDocuments, actions, onFix, label = 'Docs' }: DocsTabProps) {
   const api = useDocumentsApi(apiProp);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -103,27 +125,32 @@ export function DocsTab({ scopeKind, scopeId, targets, canWrite, editable = true
       <ul aria-label="Documents" className="space-y-2">
         {docs.map((d) => (
           <li key={d.id} className="list-none">
-            {renderRow ? renderRow(d, ctx) : <DefaultRow doc={d} ctx={ctx} />}
+            <DocumentRowCard doc={d} ctx={ctx} extras={rowExtras?.(d, ctx)} />
           </li>
         ))}
       </ul>
       <ImportPanel api={api} scope={scope} targets={targets} docs={docs} canImport={canWrite && editable} onFix={onFix ?? (() => undefined)}
         onReview={(runId) => setView({ kind: 'review', runId })} onReport={(runId) => setView({ kind: 'report', runId })} />
+      {footer}
     </section>
   );
 }
 
-/** A plain document card: name (opens the file), kind, size, pages, status, who and when, and the actions. */
-function DefaultRow({ doc, ctx }: { doc: DocumentRow; ctx: DocsRowContext }) {
+/** The document card every Docs tab shows: name (opens the file), kind, size, pages, status, who and when, and the actions. */
+function DocumentRowCard({ doc, ctx, extras }: { doc: DocumentRow; ctx: DocsRowContext; extras: DocsRowExtras | undefined }) {
   const { api } = ctx;
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = extras?.open ?? ownOpen;
+  const toggle = extras?.onToggle ?? (() => setOwnOpen((o) => !o));
   return (
-    <article aria-label={doc.name} data-testid="doc-row" className="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-background p-3">
+    <article aria-label={doc.name} id={extras?.domId} data-testid="doc-row" className="scroll-mt-4 flex flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-background p-3">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {doc.hasFile
             ? <a href={api.fileUrl(doc.id)} target="_blank" rel="noreferrer" dir="auto" className="min-w-0 font-medium break-all underline">{doc.name}</a>
             : <span dir="auto" className="min-w-0 font-medium break-all">{doc.name}</span>}
           <StatusChip doc={doc} />
+          {extras?.chips}
         </div>
         <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
           <span>{doc.fileKind}</span>
@@ -135,13 +162,16 @@ function DefaultRow({ doc, ctx }: { doc: DocumentRow; ctx: DocsRowContext }) {
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1">
         {doc.hasFile && <a href={api.fileUrl(doc.id)} target="_blank" rel="noreferrer" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted" aria-label={`Open ${doc.name}`}>Open</a>}
+        {extras?.details && <Button type="button" variant="outline" className="px-3 py-1.5" aria-expanded={open} aria-label={`${extras.detailsLabel ?? 'Details'} of ${doc.name}`} onClick={toggle}>{extras.detailsLabel ?? 'Details'} {open ? '▴' : '▾'}</Button>}
         {ctx.canWrite && (
           <>
-            <Button type="button" variant="outline" className="px-3 py-1.5" disabled={active(doc)} aria-label={`Read ${doc.name} again`} onClick={() => ctx.readAgain(doc)}>Read again</Button>
+            <Button type="button" variant="outline" className="px-3 py-1.5" disabled={active(doc)} aria-label={doc.status === 'not_read' ? `Read ${doc.name}` : `Read ${doc.name} again`} onClick={() => ctx.readAgain(doc)}>{doc.status === 'not_read' ? 'Read' : 'Read again'}</Button>
             <Button type="button" variant="ghost" className="px-3 py-1.5" aria-label={`Delete ${doc.name}`} onClick={() => ctx.remove(doc)}>Delete</Button>
           </>
         )}
+        {extras?.menu && extras.menu.length > 0 && <ActionsMenu label={`More actions for ${doc.name}`} items={extras.menu} />}
       </div>
+      {extras?.details && open && <div className="basis-full space-y-2 border-t border-border pt-3">{extras.details}</div>}
     </article>
   );
 }

@@ -49,10 +49,10 @@ describe('the internal quality framework from documents', () => {
   it('refuses to start while the framework has no documents, and says where to add them', async () => {
     const { versions } = await as('alo', (c) => setUpQualityFramework(c, { template: true }));
     versionId = versions[0]!.id;
-    await expect(as('alo', (c) => startAnalysis(c, versionId))).rejects.toThrow('add the institution\'s documents under Docs first');
+    await expect(as('alo', (c) => startAnalysis(c, versionId))).rejects.toThrow('add the institution\'s documents on the Documents tab first');
     const pre = await as('alo', (c) => analysisPreflight(c, versionId));
     expect(pre.checks.find((k) => k.id === 'sources')).toMatchObject({
-      status: 'problem', message: 'Add the institution\'s documents under Docs first.', fix: { label: 'Add documents', where: 'docs' },
+      status: 'problem', message: 'Add the institution\'s documents on the Documents tab first.', fix: { label: 'Add documents', where: 'docs' },
     });
   });
 

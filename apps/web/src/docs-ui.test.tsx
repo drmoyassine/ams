@@ -387,12 +387,11 @@ describe('the version page', () => {
     await user.click(screen.getByRole('tab', { name: 'Docs' }));
     const docs = await screen.findByRole('region', { name: 'Docs' });
     expect(await within(docs).findByRole('region', { name: 'Analysis' })).toBeTruthy();
-    const card = await within(docs).findByRole('region', { name: FIXTURE_HANDBOOK.title });
-    expect(within(card).getByRole('button', { name: /^Standards/ })).toBeTruthy();
+    const card = await within(docs).findByRole('article', { name: FIXTURE_HANDBOOK.title });
+    expect(card.textContent).toContain('Standards');
     expect(within(docs).getByRole('group', { name: 'Upload documents' })).toBeTruthy();
-    expect(within(docs).getByRole('button', { name: '+ Source' })).toBeTruthy();
-    // Who uploaded it and when is on the card.
-    await user.click(within(card).getByRole('button', { name: /^Standards/ }));
+    expect(within(docs).queryByRole('button', { name: '+ Source' })).toBeNull(); // one way to add: drop the file
+    // Who uploaded it and when is on the card, without opening anything.
     expect(within(card).getByTestId('uploaded-by').textContent).toContain('Lena Lead');
     // Settings keeps the rest, without Sources.
     await user.click(screen.getByRole('tab', { name: 'Settings' }));
@@ -403,7 +402,7 @@ describe('the version page', () => {
   it('opens the Docs tab on a source page from a deep link, and treats the old Sources address as the Docs tab', async () => {
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialFocusPage={{ documentId: ids.hb!, page: 3 }} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('tab', { name: 'Docs', selected: true })).toBeTruthy();
-    const card = await screen.findByRole('region', { name: FIXTURE_HANDBOOK.title });
+    const card = await screen.findByRole('article', { name: FIXTURE_HANDBOOK.title });
     expect(await within(card).findByRole('tab', { name: '3', selected: true })).toBeTruthy();
     cleanup();
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialTab="settings" initialSection="sources" onOpenVersion={() => undefined} />));

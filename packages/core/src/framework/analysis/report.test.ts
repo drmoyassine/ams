@@ -247,7 +247,7 @@ describe('run readiness (preflight)', () => {
       return (await createVersion(c, { frameworkId: fw.id, edition: 'P2' })).id;
     });
     let p = await as('alo', (c) => analysisPreflight(c, empty));
-    expect(p).toMatchObject({ canStart: false, firstProblem: expect.stringMatching(/Add the accreditor's documents under Sources/) });
+    expect(p).toMatchObject({ canStart: false, firstProblem: expect.stringMatching(/Add the accreditor's documents on the Docs tab/) });
     expect(check(p, 'sources')).toMatchObject({ status: 'problem', fix: { where: 'sources' } });
 
     const fx = await draftWithSources('P3');

@@ -32,7 +32,7 @@ export async function startAnalysis(ctx: Ctx, versionId: string) {
     n: sql<number>`count(*)::int`,
     usable: sql<number>`count(*) filter (where source_document.file_name is not null or exists (select 1 from source_page p where p.source_document_id = source_document.id))::int`,
   }).from(sourceDocument).where(eq(sourceDocument.frameworkVersionId, versionId));
-  if (!src?.n) throw new ConflictError(internal ? 'add the institution\'s documents under Docs first' : 'add the accreditor\'s documents under Sources first');
+  if (!src?.n) throw new ConflictError(internal ? 'add the institution\'s documents on the Documents tab first' : 'add the accreditor\'s documents on the Docs tab first');
   if (!src.usable) throw new ConflictError('upload a source file or type in its pages first; there is nothing to analyse');
   const ready = await aiReadiness(ctx);
   if (!ready.ok) throw new ConflictError(ready.reason);

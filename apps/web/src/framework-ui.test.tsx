@@ -15,7 +15,6 @@ import { createApi } from './lib/api';
 import { frameworkApi, type FrameworkApi } from './lib/framework-api';
 import { FrameworksPage } from './pages/frameworks';
 import { VersionPage } from './pages/version';
-import { readStatus } from './pages/version/docs-tab';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -455,26 +454,37 @@ describe('version page', () => {
     await a.updateFramework(version.frameworkId, { name: 'Institutional Guide', scope: 'institution' }); // leave it as the other tests expect
   });
 
-  it('keeps sources under Docs: add one with its original, read and correct its pages, and fixed once published', async () => {
+  it('keeps documents under Docs: drop one, describe it, read and correct its pages, and fixed once published', async () => {
     const { version } = await importAs('lead', 'sources-ui');
     const user = userEvent.setup();
     const { unmount } = render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const section = await screen.findByRole('region', { name: 'Docs' });
-    const guide = await within(section).findByRole('region', { name: 'Guide' });
+    const guide = await within(section).findByRole('article', { name: 'Guide' });
     expect(guide.textContent).toContain('Standards'); // readable labels, not codes
     expect(guide.textContent).toContain('Binding');
+    // There is one way to add a document: drop the file. No separate "+ Source" form.
+    expect(within(section).queryByRole('button', { name: '+ Source' })).toBeNull();
 
-    await user.click(within(section).getByRole('button', { name: '+ Source' }));
+    await user.upload(within(section).getByLabelText('Files to upload'), new File(['%PDF-1.7 manual'], 'manual.pdf', { type: 'application/pdf' }));
+    let manual = await within(section).findByRole('article', { name: 'manual' });
+    expect(manual.textContent).toContain('Role not set'); // the analysis decides it, or Edit details does
+    expect(within(manual).getByRole('link', { name: 'manual' }).getAttribute('href')).toMatch(/^\/api\/documents\/[\w-]+\/file$/);
+
+    // What it is, its authority and its title are changed afterwards, from the ⋯ menu.
+    await user.click(within(manual).getByRole('button', { name: 'More actions for manual' }));
+    await user.click(within(manual).getByRole('menuitem', { name: 'Edit details' }));
     const dialog = await screen.findByRole('dialog');
+    await user.clear(within(dialog).getByLabelText('Title'));
     await user.type(within(dialog).getByLabelText('Title'), 'Policy manual 2025');
     await user.selectOptions(within(dialog).getByLabelText('What it is'), 'policy_procedure');
-    await user.upload(within(dialog).getByLabelText('Original file'), new File(['%PDF-1.7 manual'], 'manual.pdf', { type: 'application/pdf' }));
-    await user.click(within(dialog).getByRole('button', { name: 'Add source' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const manual = await within(section).findByRole('region', { name: 'Policy manual 2025' });
+    manual = await within(section).findByRole('article', { name: 'Policy manual 2025' });
     expect(manual.textContent).toContain('Policy and procedure');
-    expect(within(manual).getByRole('link', { name: 'manual.pdf' }).getAttribute('href')).toMatch(/^\/api\/source-documents\/[\w-]+\/file$/);
 
+    // The page text is closed until opened.
+    expect(within(manual).queryByRole('form', { name: 'Add page to Policy manual 2025' })).toBeNull();
+    await user.click(within(manual).getByRole('button', { name: 'Page text of Policy manual 2025' }));
     const add = within(manual).getByRole('form', { name: 'Add page to Policy manual 2025' });
     await user.type(within(add).getByLabelText('Page text'), 'Programs report annually.');
     await user.click(within(add).getByRole('button', { name: 'Add page' }));
@@ -485,53 +495,50 @@ describe('version page', () => {
     await waitFor(async () => expect((await apiFor('lead').pages((await apiFor('lead').documents(version.id)).find((d) => d.title === 'Policy manual 2025')!.id))[0]!.text).toBe('Programs report every year.'));
     unmount();
 
-    // Once published, its sources are read, not edited.
+    // Once published, its documents are read, not edited.
     const a = apiFor('admin');
     await a.submit(version.id);
     await a.publish(version.id);
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const ro = await screen.findByRole('region', { name: 'Docs' });
-    expect(within(ro).queryByRole('button', { name: '+ Source' })).toBeNull();
-    const fixed = await within(ro).findByRole('region', { name: 'Policy manual 2025' });
-    await user.click(within(fixed).getByRole('button', { name: /^Policy and procedure/ }));
+    expect(within(ro).queryByLabelText('Files to upload')).toBeNull();
+    const fixed = await within(ro).findByRole('article', { name: 'Policy manual 2025' });
+    expect(within(fixed).queryByRole('button', { name: 'More actions for Policy manual 2025' })).toBeNull();
+    await user.click(within(fixed).getByRole('button', { name: 'Page text of Policy manual 2025' }));
     expect((await within(fixed).findByTestId('page-text')).textContent).toBe('Programs report every year.');
     expect(within(fixed).queryByRole('form')).toBeNull();
   });
 
-  it('reads a source file into pages from a button, showing queued, then done, and a quiet viewer', async () => {
+  it('reads a document file into pages from a button, showing queued, then done, and a quiet viewer', async () => {
     const { version } = await importAs('lead', 'reading-ui');
     const a = apiFor('lead');
     const doc = await a.addDocument(version.id, { title: 'Programs list', role: 'other', authority: 'informational' });
     await a.uploadSourceFile(doc.id, new File(['id,name\n1,Mechanical\n2,Civil\n'], 'programs.csv', { type: 'text/csv' }));
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={version.id} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
-    const card = await screen.findByRole('region', { name: 'Programs list' });
-    await user.click(within(card).getByRole('button', { name: /^Other/ }));
-    expect((await within(card).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Not read yet');
-    await user.click(within(card).getByRole('button', { name: 'Read this file' }));
-    await waitFor(() => expect(within(card).getByRole('status', { name: 'Reading status of Programs list' }).textContent).toBe('Reading the file…'));
-    expect((within(card).getByRole('button', { name: 'Read this file' }) as HTMLButtonElement).disabled).toBe(true);
-    // The worker picks the job up.
-    await runJob(pool, 'extract_text', queued.shift(), handlers, { store });
-    await waitFor(() => expect(within(card).getByRole('status', { name: 'Reading status of Programs list' }).textContent).toBe('Read: 1 page'));
+    const card = await screen.findByRole('article', { name: 'Programs list' });
+    const status = () => within(card).getByRole('status', { name: /^Reading status of Programs list/ });
+    expect(status().getAttribute('data-status')).toBe('not_read');
+    expect(card.textContent).toContain('Other');
+    await user.click(within(card).getByRole('button', { name: 'Read Programs list' }));
+    await waitFor(() => expect(status().getAttribute('data-status')).toBe('queued'));
+    expect((within(card).getByRole('button', { name: 'Read Programs list again' }) as HTMLButtonElement).disabled).toBe(true);
+    // The worker picks the job up (the newest one: earlier tests in this file left theirs queued).
+    const job = queued.at(-1)!;
+    queued.length = 0;
+    await runJob(pool, 'extract_text', job, handlers, { store });
+    await waitFor(() => expect(status().getAttribute('data-status')).toBe('read'), { timeout: 15000 });
+    await user.click(within(card).getByRole('button', { name: 'Page text of Programs list' }));
     expect((await within(card).findByLabelText('Text of page 1') as HTMLTextAreaElement).value).toBe('id,name\n1,Mechanical\n2,Civil');
-    expect(within(card).getByRole('button', { name: 'Read this file again' })).toBeTruthy();
+    expect((within(card).getByRole('button', { name: 'Read Programs list again' }) as HTMLButtonElement).disabled).toBe(false);
     cleanup();
 
-    // Someone who cannot edit sees the status but no button.
+    // Someone who cannot edit sees the status and the page text, but no buttons to change them.
     render(wrap(<VersionPage versionId={version.id} api={apiFor('viewer')} initialTab="docs" onOpenVersion={() => undefined} />));
-    const ro = await screen.findByRole('region', { name: 'Programs list' });
-    await userEvent.setup().click(within(ro).getByRole('button', { name: /^Other/ }));
-    expect((await within(ro).findByRole('status', { name: 'Reading status of Programs list' })).textContent).toBe('Read: 1 page');
-    expect(within(ro).queryByRole('button', { name: /Read this file/ })).toBeNull();
-  });
-
-  it('describes where reading stands', () => {
-    const d = { pageCount: 4, needsOcrPages: 2 };
-    expect(readStatus({ ...d, status: 'needs_ocr' })).toBe('Read: 4 pages, 2 need OCR');
-    expect(readStatus({ ...d, status: 'read' })).toBe('Read: 4 pages');
-    expect(readStatus({ ...d, status: 'queued' })).toBe('Reading the file…');
-    expect(readStatus({ ...d, status: 'failed' })).toMatch(/could not be read/);
-    expect(readStatus({ ...d, status: 'not_read' })).toBe('Not read yet');
+    const ro = await screen.findByRole('article', { name: 'Programs list' });
+    expect(within(ro).getByRole('status', { name: /^Reading status of Programs list/ }).getAttribute('data-status')).toBe('read');
+    expect(within(ro).queryByRole('button', { name: /again$/ })).toBeNull();
+    await userEvent.setup().click(within(ro).getByRole('button', { name: 'Page text of Programs list' }));
+    expect((await within(ro).findByTestId('page-text')).textContent).toBe('id,name\n1,Mechanical\n2,Civil');
   });
 });

@@ -155,12 +155,12 @@ function GapList({ gaps, stopped, documentTitle, onShowRequirement, onShowPage }
 }
 
 /**
- * "Analyse sources": a background run that reads the draft's sources and writes the accreditor's requirements into it in
+ * "Analyse documents": a background run that reads the draft's documents and writes the accreditor's requirements into it in
  * their exact wording, each marked as AI-made with its page and quote. A strip shows its progress while it runs (the
  * list polls), including the check-and-recover rounds; the last runs follow with their counts, and the latest finished
  * run its gaps. The full report and the review screen come later.
  */
-export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten, documentTitle = () => 'a source', onShowRequirement, onShowPage, onShowReport }: {
+export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten, documentTitle = () => 'a document', onShowRequirement, onShowPage, onShowReport }: {
   api: FrameworkApi; versionId: string; editable: boolean; hasSources: boolean; onWritten: () => void;
   documentTitle?: (id: string) => string; onShowRequirement?: (id: string) => void; onShowPage?: (documentId: string, page: number) => void;
   /** Opens the run's report on the Report tab. */ onShowReport?: (runId: string) => void;
@@ -190,10 +190,10 @@ export function AnalysisPanel({ api, versionId, editable, hasSources, onWritten,
     <section aria-label="Analysis" className="space-y-2 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-medium">Analysis</h3>
-        <span className="text-xs text-muted-foreground">The AI reads these sources and adds the accreditor's requirements to this draft, word for word, each with its page and quote.</span>
+        <span className="text-xs text-muted-foreground">The AI reads the documents above and adds the requirements to this draft, word for word, each with its page and quote.</span>
         {editable && !busy && (
           <Button type="button" className="ms-auto" disabled={!hasSources || !!blocked} title={blocked ?? undefined} aria-describedby={blocked ? 'analysis-blocked' : undefined}
-            onClick={() => { setError(''); void run(() => api.startAnalysis(versionId)).then(refresh); }}>Analyse sources</Button>
+            onClick={() => { setError(''); void run(() => api.startAnalysis(versionId)).then(refresh); }}>Analyse documents</Button>
         )}
         {editable && busy && current && (
           <Button type="button" variant="outline" className="ms-auto" onClick={() => { void run(() => api.cancelAnalysis(current.id)).then(refresh); }}>Stop</Button>

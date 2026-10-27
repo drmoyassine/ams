@@ -730,8 +730,10 @@ function pagesFor(ids) {
     ids.draftId && { name: 'version-docs', path: `/settings/versions/${ids.draftId}?tab=docs` },
     ids.draftId && { name: 'version-docs-legacy-address', path: `/settings/versions/${ids.draftId}?tab=settings&section=sources` },
     ids.draftId && { name: 'version-docs-source-open', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
-      await page.getByTestId('source-document').first().getByRole('button').first().click();
+      await page.getByTestId('doc-row').first().getByRole('button', { name: /^Page text of/ }).click();
     } },
+    // The institution's own framework: its Documents tab is the same tab (one row, one way to add a document).
+    { name: 'iqf-documents', path: '/settings/quality-framework', action: clickTab('Documents') },
     ids.draftId && { name: 'docs-import-dialog', path: `/settings/versions/${ids.draftId}?tab=docs`, action: async (page) => {
       await page.getByRole('button', { name: /^Import units/ }).click();
       await page.getByRole('dialog', { name: /^Import units/ }).waitFor();

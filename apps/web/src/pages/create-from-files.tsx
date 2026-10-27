@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ContentText } from '../components/content-text';
@@ -6,7 +6,8 @@ import { Dialog } from '../components/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ApiError, type FrameworkApi, type StandardFromFiles } from '../lib/framework-api';
-import { FILE_ACCEPT, fileKind, formatBytes, isReadableKind } from '../lib/source-files';
+import { fileKind, formatBytes, isReadableKind } from '../lib/source-files';
+import { FileDrop } from '../components/files';
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
 const DEFAULT_MAX_FILES = 40;
@@ -46,7 +47,6 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
   const [scope, setScope] = useState<'institution' | 'program' | 'both'>('institution');
   const [edition, setEdition] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [dragging, setDragging] = useState(false);
   const [phase, setPhase] = useState<'form' | 'working' | 'result'>('form');
   const [error, setError] = useState('');
   const [issues, setIssues] = useState<{ path: string; message: string }[]>([]);
@@ -54,7 +54,6 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
   const [rows, setRowsState] = useState<UploadRow[]>([]);
   const rowsRef = useRef<UploadRow[]>([]);
   const [analysis, setAnalysis] = useState<{ state: 'idle' | 'starting' | 'started' | 'failed'; message: string }>({ state: 'idle', message: '' });
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const chosen = accreditorId ?? (accreditors[0]?.id ?? NEW_ACCREDITOR);
   const isNew = chosen === NEW_ACCREDITOR;
@@ -66,15 +65,13 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
   const setRows = (next: UploadRow[]) => { rowsRef.current = next; setRowsState(next); };
   const patch = (key: string, p: Partial<UploadRow>) => setRows(rowsRef.current.map((r) => (r.key === key ? { ...r, ...p } : r)));
 
-  const addFiles = (list: FileList | File[] | null) => {
-    if (!list) return;
+  const addFiles = (list: File[]) => {
     setFiles((cur) => {
       const next = [...cur];
-      for (const f of Array.from(list)) if (!next.some((x) => sameFile(x, f))) next.push(f);
+      for (const f of list) if (!next.some((x) => sameFile(x, f))) next.push(f);
       return next;
     });
   };
-  const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); };
 
   const startAnalysis = async (versionId: string) => {
     setAnalysis({ state: 'starting', message: '' });
@@ -171,14 +168,7 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
 
           <fieldset className="space-y-2">
             <legend className="mb-1 font-medium">The files</legend>
-            <div role="group" aria-label="Drop files here" onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}
-              className={`flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-sm ${dragging ? 'border-primary bg-muted' : 'border-border'}`}>
-              <p>Drag files here, or</p>
-              <input ref={inputRef} type="file" multiple accept={FILE_ACCEPT} aria-label="Choose files" className="sr-only" tabIndex={-1}
-                onChange={(e) => { const picked = Array.from(e.target.files ?? []); e.target.value = ''; addFiles(picked); }} />
-              <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>Choose files</Button>
-              <p className="text-xs text-muted-foreground">PDF, Word, Excel, PowerPoint, CSV or images, up to {formatBytes(maxBytes)} each, {maxFiles} files at most. Arabic or English.</p>
-            </div>
+            <FileDrop onFiles={addFiles} label="Drop files here" note={`Up to ${formatBytes(maxBytes)} each, ${maxFiles} files at most. Arabic or English.`} />
             {files.length > 0 && (
               <ul aria-label="Chosen files" className="divide-y divide-border rounded-md border border-border">
                 {files.map((f) => (
@@ -244,7 +234,7 @@ export function CreateFromFilesDialog({ api, onClose, onOpenVersion }: { api: Fr
           {analysis.state === 'failed' && (
             <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <p>The analysis did not start: {analysis.message}</p>
-              <p className="mt-1 text-xs">The draft and the {saved} saved file{saved === 1 ? '' : 's'} are kept. Fix this, then press Analyse sources on the draft's Docs tab.</p>
+              <p className="mt-1 text-xs">The draft and the {saved} saved file{saved === 1 ? '' : 's'} are kept. Fix this, then press Analyse documents on the draft's Docs tab.</p>
             </div>
           )}
           {phase === 'result' && failed.length > 0 && (

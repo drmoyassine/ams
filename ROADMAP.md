@@ -717,7 +717,7 @@ quarter: Q4
 status: Completed
 priority: P0
 id: ROADMAP-012
-last_updated: '2026-10-12'
+last_updated: '2026-10-27'
 generated:
   by: agent/claude-code
   at: '2026-10-06T05:43:17.250Z'
@@ -727,7 +727,7 @@ vision_theme:
   url: /VISION.md#one-platform-many-frameworks
 modified:
   by: agent/claude-code
-  at: '2026-10-06T06:53:27.083Z'
+  at: '2026-10-27T12:02:21.339Z'
 related_decisions:
   - id: DEC-016
     name: Internal quality framework and glossary unify terminology; mappings live on each external standard
@@ -814,6 +814,11 @@ related_tasks:
   - id: TASK-106
     name: Entity schema registry and data dictionary
     url: /TASKS.md#TASK-106
+  - id: TASK-110
+    name: >-
+      One upload module and one document row: dropping files is the only way to add a document; the standards Docs tab
+      is the shared tab
+    url: /TASKS.md#TASK-110
 ---
 
 # Settings, internal framework and glossary

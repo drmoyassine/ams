@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // The Report tab (runs list, report cards, deep link, Markdown export), the standard card's analysis line and the
-// "Analyse sources" readiness checks. Part of it runs against the real API and database with a fake model; the cards'
+// "Analyse documents" readiness checks. Part of it runs against the real API and database with a fake model; the cards'
 // content (conflicts, links to the Mappings tab) is checked with a canned report.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
@@ -127,7 +127,7 @@ describe('the Report tab', () => {
     await user.click(screen.getByRole('tab', { name: 'Report' }));
     const list2 = await screen.findByRole('list', { name: 'Quote not found' });
     await user.click(within(list2).getByRole('link', { name: `${FIXTURE_HANDBOOK.title}, page 5` }));
-    const source = await screen.findByRole('region', { name: FIXTURE_HANDBOOK.title });
+    const source = await screen.findByRole('article', { name: FIXTURE_HANDBOOK.title });
     await waitFor(() => expect(within(source).getByRole('tab', { name: '5' }).getAttribute('aria-selected')).toBe('true'));
     expect(screen.getByRole('tab', { name: 'Docs' }).getAttribute('aria-selected')).toBe('true');
   }, 60000);
@@ -347,9 +347,9 @@ describe('the standard card\'s analysis line', () => {
   });
 });
 
-// ---- "Analyse sources" says why not before the click -------------------------------------------------------------------
+// ---- "Analyse documents" says why not before the click -------------------------------------------------------------------
 
-describe('Analyse sources readiness', () => {
+describe('Analyse documents readiness', () => {
   it('disables the button with the first blocking reason, lists the checks, and enables it once the AI is on', async () => {
     const user = userEvent.setup();
     await db.su.query(`insert into ai_setting (institution_id, model, enabled) values ($1, 'm', false)`, [ids.inst]);
@@ -357,7 +357,7 @@ describe('Analyse sources readiness', () => {
       const a = apiFor('lead');
       render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel = await screen.findByRole('region', { name: 'Analysis' });
-      const button = await within(panel).findByRole('button', { name: 'Analyse sources' });
+      const button = await within(panel).findByRole('button', { name: 'Analyse documents' });
       await waitFor(() => expect(button.getAttribute('title')).toMatch(/switched off/));
       expect((button as HTMLButtonElement).disabled).toBe(true);
       expect(panel.textContent).toMatch(/AI is switched off/);
@@ -374,7 +374,7 @@ describe('Analyse sources readiness', () => {
       setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
       render(wrap(<VersionPage versionId={ids.v!} api={a} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel2 = await screen.findByRole('region', { name: 'Analysis' });
-      await waitFor(() => expect((within(panel2).getByRole('button', { name: 'Analyse sources' }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect((within(panel2).getByRole('button', { name: 'Analyse documents' }) as HTMLButtonElement).disabled).toBe(false));
       expect(within(panel2).queryByText(/switched off/)).toBeNull();
     } finally {
       await db.su.query(`delete from ai_setting where institution_id = $1`, [ids.inst]);

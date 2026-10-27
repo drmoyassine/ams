@@ -72,16 +72,16 @@ afterEach(() => { cleanup(); setAiModelForTests(null); });
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('analysis in the version settings', () => {
-  it('starts from "Analyse sources", shows progress while the worker runs, then the run with its counts and AI-marked requirements', async () => {
+  it('starts from "Analyse documents", shows progress while the worker runs, then the run with its counts and AI-marked requirements', async () => {
     setAiModelForTests(createFakeAiModel([fixtureResponder()]).model);
     const user = userEvent.setup();
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
     const panel = await screen.findByRole('region', { name: 'Analysis' });
     expect(await within(panel).findByText('Not analysed yet.')).toBeTruthy();
     // The guide's role was left open; the analysis decides it.
-    expect((await screen.findByRole('region', { name: FIXTURE_GUIDE.title })).textContent).toContain('Role not set');
+    expect((await screen.findByRole('article', { name: FIXTURE_GUIDE.title })).textContent).toContain('Role not set');
 
-    await user.click(within(panel).getByRole('button', { name: 'Analyse sources' }));
+    await user.click(within(panel).getByRole('button', { name: 'Analyse documents' }));
     expect((await within(panel).findByRole('status', { name: 'Analysis progress' })).textContent).toMatch(/Waiting for the worker/);
     expect(within(panel).getByRole('button', { name: 'Stop' })).toBeTruthy();
     // A few steps in: the strip follows the run.
@@ -92,7 +92,7 @@ describe('analysis in the version settings', () => {
     await waitFor(() => expect(runs.textContent).toContain('Finished'), { timeout: 15000 });
     expect(runs.textContent).toContain('7 requirements (1 Standard, 3 Criterion, 3 Indicator) · 3 notes · quotes found in the source: 80% · 1 without a parent · 1 low confidence');
     expect(within(panel).queryByRole('status', { name: 'Analysis progress' })).toBeNull();
-    await waitFor(async () => expect((await screen.findByRole('region', { name: FIXTURE_GUIDE.title })).textContent).toContain('Guidance (AI)'));
+    await waitFor(async () => expect((await screen.findByRole('article', { name: FIXTURE_GUIDE.title })).textContent).toContain('Guidance (AI)'));
     cleanup();
 
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} onOpenVersion={() => undefined} />));
@@ -112,7 +112,7 @@ describe('analysis in the version settings', () => {
     render(wrap(<VersionPage versionId={ids.v!} api={apiFor('viewer')} initialTab="docs" onOpenVersion={() => undefined} />));
     const ro = await screen.findByRole('region', { name: 'Analysis' });
     await within(ro).findByRole('list', { name: 'Recent analyses' });
-    expect(within(ro).queryByRole('button', { name: 'Analyse sources' })).toBeNull();
+    expect(within(ro).queryByRole('button', { name: 'Analyse documents' })).toBeNull();
   }, 60000);
 
   it('shows the recovery rounds in the strip, then the gaps, unresolved first, each linking to its requirement card or source page', async () => {
@@ -122,7 +122,7 @@ describe('analysis in the version settings', () => {
       const user = userEvent.setup();
       render(wrap(<VersionPage versionId={ids.g!} api={apiFor('lead')} initialTab="docs" onOpenVersion={() => undefined} />));
       const panel = await screen.findByRole('region', { name: 'Analysis' });
-      const start = await within(panel).findByRole('button', { name: 'Analyse sources' });
+      const start = await within(panel).findByRole('button', { name: 'Analyse documents' });
       await waitFor(() => expect((start as HTMLButtonElement).disabled).toBe(false)); // once the sources are listed
       await user.click(start);
       await within(panel).findByRole('status', { name: 'Analysis progress' });
@@ -144,7 +144,7 @@ describe('analysis in the version settings', () => {
 
       // The page link opens the source on that page.
       await user.click(within(rows[0]!).getByRole('link', { name: `${FIXTURE_GAPPY.title}, page 4` }));
-      const source = await screen.findByRole('region', { name: FIXTURE_GAPPY.title });
+      const source = await screen.findByRole('article', { name: FIXTURE_GAPPY.title });
       await waitFor(() => expect(within(source).getByRole('tab', { name: '4' }).getAttribute('aria-selected')).toBe('true'));
       // The code links to the requirement card, opened on the Requirements tab.
       await user.click(within(rows[0]!).getByRole('link', { name: '2.4' }));

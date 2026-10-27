@@ -223,7 +223,7 @@ export const PreflightCheckSchema = z.object({
   /** ok: fine. problem: blocks a run. note: fine, but worth knowing (for example, embeddings are off). */
   status: z.enum(['ok', 'problem', 'note']),
   message: z.string(),
-  /** Where to fix it. 'ai' is Settings -> AI; 'sources' the Sources section; 'version' is this version's status. */
+  /** Where to fix it. 'ai' is Settings -> AI; 'sources' the Docs tab; 'version' is this version's status. */
   fix: z.object({ label: z.string(), where: z.enum(['ai', 'sources', 'version', 'docs']) }).nullable(),
 });
 export type PreflightCheck = z.infer<typeof PreflightCheckSchema>;
