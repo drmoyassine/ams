@@ -681,7 +681,7 @@ status: Deferred
 priority: P1
 tags:
   - ams
-last_updated: '2026-10-05'
+last_updated: '2026-10-27'
 generated:
   by: agent/claude-cowork
   at: '2026-10-05T07:53:44.328Z'
@@ -694,8 +694,12 @@ related_decisions:
     name: Dataset evidence with a source adapter; governed-metric integration optional
     url: /DECISIONS.md#DEC-014
 modified:
-  by: agent/claude-cowork
-  at: '2026-10-05T07:53:44.328Z'
+  by: agent/claude-code
+  at: '2026-10-27T07:02:29.928Z'
+related_tasks:
+  - id: TASK-109
+    name: 'The AMS signs people in to the BI: OAuth 2.1 + OIDC issuer with BI role and data scope claims'
+    url: /TASKS.md#TASK-109
 ---
 
 Done when switching a dataset to governed_metric refreshes with as_of and definition version, suppressed cells shown, and no bound report changes except values. PRD §18.4 M9.

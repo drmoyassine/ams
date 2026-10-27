@@ -49,3 +49,21 @@ describe('loadEnv', () => {
     expect(loadEnv({ ...base, GARAGE_ADMIN_URL: 'http://garage:3903' }).GARAGE_ADMIN_URL).toBe('http://garage:3903');
   });
 });
+
+describe('the BI sign-in settings (DEC-035)', () => {
+  const clients = (v: unknown) => loadEnv({ ...base, OAUTH_CLIENTS: JSON.stringify(v) }).OAUTH_CLIENTS;
+  it('reads the clients, confidential and public, and is empty when unset', () => {
+    expect(loadEnv(base).OAUTH_CLIENTS).toEqual([]);
+    expect(clients([
+      { id: 'bi-app', name: 'BI', secret: 's'.repeat(32), redirectUris: ['https://bi.example.org/cb'] },
+      { id: 'claude', name: 'Claude', redirectUris: ['https://claude.ai/api/mcp/auth_callback', 'http://localhost:7777/cb'] },
+    ]).map((c) => c.id)).toEqual(['bi-app', 'claude']);
+  });
+  it('refuses a short secret, a plain http address that is not local, a fragment, a repeated id and bad JSON', () => {
+    expect(() => clients([{ id: 'bi', name: 'BI', secret: 'short', redirectUris: ['https://bi.example.org/cb'] }])).toThrow(/32 characters/);
+    expect(() => clients([{ id: 'bi', name: 'BI', redirectUris: ['http://bi.example.org/cb'] }])).toThrow(/https/);
+    expect(() => clients([{ id: 'bi', name: 'BI', redirectUris: ['https://bi.example.org/cb#x'] }])).toThrow(/fragment/);
+    expect(() => clients([{ id: 'bi', name: 'A', redirectUris: ['https://a.example.org/cb'] }, { id: 'bi', name: 'B', redirectUris: ['https://b.example.org/cb'] }])).toThrow(/same id/);
+    expect(() => loadEnv({ ...base, OAUTH_CLIENTS: '{nope' })).toThrow(/JSON array/);
+  });
+});

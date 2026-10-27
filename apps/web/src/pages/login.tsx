@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { useTranslation } from '../i18n';
 import { authClient } from '../lib/auth';
 import { activateLocale, readLocaleHint } from '../lib/language';
+import { oauthContinuation } from '../lib/oauth-continue';
 import { defaultSettingsApi } from '../lib/settings-api';
 
 /**
@@ -53,7 +54,10 @@ export function LoginPage({ signIn = authClient.signIn.email, branding: loadBran
     setError(false);
     const res = await signIn({ email: String(form.get('email')), password: String(form.get('password')) });
     setBusy(false);
-    if (res.error) setError(true);
+    if (res.error) { setError(true); return; }
+    // Asked for by a client (the BI, an MCP client): go back to the issuer, which now answers that client (DEC-035).
+    const next = oauthContinuation(window.location.search);
+    if (next) window.location.assign(next);
     else await navigate({ to: '/' });
   }
 

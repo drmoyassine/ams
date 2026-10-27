@@ -33,7 +33,19 @@ export function createApp(opts: AppOptions) {
       if (!result.success) return c.json({ error: 'invalid_request', issues: result.error.issues }, 400);
     },
   });
-  if (opts.authHandler) rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', opts.authHandler);
+  if (opts.authHandler) {
+    const authHandler = opts.authHandler;
+    rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);
+    // The issuer is APP_URL/api/auth (DEC-035). RFC 8414 and OpenID discovery for an issuer with a path also look for the metadata at
+    // the root (/.well-known/<name>/api/auth); MCP clients do. These forward to the issuer's own documents (404 while it is off).
+    for (const name of ['oauth-authorization-server', 'openid-configuration']) {
+      rawPublicRoute(app, registry, ['GET'], `/.well-known/${name}/api/auth`, (req) => {
+        const url = new URL(req.url);
+        url.pathname = `/api/auth/.well-known/${name}`;
+        return authHandler(new Request(url, { headers: req.headers }));
+      });
+    }
+  }
   opts.extend?.(app, registry, deps);
 
   app.doc('/openapi.json', { openapi: '3.0.0', info: { title: 'AMS API', version: '0.0.0' } });

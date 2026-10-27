@@ -154,3 +154,32 @@ export async function resolvePublicLanguages(pool: pg.Pool, keys: readonly strin
     client.release();
   }
 }
+
+/** A person as the BI's token issuer sees them (DEC-035): who they are and their active role assignments. */
+export interface BiPrincipal {
+  userId: string; institutionId: string; email: string; fullName: string;
+  assignments: { role: string; scopeType: string; scopeId: string }[];
+}
+
+/** Reads a person's BI access before any identity exists (app_bi_principal, migration 0069). Null for unknown or inactive users. */
+export async function resolveBiPrincipal(pool: pg.Pool, authUserId: string): Promise<BiPrincipal | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role ams_app');
+    const { rows } = await client.query<{ user_id: string; institution_id: string; email: string; full_name: string; role: string | null; scope_type: string | null; scope_id: string | null }>(
+      'select user_id, institution_id, email, full_name, role, scope_type, scope_id from app_bi_principal($1)', [authUserId]);
+    await client.query('commit');
+    const first = rows[0];
+    if (!first) return null;
+    return {
+      userId: first.user_id, institutionId: first.institution_id, email: first.email, fullName: first.full_name,
+      assignments: rows.filter((r) => r.role && r.scope_type && r.scope_id).map((r) => ({ role: r.role!, scopeType: r.scope_type!, scopeId: r.scope_id! })),
+    };
+  } catch (e) {
+    await client.query('rollback').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}

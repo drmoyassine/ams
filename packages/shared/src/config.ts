@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OAuthClientConfigSchema, type OAuthClientConfig } from './bi-identity.js';
 import { AI_PROVIDERS, type AiProvider } from './ai.js';
 import { parseWorkerQueues } from './permissions.js';
 
@@ -60,6 +61,21 @@ export const envSchema = z.object({
     } catch (e) { ctx.addIssue({ code: 'custom', message: `BI_ENDPOINTS ${(e as Error).message}` }); return z.NEVER; }
   }),
   APP_PUBLIC_URL: z.string().url().optional(),
+  // The AMS as the BI's authorization server (DEC-035, contract 6.2). BI_OAUTH_AUDIENCE is the BI's resource identifier, the audience of
+  // the access tokens issued for it (e.g. https://bi.example.org); while it is empty nothing of this is enabled. OAUTH_CLIENTS lists the
+  // clients people may sign in to, as JSON: [{"id":"bi-app","name":"BI","secret":"...","redirectUris":["https://bi.example.org/auth/callback"]}];
+  // a client without a secret is public (PKCE). There is no self-registration.
+  BI_OAUTH_AUDIENCE: z.string().url().optional(),
+  OAUTH_CLIENTS: z.string().optional().transform((v, ctx) => {
+    if (!v) return [] as OAuthClientConfig[];
+    let raw: unknown;
+    try { raw = JSON.parse(v); } catch { ctx.addIssue({ code: 'custom', message: 'OAUTH_CLIENTS must be a JSON array' }); return z.NEVER; }
+    const parsed = z.array(OAuthClientConfigSchema).max(20).safeParse(raw);
+    if (!parsed.success) { ctx.addIssue({ code: 'custom', message: `OAUTH_CLIENTS ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}` }); return z.NEVER; }
+    const ids = parsed.data.map((c) => c.id);
+    if (new Set(ids).size !== ids.length) { ctx.addIssue({ code: 'custom', message: 'OAUTH_CLIENTS has the same id twice' }); return z.NEVER; }
+    return parsed.data;
+  }),
   SMTP_URL: z.string().url().optional(),
   SMTP_FROM: z.string().optional(),
   // Encrypts secrets stored in the database (the AI provider key). Falls back to AUTH_SECRET when unset; changing it

@@ -8,6 +8,7 @@ export * from './branding.js';
 export * from './evidence.js';
 export * from './notifications.js';
 export * from './collection.js';
+export * from './bi-identity.js';
 export * from './dataset.js';
 export * from './ai.js';
 export * from './assistant.js';

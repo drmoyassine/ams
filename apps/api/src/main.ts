@@ -9,7 +9,7 @@ import { biRuntimeFromEnv, bootstrapGarageFromEnv, ensureQueues, pgBossQueue, s3
 import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
-import { createAuth, sessionAuthenticator } from './auth.js';
+import { createAuth, seedOAuthClients, sessionAuthenticator } from './auth.js';
 import { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
 
 const env = loadEnv();
@@ -31,6 +31,11 @@ await boss.start();
 await ensureQueues(boss);
 
 const auth = createAuth(pool, env);
+// The BI's sign-in (DEC-035): the clients of OAUTH_CLIENTS, only when BI_OAUTH_AUDIENCE is set.
+{
+  const clients = await seedOAuthClients(pool, env);
+  if (env.BI_OAUTH_AUDIENCE) console.log(JSON.stringify({ level: 'info', msg: 'bi sign-in enabled', audience: env.BI_OAUTH_AUDIENCE, clients }));
+}
 if (await seedAdmin(pool, auth, env)) console.log(JSON.stringify({ level: 'info', msg: 'seeded institution and admin' }));
 if (env.SEED_DEMO_FRAMEWORKS) {
   const added = await seedFrameworks(pool);
