@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { RunChip, spendText, WhenText } from './parts';
 
 const STAGE_LABEL: Record<ImportStage, string> = {
-  read: 'Reading the documents', extract: 'Finding', verify: 'Checking the quotes', propose: 'Preparing the list', finalise: 'Finishing',
+  read: 'Reading the documents', extract: 'Finding', verify: 'Checking the quotes', organise: 'Putting it in order', propose: 'Preparing the list', finalise: 'Finishing',
 };
 const active = (r: ImportRun | undefined) => r?.status === 'queued' || r?.status === 'running';
 const plural = (c: number, one: string, many = `${one}s`) => `${c} ${c === 1 ? one : many}`;

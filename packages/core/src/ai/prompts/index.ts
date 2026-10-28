@@ -10,6 +10,8 @@ import { importExtractV1 } from './import-extract.v1.js';
 import { importOrgChartV1 } from './import-org-chart.v1.js';
 import { importProgramsV1 } from './import-programs.v1.js';
 import { importProgramsV2 } from './import-programs.v2.js';
+import { iqfOrganiseV1 } from './iqf-organise.v1.js';
+import { iqfOutlineV1 } from './iqf-outline.v1.js';
 import { lifecycleV1 } from './lifecycle.v1.js';
 import { mapV1 } from './map.v1.js';
 import { newiqfV1 } from './newiqf.v1.js';
@@ -48,6 +50,9 @@ export const PROMPTS = {
   import_programs: { v1: importProgramsV1, v2: importProgramsV2 },
   // Document import for the org chart (TASK-073): units, their parents and heads from a picture or a PDF page.
   import_org_chart: { v1: importOrgChartV1 },
+  // Drafting the institution's own framework from its documents (TASK-111): headings per window, then one call that draws the framework.
+  iqf_outline: { v1: iqfOutlineV1 },
+  iqf_organise: { v1: iqfOrganiseV1 },
   // Step D: narrow questions about a few pages when the checks found a gap.
   recover: { v1: recoverV1, v2: recoverV2 },
   // Step E: judge shortlisted IQF items for each external requirement; draft new IQF items where nothing fits.

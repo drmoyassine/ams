@@ -26,7 +26,7 @@ export type ImportRunStatus = (typeof IMPORT_RUN_STATUSES)[number];
 /** A run in one of these holds its scope and target: no second run of the same target starts there until it ends. */
 export const ACTIVE_IMPORT_STATUSES = ['queued', 'running'] as const satisfies readonly ImportRunStatus[];
 
-export const IMPORT_STAGES = ['read', 'extract', 'verify', 'propose', 'finalise'] as const;
+export const IMPORT_STAGES = ['read', 'extract', 'verify', 'organise', 'propose', 'finalise'] as const;
 export type ImportStage = (typeof IMPORT_STAGES)[number];
 
 /**

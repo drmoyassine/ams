@@ -141,6 +141,16 @@ through services that are themselves undoable (Trash: delete = snapshot, restore
   an existing unit that is neither locked nor `edited_by_person`; those two kinds are skipped with the reason. `reverse` moves back (placements) and puts the
   created units in the Trash (`deleteOrgUnits`); the inverse remembers the Trash group so Redo restores it. It refuses when a unit it made was changed since.
 
+### 2.6 Two steps instead of one: `organise` (TASK-111)
+
+A target that builds ONE structure from several documents (the IQF's standards and sub-standards) declares `organise`. The stages are
+then read, extract (per window: only an OUTLINE, rows of kind `<kind>:outline`, quote-checked), verify, **organise** (one `aiExtract`
+call over every outline entry of every document, entries capped at 600 and de-duplicated), propose, finalise. The final items cite
+the first outline entry they came from (`from: [n]`), so the review shows document, page and a verified quote; outline rows are
+deleted before release. `available(ctx, scope)` lets a target hide itself (`iqf_tree` is offered only on the institution's own
+framework). The first target is `iqf_tree` (`framework/iqf-tree-import.ts`): Standard / Sub-standard with code, title, optional Arabic
+title and description; apply creates draft requirements as the person, skips codes already present, Undo puts them in the Trash.
+
 ## 3. What the engine guarantees
 
 `startImport` checks the place can change, AI is on and set up (`aiReadiness`), the documents belong to the place, and no run of the

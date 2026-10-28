@@ -8,6 +8,9 @@
 //            schema; each item with its page and quote is stored as a CANDIDATE (invisible to people)
 //   verify   one job: the quote of every candidate is looked for on its page with the Arabic-aware matcher; the target's own
 //            checks add their reasons. Flags are plain words and are never silent
+//   organise only for a target that declares it (TASK-111): ONE job, one model call over every outline entry the windows found
+//            (all documents), answering the target's final items, each naming the entries it comes from. The outline is then
+//            dropped; the final items are what the next stage releases
 //   propose  one job: duplicates found in the overlap are merged, the rest are released as proposals for a person to review
 //   finalise one job: counts; the run succeeds (or ends failed at the spend limit, keeping what was proposed)
 //
@@ -26,7 +29,7 @@ import { verifyQuote } from '../framework/quote-match.js';
 import { documentReadState } from './documents.js';
 import { getRunRow } from './runs.js';
 import { describeScope, getDocScope } from './scopes.js';
-import { findImportTarget, windowSchema, type ImportTarget, type TargetScope } from './targets.js';
+import { findImportTarget, windowSchema, type ImportTarget, type OutlineEntry, type TargetScope } from './targets.js';
 
 const PayloadSchema = z.object({ runId: z.uuid(), stage: z.enum(IMPORT_STAGES), cursor: z.number().int().min(0).default(0) });
 
@@ -37,6 +40,11 @@ export const IMPORT_READ_WAIT_SECONDS = 5;
 export const MAX_IMPORT_READ_WAITS = 360;
 
 type Run = typeof importRun.$inferSelect;
+/** Outline entries of an organising target are stored as candidates of this kind: never released, never shown, dropped when the run ends. */
+const OUTLINE_SUFFIX = ':outline';
+const outlineKind = (kind: string) => `${kind}${OUTLINE_SUFFIX}`;
+/** The most outline entries the organise call is shown (a framework's headings, not its text). */
+export const ORGANISE_MAX_ENTRIES = 600;
 interface Window { documentId: string; pages: number[] }
 interface Report {
   plan?: { windows: Window[] };
@@ -164,12 +172,14 @@ async function extract(ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, r
   const state = await documentReadState(ctx, run.scopeKind, w.documentId);
   const pages = await pagesOf(ctx, run.scopeKind, w.documentId, w.pages);
   const scope = await scopeOf(ctx, run);
-  const input = target.buildPrompt({
+  // A target that organises reads an OUTLINE from each window; the final items come from the organise stage.
+  const what = target.organise ? target.organise.outline : target;
+  const input = what.buildPrompt({
     documentName: state?.name ?? 'document', language: state?.language ?? 'en', scopeLabel: scope.label, firstPage: w.pages[0]!, lastPage: w.pages[w.pages.length - 1]!, pages: formatPages(pages),
   });
-  const { data } = await aiExtract({ task: target.promptTask, promptVersion: target.promptVersion, input, schema: windowSchema(target.schema), runtime: rt.runtime });
+  const { data } = await aiExtract({ task: what.promptTask, promptVersion: what.promptVersion, input, schema: windowSchema(what.schema as z.ZodType<unknown>), runtime: rt.runtime });
   const rows = data.items.map((it, i) => ({
-    institutionId: ctx.caller.institutionId, runId: run.id, targetKind: run.targetKind, candidate: true, windowNo: cursor, seq: cursor * 10_000 + i,
+    institutionId: ctx.caller.institutionId, runId: run.id, targetKind: target.organise ? outlineKind(run.targetKind) : run.targetKind, candidate: true, windowNo: cursor, seq: cursor * 10_000 + i,
     payload: it.item as never, documentId: w.documentId, pageNo: it.source.page, quote: it.source.quote, confidence: it.confidence ?? null, flags: it.flags.map((f) => f.trim()).filter(Boolean),
   }));
   if (rows.length) await ctx.tx.insert(importProposal).values(rows);
@@ -187,7 +197,7 @@ const UNSURE = 'The AI was not sure about this one.';
 /** Checks every candidate's quote on its page, and adds the target's own reasons. Idempotent: it recomputes flags from the model's own. */
 async function verify(ctx: Ctx, run: Run): Promise<Step> {
   await verifyCandidates(ctx, run);
-  return { next: { stage: 'propose', cursor: 0 } };
+  return { next: { stage: findImportTarget(run.targetKind)?.organise ? 'organise' : 'propose', cursor: 0 } };
 }
 
 async function verifyCandidates(ctx: Ctx, run: Run) {
@@ -212,7 +222,7 @@ async function verifyCandidates(ctx: Ctx, run: Run) {
       else flags.push(NOT_FOUND);
     } else flags.push(NOT_FOUND);
     if (r.confidence !== null && r.confidence < LOW_CONFIDENCE) flags.push(UNSURE);
-    if (target && scope) {
+    if (target && scope && r.targetKind === run.targetKind) {
       try {
         const extra = await target.validate?.(r.payload as never, scope, ctx);
         for (const f of extra ?? []) if (f.trim()) flags.push(f.trim());
@@ -220,6 +230,73 @@ async function verifyCandidates(ctx: Ctx, run: Run) {
     }
     await ctx.tx.update(importProposal).set({ quoteVerified: verified, pageNo: page, flags: [...new Set(flags)] }).where(eq(importProposal.id, r.id));
   }
+}
+
+/** The role a document was given (standards, policy_procedure, ...), when its place keeps one (the standards' sources do). */
+async function roleOf(ctx: Ctx, scopeKind: string, documentId: string): Promise<string | null> {
+  if (getDocScope(scopeKind).storage !== 'source') return null;
+  const [d] = await ctx.tx.select({ role: sourceDocument.role }).from(sourceDocument).where(eq(sourceDocument.id, documentId));
+  return d?.role ?? null;
+}
+
+/**
+ * The organise stage (a target that declares `organise`): reads every outline entry the windows found, across all documents, in
+ * ONE model call, and answers the final items. Each final item keeps the page and quote of the first outline entry it comes from
+ * (checked in the verify stage), so a person reviews it beside the page; the target's own checks add their reasons.
+ */
+async function organise(ctx: Ctx, run: Run, _cursor: number, runtime: AiRuntime): Promise<Step> {
+  const target = targetOf(run);
+  const spec = target.organise;
+  if (!spec) return { next: { stage: 'propose', cursor: 0 } };
+  const rt = runtimeFor(target, runtime);
+  const rows = await ctx.tx.select().from(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true), eq(importProposal.targetKind, outlineKind(run.targetKind))));
+  const order = new Map(run.documentIds.map((d, i) => [d, i]));
+  rows.sort((a, b) => (order.get(a.documentId ?? '') ?? 99) - (order.get(b.documentId ?? '') ?? 99) || a.windowNo - b.windowNo || a.seq - b.seq);
+  // The same heading seen in two overlapping windows is one entry.
+  const seen = new Set<string>();
+  const unique = rows.filter((r) => { const k = `${r.documentId ?? ''}|${JSON.stringify(norm(r.payload))}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const used = unique.slice(0, ORGANISE_MAX_ENTRIES);
+  if (!used.length) { await ctx.tx.delete(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true), eq(importProposal.targetKind, outlineKind(run.targetKind)))); return { next: { stage: 'propose', cursor: 0 }, report: { organised: { entries: 0, items: 0, dropped: 0 } } }; }
+
+  const names = new Map<string, string>();
+  const docs: { id: string; name: string; language: string; role: string | null }[] = [];
+  for (const id of run.documentIds) {
+    const state = await documentReadState(ctx, run.scopeKind, id);
+    if (!state) continue;
+    names.set(id, state.name);
+    docs.push({ id, name: state.name, language: state.language ?? 'en', role: await roleOf(ctx, run.scopeKind, id) });
+  }
+  const scope = await scopeOf(ctx, run);
+  const entries: OutlineEntry<unknown>[] = used.map((r, i) => ({ n: i + 1, documentName: names.get(r.documentId ?? '') ?? 'document', page: r.pageNo ?? 0, item: r.payload }));
+  const context = (await spec.context?.(ctx, scope)) ?? '';
+  const input = spec.buildPrompt({ scopeLabel: scope.label, documents: docs.map((d) => ({ name: d.name, language: d.language, role: d.role })), entries, context });
+  const { data } = await aiExtract({ task: spec.promptTask, promptVersion: spec.promptVersion, input, schema: spec.answer as z.ZodType<{ items: unknown[] }>, runtime: rt.runtime });
+
+  let dropped = 0;
+  const finals: (typeof importProposal.$inferInsert)[] = [];
+  for (const a of data.items) {
+    const fromNs = [...new Set(spec.from(a as never))].filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length);
+    const sources = fromNs.map((n) => entries[n - 1]!);
+    const built = spec.build(a as never, sources);
+    const parsed = target.schema.safeParse(built.item);
+    if (!parsed.success) { dropped++; continue; }
+    const main = fromNs.length ? used[fromNs[0]! - 1]! : null;
+    const flags = [...(built.flags ?? []).map((f) => f.trim()).filter(Boolean)];
+    if (!main) flags.push('The AI did not say which headings this comes from.');
+    else for (const f of main.flags as string[]) if (!flags.includes(f)) flags.push(f);
+    try { for (const f of (await target.validate?.(parsed.data as never, scope, ctx)) ?? []) if (f.trim() && !flags.includes(f.trim())) flags.push(f.trim()); } catch { /* a check that cannot run is not a reason to stop */ }
+    finals.push({
+      institutionId: ctx.caller.institutionId, runId: run.id, targetKind: run.targetKind, candidate: true, windowNo: 0, seq: finals.length,
+      payload: parsed.data as never, documentId: main?.documentId ?? null, pageNo: main?.pageNo ?? null, quote: main?.quote ?? null, quoteVerified: main?.quoteVerified ?? false,
+      confidence: built.confidence ?? null, flags,
+    });
+  }
+  if (finals.length) await ctx.tx.insert(importProposal).values(finals);
+  await ctx.tx.delete(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true), eq(importProposal.targetKind, outlineKind(run.targetKind))));
+  return {
+    next: { stage: 'propose', cursor: 0 }, progress: { items: finals.length },
+    report: { organised: { entries: used.length, items: finals.length, dropped, ...(unique.length > used.length ? { entriesLeftOut: unique.length - used.length } : {}) }, runtime: { model: rt.runtime.config.model, role: rt.role } },
+  };
 }
 
 const norm = (v: unknown): unknown => {
@@ -237,10 +314,14 @@ async function propose(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime,
 
 async function releaseCandidates(ctx: Ctx, run: Run): Promise<number> {
   const target = findImportTarget(run.targetKind);
-  const rows = await ctx.tx.select().from(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true)));
+  // The outline of an organising target is never released: when the run ends without having been organised there is nothing to propose.
+  await ctx.tx.delete(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true), eq(importProposal.targetKind, outlineKind(run.targetKind))));
+  const rows = await ctx.tx.select().from(importProposal).where(and(eq(importProposal.runId, run.id), eq(importProposal.candidate, true), eq(importProposal.targetKind, run.targetKind)));
   if (!rows.length) return 0;
   const order = new Map(run.documentIds.map((d, i) => [d, i]));
-  rows.sort((a, b) => (order.get(a.documentId ?? '') ?? 99) - (order.get(b.documentId ?? '') ?? 99) || a.windowNo - b.windowNo || a.seq - b.seq);
+  // An organised answer is already in the order the model gave it (a standard, then its sub-standards).
+  if (target?.organise) rows.sort((a, b) => a.seq - b.seq);
+  else rows.sort((a, b) => (order.get(a.documentId ?? '') ?? 99) - (order.get(b.documentId ?? '') ?? 99) || a.windowNo - b.windowNo || a.seq - b.seq);
   const groups = new Map<string, typeof rows>();
   rows.forEach((r, i) => {
     let key: string | null;
@@ -269,7 +350,7 @@ async function finalise(ctx: Ctx, run: Run, _cursor: number, _runtime: AiRuntime
   return { next: 'done' };
 }
 
-const STEPS: Record<ImportStage, (ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report) => Promise<Step>> = { read, extract, verify, propose, finalise };
+const STEPS: Record<ImportStage, (ctx: Ctx, run: Run, cursor: number, runtime: AiRuntime, report: Report) => Promise<Step>> = { read, extract, verify, organise, propose, finalise };
 
 // ---- Bookkeeping ---------------------------------------------------------------------------------------------------------
 

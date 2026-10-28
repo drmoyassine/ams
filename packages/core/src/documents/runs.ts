@@ -13,7 +13,7 @@ import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { enqueueJob } from '../jobs/jobs.js';
 import { listDocuments } from './documents.js';
-import { assertCanRead, assertCanWrite, getDocScope } from './scopes.js';
+import { assertCanRead, assertCanWrite, describeScope, getDocScope } from './scopes.js';
 import { findImportTarget, importTargetsFor, type ImportTarget } from './targets.js';
 
 type RunRow = typeof importRun.$inferSelect;
@@ -22,8 +22,18 @@ export const infoOf = (t: ImportTarget<unknown>): ImportTargetInfo => ({ kind: t
 
 /** The imports a place offers (the buttons of its Docs tab). Needs the place's read permission. */
 export async function listImportTargets(ctx: Ctx, scopeKind: string, scopeId: string | null): Promise<ImportTargetInfo[]> {
-  await assertCanRead(ctx, scopeKind, scopeId);
-  return importTargetsFor(scopeKind).map(infoOf);
+  const { place } = await assertCanRead(ctx, scopeKind, scopeId);
+  const scope = { kind: scopeKind as DocScopeKind, id: scopeId, label: place.label, runId: '' };
+  const out: ImportTargetInfo[] = [];
+  for (const t of importTargetsFor(scopeKind)) if (!t.available || (await t.available(ctx, scope))) out.push(infoOf(t));
+  return out;
+}
+
+/** Is this import offered at this place right now? (A target without `available` is offered everywhere its scope kind is.) */
+async function offeredHere(ctx: Ctx, t: ImportTarget<unknown>, scopeKind: string, scopeId: string | null): Promise<boolean> {
+  if (!t.available) return true;
+  const place = await describeScope(ctx, scopeKind, scopeId);
+  return t.available(ctx, { kind: scopeKind as DocScopeKind, id: scopeId, label: place, runId: '' });
 }
 
 export function targetFor(kind: string, scopeKind: string): ImportTarget<unknown> {
@@ -87,7 +97,7 @@ export async function importPreflight(ctx: Ctx, scopeKind: string, scopeId: stri
   const { place } = await assertCanWrite(ctx, scopeKind, scopeId, { editable: false });
   const checks: PreflightCheck[] = [];
   const t = findImportTarget(targetKind);
-  if (!t || !(t.scopeKinds as readonly string[]).includes(scopeKind)) {
+  if (!t || !(t.scopeKinds as readonly string[]).includes(scopeKind) || !(await offeredHere(ctx, t, scopeKind, scopeId))) {
     checks.push({ id: 'target', status: 'problem', message: 'This import is not available here.', fix: null });
   } else checks.push({ id: 'target', status: 'ok', message: `${t.label}: ${t.description}`, fix: null });
 
@@ -128,6 +138,7 @@ export async function startImport(ctx: Ctx, input: StartImport): Promise<ImportR
   const scopeId = input.scopeId ?? null;
   await assertCanWrite(ctx, scopeKind, scopeId);
   const target = targetFor(targetKind, scopeKind);
+  if (!(await offeredHere(ctx, target, scopeKind, scopeId))) throw new ConflictError(`"${target.label}" is not offered here`);
   const ready = await aiReadiness(ctx);
   if (!ready.ok) throw new ConflictError(ready.reason);
   const ids = await documentsOfScope(ctx, scopeKind, scopeId, [...new Set(input.documentIds)]);

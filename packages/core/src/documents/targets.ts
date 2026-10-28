@@ -48,6 +48,31 @@ export interface ApplyResult {
   inverse: unknown;
 }
 
+/** One heading (or any outline entry) found by a window of pages, with the numbered form the organise call is given. */
+export interface OutlineEntry<H = unknown> { n: number; documentName: string; page: number; item: H }
+
+/**
+ * A target that cannot turn one window's pages into its final items by itself (the final items need the whole picture: several
+ * documents become ONE framework) says how to do it in two steps. The windows extract an OUTLINE (`outline`: its own schema and
+ * prompt; each entry still carries the page and the exact quote, checked like any item), then ONE more model call (`organise`)
+ * reads every outline entry of every document and answers the final items, each naming the outline entries it comes from. The
+ * final items are the proposals people review; the engine never shows the outline.
+ */
+export interface OrganiseSpec<T, H, A> {
+  outline: { schema: z.ZodType<H>; promptTask: string; promptVersion: string; buildPrompt(window: PromptWindow): string };
+  promptTask: string;
+  promptVersion: string;
+  /** What the place already holds that the answer must fit (the framework as it is now), as plain text for the prompt. */
+  context?(ctx: Ctx, scope: TargetScope): Promise<string>;
+  buildPrompt(input: { scopeLabel: string; documents: { name: string; language: string; role: string | null }[]; entries: OutlineEntry<H>[]; context: string }): string;
+  /** What the model answers: a list of answer items. */
+  answer: z.ZodType<{ items: A[] }>;
+  /** The numbers (`n`) of the outline entries an answer item comes from. The first one is its source in the review. */
+  from(a: A): number[];
+  /** The final item (plain data the target's schema accepts), with the model's confidence and its own flags. */
+  build(a: A, sources: OutlineEntry<H>[]): { item: T; confidence?: number | null; flags?: string[] };
+}
+
 export interface ImportTarget<T = unknown> {
   /** Unique key, stored on runs and proposals ("programs"). */
   kind: string;
@@ -61,6 +86,14 @@ export interface ImportTarget<T = unknown> {
   scopeKinds: readonly DocScopeKind[];
   /** Which model reads: the analysis model (default) or the reading (vision) model, for targets that read images. */
   aiRole?: 'analysis' | 'reading';
+  /**
+   * Is this import offered at this particular place? (The standards' Docs tab is one scope kind, but an import for the institution's
+   * own framework is not offered on an accreditor's standard.) Default: yes. Checked when the buttons are listed and again on start.
+   */
+  available?(ctx: Ctx, scope: TargetScope): Promise<boolean>;
+  /** Two steps instead of one: outline per window, then one organise call (see OrganiseSpec). The prompt fields below then serve the final items only. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  organise?: OrganiseSpec<T, any, any>;
   /** Zod schema of ONE proposed item. Plain data only; the engine wraps it with the page, the quote and the confidence. */
   schema: z.ZodType<T>;
   /** The system prompt: `PROMPTS[promptTask][promptVersion]` in packages/core/src/ai/prompts (a change of wording is a new version). */

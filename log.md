@@ -832,3 +832,9 @@ The BI asked (its #10, our issue 3) to act as a person with that person's rights
 The owner preferred one database with a schema per product to a database per product, and reserved `public` for the BI's analytic data. Migration 0070 renames `public` to `ams` (every object moves with the schema; catalogue references are by identity), creates an empty, closed `public`, sets the database's default search path to `ams`, re-points the 37 `SET search_path = public` SECURITY DEFINER functions, and lets only `ams_app` / `ams_worker` use `ams`. `ams-schema.test.ts` proves a role of another product sees neither `ams` nor `public`. The BI side (its role and schemas on the shared database, its job queue out of `pgboss`) is asked of the BI through the issue bridge.
 - **Learning.** `ALTER DATABASE ... SET search_path` reaches new connections only; a migration that renames the schema must also `SET search_path` for the rest of its own run. A role-level setting (the BI's) wins over the database's.
 - **Learning.** The AMS's migrations now need the database owner or a superuser (the default Compose `POSTGRES_USER` is a superuser).
+
+## 2026-10-28 — Draft the framework from documents (TASK-111)
+
+The owner's IE-001 analysis on the IQF gave little because the analysis reads standards verbatim and routes policy documents only to configuration. A new import target `iqf_tree` reads the headings of all chosen documents window by window, then ONE organise call draws Standards and Sub-standards (two levels; accreditor indicators stay in the accreditor's standard). New engine stage `organise` (migration 0071), reusable by any target that builds one structure from many documents.
+- **Learning.** Letting each window propose items would give duplicates and no order; an outline per window plus one call over all outlines fixes both and keeps citations quote-verifiable.
+- Still to do: page rotation for scans (PUC), the "from this document" filters.

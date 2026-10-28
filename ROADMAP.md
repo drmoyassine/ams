@@ -717,7 +717,7 @@ quarter: Q4
 status: Completed
 priority: P0
 id: ROADMAP-012
-last_updated: '2026-10-27'
+last_updated: '2026-10-28'
 generated:
   by: agent/claude-code
   at: '2026-10-06T05:43:17.250Z'
@@ -727,7 +727,7 @@ vision_theme:
   url: /VISION.md#one-platform-many-frameworks
 modified:
   by: agent/claude-code
-  at: '2026-10-27T12:02:21.339Z'
+  at: '2026-10-28T11:44:14.902Z'
 related_decisions:
   - id: DEC-016
     name: Internal quality framework and glossary unify terminology; mappings live on each external standard
@@ -819,6 +819,9 @@ related_tasks:
       One upload module and one document row: dropping files is the only way to add a document; the standards Docs tab
       is the shared tab
     url: /TASKS.md#TASK-110
+  - id: TASK-111
+    name: 'Draft the institution''s quality framework from documents: headings per window, one organise call, review, apply'
+    url: /TASKS.md#TASK-111
 ---
 
 # Settings, internal framework and glossary
