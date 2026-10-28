@@ -838,3 +838,8 @@ The owner preferred one database with a schema per product to a database per pro
 The owner's IE-001 analysis on the IQF gave little because the analysis reads standards verbatim and routes policy documents only to configuration. A new import target `iqf_tree` reads the headings of all chosen documents window by window, then ONE organise call draws Standards and Sub-standards (two levels; accreditor indicators stay in the accreditor's standard). New engine stage `organise` (migration 0071), reusable by any target that builds one structure from many documents.
 - **Learning.** Letting each window propose items would give duplicates and no order; an outline per window plus one call over all outlines fixes both and keeps citations quote-verifiable.
 - Still to do: page rotation for scans (PUC), the "from this document" filters.
+
+## 2026-10-28 — Turn the pages of a scan (TASK-111)
+
+The PUC standards PDF is scanned sideways (content rotated 90° inside upright A4 pages), so the vision model read nothing useful. Each document (import or source) now has a `rotation` (0/90/180/270, migration 0072); `parseDocument({ rotation })` turns the page picture with sharp before the OCR hook sees it. The Docs row has "Turn pages" (a quarter more, then reads the file again); API `POST /api/documents/{id}/rotate`.
+- **Learning.** `sharp.rotate(90)` is clockwise and makes the PUC scan upright; -90 was upside down.

@@ -6,7 +6,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   applyImport, cancelImport, decideImportProposals, deleteDocument, editImportProposal, getDocument, getDocumentPageView, getImportReport, getImportRun, getScopeInfo,
   importPreflight, listAllDocuments, listDocumentPages, listDocuments, listImportProposals, listImportRuns, listImportTargets, MAX_SOURCE_BYTES, previewImportApply,
-  readDocumentFile, redoImportApply, requestRead, startImport, undoImportApply, uploadDocument, ValidationError,
+  readDocumentFile, redoImportApply, requestRead, rotateDocument, startImport, undoImportApply, uploadDocument, ValidationError,
 } from '@ams/core';
 import {
   DecideProposalsSchema, DeleteResultSchema, DocScopeInfoSchema, DocumentFiltersSchema, DocumentListSchema, DocumentRowSchema, DOC_SCOPE_KINDS, EditProposalSchema, ImportApplyPreviewSchema,
@@ -94,6 +94,13 @@ export function documentRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { params: idParam },
       responses: { 202: { description: 'Queued', ...json(z.object({ jobId: z.string(), status: z.string() })) }, ...errors },
     }), async (c) => c.json(await requestRead(c.get('ctx'), c.req.valid('param').id), 202))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/documents/{id}/rotate', access: read, tags: tag,
+      description: 'Sets how many degrees clockwise (0, 90, 180 or 270) the pages of a scan are turned before they are read, and queues reading the file again. Needs the place\'s write permission.',
+      request: { params: idParam, body: { content: { 'application/json': { schema: z.object({ rotation: z.number().int() }) } }, required: true } },
+      responses: { 202: { description: 'Queued', ...json(z.object({ jobId: z.string(), status: z.string(), rotation: z.number() })) }, ...errors },
+    }), async (c) => c.json(await rotateDocument(c.get('ctx'), c.req.valid('param').id, c.req.valid('json').rotation), 202))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/documents/{id}/pages', access: read, tags: tag,

@@ -34,7 +34,7 @@ function importRow(d: ImportRow, extra: { pages: number; ocr: number; by: string
   return {
     id: d.id, source: 'import', scopeKind: d.scopeKind, scopeId: d.scopeId, name: d.fileName, fileName: d.fileName, fileKind: fileKindOf(d.fileName), mime: d.mime, size: d.size,
     pageCount: d.pageCount ?? (extra.pages || null), status: d.readStatus, statusText: documentStatusText(d.readStatus, pages, extra.ocr, d.readError),
-    needsOcrPages: extra.ocr, readError: d.readError, language: d.language, hasFile: true, uploadedBy: d.createdBy, uploadedByName: extra.by,
+    needsOcrPages: extra.ocr, readError: d.readError, language: d.language, rotation: d.rotation, hasFile: true, uploadedBy: d.createdBy, uploadedByName: extra.by,
     uploadedAt: d.createdAt.toISOString(), role: null, roleOrigin: null, authority: null,
   };
 }
@@ -46,7 +46,7 @@ function sourceRow(d: SourceRow, extra: { pages: number; ocr: number; by: string
   return {
     id: d.id, source: 'source', scopeKind: 'framework_version', scopeId: d.frameworkVersionId, name: d.title, fileName: d.fileName, fileKind: fileKindOf(d.fileName ?? d.title),
     mime: d.mime, size: d.size, pageCount: pages || null, status, statusText: documentStatusText(status, pages, extra.ocr), needsOcrPages: extra.ocr,
-    readError: status === 'failed' ? 'the file could not be read' : null, language: d.language, hasFile: !!d.fileName, uploadedBy: d.createdBy, uploadedByName: extra.by,
+    readError: status === 'failed' ? 'the file could not be read' : null, language: d.language, rotation: d.rotation, hasFile: !!d.fileName, uploadedBy: d.createdBy, uploadedByName: extra.by,
     uploadedAt: d.createdAt.toISOString(), role: d.roleOrigin === 'unset' ? null : d.role, roleOrigin: d.roleOrigin, authority: d.authority,
   };
 }
@@ -222,6 +222,20 @@ export async function requestRead(ctx: Ctx, id: string): Promise<{ jobId: string
   await ctx.tx.update(importDocument).set({ readStatus: 'queued', readError: null }).where(eq(importDocument.id, id));
   const job = await enqueueJob(ctx, { type: 'extract_text', payload: { importDocumentId: id } });
   return { jobId: job.id, status: 'queued' };
+}
+
+/**
+ * Turns the page pictures of a scanned document (0, 90, 180 or 270 degrees clockwise) and queues reading it again, so the vision model
+ * sees the pages upright. Pages already read stay until the new reading replaces them.
+ */
+export async function rotateDocument(ctx: Ctx, id: string, rotation: number): Promise<{ jobId: string; status: DocStatus; rotation: number }> {
+  assertHuman(ctx);
+  if (![0, 90, 180, 270].includes(rotation)) throw new ValidationError('the rotation is 0, 90, 180 or 270 degrees');
+  const f = await findDocument(ctx, id);
+  await assertCanWrite(ctx, f.scopeKind, f.scopeId);
+  if (f.source === 'source') await ctx.tx.update(sourceDocument).set({ rotation }).where(eq(sourceDocument.id, id));
+  else await ctx.tx.update(importDocument).set({ rotation }).where(eq(importDocument.id, id));
+  return { ...(await requestRead(ctx, id)), rotation };
 }
 
 /** The original file, for viewing or download. */

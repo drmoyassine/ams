@@ -77,7 +77,7 @@ async function readInto(
   try {
     const file = await loadImportFile(ctx, id);
     parsed = await parseDocument({
-      bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: opts.ocrLanguage || file.doc.language,
+      bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: opts.ocrLanguage || file.doc.language, rotation: file.doc.rotation,
       ...(opts.ocrPage ? { ocrPage: opts.ocrPage } : {}), ...(opts.ocrMaxPages !== undefined ? { ocrMaxPages: opts.ocrMaxPages } : {}),
     });
   } catch (e) {

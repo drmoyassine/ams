@@ -31,6 +31,7 @@ export function documentsApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       }).then((r) => unwrap<DocumentRow>(r)),
     fileUrl: (id: string) => `/api/documents/${id}/file`,
     read: (id: string) => d[':id'].read.$post({ param: { id } }).then((r) => unwrap<{ jobId: string; status: string }>(r)),
+    rotate: (id: string, rotation: number) => d[':id'].rotate.$post({ param: { id }, json: { rotation } }).then((r) => unwrap<{ jobId: string; status: string; rotation: number }>(r)),
     remove: (id: string) => d[':id'].$delete({ param: { id } }).then((r) => unwrap<DeleteResult>(r)),
     pages: (id: string) => d[':id'].pages.$get({ param: { id } }).then((r) => unwrap<ImportPage[]>(r)),
     pageView: (id: string, pageNo: number, quote?: string) =>

@@ -8,7 +8,7 @@ import {
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
 } from '@ams/shared';
 import {
-  boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
+  boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 /** Drizzle's `enum` option is type-only; this makes the database enforce the value set too. */
@@ -390,6 +390,8 @@ export const sourceDocument = pgTable('source_document', {
   role: text('role', { enum: DOCUMENT_ROLES }).notNull(),
   authority: text('authority', { enum: DOCUMENT_AUTHORITIES }).notNull(),
   language: text('language').notNull().default('en'),
+  /** Quarter turns clockwise applied to each page picture before it is read as a scan (migration 0072). */
+  rotation: smallint('rotation').notNull().default(0),
   filePath: text('file_path').notNull(),
   sha256: text('sha256').notNull(),
   pageCount: integer('page_count'),
@@ -1334,6 +1336,8 @@ export const importDocument = pgTable('import_document', {
   sha256: text('sha256').notNull(),
   filePath: text('file_path').notNull(),
   language: text('language').notNull().default('en'),
+  /** Quarter turns clockwise (0, 90, 180, 270) applied to each page picture before it is read as a scan (migration 0072). */
+  rotation: smallint('rotation').notNull().default(0),
   readStatus: text('read_status', { enum: IMPORT_READ_STATUSES }).notNull().default('queued'),
   readError: text('read_error'),
   pageCount: integer('page_count'),

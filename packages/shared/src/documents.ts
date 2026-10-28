@@ -70,6 +70,8 @@ export const DocumentRowSchema = z.object({
   needsOcrPages: z.number(),
   readError: z.string().nullable(),
   language: z.string(),
+  /** Quarter turns clockwise (0, 90, 180, 270) applied to each page picture before it is read as a scan. */
+  rotation: z.number().int(),
   hasFile: z.boolean(),
   uploadedBy: z.string().nullable(),
   uploadedByName: z.string().nullable(),

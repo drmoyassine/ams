@@ -491,6 +491,13 @@
    "when": 1792339200000,
    "tag": "0071_import_organise",
    "breakpoints": true
+  },
+  {
+   "idx": 72,
+   "version": "7",
+   "when": 1792425600000,
+   "tag": "0072_document_rotation",
+   "breakpoints": true
   }
  ]
 }

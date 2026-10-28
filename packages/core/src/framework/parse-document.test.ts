@@ -55,6 +55,15 @@ describe('parseDocument: PDF (@drmoyassine/liteparse, one page at a time)', () =
     expect(doc.pages[0]!.method).toBe('pdf_text');
   }, 30000);
 
+  it('turns the page picture by the document\'s rotation before the OCR hook sees it', async () => {
+    const size = (png: Uint8Array) => { const v = new DataView(png.buffer, png.byteOffset); return [v.getUint32(16), v.getUint32(20)]; };
+    const dims: Record<string, number[]> = {};
+    for (const rotation of [0, 90]) {
+      await parseDocument({ bytes: pdf([null]), mime: 'application/pdf', rotation, ocrPage: async (p) => { dims[rotation] = size(p.image); return 'text'; } });
+    }
+    expect(dims[90]).toEqual([dims[0]![1], dims[0]![0]]);
+  }, 30000);
+
   it('keeps Arabic diacritics from the OCR hook (nothing is stripped) and normalises to NFC', async () => {
     const harakat = 'مَرْحَبًا بِالْعَالَمِ';
     const a = await parseDocument({ bytes: pdf([null]), fileName: 'x.pdf', ocrPage: async () => harakat });

@@ -14,7 +14,7 @@ import { addSourceDocument, MAX_SOURCE_BYTES } from '../framework/sources.js';
 import { newVersionFrom } from '../framework/versions.js';
 import { deleteForever, listTrash, restoreTrash } from '../trash/index.js';
 import {
-  deleteDocument, getDocument, getDocumentPageView, getScopeInfo, listAllDocuments, listDocumentPages, listDocuments, readDocumentFile, requestRead, uploadDocument,
+  deleteDocument, getDocument, getDocumentPageView, getScopeInfo, listAllDocuments, listDocumentPages, listDocuments, readDocumentFile, requestRead, rotateDocument, uploadDocument,
 } from './documents.js';
 
 let w: World;
@@ -103,6 +103,21 @@ describe('the registry of uploads', () => {
     expect(after.status).toBe('failed');
     expect(after.readError).toBeTruthy();
     expect(after.statusText).toMatch(/^Could not be read/);
+  }, 60000);
+
+  it('turns the pages of a scan and reads the file again; only quarter turns, only by someone who may write', async () => {
+    const row = await upload('alo', { fileName: 'sideways.pdf', bytes: pdf([null]) });
+    await drain();
+    expect(row.rotation).toBe(0);
+    await expect(as('alo', (c) => rotateDocument(c, row.id, 45))).rejects.toThrow(ValidationError);
+    await expect(as('contrib', (c) => rotateDocument(c, row.id, 90))).rejects.toThrow(ForbiddenError);
+    const r = await as('alo', (c) => rotateDocument(c, row.id, 90));
+    expect(r).toMatchObject({ rotation: 90, status: 'queued' });
+    expect(await as('alo', (c) => getDocument(c, row.id))).toMatchObject({ rotation: 90, status: 'queued' });
+    await drain();
+    expect((await as('alo', (c) => getDocument(c, row.id))).status).not.toBe('queued');
+    await q(`delete from import_page where import_document_id = $1`, [row.id]);
+    await q(`delete from import_document where id = $1`, [row.id]);
   }, 60000);
 
   it('lists with the newest first and gives a place the person can write in', async () => {

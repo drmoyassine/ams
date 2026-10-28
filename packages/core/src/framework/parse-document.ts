@@ -52,6 +52,8 @@ export interface ParseDocumentInput {
   /** Language hint (e.g. 'en', 'ar'); passed on to the OCR hook. */
   language?: string;
   ocrPage?: OcrPageHook;
+  /** Quarter turns clockwise (0, 90, 180, 270) applied to each page picture before the OCR hook sees it (a scan made sideways). */
+  rotation?: number;
   /** At most this many pages are rendered and handed to the OCR hook; the rest stay flagged `needsOcr` with a warning. */
   ocrMaxPages?: number;
 }
@@ -346,6 +348,13 @@ interface Budget { used: number; limit: number }
 /** What happened when the hook was asked about one page, for the page's warnings. */
 interface HookNote { error?: string; empty?: boolean; limit?: number }
 
+/** A page picture turned by the document's rotation (clockwise quarter turns); untouched when there is none. */
+async function turned(png: Uint8Array, degrees: number | undefined): Promise<Uint8Array> {
+  if (!degrees) return png;
+  const { default: sharp } = await import('sharp');
+  return new Uint8Array(await sharp(png).rotate(degrees).png().toBuffer());
+}
+
 /** liteparse's vision gateway, backed by the caller's OCR hook: counts pages against the budget and never throws. */
 function hookGateway(input: ParseDocumentInput, pageNo: number, budget: Budget, note: HookNote, textOf: () => Promise<string>): VlmGateway | undefined {
   if (!input.ocrPage) return undefined;
@@ -354,7 +363,7 @@ function hookGateway(input: ParseDocumentInput, pageNo: number, budget: Budget, 
       if (budget.used >= budget.limit) { note.limit = budget.limit; return ''; }
       budget.used++;
       try {
-        const text = (await input.ocrPage!({ pageNo, image: png, language: input.language ?? 'en', text: await textOf() }))?.trim() ?? '';
+        const text = (await input.ocrPage!({ pageNo, image: await turned(png, input.rotation),  language: input.language ?? 'en', text: await textOf() }))?.trim() ?? '';
         if (!text) note.empty = true;
         return text;
       } catch (e) { note.error = (e as Error).message; return ''; }

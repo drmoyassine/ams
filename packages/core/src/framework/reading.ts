@@ -71,7 +71,7 @@ export async function extractText(
   try {
     const file = await loadSourceFile(ctx, id);
     parsed = await parseDocument({
-      bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: opts.ocrLanguage || doc.language,
+      bytes: file.bytes, mime: file.mime, fileName: file.fileName, language: opts.ocrLanguage || doc.language, rotation: doc.rotation,
       ...(opts.ocrPage ? { ocrPage: opts.ocrPage } : {}), ...(opts.ocrMaxPages !== undefined ? { ocrMaxPages: opts.ocrMaxPages } : {}),
     });
   } catch (e) {

@@ -20,6 +20,8 @@ export interface DocsRowContext {
   refresh: () => void;
   /** Read the file again. */
   readAgain: (doc: DocumentRow) => void;
+  /** Turn the pages a quarter more (clockwise) and read the file again. */
+  rotate: (doc: DocumentRow) => void;
   /** Ask, then delete to the Trash (the Undo toast appears by itself). */
   remove: (doc: DocumentRow) => void;
   /** The ⋯ menu items every row has (Read again, Delete) for the rows that draw their own menu. */
@@ -96,6 +98,7 @@ export function DocsTab({ scopeKind, scopeId, targets, canWrite, editable = true
   const refresh = useCallback(() => { void qc.invalidateQueries({ queryKey: key }); void qc.invalidateQueries({ queryKey: ['documents-library'] }); }, [qc, scopeKind, scopeId]);
 
   const readAgain = (d: DocumentRow) => { setError(''); void run(() => api.read(d.id)).then(refresh); };
+  const rotate = (d: DocumentRow) => { setError(''); void run(() => api.rotate(d.id, (d.rotation + 90) % 360)).then(refresh); };
   const remove = (d: DocumentRow) => {
     void confirm({
       title: `Delete ${d.name}?`, confirmLabel: 'Delete', tone: 'danger',
@@ -103,7 +106,7 @@ export function DocsTab({ scopeKind, scopeId, targets, canWrite, editable = true
     }).then((ok) => { if (ok) { setError(''); void run(() => api.remove(d.id)).then(refresh); } });
   };
   const menu = (d: DocumentRow) => (canWrite && editable ? [{ label: d.hasFile ? 'Read again' : 'Read', onSelect: () => readAgain(d) }, { label: 'Delete', onSelect: () => remove(d) }] : []);
-  const ctx: DocsRowContext = { api, canWrite: canWrite && editable, refresh, readAgain, remove, menu };
+  const ctx: DocsRowContext = { api, canWrite: canWrite && editable, refresh, readAgain, rotate, remove, menu };
 
   if (view.kind === 'review') return <ImportReview api={api} runId={view.runId} canWrite={canWrite && editable} onBack={() => { setView({ kind: 'list' }); refresh(); }} />;
   if (view.kind === 'report') return <ImportReportView api={api} runId={view.runId} onBack={() => setView({ kind: 'list' })} onReview={(runId) => setView({ kind: 'review', runId })} />;
@@ -166,6 +169,9 @@ function DocumentRowCard({ doc, ctx, extras }: { doc: DocumentRow; ctx: DocsRowC
         {ctx.canWrite && (
           <>
             <Button type="button" variant="outline" className="px-3 py-1.5" disabled={active(doc)} aria-label={doc.status === 'not_read' ? `Read ${doc.name}` : `Read ${doc.name} again`} onClick={() => ctx.readAgain(doc)}>{doc.status === 'not_read' ? 'Read' : 'Read again'}</Button>
+            {doc.hasFile && (doc.fileKind === 'PDF' || doc.fileKind === 'Image') && (
+              <Button type="button" variant="ghost" className="px-3 py-1.5" disabled={active(doc)} aria-label={`Turn the pages of ${doc.name}`} title={`Pages are turned ${doc.rotation}° clockwise before they are read as a scan. Turn another quarter and read again.`} onClick={() => ctx.rotate(doc)}>Turn pages{doc.rotation ? ` (${doc.rotation}°)` : ''}</Button>
+            )}
             <Button type="button" variant="ghost" className="px-3 py-1.5" aria-label={`Delete ${doc.name}`} onClick={() => ctx.remove(doc)}>Delete</Button>
           </>
         )}
