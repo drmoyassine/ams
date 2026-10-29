@@ -28,6 +28,8 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     fileUrl: (versionId: string) => `/api/evidence-versions/${versionId}/file`,
 
     internalLinks: (requirementId: string) => api.api.requirements[':id']['evidence-links'].$get({ param: { id: requirementId } }).then((r) => unwrap<EvidenceLink[]>(r)),
+    /** The evidence items linked to these items of the internal framework, by code (TASK-111). */
+    forItems: (versionId: string, requirementIds: string[]) => ev['for-items'].$post({ json: { versionId, requirementIds } }).then((r) => unwrap<{ ids: string[] }>(r)),
     /** Evidence linked straight to a requirement of any standard (an external one too); it carries over to new versions of that standard. */
     linkLibrary: (requirementId: string, json: LinkEvidence) => api.api.requirements[':id']['evidence-links'].$post({ param: { id: requirementId }, json }).then((r) => unwrap<EvidenceLink>(r)),
     /** For a whole version in one request: per requirement code, its mapped IQF items and the evidence inherited and linked directly (the hover card). */

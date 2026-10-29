@@ -10,7 +10,7 @@ import { publishVersion, submitForReview } from '../framework/versions.js';
 import { createMapping, reviewMapping } from '../mapping/mapping.js';
 import { saveDatasetRows, saveDatasetSpec } from './dataset.js';
 import {
-  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal, linkToRequirement,
+  addFileVersion, addUrlVersion, createEvidence, evidenceItemsForInternal, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement, linkToInternal, linkToRequirement,
   listEvidence, readVersionFile, removeLink, requirementContexts, reviewLink, suggestionsFor, updateEvidence,
 } from './evidence.js';
 import { setDataFormOpen, submitDataResponse } from './forms.js';
@@ -31,6 +31,7 @@ beforeAll(async () => {
   await w.as('admin', (c) => submitForReview(c, qv));
   await w.as('admin', (c) => publishVersion(c, qv));
   ids.assessment = items.find((r) => r.title === 'Assessment of learning')!.id;
+  ids.qv = qv;
 
   // An ABET program engagement (led by coord) and a WSCUC institutional one (led by alo).
   ids.abetEng = (await w.create('alo', { subjectType: 'program', subjectId: w.ids.mech!, kind: 'initial' })).engagement.id;
@@ -95,6 +96,20 @@ describe('attached once to the internal framework, offered to every mapped requi
     expect(await w.as('coord', (c) => suggestionsFor(c, ids.abetER!))).toEqual([]);
     await w.as('admin', (c) => reviewLink(c, link.id, { decision: 'approved' }));
     expect((await w.as('contrib', (c) => linksForInternal(c, ids.assessment!))).map((l) => l.reviewStatus)).toEqual(['approved']);
+  });
+
+  it('says which evidence items the internal items hold, by code (TASK-111)', async () => {
+    // The minutes are attached to "Assessment of learning": that one item, that one piece of evidence.
+    expect(await w.as('alo', (c) => evidenceItemsForInternal(c, ids.qv!, [ids.assessment!]))).toEqual([ids.minutes]);
+    // A second item of evidence joins while its link stands, and stops counting once the link is rejected.
+    const other = await w.as('contrib', (c) => createEvidence(c, { title: 'Placement survey', type: 'dataset' }));
+    const ov = await w.as('contrib', (c) => addFileVersion(c, other.id, { fileName: 'p.csv', mime: 'text/csv', bytes: bytes('x') }));
+    const l = await w.as('contrib', (c) => linkToInternal(c, ids.assessment!, { evidenceVersionId: ov.id, rationale: 'Placement data' }));
+    expect(await w.as('alo', (c) => evidenceItemsForInternal(c, ids.qv!, [ids.assessment!]))).toEqual(expect.arrayContaining([ids.minutes!, other.id]));
+    await w.as('admin', (c) => reviewLink(c, l.id, { decision: 'rejected', comment: 'Not about assessment' }));
+    expect(await w.as('alo', (c) => evidenceItemsForInternal(c, ids.qv!, [ids.assessment!]))).toEqual([ids.minutes]);
+    await expect(w.as('alo', (c) => evidenceItemsForInternal(c, crypto.randomUUID(), [ids.assessment!]))).rejects.toThrow();
+    await expect(w.as('outsider', (c) => evidenceItemsForInternal(c, ids.qv!, [ids.assessment!]))).rejects.toThrow(ForbiddenError);
   });
 
   it('offers it to the ABET and the WSCUC requirement, each linked with its own reason', async () => {

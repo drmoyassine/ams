@@ -64,7 +64,17 @@ function OrganizationRoute() {
 }
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });
-const qualityRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/quality-framework', component: () => <QualityFrameworkPage /> });
+const qualityRoute = createRoute({
+  getParentRoute: () => settingsRoute, path: '/quality-framework', component: () => <QualityRoute />,
+  // A document picked on the requirements (TASK-111) is in the address, so a link from the Documents tab ("see the
+  // items this import created") opens the list already filtered. `doc` also opens on the requirements tab.
+  validateSearch: (s: Record<string, unknown>): { doc?: string } => (typeof s.doc === 'string' && /^[0-9a-f-]{36}$/i.test(s.doc) ? { doc: s.doc } : {}),
+});
+function QualityRoute() {
+  const { doc } = qualityRoute.useSearch();
+  const navigate = qualityRoute.useNavigate();
+  return <QualityFrameworkPage doc={doc ?? null} onDoc={(d) => { void navigate({ search: d ? { doc: d } : {}, replace: true }); }} />;
+}
 // Programs moved under Organization; the old address still works.
 const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', beforeLoad: () => { throw redirect({ to: '/settings/organization', search: { tab: 'programs' } }); } });
 // External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
@@ -169,12 +179,17 @@ const workspaceRoute = createRoute({ getParentRoute: () => appRoute, path: '/eng
 function WorkspaceRoute() { const { id } = workspaceRoute.useParams(); return <RequirementWorkspacePage key={id} id={id} />; }
 const evidenceRoute = createRoute({
   getParentRoute: () => appRoute, path: '/evidence', component: () => <EvidenceRoute />,
-  // An evidence item to open (the link of My work and of a notice about a collection run).
-  validateSearch: (s: Record<string, unknown>): { item?: string } => (typeof s.item === 'string' && /^[0-9a-f-]{36}$/i.test(s.item) ? { item: s.item } : {}),
+  // An evidence item to open (the link of My work and of a notice about a collection run), and the document whose
+  // imports' items the library is filtered to (TASK-111).
+  validateSearch: (s: Record<string, unknown>): { item?: string; doc?: string } => ({
+    ...(typeof s.item === 'string' && /^[0-9a-f-]{36}$/i.test(s.item) ? { item: s.item } : {}),
+    ...(typeof s.doc === 'string' && /^[0-9a-f-]{36}$/i.test(s.doc) ? { doc: s.doc } : {}),
+  }),
 });
 function EvidenceRoute() {
-  const { item } = evidenceRoute.useSearch();
-  return <EvidencePage {...(item ? { openItem: item } : {})} />;
+  const { item, doc } = evidenceRoute.useSearch();
+  const navigate = evidenceRoute.useNavigate();
+  return <EvidencePage {...(item ? { openItem: item } : {})} doc={doc ?? null} onDoc={(d) => { void navigate({ search: { ...(item ? { item } : {}), ...(d ? { doc: d } : {}) }, replace: true }); }} />;
 }
 const answerFormRoute = createRoute({ getParentRoute: () => appRoute, path: '/forms/$id', component: () => <AnswerFormRoute /> });
 function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return <AnswerFormPage key={id} itemId={id} />; }

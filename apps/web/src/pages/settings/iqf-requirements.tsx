@@ -150,8 +150,10 @@ function Item(p: ItemProps) {
  * through an evidence item's own cycle (Evidence page), so the menu has no "Request evidence". `operational` is the Quality Management view: the same menu and cards,
  * without the authoring (edit, add, delete, move), which stays in Settings -> Internal Quality Framework.
  */
-export function IqfRequirements({ api, version, me, evidence: evidenceOverride, operational = false, apis }: {
+export function IqfRequirements({ api, version, me, evidence: evidenceOverride, operational = false, apis, docFilter: docFilterProp, onDocFilter }: {
   api: FrameworkApi; version: Version; me: Me | undefined; evidence?: EvidenceApi; operational?: boolean; apis?: OpsApis;
+  /** The "From document" filter (TASK-111): the items an import created from that document. Controlled when the page owns it (the address carries it), internal state otherwise. */
+  docFilter?: string | null; onDocFilter?: (v: string | null) => void;
 }) {
   const evidence = useEvidenceApi(evidenceOverride);
   const contexts = useRequirementContexts(evidence, version.id);
@@ -166,12 +168,27 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | null>(null);
+  const [ownDoc, setOwnDoc] = useState<string | null>(null);
+  const docFilter = docFilterProp !== undefined ? docFilterProp : ownDoc;
+  const setDocFilter = (v: string | null) => { setOwnDoc(v); onDocFilter?.(v); };
   const rowsQuery = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
+  // Which items each import created, by document; the picker appears once an import has applied anything.
+  const imported = useQuery({ queryKey: ['imported-items', version.id], queryFn: () => api.importedItems(version.id) });
+  const importedMap = imported.data ?? {};
+  const hasImports = Object.keys(importedMap).length > 0;
+  const docs = useQuery({ queryKey: ['documents', version.id], queryFn: () => api.documents(version.id), enabled: hasImports });
   const run = useAction(setError);
   const act = (fn: () => Promise<unknown>) => { setError(''); return run(fn).then(() => qc.invalidateQueries({ queryKey: ['requirements', version.id] })); };
   const can_ = can(me, 'framework:write');
   const editable = !operational && version.status === 'draft' && can_;
-  const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
+  const full = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
+  // The rows on screen: with a document picked, the items its imports created plus their standard for context.
+  const all = useMemo(() => {
+    if (!docFilter) return full;
+    const ids = new Set(importedMap[docFilter] ?? []);
+    for (const r of full) if (ids.has(r.id) && r.parentId) ids.add(r.parentId);
+    return full.filter((r) => ids.has(r.id));
+  }, [full, docFilter, importedMap]);
   const standards = all.filter((r) => !r.parentId);
   // Rows on screen: everything except what sits under a collapsed branch.
   const shown = useMemo(() => {
@@ -224,8 +241,17 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
       onNotice={(t) => { setNotice(t); }} onError={setError}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">{standards.length} standard{standards.length === 1 ? '' : 's'}</span>
+          <span className="text-sm text-muted-foreground">{docFilter ? `${standards.length} of ${full.filter((r) => !r.parentId).length} standard${full.filter((r) => !r.parentId).length === 1 ? '' : 's'}` : `${standards.length} standard${standards.length === 1 ? '' : 's'}`}</span>
           {standards.length > 0 && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => setOpen(open.size ? new Set() : new Set(all.map((r) => r.id)))}>{open.size ? 'Collapse all' : 'Expand all'}</Button>}
+          {hasImports && (
+            <label className="flex items-center gap-1 text-sm text-muted-foreground">From document
+              <select aria-label="From document" data-testid="iqf-doc-filter" className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                value={docFilter ?? ''} onChange={(e) => setDocFilter(e.target.value || null)}>
+                <option value="">All documents</option>
+                {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}
+              </select>
+            </label>
+          )}
           {!operational && <TreeToolbar />}
           {editable && <Button type="button" className="ms-auto" onClick={() => setDialog({ kind: 'add', parent: null })}>+ Standard</Button>}
         </div>
@@ -238,11 +264,11 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
             <button type="button" aria-label="Dismiss" className="shrink-0 underline" onClick={() => setNotice('')}>Dismiss</button>
           </p>
         )}
-        {rowsQuery.data && standards.length === 0 && <p className="text-sm text-muted-foreground">No standards yet.</p>}
+        {rowsQuery.data && all.length === 0 && <p className="text-sm text-muted-foreground">{docFilter ? 'Nothing from this document.' : 'No standards yet.'}</p>}
         <RequirementsLayout list={<div className="space-y-2" aria-label="Standards" role="list">{branch(null)}</div>} />
       </div>
       {dialog?.kind === 'add' && (
-        <ItemDialog editing={null} parent={dialog.parent} code={nextCode(all, dialog.parent)} error={error} onClose={close}
+        <ItemDialog editing={null} parent={dialog.parent} code={nextCode(full, dialog.parent)} error={error} onClose={close}
           onSave={({ code, title, description }) => saveItem(() => api.addQualityItem(version.id, { code, title, ...(description ? { description } : {}) }))} />
       )}
       {dialog?.kind === 'edit' && (

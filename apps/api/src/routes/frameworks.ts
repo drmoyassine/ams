@@ -2,7 +2,7 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   getFramework, updateAccreditor, UpdateAccreditorSchema, updateFramework, UpdateFrameworkSchema,
   MAX_LOGO_BYTES, readAccreditorLogo, removeAccreditorLogo, setAccreditorLogo, ValidationError,
-  CreateStandardFromFilesSchema, createStandardFromFiles,
+  CreateStandardFromFilesSchema, createStandardFromFiles, importedItemsByDocument,
   addQualityItem, applyQualityTemplate, editQualityItem, newQualityVersion, QualityItemSchema, publishQualityVersion, CreateAccreditorSchema, CreateFrameworkSchema, CreateVersionSchema, createAccreditor, createFramework, createVersion, exportVersion,
   getQualityFramework, getVersionDetail, importVersion, listFrameworks, listVersions, newVersionFrom, publishVersion, retireVersion, returnToDraft, setQualityLevels, setUpQualityFramework, submitForReview,
   updateVersionConfig, validateVersion,
@@ -179,6 +179,12 @@ export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, option
       const r = await validateVersion(c.get('ctx'), c.req.valid('param').id);
       return c.json({ ok: r.ok, issues: r.ok ? [] : r.issues, warnings: r.warnings ?? [] }, 200);
     })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/imported-items', access: requires('framework:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The items each import of this version created, by the document its run read: document id -> requirement ids', ...json(z.record(z.string(), z.array(z.string().uuid()))) }, ...errors },
+    }), async (c) => c.json(await importedItemsByDocument(c.get('ctx'), c.req.valid('param').id), 200))
 
     .openapi(secured(registry, deps, {
       method: 'patch', path: '/api/framework-versions/{id}/config', access: requires('framework:write'), tags: tag,

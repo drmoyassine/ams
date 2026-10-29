@@ -365,3 +365,32 @@ describe('linking several pieces of evidence', () => {
     }
   });
 });
+
+describe('from a document (TASK-111)', () => {
+  it('filters the library to the evidence of the items a document import created', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    // A document import targets a draft (the published version is immutable), and codes carry over, so the
+    // evidence linked to Standard 3.2 of the published version still matches the item the import "created".
+    const draft = await a.framework.newQualityVersion();
+    const made = (await a.framework.requirements(draft.id)).find((r) => r.code === '3.2')!;
+    const doc = await one(`insert into source_document (institution_id, framework_version_id, title, role, authority, file_path, sha256)
+      values ($1, $2, 'Quality manual', 'policy_procedure', 'binding', 'quality-manual.pdf', $3) returning id`, [ids.inst, draft.id, 'b'.repeat(64)]);
+    const runId = await one(`insert into import_run (institution_id, scope_kind, scope_id, target_kind, document_ids, status)
+      values ($1, 'framework_version', $2, 'iqf_tree', array[$3::uuid], 'succeeded') returning id`, [ids.inst, draft.id, doc]);
+    await db.su.query(`insert into import_proposal (institution_id, run_id, target_kind, candidate, label, payload, status, applied_ref)
+      values ($1, $2, 'iqf_tree', false, 'Standard 3.2', '{}'::jsonb, 'applied', $3)`, [ids.inst, runId, JSON.stringify({ requirementId: made.id })]);
+
+    render(wrap(<EvidencePage api={a.evidence} framework={a.framework} />));
+    await screen.findByRole('region', { name: 'Evidence: Teaching observation reports' }); // everything shows before a document is picked
+    const picker = (await screen.findByLabelText('From document')) as HTMLSelectElement;
+    await screen.findByRole('option', { name: 'Quality manual' }); // the document list loads once the picker appears
+    await user.selectOptions(picker, doc);
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Evidence: Teaching observation reports' })).toBeNull()); // linked to 3.1, not 3.2
+    expect(await screen.findByRole('region', { name: 'Evidence: Course review minutes' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Evidence: Faculty handbook 2026' })).toBeTruthy(); // also linked to 3.2
+    expect(screen.queryByRole('region', { name: 'Evidence: Graduate headcount' })).toBeNull(); // never linked to anything
+    await user.selectOptions(picker, '');
+    expect(await screen.findByRole('region', { name: 'Evidence: Teaching observation reports' })).toBeTruthy();
+  });
+});

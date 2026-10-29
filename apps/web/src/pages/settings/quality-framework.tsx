@@ -30,7 +30,10 @@ const TABS = [
  * The institution's own quality framework (AMS/QMS): its standards, named and levelled as the institution chooses.
  * It is edited, reviewed and published like any standard, and external standards are mapped onto it.
  */
-export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidence }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi; evidence?: EvidenceApi }) {
+export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidence, doc, onDoc }: { api?: FrameworkApi; glossary?: GlossaryApi; settings?: SettingsApi; evidence?: EvidenceApi;
+  /** The document the requirements are filtered to (TASK-111), carried in the address; the page owns it when opened by a plain link. */
+  doc?: string | null; onDoc?: (v: string | null) => void;
+}) {
   const { t } = useTranslation();
   const api = useApi(apiProp);
   const me = useMe(api);
@@ -38,7 +41,9 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
   const confirm = useConfirm();
   const [error, setError] = useState('');
   const [pick, setPick] = useState<string | null>(null);
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
+  // While a document filter is on, the requirements tab is the one it belongs to.
+  const [ownTab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
+  const tab = doc ? 'requirements' as const : ownTab;
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
   // Its levels are the glossary's level terms, so the terms below change with it.
   const refresh = () => Promise.all(['quality-framework', 'glossary', 'external-terms', 'version', 'requirements', 'validation'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
@@ -132,7 +137,8 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
                   </div>
                 )}
                 <WordingProposals api={api} versionId={current!.id} editable={canWrite && current!.status === 'draft'} />
-                <IqfRequirements key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data} {...(evidence ? { evidence } : {})} />
+                <IqfRequirements key={current!.id} api={api} version={{ ...current!, internal: true }} me={me.data}
+                  {...(doc !== undefined ? { docFilter: doc } : {})} {...(onDoc ? { onDocFilter: onDoc } : {})} {...(evidence ? { evidence } : {})} />
               </div>
             )}
             {tab === 'docs' && (

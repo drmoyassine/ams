@@ -162,6 +162,32 @@ describe('quality framework settings', () => {
     expect(rows.find((r) => r.id === item.id)!.reviewStatus).toBe('pending'); // an acceptance is one edit, back to review
   });
 
+  it('filters the standards to the items a document import created (TASK-111)', async () => {
+    const user = userEvent.setup();
+    const api = apiFor('lead');
+    const draft = (await api.qualityFramework()).versions.at(-1)!; // the draft the tests above started
+    const rows = await api.requirements(draft.id);
+    const made = rows.find((r) => r.code === '9')!; // Standard 9.0, added in the first test
+    const doc = await one(`insert into source_document (institution_id, framework_version_id, title, role, authority, file_path, sha256)
+      values ($1, $2, 'Quality manual', 'policy_procedure', 'binding', 'quality-manual.pdf', $3) returning id`, [ids.inst, draft.id, 'a'.repeat(64)]);
+    const runId = await one(`insert into import_run (institution_id, scope_kind, scope_id, target_kind, document_ids, status)
+      values ($1, 'framework_version', $2, 'iqf_tree', array[$3::uuid], 'succeeded') returning id`, [ids.inst, draft.id, doc]);
+    await db.su.query(`insert into import_proposal (institution_id, run_id, target_kind, candidate, label, payload, status, applied_ref)
+      values ($1, $2, 'iqf_tree', false, 'Standard 9', '{}'::jsonb, 'applied', $3)`, [ids.inst, runId, JSON.stringify({ requirementId: made.id })]);
+
+    render(wrap(<QualityFrameworkPage api={api} {...extra('lead')} />));
+    await screen.findByRole('region', { name: 'Standard 1.0' }); // all standards show before a document is picked
+    const picker = (await screen.findByLabelText('From document')) as HTMLSelectElement;
+    await screen.findByRole('option', { name: 'Quality manual' }); // the document list loads once the picker appears
+    await user.selectOptions(picker, doc);
+    expect(await screen.findByText(`1 of ${rows.filter((r) => !r.parentId).length} standards`)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Standard 1.0' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Standard 9.0' })).toBeTruthy();
+    await user.selectOptions(picker, '');
+    expect(await screen.findByRole('region', { name: 'Standard 1.0' })).toBeTruthy();
+    expect(screen.queryByText(`${rows.filter((r) => !r.parentId).length} standards`)).toBeTruthy(); // the count is back to the whole list
+  });
+
   it('opens a version with only the tabs that apply to the institution\'s own framework', async () => {
     const api = apiFor('lead');
     const { versions } = await api.qualityFramework();

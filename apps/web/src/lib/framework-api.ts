@@ -159,6 +159,8 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
       v[':id']['report-templates'][':key'].review.$post({ param: { id: versionId, key }, json: { decision } }).then((r) => unwrap<Template>(r)),
 
     documents: (versionId: string) => v[':id']['source-documents'].$get({ param: { id: versionId } }).then((r) => unwrap<SourceDocument[]>(r)),
+    /** Which items each import of this version created, by the document its run read (TASK-111): document id -> requirement ids. */
+    importedItems: (versionId: string) => v[':id']['imported-items'].$get({ param: { id: versionId } }).then((r) => unwrap<Record<string, string[]>>(r)),
     addDocument: (versionId: string, json: { title: string; role?: SourceRole; authority: SourceAuthority; filePath?: string; sha256?: string; language?: string }) =>
       v[':id']['source-documents'].$post({ param: { id: versionId }, json }).then((r) => unwrap<SourceDocument>(r)),
     updateDocument: (id: string, json: { title?: string; role?: SourceRole; authority?: SourceAuthority; language?: string }) =>
