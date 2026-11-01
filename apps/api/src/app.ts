@@ -1,10 +1,11 @@
-import { OpenAPIHono } from '@hono/zod-openapi';
+import { OpenAPIHono, type Hook } from '@hono/zod-openapi';
 import { ConflictError, ForbiddenError, NotFoundError, RateLimitError, ValidationError, type BiRuntime, type JobQueue, type ObjectStore } from '@ams/core';
 import { ZodError } from 'zod';
 import {
   assertAllRoutesDeclared, rawPublicRoute, RouteRegistry, type AppEnv, type Authenticator, type ChainDeps,
 } from './chain.js';
 import { buildRoutes } from './routes.js';
+import { outcomeRoutes } from './routes/outcomes.js';
 import type pg from 'pg';
 
 export interface AppOptions {
@@ -28,11 +29,14 @@ const noQueue: JobQueue = { send: async () => { throw new Error('No job queue co
 export function createApp(opts: AppOptions) {
   const registry = new RouteRegistry();
   const deps: ChainDeps = { pool: opts.pool, authenticate: opts.authenticate, queue: opts.queue ?? noQueue, ...(opts.store ? { store: opts.store } : {}), ...(opts.bi ? { bi: opts.bi } : {}) };
-  const app = buildRoutes(registry, deps, {
+  const options: { defaultHook: Hook<unknown, AppEnv, string, unknown> } = {
     defaultHook: (result, c) => {
       if (!result.success) return c.json({ error: 'invalid_request', issues: result.error.issues }, 400);
     },
-  });
+  };
+  const app = buildRoutes(registry, deps, options);
+  // Mounted beside the main chain: its own typed client (OutcomeRoutes), because one chain's type has outgrown the compiler.
+  app.route('/', outcomeRoutes(registry, deps, options));
   if (opts.authHandler) {
     const authHandler = opts.authHandler;
     rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);

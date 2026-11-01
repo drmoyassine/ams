@@ -498,6 +498,13 @@
    "when": 1792425600000,
    "tag": "0072_document_rotation",
    "breakpoints": true
+  },
+  {
+   "idx": 73,
+   "version": "7",
+   "when": 1792512000000,
+   "tag": "0073_programs_courses_outcomes",
+   "breakpoints": true
   }
  ]
 }

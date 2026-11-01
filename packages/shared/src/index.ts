@@ -22,6 +22,7 @@ export * from './cycle-defaults.js';
 export * from './scope.js';
 export * from './plans.js';
 export * from './documents.js';
+export * from './outcomes.js';
 export * from './languages.js';
 export * from './i18n-keys.js';
 export { EN_CATALOGUE, UNTRANSLATED_KEYS, PUBLIC_UI_KEYS } from './locales/en.js';

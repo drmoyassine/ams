@@ -44,7 +44,7 @@ export async function getOrgChart(ctx: Ctx): Promise<OrgChart> {
       return {
         id: u.id, parentId: u.parentId, type: u.type, nameEn: u.nameEn, nameAr: u.nameAr, description: u.description, active: u.active,
         source: u.source, locked: u.locked, editedByPerson: u.editedByPerson, displayOrder: u.displayOrder,
-        headUserId: u.headUserId, headName: u.headName, headUserName: u.headUserId ? (nameOf.get(u.headUserId) ?? null) : null,
+        headUserId: u.headUserId, headName: u.headName, headUserName: u.headUserId ? (nameOf.get(u.headUserId) ?? null) : null, code: u.code, externalId: u.externalId,
         programCount: ps.length, memberCount: memberOf.get(u.id) ?? 0,
         programs: ps.map((p) => ({ id: p.id, nameEn: p.nameEn, nameAr: p.nameAr, degreeLevel: p.degreeLevel, active: p.active })),
       } satisfies OrgUnit;
@@ -94,7 +94,7 @@ export async function createOrgUnit(ctx: Ctx, input: CreateOrgUnit & { source?: 
   const [row] = await guardIntegrity(() => ctx.tx.insert(orgUnit).values({
     institutionId: ctx.caller.institutionId, parentId: input.parentId, type: input.type, nameEn: nfc(input.nameEn), nameAr: input.nameAr ? nfc(input.nameAr) : null,
     description: input.description ? nfc(input.description) : null, headUserId: input.headUserId ?? null, headName: input.headName ? nfc(input.headName) : null,
-    source: input.source ?? 'manual', displayOrder: at,
+    source: input.source ?? 'manual', displayOrder: at, code: input.code ? nfc(input.code) : null, externalId: input.externalId ? nfc(input.externalId) : null,
   }).returning());
   if (at < siblings.length) await renumberChildren(ctx, input.parentId, [...siblings.slice(0, at).map((s) => s.id), row!.id, ...siblings.slice(at).map((s) => s.id)]);
   reportUndo(ctx, { label: `Added ${row!.nameEn}`, method: 'DELETE', path: `/api/org-units/${row!.id}` });
@@ -120,6 +120,8 @@ export async function updateOrgUnit(ctx: Ctx, id: string, patch: UpdateOrgUnit):
   if (patch.nameAr !== undefined) change('nameAr', patch.nameAr ? nfc(patch.nameAr) : null);
   if (patch.description !== undefined) change('description', patch.description ? nfc(patch.description) : null);
   if (patch.locked !== undefined) change('locked', patch.locked);
+  if (patch.code !== undefined) change('code', patch.code ? nfc(patch.code) : null);
+  if (patch.externalId !== undefined) change('externalId', patch.externalId ? nfc(patch.externalId) : null);
   if (patch.type !== undefined && patch.type !== unit.type) { await assertType(ctx, patch.type); change('type', patch.type); }
 
   // The head: a person or a name, never both. Setting one clears the other; null for both clears it.

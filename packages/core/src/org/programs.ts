@@ -4,12 +4,31 @@ import type { CreateProgram, Program, UpdateProgram } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
+import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
 
-const toProgram = (r: typeof program.$inferSelect): Program => ({
+export const toProgram = (r: typeof program.$inferSelect): Program => ({
   id: r.id, orgUnitId: r.orgUnitId, nameEn: r.nameEn, nameAr: r.nameAr, degreeLevel: r.degreeLevel,
   discipline: r.discipline, tags: r.tags, active: r.active,
+  code: r.code, externalId: r.externalId, mission: r.mission, vision: r.vision, description: r.description, mode: r.mode,
+  durationYears: r.durationYears === null ? null : Number(r.durationYears), credits: r.credits, languageOfInstruction: r.languageOfInstruction,
+  campus: r.campus, startYear: r.startYear,
 });
+
+const FACTS = ['code', 'externalId', 'mission', 'vision', 'description', 'mode', 'durationYears', 'credits', 'languageOfInstruction', 'campus', 'startYear'] as const;
+/** The program-record fields of an input, NFC and trimmed; an empty string or null clears one. Only the keys present are returned. */
+function factsOf(input: Partial<Record<(typeof FACTS)[number], unknown>>): Partial<typeof program.$inferInsert> {
+  const set: Record<string, unknown> = {};
+  for (const k of FACTS) {
+    if (!(k in input) || input[k] === undefined) continue;
+    const v = input[k];
+    if (v === null || v === '') set[k] = null;
+    else if (typeof v === 'string') set[k] = v.normalize('NFC').trim();
+    else if (k === 'durationYears') set[k] = String(v);
+    else set[k] = v;
+  }
+  return set as Partial<typeof program.$inferInsert>;
+}
 
 /** Row-level security returns only the programs the caller's roles cover. */
 export async function listPrograms(ctx: Ctx): Promise<Program[]> {
@@ -19,7 +38,7 @@ export async function listPrograms(ctx: Ctx): Promise<Program[]> {
 
 export async function createProgram(ctx: Ctx, input: CreateProgram): Promise<Program> {
   await assertPermitted(ctx, 'program:write', { type: 'org_unit', id: input.orgUnitId });
-  const [row] = await ctx.tx.insert(program).values({
+  const [row] = await guardIntegrity(() => ctx.tx.insert(program).values({
     institutionId: ctx.caller.institutionId,
     orgUnitId: input.orgUnitId,
     nameEn: input.nameEn,
@@ -27,7 +46,8 @@ export async function createProgram(ctx: Ctx, input: CreateProgram): Promise<Pro
     degreeLevel: input.degreeLevel,
     discipline: input.discipline,
     tags: input.tags,
-  }).returning();
+    ...factsOf(input),
+  }).returning());
   return toProgram(row!);
 }
 
@@ -55,7 +75,8 @@ export async function updateProgram(ctx: Ctx, id: string, patch: UpdateProgram):
   if (patch.discipline !== undefined) set.discipline = patch.discipline || null;
   if (patch.tags !== undefined) set.tags = [...new Set(patch.tags)];
   if (patch.active !== undefined) set.active = patch.active;
+  Object.assign(set, factsOf(patch));
   if (Object.keys(set).length === 0) return toProgram(current);
-  const [row] = await ctx.tx.update(program).set(set).where(eq(program.id, id)).returning();
+  const [row] = await guardIntegrity(() => ctx.tx.update(program).set(set).where(eq(program.id, id)).returning());
   return toProgram(row!);
 }

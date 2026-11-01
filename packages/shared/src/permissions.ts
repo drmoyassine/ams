@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PROGRAM_MODES } from './outcomes.js';
 
 export const ROLES = [
   'admin', 'lead', 'engagement_lead', 'co_lead', 'contributor', 'reviewer', 'viewer', 'external_reviewer',
@@ -58,8 +59,34 @@ export const ProgramSchema = z.object({
   discipline: z.string().nullable(),
   tags: z.array(z.string()),
   active: z.boolean(),
+  code: z.string().nullable(),
+  externalId: z.string().nullable(),
+  mission: z.string().nullable(),
+  vision: z.string().nullable(),
+  description: z.string().nullable(),
+  mode: z.enum(PROGRAM_MODES).nullable(),
+  durationYears: z.number().nullable(),
+  credits: z.number().int().nullable(),
+  languageOfInstruction: z.string().nullable(),
+  campus: z.string().nullable(),
+  startYear: z.number().int().nullable(),
 });
 export type Program = z.infer<typeof ProgramSchema>;
+
+/** The program record's fields beyond name, unit and level (TASK-104): all optional; an empty string clears one on update. */
+const programFacts = {
+  code: z.string().trim().max(40).nullable().optional(),
+  externalId: z.string().trim().nullable().optional(),
+  mission: z.string().trim().nullable().optional(),
+  vision: z.string().trim().nullable().optional(),
+  description: z.string().trim().nullable().optional(),
+  mode: z.enum(PROGRAM_MODES).nullable().optional(),
+  durationYears: z.coerce.number().min(0.5).max(12).nullable().optional(),
+  credits: z.coerce.number().int().min(1).max(400).nullable().optional(),
+  languageOfInstruction: z.string().trim().nullable().optional(),
+  campus: z.string().trim().nullable().optional(),
+  startYear: z.coerce.number().int().min(1900).max(2200).nullable().optional(),
+};
 
 export const CreateProgramSchema = z.object({
   orgUnitId: z.uuid(),
@@ -68,6 +95,7 @@ export const CreateProgramSchema = z.object({
   degreeLevel: z.enum(DEGREE_LEVELS),
   discipline: z.string().trim().min(1).optional(),
   tags: z.array(z.string().trim().min(1)).default([]),
+  ...programFacts,
 });
 export type CreateProgram = z.infer<typeof CreateProgramSchema>;
 
@@ -79,6 +107,7 @@ export const UpdateProgramSchema = z.object({
   discipline: z.string().trim().nullable().optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   active: z.boolean().optional(),
+  ...programFacts,
 }).strict();
 export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
 

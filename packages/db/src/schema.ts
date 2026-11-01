@@ -6,6 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
+  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, type OutcomeLevel,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -44,6 +45,8 @@ export const institution = pgTable('institution', {
   /** The institution's logo: a small PNG, JPEG or WebP in the object store (same rules as an accreditor's). `logoUpdatedAt` busts browser caches. */
   logoPath: text('logo_path'),
   logoMime: text('logo_mime'),
+  /** The CLO-PLO mapping levels (DEC-036), in order; one is mastery. Default I / R (alias D) / M. */
+  outcomeLevels: jsonb('outcome_levels').$type<OutcomeLevel[]>().notNull().default(DEFAULT_OUTCOME_LEVELS),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [
   check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`),
@@ -192,6 +195,9 @@ export const orgUnit = pgTable('org_unit', {
   /** The head: a person of the institution, or (when the head is not a user, "Dr X") free text. At most one of the two. */
   headUserId: uuid('head_user_id').references(() => appUser.id),
   headName: text('head_name'),
+  /** A short code ("SEC") and the student-information-system id (migration 0073). */
+  code: text('code'),
+  externalId: text('external_id'),
   /** Set by a trigger on any update that is not the worker's, so a later import or sync leaves the unit alone. */
   editedByPerson: boolean('edited_by_person').notNull().default(false),
 }, (t) => [
@@ -212,7 +218,75 @@ export const program = pgTable('program', {
   discipline: text('discipline'),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
   active: boolean('active').notNull().default(true),
+  // The program record (TASK-104, migration 0073): codes, statements and facts the website, the catalog and the reports cite.
+  code: text('code'),
+  externalId: text('external_id'),
+  mission: text('mission'),
+  vision: text('vision'),
+  description: text('description'),
+  mode: text('mode', { enum: PROGRAM_MODES }),
+  durationYears: numeric('duration_years', { precision: 3, scale: 1 }),
+  credits: integer('credits'),
+  languageOfInstruction: text('language_of_instruction'),
+  campus: text('campus'),
+  startYear: integer('start_year'),
 }, (t) => [index('program_org_unit_idx').on(t.orgUnitId), oneOf('program_degree_level_check', t.degreeLevel, DEGREE_LEVELS)]);
+
+/** A course of the institution, owned by an org unit (TASK-105). Code unique in the institution, case-insensitive. */
+export const course = pgTable('course', {
+  ...base(), ...tenant(),
+  orgUnitId: uuid('org_unit_id').references(() => orgUnit.id),
+  code: text('code').notNull(),
+  externalId: text('external_id'),
+  titleEn: text('title_en').notNull(),
+  titleAr: text('title_ar'),
+  description: text('description'),
+  credits: numeric('credits', { precision: 4, scale: 1 }),
+  /** Year of study the course is usually taken in (1-9); 0 for foundation. */
+  level: integer('level'),
+  languageOfInstruction: text('language_of_instruction'),
+  active: boolean('active').notNull().default(true),
+}, (t) => [index('course_unit_idx').on(t.orgUnitId)]);
+
+/** Which programs a course serves, and how: core, elective or service, in which year and term of study. */
+export const courseProgram = pgTable('course_program', {
+  ...base(), ...tenant(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: COURSE_ROLES }).notNull().default('core'),
+  year: integer('year'),
+  term: integer('term'),
+}, (t) => [uniqueIndex('course_program_idx').on(t.courseId, t.programId), index('course_program_program_idx').on(t.programId)]);
+
+/**
+ * A learning outcome (TASK-112, DEC-036): an ILO of the institution, a PEO or PLO of a program, a performance indicator under a PLO,
+ * or a CLO of a course. Text history is the audit trail.
+ */
+export const learningOutcome = pgTable('learning_outcome', {
+  ...base(), ...tenant(),
+  kind: text('kind', { enum: OUTCOME_KINDS }).notNull(),
+  programId: uuid('program_id').references(() => program.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').references(() => course.id, { onDelete: 'cascade' }),
+  parentId: uuid('parent_id').references((): AnyPgColumn => learningOutcome.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  textEn: text('text_en').notNull(),
+  textAr: text('text_ar'),
+  bloomLevel: text('bloom_level', { enum: BLOOM_LEVELS }),
+  displayOrder: integer('display_order').notNull().default(0),
+  status: text('status', { enum: OUTCOME_STATUSES }).notNull().default('draft'),
+  approvedOn: date('approved_on'),
+  approvalRef: text('approval_ref'),
+  /** Where the text came from (a document, a workbook, "catalog 2026-27"). */
+  source: text('source'),
+}, (t) => [index('learning_outcome_program_idx').on(t.programId), index('learning_outcome_course_idx').on(t.courseId)]);
+
+/** CLO -> PLO (with a mapping level), PLO -> ILO, PLO -> PEO. The database checks the kinds and that the course is in the PLO's program. */
+export const outcomeLink = pgTable('outcome_link', {
+  ...base(), ...tenant(),
+  fromId: uuid('from_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  toId: uuid('to_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  level: text('level'),
+}, (t) => [uniqueIndex('outcome_link_idx').on(t.fromId, t.toId), index('outcome_link_to_idx').on(t.toId)]);
 
 export const appUser = pgTable('app_user', {
   ...base(), ...tenant(),

@@ -232,6 +232,8 @@ export const OrgUnitSchema = z.object({
   displayOrder: z.number(),
   /** The head: a person (with the name resolved) or free text; at most one of the two. */
   headUserId: z.string().nullable(), headName: z.string().nullable(), headUserName: z.string().nullable(),
+  /** A short code ("SEC") and the student-information-system id. */
+  code: z.string().nullable(), externalId: z.string().nullable(),
   programCount: z.number(), memberCount: z.number(),
   programs: z.array(OrgUnitProgramSchema),
 });
@@ -245,6 +247,7 @@ export const CreateOrgUnitSchema = z.object({
   parentId: z.uuid().nullable().default(null), type: z.string().min(1), nameEn: z.string().trim().min(1), nameAr: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
   headUserId: z.uuid().optional(), headName: z.string().trim().min(1).optional(),
+  code: z.string().trim().min(1).max(20).optional(), externalId: z.string().trim().min(1).optional(),
   /** Where among its siblings (default: last). */
   index: z.number().int().min(0).optional(),
 }).strict();
@@ -256,6 +259,7 @@ export const UpdateOrgUnitSchema = z.object({
   locked: z.boolean().optional(),
   /** Setting one head clears the other; null for both clears the head. */
   headUserId: z.uuid().nullable().optional(), headName: z.string().trim().nullable().optional(),
+  code: z.string().trim().max(20).nullable().optional(), externalId: z.string().trim().nullable().optional(),
 }).strict();
 export type UpdateOrgUnit = z.infer<typeof UpdateOrgUnitSchema>;
 
