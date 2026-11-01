@@ -6,7 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
-  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, type OutcomeLevel, type ReviewRubric,
+  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -49,6 +49,8 @@ export const institution = pgTable('institution', {
   outcomeLevels: jsonb('outcome_levels').$type<OutcomeLevel[]>().notNull().default(DEFAULT_OUTCOME_LEVELS),
   /** The program review rubric and its maturity levels (TASK-118, migration 0074). */
   reviewRubric: jsonb('review_rubric').$type<ReviewRubric>().notNull().default(DEFAULT_REVIEW_RUBRIC),
+  /** Institution assessment targets (TASK-114, migration 0075); empty until set. */
+  assessmentBenchmarks: jsonb('assessment_benchmarks').$type<AssessmentBenchmarks>().notNull().default({}),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [
   check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`),
@@ -296,6 +298,68 @@ export const programReviewFinding = pgTable('program_review_finding', {
   basis: text('basis'),
   source: text('source'),
 }, (t) => [index('program_review_finding_idx').on(t.programId, t.criterionNo, t.createdAt)]);
+
+// ---- Assessment of learning (TASK-114..117, migration 0075) ------------------------------------------------------------------
+
+const ts = () => ({ ...base(), ...tenant() });
+/** IE-001: a program's assessment plan for one academic year ("2026-27"). */
+export const assessmentPlan = pgTable('assessment_plan', {
+  ...ts(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(),
+  status: text('status', { enum: PLAN_STATUSES }).notNull().default('draft'),
+  coordinator: text('coordinator'), endorsedBy: text('endorsed_by'), submittedOn: date('submitted_on'), endorsedOn: date('endorsed_on'), notes: text('notes'),
+});
+/** One PLO in a plan: when, how (direct in a course, indirect), the target, who, the calendar. */
+export const assessmentPlanItem = pgTable('assessment_plan_item', {
+  ...ts(),
+  planId: uuid('plan_id').notNull().references(() => assessmentPlan.id, { onDelete: 'cascade' }),
+  ploId: uuid('plo_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  assessIn: text('assess_in'), directCourseId: uuid('direct_course_id').references(() => course.id, { onDelete: 'set null' }),
+  directMethod: text('direct_method'), directRubric: text('direct_rubric'), indirectMethod: text('indirect_method'), indirectFrequency: text('indirect_frequency'),
+  indirectRespondents: text('indirect_respondents'), targetScore: numeric('target_score', { precision: 6, scale: 2 }), targetShare: numeric('target_share', { precision: 5, scale: 2 }),
+  benchmark: text('benchmark'), responsible: text('responsible'), collectionWindow: text('collection_window'), submitBy: date('submit_by'), reassessIn: text('reassess_in'),
+});
+/** An assessment of a course offering (term): total marks and class average; its parts carry marks and CLOs (the QAIEO method). */
+export const courseAssessment = pgTable('course_assessment', {
+  ...ts(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  term: text('term').notNull(), name: text('name').notNull(),
+  totalMarks: numeric('total_marks', { precision: 7, scale: 2 }).notNull(), classAverage: numeric('class_average', { precision: 7, scale: 2 }),
+  students: integer('students'), displayOrder: integer('display_order').notNull().default(0),
+});
+export const courseAssessmentPart = pgTable('course_assessment_part', {
+  ...ts(),
+  assessmentId: uuid('assessment_id').notNull().references(() => courseAssessment.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(), marks: numeric('marks', { precision: 7, scale: 2 }).notNull(),
+  cloIds: uuid('clo_ids').array().notNull().default(sql`'{}'::uuid[]`), displayOrder: integer('display_order').notNull().default(0),
+});
+/** A result of a CLO or PLO in a term: direct or indirect, aggregates only. */
+export const outcomeResult = pgTable('outcome_result', {
+  ...ts(),
+  outcomeId: uuid('outcome_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').references(() => course.id, { onDelete: 'set null' }),
+  term: text('term').notNull(), kind: text('kind', { enum: RESULT_KINDS }).notNull(), method: text('method'),
+  sampleSize: integer('sample_size'), studentsAtTarget: integer('students_at_target'), shareAtTarget: numeric('share_at_target', { precision: 5, scale: 2 }),
+  meanScore: numeric('mean_score', { precision: 7, scale: 2 }), scaleMax: numeric('scale_max', { precision: 7, scale: 2 }), responseRate: numeric('response_rate', { precision: 5, scale: 2 }),
+  source: text('source'), notes: text('notes'),
+});
+/** Closing the loop: a gap, its cause, the action, owner, term, verification, and the state. */
+export const correctiveAction = pgTable('corrective_action', {
+  ...ts(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  outcomeId: uuid('outcome_id').references(() => learningOutcome.id, { onDelete: 'set null' }),
+  resultId: uuid('result_id').references(() => outcomeResult.id, { onDelete: 'set null' }),
+  gap: text('gap').notNull(), rootCause: text('root_cause'), action: text('action'), owner: text('owner'), implementIn: text('implement_in'),
+  verificationPlan: text('verification_plan'), status: text('status', { enum: ACTION_STATUSES }).notNull().default('open'),
+  verifiedResultId: uuid('verified_result_id').references(() => outcomeResult.id, { onDelete: 'set null' }), verificationNote: text('verification_note'),
+});
+/** The ILO rotation: an ILO assessed in an academic year, by a mechanism. */
+export const iloSchedule = pgTable('ilo_schedule', {
+  ...ts(),
+  iloId: uuid('ilo_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(), mechanism: text('mechanism'), indirectMeasure: text('indirect_measure'),
+});
 
 /** CLO -> PLO (with a mapping level), PLO -> ILO, PLO -> PEO. The database checks the kinds and that the course is in the PLO's program. */
 export const outcomeLink = pgTable('outcome_link', {
