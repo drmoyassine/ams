@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   createCourse, createOutcome, deleteOutcome, getCourse, getOutcomeLevels, getProgramOutcomes, listCourseOutcomes, listCourses, listIlos,
-  loadOutcomesWorkbook, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
+  addReviewFinding, getProgramReview, getReviewRubric, getReviewSummary, loadOutcomesWorkbook, setReviewRubric, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
 } from '@ams/core';
 import {
   CourseProgramInputSchema, CourseSchema, CreateCourseSchema, CreateOutcomeSchema, LearningOutcomeSchema, OutcomeLevelSchema, OutcomeLinkInputSchema,
-  OutcomeLinkSchema, OutcomesWorkbookResultSchema, OutcomesWorkbookSchema, ProgramOutcomesSchema, UpdateCourseSchema, UpdateOutcomeSchema, toDto,
+  AddReviewFindingSchema, ProgramReviewSchema, ReviewFindingSchema, ReviewRubricSchema, ReviewSummarySchema, OutcomeLinkSchema, OutcomesWorkbookResultSchema, OutcomesWorkbookSchema, ProgramOutcomesSchema, UpdateCourseSchema, UpdateOutcomeSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -110,6 +110,36 @@ export function outcomeRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { body: { required: true, ...json(OutcomesWorkbookSchema) } },
       responses: { 200: { description: 'What was (or would be) done', ...json(OutcomesWorkbookResultSchema) }, ...errors },
     }), async (c) => c.json(toDto(OutcomesWorkbookResultSchema, await loadOutcomesWorkbook(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/program-reviews', access: requires('program:read'), tags: tag,
+      description: 'The latest rubric level per program and criterion (internal maturity, never an accreditation judgement).',
+      responses: { 200: { description: 'The review heatmap', ...json(ReviewSummarySchema) }, ...errors },
+    }), async (c) => c.json(toDto(ReviewSummarySchema, await getReviewSummary(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/programs/{id}/review', access: requires('program:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'Every finding of the program, newest first, with the rubric', ...json(ProgramReviewSchema) }, ...errors },
+    }), async (c) => c.json(toDto(ProgramReviewSchema, await getProgramReview(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/programs/{id}/review', access: requires('program:write'), tags: tag,
+      description: 'Adds a finding on one criterion; earlier findings stay (append-only).',
+      request: { params: idParam, body: { required: true, ...json(AddReviewFindingSchema) } },
+      responses: { 201: { description: 'Added', ...json(ReviewFindingSchema) }, ...errors },
+    }), async (c) => c.json(toDto(ReviewFindingSchema, await addReviewFinding(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/settings/review-rubric', access: requires('org:read'), tags: tag,
+      responses: { 200: { description: 'The program review rubric and its levels', ...json(ReviewRubricSchema) }, ...errors },
+    }), async (c) => c.json(await getReviewRubric(c.get('ctx')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/settings/review-rubric', access: requires('org:write'), tags: tag,
+      request: { body: { required: true, ...json(ReviewRubricSchema) } },
+      responses: { 200: { description: 'Saved', ...json(ReviewRubricSchema) }, ...errors },
+    }), async (c) => c.json(await setReviewRubric(c.get('ctx'), c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/settings/outcome-levels', access: requires('org:read'), tags: tag,

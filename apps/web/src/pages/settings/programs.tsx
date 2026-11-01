@@ -13,6 +13,7 @@ import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { ProgramOutcomesPanel } from './program-outcomes';
 import { WorkbookLoader } from './workbook-loader';
+import { ReviewHeatmap } from './program-review';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -91,11 +92,12 @@ function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
 export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
-  const [section, setSection] = useState<'list' | 'docs'>('list');
+  const [section, setSection] = useState<'list' | 'review' | 'docs'>('list');
+  const [open, setOpen] = useState<string | null>(null);
   const me0 = useMe(api);
   const writer = can(me0.data, 'program:write');
   const targets = useQuery({ queryKey: ['import-targets', 'programs'], queryFn: () => docs.targets({ kind: 'programs', id: null }), enabled: section === 'docs' });
-  const sections = [{ id: 'list', label: 'List' }, { id: 'docs', label: 'Docs' }] as const;
+  const sections = [{ id: 'list', label: 'List' }, { id: 'review', label: 'Review' }, { id: 'docs', label: 'Docs' }] as const;
   return (
     <div className="space-y-4">
       <div role="tablist" aria-label="Programs sections" className="flex flex-wrap gap-1">
@@ -106,14 +108,15 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcom
       </div>
       <div role="tabpanel" id="programs-section-panel" aria-labelledby={`programs-section-${section}`}>
         {section === 'list'
-          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} />
+          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} opened={open} onOpened={setOpen} />
+          : section === 'review' ? <ReviewHeatmap {...(outcomes ? { api: outcomes } : {})} onOpen={(id) => { setOpen(id); setSection('list'); }} />
           : <DocsTab scopeKind="programs" scopeId={null} targets={targets.data ?? []} canWrite={writer} api={docs} />}
       </div>
     </div>
   );
 }
 
-function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: OutcomesApi }) {
+function ProgramsList({ api, outcomes, opened: openedId, onOpened }: { api: SettingsApi; outcomes?: OutcomesApi; opened: string | null; onOpened: (id: string | null) => void }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -121,7 +124,7 @@ function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: Outcomes
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
-  const [outcomesOf, setOutcomesOf] = useState<string | null>(null);
+  const outcomesOf = openedId; const setOutcomesOf = onOpened;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);

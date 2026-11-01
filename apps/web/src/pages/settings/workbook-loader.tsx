@@ -17,6 +17,11 @@ export function workbookRows(sheets: Record<string, Record<string, string>[]>, s
       programId: g(r, 'Program_ID'), title: g(r, 'Program Title')!, mission: g(r, 'Mission Statement'), vision: g(r, 'Vision Statement', 'Vision'), school: g(r, 'School'),
     })),
     peos: (sheets.PEOs ?? []).filter((r) => g(r, 'PEO_ID') && g(r, 'PEO Text') && g(r, 'related_Program')).map((r) => ({ id: g(r, 'PEO_ID')!, text: g(r, 'PEO Text')!, program: g(r, 'related_Program')! })),
+    // Baseline Findings: one row per program, criterion and pass (the program review, TASK-118). Rows already recorded are not added twice.
+    findings: (sheets['Baseline Findings'] ?? []).filter((r) => g(r, 'Program') && g(r, '#') && g(r, 'Level') && g(r, 'Finding')).map((r) => ({
+      program: g(r, 'Program')!, criterionNo: Number(g(r, '#')), level: g(r, 'Level')!, finding: g(r, 'Finding')!, evidence: g(r, 'Evidence seen'),
+      gaps: g(r, 'Gaps / evidence to request'), auditDate: g(r, 'Audit date'), basis: g(r, 'Basis'), ...(Number(g(r, 'Pass')) > 0 ? { pass: Number(g(r, 'Pass')) } : {}),
+    })).filter((f) => Number.isInteger(f.criterionNo) && f.criterionNo > 0),
     plos: (sheets.PLOs ?? []).filter((r) => g(r, 'PLO_ID') && g(r, 'PLO Text') && g(r, 'related_Program')).map((r) => ({ id: g(r, 'PLO_ID')!, text: g(r, 'PLO Text')!, program: g(r, 'related_Program')! })),
   };
 }
@@ -28,6 +33,7 @@ function Summary({ r }: { r: OutcomesWorkbookResult }) {
       <p>{r.unitsCreated.length} unit{r.unitsCreated.length === 1 ? '' : 's'} {verb}created{r.unitsCreated.length ? `: ${r.unitsCreated.join(', ')}` : ''}.</p>
       <p>{r.programsCreated.length} program{r.programsCreated.length === 1 ? '' : 's'} {verb}created, {r.programsUpdated.length} {verb}completed (empty fields filled).</p>
       <p>{r.outcomesCreated} PEO{r.outcomesCreated === 1 ? '' : 's'} and PLOs {verb}added as drafts; {r.outcomesUnchanged} already recorded.</p>
+      <p>{r.findingsAdded} review finding{r.findingsAdded === 1 ? '' : 's'} {verb}added; {r.findingsUnchanged} already recorded.</p>
       {r.skipped.length > 0 && (
         <details>
           <summary>{r.skipped.length} row{r.skipped.length === 1 ? '' : 's'} left alone</summary>
@@ -55,10 +61,10 @@ export function WorkbookLoader({ api: override, onDone }: { api?: OutcomesApi; o
     onFiles: ([file]) => {
       if (!file) return;
       setError(null); setPreview(null); setBusy(true);
-      void readSheets(file, ['Programs', 'PEOs', 'PLOs'])
+      void readSheets(file, ['Programs', 'PEOs', 'PLOs', 'Baseline Findings'])
         .then(async (sheets) => {
           const r = workbookRows(sheets, file.name.replace(/\.xlsx$/i, ''));
-          if (!r.programs.length && !r.peos.length && !r.plos.length) { setError('No Programs, PEOs or PLOs sheet with rows was found in this workbook.'); return; }
+          if (!r.programs.length && !r.peos.length && !r.plos.length && !r.findings?.length) { setError('No Programs, PEOs, PLOs or Baseline Findings sheet with rows was found in this workbook.'); return; }
           setRows(r);
           const p = await act(() => api.loadWorkbook({ ...r, apply: false }));
           if (p) setPreview(p);
@@ -77,7 +83,7 @@ export function WorkbookLoader({ api: override, onDone }: { api?: OutcomesApi; o
   return (
     <Card aria-label="Load from workbook" className="space-y-3">
       {picker.input}
-      <p className="text-sm text-muted-foreground">Reads the Programs, PEOs and PLOs sheets of the Integrated Assessment Plan workbook. Missing schools and programs are created, empty mission and code fields filled, new PEOs and PLOs added as drafts. Nothing already recorded is changed.</p>
+      <p className="text-sm text-muted-foreground">Reads the Programs, PEOs, PLOs and Baseline Findings sheets of the Integrated Assessment Plan workbook. Missing schools and programs are created, empty mission and code fields filled, new PEOs and PLOs added as drafts. Nothing already recorded is changed.</p>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" disabled={busy} onClick={picker.open}>Choose workbook</Button>
         {preview && !preview.applied && <Button type="button" disabled={busy} onClick={() => void apply()}>Load it</Button>}

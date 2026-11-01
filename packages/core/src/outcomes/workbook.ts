@@ -2,7 +2,7 @@
 // sheets and sends the rows. Additive only: units and programs that are missing are created, empty program fields are filled, new
 // outcomes are added as drafts with their source; nothing recorded is overwritten (a different wording is reported, not applied).
 // With apply false it says what would happen and changes nothing. Runs through the ordinary services as the person.
-import { learningOutcome, orgUnit, orgUnitType, program } from '@ams/db';
+import { learningOutcome, orgUnit, orgUnitType, program, programReviewFinding } from '@ams/db';
 import { OutcomesWorkbookSchema, type OutcomesWorkbook, type OutcomesWorkbookResult } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
@@ -10,6 +10,7 @@ import { assertPermitted } from '../permissions.js';
 import { createProgram, updateProgram } from '../org/programs.js';
 import { createOrgUnit } from '../org/units.js';
 import { createOutcome } from './outcomes.js';
+import { addReviewFinding, findingKey, getReviewRubric, resolveReviewLevel } from './reviews.js';
 
 /** Case, spacing, dash and Unicode differences do not make two names different. */
 const key = (s: string | null | undefined) => (s ?? '').normalize('NFKC').toLowerCase().replace(/[‐-―]/g, '-').replace(/\s+/g, ' ').trim();
@@ -36,7 +37,7 @@ export async function loadOutcomesWorkbook(ctx: Ctx, raw: OutcomesWorkbook): Pro
   await assertPermitted(ctx, 'org:write', { type: 'institution' });
   await assertPermitted(ctx, 'program:write', { type: 'institution' });
   const apply = input.apply;
-  const result: OutcomesWorkbookResult = { applied: apply, unitsCreated: [], programsCreated: [], programsUpdated: [], outcomesCreated: 0, outcomesUnchanged: 0, skipped: [] };
+  const result: OutcomesWorkbookResult = { applied: apply, unitsCreated: [], programsCreated: [], programsUpdated: [], outcomesCreated: 0, outcomesUnchanged: 0, findingsAdded: 0, findingsUnchanged: 0, skipped: [] };
 
   const units = await ctx.tx.select().from(orgUnit);
   const types = await ctx.tx.select().from(orgUnitType);
@@ -114,6 +115,31 @@ export async function loadOutcomesWorkbook(ctx: Ctx, raw: OutcomesWorkbook): Pro
       if (apply) await createOutcome(ctx, { kind, programId, code, textEn: text(r.text), source: input.source });
       known.set(k, r.text);
       result.outcomesCreated++;
+    }
+  }
+
+  // Program review findings (Baseline Findings sheet): appended in row order; a row already recorded is not added twice.
+  if (input.findings.length) {
+    const rubric = await getReviewRubric(ctx);
+    const seen = new Set((await ctx.tx.select().from(programReviewFinding)).map((f) => findingKey(f.programId, f)));
+    for (const f of input.findings) {
+      const programId = progByKey.get(key(f.program));
+      const row = `${f.program} #${f.criterionNo}`;
+      if (!programId) { result.skipped.push({ sheet: 'Baseline Findings', row, reason: `no program named "${f.program}"` }); continue; }
+      const level = resolveReviewLevel(rubric, f.level);
+      if (!level) { result.skipped.push({ sheet: 'Baseline Findings', row, reason: `"${f.level}" is not one of the rubric's levels` }); continue; }
+      if (!rubric.criteria.some((c) => c.no === f.criterionNo)) { result.skipped.push({ sheet: 'Baseline Findings', row, reason: `the rubric has no criterion ${f.criterionNo}` }); continue; }
+      const k = findingKey(programId, { ...f, level });
+      if (seen.has(k)) { result.findingsUnchanged++; continue; }
+      const date = f.auditDate && /^\d{4}-\d{2}-\d{2}/.test(f.auditDate) ? f.auditDate.slice(0, 10) : undefined;
+      if (apply) {
+        await addReviewFinding(ctx, programId, {
+          criterionNo: f.criterionNo, level, finding: f.finding, evidence: f.evidence ?? null, gaps: f.gaps ?? null, basis: f.basis ?? null,
+          ...(date ? { auditDate: date } : {}), ...(f.pass ? { pass: f.pass } : {}), source: input.source,
+        }, { rubric });
+      }
+      seen.add(k);
+      result.findingsAdded++;
     }
   }
   return result;

@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/card';
 import { useConfirm } from '../../components/confirm-dialog';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useAction } from '../../lib/use-action';
+import { ProgramReviewCard } from './program-review';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const COVERAGE_TITLE = {
@@ -56,6 +57,7 @@ export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override 
             extra={(plo) => <PloExtras plo={plo} v={v} canWrite={canWrite} linked={linked} toggle={toggle} run={(fn) => run.mutate(fn)} api={api} onDelete={del} />} /></Card>
           <Card><CurriculumMap v={v} canWrite={canWrite} api={api} run={(fn) => run.mutate(fn)} /></Card>
           <Card><Coverage v={v} /></Card>
+          <ProgramReviewCard programId={program.id} canWrite={canWrite} {...(override ? { api: override } : {})} />
         </>
       )}
     </div>

@@ -6,7 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
-  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, type OutcomeLevel,
+  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, type OutcomeLevel, type ReviewRubric,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -47,6 +47,8 @@ export const institution = pgTable('institution', {
   logoMime: text('logo_mime'),
   /** The CLO-PLO mapping levels (DEC-036), in order; one is mastery. Default I / R (alias D) / M. */
   outcomeLevels: jsonb('outcome_levels').$type<OutcomeLevel[]>().notNull().default(DEFAULT_OUTCOME_LEVELS),
+  /** The program review rubric and its maturity levels (TASK-118, migration 0074). */
+  reviewRubric: jsonb('review_rubric').$type<ReviewRubric>().notNull().default(DEFAULT_REVIEW_RUBRIC),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [
   check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`),
@@ -279,6 +281,21 @@ export const learningOutcome = pgTable('learning_outcome', {
   /** Where the text came from (a document, a workbook, "catalog 2026-27"). */
   source: text('source'),
 }, (t) => [index('learning_outcome_program_idx').on(t.programId), index('learning_outcome_course_idx').on(t.courseId)]);
+
+/** One judgement of one program on one rubric criterion in one pass (TASK-118). Append-only: the latest row is current. */
+export const programReviewFinding = pgTable('program_review_finding', {
+  ...base(), ...tenant(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  criterionNo: integer('criterion_no').notNull(),
+  level: text('level').notNull(),
+  finding: text('finding').notNull(),
+  evidence: text('evidence'),
+  gaps: text('gaps'),
+  auditDate: date('audit_date').notNull(),
+  pass: integer('pass').notNull().default(1),
+  basis: text('basis'),
+  source: text('source'),
+}, (t) => [index('program_review_finding_idx').on(t.programId, t.criterionNo, t.createdAt)]);
 
 /** CLO -> PLO (with a mapping level), PLO -> ILO, PLO -> PEO. The database checks the kinds and that the course is in the PLO's program. */
 export const outcomeLink = pgTable('outcome_link', {

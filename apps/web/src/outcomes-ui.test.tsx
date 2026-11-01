@@ -111,4 +111,20 @@ describe('courses, outcomes and the curriculum map', () => {
     expect((await screen.findByRole('button', { name: 'Unlink SO1 to ILO1' })).hasAttribute('disabled')).toBe(true);
     await waitFor(() => expect(screen.getByRole('button', { name: 'ECE 420 SO1: Mastered' })).toBeTruthy());
   });
+
+  it('adds a review finding on a criterion and shows it in the Review heatmap', async () => {
+    const user = userEvent.setup();
+    page('admin', 'programs');
+    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    const criterion = await screen.findByRole('listitem', { name: '4. PLO-to-CLO mapping' });
+    expect(within(criterion).getByText('Not reviewed')).toBeTruthy();
+    await user.click(within(criterion).getByRole('button', { name: 'Add finding' }));
+    await user.selectOptions(within(criterion).getByLabelText('Level'), 'Developing');
+    await user.type(within(criterion).getByLabelText('Finding'), 'Map with levels for one course; others missing.');
+    await user.click(within(criterion).getByRole('button', { name: 'Add finding' }));
+    await within(criterion).findByText('Map with levels for one course; others missing.');
+    await user.click(screen.getByRole('button', { name: '← Programs' }));
+    await user.click(screen.getByRole('tab', { name: 'Review' }));
+    await screen.findByLabelText('BS Electrical and Computer Engineering, PLO-to-CLO mapping: Developing');
+  });
 });

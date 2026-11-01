@@ -57,3 +57,31 @@ describe('loading the workbook', () => {
     expect(again.skipped.some((s) => s.row === 'MCE.SO1' && /other words/.test(s.reason))).toBe(true);
   });
 });
+
+describe('the program review (TASK-118)', () => {
+  it('loads Baseline Findings rows once, keeps them append-only, and shows the latest level per criterion', async () => {
+    const { addReviewFinding, getProgramReview, getReviewSummary } = await import('./reviews.js');
+    const title = 'Bachelor of Science in Electrical and Computer Engineering';
+    const findings = [
+      { program: title, criterionNo: 1, level: 'Emerging', finding: 'Two versions of the mission are public.', auditDate: '2026-11-01', pass: 1, basis: 'Public sources' },
+      { program: title, criterionNo: 5, level: 'Pending review', finding: 'Not assessable from public sources.', pass: 1 },
+      { program: title, criterionNo: 5, level: 'developing', finding: 'CAP and CAS sheets per course; no program-level plan.', pass: 2, basis: 'SharePoint binder' },
+      { program: title, criterionNo: 9, level: 'Emerging', finding: 'x' },
+      { program: title, criterionNo: 2, level: 'Met', finding: 'x' },
+    ];
+    const r = await w.as('admin', (c) => loadOutcomesWorkbook(c, { ...rows, findings, apply: true }));
+    expect(r).toMatchObject({ findingsAdded: 3, findingsUnchanged: 0 });
+    expect(r.skipped.filter((s) => s.sheet === 'Baseline Findings').map((s) => s.reason)).toEqual(['the rubric has no criterion 9', '"Met" is not one of the rubric\'s levels']);
+    expect((await w.as('admin', (c) => loadOutcomesWorkbook(c, { ...rows, findings, apply: true }))).findingsAdded).toBe(0);
+
+    const ece = (await w.as('admin', (c) => listPrograms(c))).find((p) => p.code === 'BS-ECE')!;
+    const summary = await w.as('alo', (c) => getReviewSummary(c));
+    expect((await w.as('contrib', (c) => getReviewSummary(c))).programs.some((p) => p.programId === ece.id)).toBe(false);
+    expect(summary.programs.find((p) => p.programId === ece.id)?.levels).toEqual({ 1: 'emerging', 5: 'developing' });
+    await w.as('admin', (c) => addReviewFinding(c, ece.id, { criterionNo: 1, level: 'developing', finding: 'Mission reconciled.' }));
+    const review = await w.as('admin', (c) => getProgramReview(c, ece.id));
+    expect(review.findings.filter((f) => f.criterionNo === 1).map((f) => f.level)).toEqual(['developing', 'emerging']);
+    await expect(w.db.su.query(`update program_review_finding set level = 'established'`)).rejects.toThrow(/kept as recorded/);
+    await expect(w.as('contrib', (c) => addReviewFinding(c, ece.id, { criterionNo: 1, level: 'emerging', finding: 'x' }))).rejects.toThrow(ForbiddenError);
+  });
+});

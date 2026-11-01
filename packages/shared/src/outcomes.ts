@@ -172,10 +172,12 @@ export const OutcomesWorkbookSchema = z.object({
   plos: z.array(z.object({ id: z.string().trim().min(1), text: z.string().trim().min(1), program: z.string().trim().min(1) })).max(5000),
   /** Where the rows came from, kept on each outcome ("Integrated Assessment Plan v3"). */
   source: z.string().trim().min(1).max(200),
+  /** The Baseline Findings rows (program review by rubric, TASK-118); optional. */
+  findings: z.array(z.lazy(() => ReviewWorkbookRowSchema)).max(5000).default([]),
   /** false: say what would happen and change nothing. */
   apply: z.boolean().default(false),
 });
-export type OutcomesWorkbook = z.infer<typeof OutcomesWorkbookSchema>;
+export type OutcomesWorkbook = z.input<typeof OutcomesWorkbookSchema>;
 export const OutcomesWorkbookResultSchema = z.object({
   applied: z.boolean(),
   unitsCreated: z.array(z.string()),
@@ -183,7 +185,123 @@ export const OutcomesWorkbookResultSchema = z.object({
   programsUpdated: z.array(z.object({ program: z.string(), fields: z.array(z.string()) })),
   outcomesCreated: z.number().int(),
   outcomesUnchanged: z.number().int(),
+  findingsAdded: z.number().int(),
+  findingsUnchanged: z.number().int(),
   /** Rows left alone, with why (an outcome whose code exists with other words, an unknown program). Nothing is overwritten. */
   skipped: z.array(z.object({ sheet: z.string(), row: z.string(), reason: z.string() })),
 });
 export type OutcomesWorkbookResult = z.infer<typeof OutcomesWorkbookResultSchema>;
+
+// ---- Program review by rubric (TASK-118) ---------------------------------------------------------------------------------
+
+export const ReviewLevelSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), description: z.string().default('') });
+export const ReviewCriterionSchema = z.object({ no: z.number().int().min(1).max(50), name: z.string().trim().min(1), questions: z.string().default(''), evidence: z.string().default('') });
+/** The rubric and its maturity levels: configuration, not code. Levels are internal maturity, never an accreditation judgement. */
+export const ReviewRubricSchema = z.object({ name: z.string().trim().min(1), levels: z.array(ReviewLevelSchema).min(1).max(8), criteria: z.array(ReviewCriterionSchema).min(1).max(50) });
+export type ReviewRubric = z.infer<typeof ReviewRubricSchema>;
+export const DEFAULT_REVIEW_RUBRIC: ReviewRubric = {
+  "name": "Assessment of learning: program review",
+  "levels": [
+    {
+      "code": "not_evident",
+      "name": "Not evident",
+      "description": "No documented practice found."
+    },
+    {
+      "code": "emerging",
+      "name": "Emerging",
+      "description": "Some documents exist but are incomplete, inconsistent or not in use."
+    },
+    {
+      "code": "developing",
+      "name": "Developing",
+      "description": "Documented and partly in use; gaps against the policy or the key questions."
+    },
+    {
+      "code": "established",
+      "name": "Established",
+      "description": "Documented, current, in regular use, with evidence of review."
+    },
+    {
+      "code": "pending",
+      "name": "Pending review",
+      "description": "Cannot be judged from the sources seen so far."
+    }
+  ],
+  "criteria": [
+    {
+      "no": 1,
+      "name": "Program mission",
+      "questions": "Does the program have a published mission statement? Is it aligned with the university mission and its constituencies?",
+      "evidence": "Program catalog, website, self-study"
+    },
+    {
+      "no": 2,
+      "name": "Educational objectives",
+      "questions": "Are objectives clearly stated, measurable, consistent with stakeholder needs, and reviewed on a set cycle? Are changes over recent years documented?",
+      "evidence": "Program document, advisory board minutes, review records"
+    },
+    {
+      "no": 3,
+      "name": "Program learning outcomes",
+      "questions": "Are PLOs documented, measurable, and adequate in breadth and depth to achieve the objectives? Do they use appropriate cognitive levels and avoid overlap?",
+      "evidence": "Approved program document, catalog"
+    },
+    {
+      "no": 4,
+      "name": "PLO-to-CLO mapping",
+      "questions": "Is every PLO addressed by courses at introduced, reinforced and mastered levels? Does every course map to at least one PLO? Are there orphan or over-covered outcomes?",
+      "evidence": "Curriculum map, course syllabi"
+    },
+    {
+      "no": 5,
+      "name": "Assessment design",
+      "questions": "Is there a documented assessment plan with direct and indirect measures for each PLO, designated courses, a schedule, targets, and rubrics? Do course assessments actually test the CLOs?",
+      "evidence": "Assessment plan, syllabi, assessment instruments"
+    },
+    {
+      "no": 6,
+      "name": "Assessment results",
+      "questions": "Is the plan being carried out regularly? Are results collected and analyzed against targets for each PLO, with a stated sample and method?",
+      "evidence": "Assessment reports, data sets, dashboards"
+    },
+    {
+      "no": 7,
+      "name": "Closing the loop",
+      "questions": "Are findings used for action plans on curriculum, teaching and resources? Is there evidence of follow-up and re-assessment?",
+      "evidence": "Action plans, committee minutes, revised syllabi"
+    },
+    {
+      "no": 8,
+      "name": "Stakeholder input and external validation",
+      "questions": "Is there input from students, graduates, employers and industry? Have accreditor or external reviewer recommendations been addressed? Do indirect measures inform outcomes?",
+      "evidence": "Surveys, advisory board records, review reports, accreditor observations"
+    }
+  ]
+};
+
+export const ReviewFindingSchema = z.object({
+  id: z.uuid(), programId: z.uuid(), criterionNo: z.number().int(), level: z.string(), finding: z.string(), evidence: z.string().nullable(), gaps: z.string().nullable(),
+  auditDate: z.string(), pass: z.number().int(), basis: z.string().nullable(), source: z.string().nullable(), createdAt: z.string(), createdByName: z.string().nullable(),
+});
+export type ReviewFinding = z.infer<typeof ReviewFindingSchema>;
+export const AddReviewFindingSchema = z.object({
+  criterionNo: z.number().int().min(1), level: z.string().trim().min(1), finding: z.string().trim().min(1), evidence: z.string().trim().nullable().optional(),
+  gaps: z.string().trim().nullable().optional(), auditDate: z.iso.date().optional(), pass: z.number().int().min(1).max(99).optional(), basis: z.string().trim().nullable().optional(),
+});
+export type AddReviewFinding = z.infer<typeof AddReviewFindingSchema>;
+/** The latest level per program and criterion, for the heatmap. */
+export const ReviewSummarySchema = z.object({
+  rubric: ReviewRubricSchema,
+  programs: z.array(z.object({ programId: z.uuid(), name: z.string(), school: z.string().nullable(), levels: z.record(z.string(), z.string()), lastAudit: z.string().nullable() })),
+});
+export type ReviewSummary = z.infer<typeof ReviewSummarySchema>;
+export const ProgramReviewSchema = z.object({ rubric: ReviewRubricSchema, findings: z.array(ReviewFindingSchema) });
+export type ProgramReview = z.infer<typeof ProgramReviewSchema>;
+/** Rows of the workbook's Baseline Findings sheet. A row identical to one already recorded is not added twice. */
+export const ReviewWorkbookRowSchema = z.object({
+  program: z.string().trim().min(1), criterionNo: z.number().int().min(1), level: z.string().trim().min(1), finding: z.string().trim().min(1),
+  evidence: z.string().trim().nullable().optional(), gaps: z.string().trim().nullable().optional(), auditDate: z.string().trim().nullable().optional(),
+  pass: z.number().int().min(1).max(99).optional(), basis: z.string().trim().nullable().optional(),
+});
+export type ReviewWorkbookRow = z.infer<typeof ReviewWorkbookRowSchema>;

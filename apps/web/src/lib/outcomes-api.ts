@@ -2,7 +2,7 @@ import { hc } from 'hono/client';
 import type { OutcomeRoutes } from '@ams/api';
 import type {
   Course, CourseProgramInput, CreateCourse, CreateOutcome, LearningOutcome, OutcomeLevel, OutcomeLink, OutcomeLinkInput, OutcomesWorkbook, OutcomesWorkbookResult,
-  ProgramOutcomes, UpdateCourse, UpdateOutcome,
+  AddReviewFinding, ProgramOutcomes, ProgramReview, ReviewFinding, ReviewRubric, ReviewSummary, UpdateCourse, UpdateOutcome,
 } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
@@ -31,6 +31,10 @@ export function outcomesApi(fetcher: typeof fetch = fetch) {
     setLink: (json: OutcomeLinkInput) => a['outcome-links'].$put({ json }).then((r) => unwrap<OutcomeLink>(r)),
     removeLink: (fromId: string, toId: string) => a['outcome-links'].remove.$post({ json: { fromId, toId } }).then((r) => unwrap<{ removed: boolean }>(r)),
     loadWorkbook: (json: OutcomesWorkbook) => a.outcomes.workbook.$post({ json }).then((r) => unwrap<OutcomesWorkbookResult>(r)),
+    reviewSummary: () => a['program-reviews'].$get().then((r) => unwrap<ReviewSummary>(r)),
+    programReview: (id: string) => a.programs[':id'].review.$get({ param: { id } }).then((r) => unwrap<ProgramReview>(r)),
+    addFinding: (id: string, json: AddReviewFinding) => a.programs[':id'].review.$post({ param: { id }, json }).then((r) => unwrap<ReviewFinding>(r)),
+    reviewRubric: () => a.settings['review-rubric'].$get().then((r) => unwrap<ReviewRubric>(r)),
     levels: () => a.settings['outcome-levels'].$get().then((r) => unwrap<OutcomeLevel[]>(r)),
     setLevels: (json: OutcomeLevel[]) => a.settings['outcome-levels'].$put({ json }).then((r) => unwrap<OutcomeLevel[]>(r)),
   };
