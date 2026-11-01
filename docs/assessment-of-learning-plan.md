@@ -11,6 +11,10 @@ Rules that carry over unchanged: no accreditor- or institution-specific code (DE
 rubrics are configuration; official ≠ internal (DEC-005): the words are "at or above target" / "below target" and maturity levels,
 never "met" or "compliant"; evidence files never go to a model (DEC-013).
 
+**Status (2026-11-01):** built — sections 1-7 and the workbook load of section 8 (migrations 0073-0075, `packages/core/src/outcomes/`,
+Settings -> Organization -> Programs, Courses, Learning outcomes). Open: the EDUVAL export (TASK-113), linking corrective actions to
+quality-cycle runs, and survey imports as dataset sources.
+
 ## 1. The outcome hierarchy
 
 ```

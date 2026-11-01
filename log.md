@@ -854,3 +854,9 @@ The President asked for an urgent baseline of assessment of learning across all 
 For the VPAA meeting on Tuesday: units carry a code and a student-system id; programs carry code, SIS id, mission, vision and facts; courses exist with the programs they serve (core/elective/service, year, term); ILOs, PEOs, PLOs with performance indicators and CLOs are one `learning_outcome` table; CLO->PLO links carry the configurable level (DEC-036). The program Outcomes view shows the curriculum map and the coverage checks the rubric's criterion 4 asks about (PLO never mastered, course mapped to no PLO, PLO without ILO, link without level).
 - **Learning.** The main route chain's inferred type outgrew the compiler (TS7056): new routes are mounted beside it with their own typed client (`OutcomeRoutes`, `outcomesApi`).
 - **Learning.** A controlled `<select>` must read `e.target.value` before any deferred work: React restores the controlled value at once, so a closure reading it later sees the old value.
+
+## 2026-11-01 — Assessment of learning built end to end (TASK-114..118)
+
+The rest of the owner's Thursday list, pulled forward: the workbook loader (Programs, PEOs, PLOs and Baseline Findings, additive and idempotent; the owner's v3 workbook gives 5 schools, 21 programs, 94 outcomes and 168 findings), the rubric review (append-only findings, heatmap), the IE-001 plan, course attainment by the QAIEO method with the PLO roll-up, results judged at or above / below target, corrective actions with open gaps, and the ILO rotation report. Routes in two more modules with their own typed clients (OutcomeRoutes, AssessmentRoutes).
+- **Learning.** Attainment from class averages gives a mean, not a share of students: it is judged on the score target; a share target needs counts (a result row or an import).
+- **Learning.** A program writer may record CLO results for the courses of their program; only the course's owners edit the course and its CLOs.

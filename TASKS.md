@@ -4675,7 +4675,7 @@ description: >-
   Per program and year, per PLO: benchmark, direct method in a mastery course with rubric, indirect method with
   frequency, responsible faculty, calendar, two-year rotation and re-assessment year; Assessment Coordinator review,
   Dean endorsement, QAIEO submission and the missing-plan flag.
-status: pending
+status: completed
 priority: P1
 id: TASK-114
 last_updated: '2026-11-01'
@@ -4688,10 +4688,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-014
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:35.809Z'
+  at: '2026-11-01T14:26:37.841Z'
 ---
 
-Plan section 2. Benchmarks are institution settings with a program override (CLO, PLO and indirect thresholds); none hard-coded.
+Done (2026-11-01, migration 0075): assessment_plan and items per PLO; the IE-001 gaps listed (no direct measure in a course, direct course not at mastery on the map, no indirect measure, no target, no term); submit, endorse, return; endorsed plans are fixed; a year's plan copies the last one. Institution assessment targets with a per-PLO override. Screens: the Plan tab of a program's Assessment card.
 
 ---
 
@@ -4703,7 +4703,7 @@ description: >-
   Assessment, question, marks and CLO; CLO attainment and share of students at or above threshold; CLO to PLO roll-up;
   CAP/CAS and survey imports as dataset sources; diagnostics (CLO weight in the design, bottleneck courses, comparison
   with the previous offering).
-status: pending
+status: completed
 priority: P1
 id: TASK-115
 last_updated: '2026-11-01'
@@ -4716,10 +4716,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-014
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:37.990Z'
+  at: '2026-11-01T14:26:40.488Z'
 ---
 
-Plan sections 3-4. Student-level marks stay in the BI; the AMS receives aggregates (BI rule 5, DEC-012).
+Done (2026-11-01): course assessments with parts carrying marks and CLOs; computeAttainment (packages/shared/src/assessment.ts) implements the QAIEO method with the CLO weight in the design; PLO roll-up through the links; recorded as direct results (re-recording replaces). Results (direct/indirect aggregates) with their standing against the target; import of a results sheet by outcome code. Student-level data stays out (BI rule 5).
 
 ---
 
@@ -4731,7 +4731,7 @@ description: >-
   A below-target PLO or CLO opens a corrective action (gap, shares, root cause, action, owner, term, verification plan)
   linked to its result; re-assessment closes it; at-or-above-target confirmations; focus-group records; the four-stage
   annual cycle template.
-status: pending
+status: completed
 priority: P1
 id: TASK-116
 last_updated: '2026-11-01'
@@ -4744,10 +4744,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-014
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:40.209Z'
+  at: '2026-11-01T14:26:43.105Z'
 ---
 
-Plan sections 5-6, on ROADMAP-013 cycles.
+Done (2026-11-01): corrective_action (gap, cause, action, owner, term, verification, status); below-target PLO results without an action listed as open gaps; verified or not effective only against a re-assessment result. Linking actions to quality-cycle runs (ROADMAP-013) is still open.
 
 ---
 
@@ -4758,7 +4758,7 @@ title: ILO rotation and the institutional assessment report
 description: >-
   Five-year ILO rotation as an institutional cycle, aggregation from designated courses across programs, the yearly ILO
   Assessment Audit Report and the five-year review.
-status: pending
+status: completed
 priority: P1
 id: TASK-117
 last_updated: '2026-11-01'
@@ -4771,10 +4771,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-014
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:42.332Z'
+  at: '2026-11-01T14:26:45.424Z'
 ---
 
-Plan section 6.
+Done (2026-11-01): ilo_schedule (ILO by academic year, mechanism) and the ILO report: per ILO its years, the PLOs linked to it across programs and their latest direct results, with the gaps (ILO not linked, not scheduled). Screens: Learning outcomes tab.
 
 ---
 
@@ -4786,7 +4786,7 @@ description: >-
   The 8-criterion program review (mission, objectives, PLOs, mapping, assessment design, results, closing the loop,
   stakeholder input) recorded per program with a configurable level scale, finding, evidence links, gaps, date and
   reviewer; a cross-program summary and export.
-status: pending
+status: completed
 priority: P1
 id: TASK-118
 last_updated: '2026-11-01'
@@ -4799,9 +4799,9 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-014
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:44.510Z'
+  at: '2026-11-01T14:26:48.072Z'
 ---
 
-Plan section 7. Internal self-rating, never an accreditation outcome (DEC-005). First used for the President's baseline audit (Nov 2026), currently kept in the owner's workbook.
+Done (2026-11-01, migration 0074): the rubric and its levels as configuration (default: the 8-criterion baseline rubric); program_review_finding append-only; loaded from the workbook's Baseline Findings (idempotent); Programs -> Review heatmap and a Review card per program with history and Add finding. Checked against the owner's v3 workbook: 168 findings.
 
 <!-- End VEF generated items. -->
