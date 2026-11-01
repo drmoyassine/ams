@@ -71,8 +71,12 @@ export async function createPlan(ctx: Ctx, programId: string, input: { academicY
   if (plos.length) {
     await ctx.tx.insert(assessmentPlanItem).values(plos.map((p) => {
       const o = old.find((x) => x.ploId === p.id);
-      const { id: _i, createdAt: _c, createdBy: _cb, updatedAt: _u, updatedBy: _ub, planId: _p, ...copy } = o ?? ({} as typeof assessmentPlanItem.$inferSelect);
-      return { ...(o ? copy : {}), institutionId: ctx.caller.institutionId, planId: plan!.id, ploId: p.id };
+      const copy = o ? {
+        assessIn: o.assessIn, directCourseId: o.directCourseId, directMethod: o.directMethod, directRubric: o.directRubric, indirectMethod: o.indirectMethod,
+        indirectFrequency: o.indirectFrequency, indirectRespondents: o.indirectRespondents, targetScore: o.targetScore, targetShare: o.targetShare, benchmark: o.benchmark,
+        responsible: o.responsible, collectionWindow: o.collectionWindow, reassessIn: o.reassessIn,
+      } : {};
+      return { ...copy, institutionId: ctx.caller.institutionId, planId: plan!.id, ploId: p.id };
     }));
   }
   return getPlan(ctx, plan!.id);
