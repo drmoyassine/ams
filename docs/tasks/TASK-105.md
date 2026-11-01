@@ -4,9 +4,9 @@ title: 'Courses: entity, schema, tab and import'
 description: >-
   A real Course record with a declared schema, linked to programs many-to-many, a Courses tab under Settings ->
   Organization with a Docs tab, and the Course scope level listing real courses.
-status: pending
+status: completed
 priority: P1
-last_updated: '2026-10-21'
+last_updated: '2026-11-01'
 generated:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
@@ -20,11 +20,13 @@ depends_on:
     url: /TASKS.md#TASK-106
 related_decisions:
   - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
+  at: '2026-11-01T13:49:18.750Z'
 ---
 # TASK-105 — Courses: entity, schema, tab and import
 

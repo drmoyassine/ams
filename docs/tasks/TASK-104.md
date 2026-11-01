@@ -2,11 +2,11 @@
 id: TASK-104
 title: Program schema
 description: >-
-  Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits,
-  language, campus, status, start year, description, tags, external id.
-status: pending
+  Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits, language,
+  campus, status, start year, description, tags, external id.
+status: completed
 priority: P1
-last_updated: '2026-10-21'
+last_updated: '2026-11-01'
 generated:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
@@ -20,11 +20,13 @@ depends_on:
     url: /TASKS.md#TASK-106
 related_decisions:
   - id: DEC-033
-    name: 'Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have schemas; every entity has a declared schema'
+    name: >-
+      Every AI-powered document place also takes a URL; cycle templates take resources; programs and courses have
+      schemas; every entity has a declared schema
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
+  at: '2026-11-01T13:49:16.550Z'
 ---
 # TASK-104 — Program schema
 

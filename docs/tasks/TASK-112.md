@@ -3,7 +3,7 @@ title: 'Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with c
 description: >-
   Versioned outcome records on the institution, program and course; links CLO-PLO (with level), PLO-ILO, PLO-PEO;
   coverage checks (every PLO reaches mastery, every course maps to a PLO, orphans and over-coverage).
-status: pending
+status: completed
 priority: P1
 id: TASK-112
 last_updated: '2026-11-01'
@@ -27,8 +27,8 @@ related_decisions:
     url: /DECISIONS.md#DEC-036
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:31.245Z'
+  at: '2026-11-01T13:49:20.981Z'
 ---
 # TASK-112 — Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with configurable mapping levels
 
-Plan section 1 (docs/assessment-of-learning-plan.md). One approved ILO list first (catalog 7 vs QAIEO guidance 8). Screens on the program and the course; Arabic beside English.
+Done (2026-11-01): migration 0073 (learning_outcome for ILO/PEO/PLO/performance indicator/CLO, outcome_link with database checks, institution.outcome_levels), services in packages/core/src/outcomes, routes mounted as OutcomeRoutes (own typed client), Settings -> Organization tabs Courses and Learning outcomes, the program Outcomes view with the curriculum map and coverage checks. Approved outcomes are retired, never deleted. Tests: packages/core/src/outcomes/outcomes.test.ts, apps/web/src/outcomes-ui.test.tsx.

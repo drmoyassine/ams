@@ -4324,9 +4324,9 @@ title: Program schema
 description: >-
   Programs get declared columns: code, names, degree level, discipline, owning unit, mode, duration, credits, language,
   campus, status, start year, description, tags, external id.
-status: pending
+status: completed
 priority: P1
-last_updated: '2026-10-21'
+last_updated: '2026-11-01'
 generated:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
@@ -4346,7 +4346,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
+  at: '2026-11-01T13:49:16.550Z'
 ---
 
 Plan 2.3. Additive migration, every existing row valid. The Programs import target writes the new fields; the Programs screen shows and edits them.
@@ -4361,9 +4361,9 @@ title: 'Courses: entity, schema, tab and import'
 description: >-
   A real Course record with a declared schema, linked to programs many-to-many, a Courses tab under Settings ->
   Organization with a Docs tab, and the Course scope level listing real courses.
-status: pending
+status: completed
 priority: P1
-last_updated: '2026-10-21'
+last_updated: '2026-11-01'
 generated:
   by: agent/claude-code
   at: '2026-10-21T12:00:00.000Z'
@@ -4383,7 +4383,7 @@ related_decisions:
     url: /DECISIONS.md#DEC-033
 modified:
   by: agent/claude-code
-  at: '2026-10-21T12:00:00.000Z'
+  at: '2026-11-01T13:49:18.750Z'
 ---
 
 Plan 2.4. `course`, `course_program` (role core/elective/service, year, term); Trash and Undo; import target from a course catalogue; DEC-028's two-tab Organization screen becomes three tabs (recorded in DEC-033).
@@ -4605,7 +4605,7 @@ title: 'Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with c
 description: >-
   Versioned outcome records on the institution, program and course; links CLO-PLO (with level), PLO-ILO, PLO-PEO;
   coverage checks (every PLO reaches mastery, every course maps to a PLO, orphans and over-coverage).
-status: pending
+status: completed
 priority: P1
 id: TASK-112
 last_updated: '2026-11-01'
@@ -4629,10 +4629,10 @@ related_decisions:
     url: /DECISIONS.md#DEC-036
 modified:
   by: agent/claude-code
-  at: '2026-11-01T12:25:31.245Z'
+  at: '2026-11-01T13:49:20.981Z'
 ---
 
-Plan section 1 (docs/assessment-of-learning-plan.md). One approved ILO list first (catalog 7 vs QAIEO guidance 8). Screens on the program and the course; Arabic beside English.
+Done (2026-11-01): migration 0073 (learning_outcome for ILO/PEO/PLO/performance indicator/CLO, outcome_link with database checks, institution.outcome_levels), services in packages/core/src/outcomes, routes mounted as OutcomeRoutes (own typed client), Settings -> Organization tabs Courses and Learning outcomes, the program Outcomes view with the curriculum map and coverage checks. Approved outcomes are retired, never deleted. Tests: packages/core/src/outcomes/outcomes.test.ts, apps/web/src/outcomes-ui.test.tsx.
 
 ---
 
