@@ -9,6 +9,7 @@ import { ProgramsSettingsPage } from './programs';
 import { CoursesSettingsPage } from './courses';
 import { LearningOutcomesSection } from './learning-outcomes';
 import type { OutcomesApi } from '../../lib/outcomes-api';
+import type { AssessmentApi } from '../../lib/assessment-api';
 import { AcademicCalendarSection } from './academic-calendar-section';
 import { ScopeLevelsSection } from './scope-levels-section';
 import { Button } from '../../components/ui/button';
@@ -135,7 +136,7 @@ export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
  * Settings -> Organization: one screen, four tabs (Courses and Learning outcomes join with TASK-105 and TASK-112). Institution holds the details, the logo and the org chart (Languages
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
-export function OrganizationPage({ api: override, outcomes, tab: tabProp, onTab }: { api?: SettingsApi; outcomes?: OutcomesApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void }) {
+export function OrganizationPage({ api: override, outcomes, assessment, tab: tabProp, onTab }: { api?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void }) {
   const { t } = useTranslation();
   const api = useSettingsApi(override);
   const me = useMe(api);
@@ -178,9 +179,9 @@ export function OrganizationPage({ api: override, outcomes, tab: tabProp, onTab 
             <ScopeLevelsSection api={api} canEdit={can(me.data, 'org:write')} />
             <AcademicCalendarSection api={api} canEdit={can(me.data, 'org:write')} />
           </>
-        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
+        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} {...(assessment ? { assessment } : {})} />
           : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
-          : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} canEdit={can(me.data, 'org:write')} />}
+          : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} canEdit={can(me.data, 'org:write')} />}
       </div>
     </div>
   );

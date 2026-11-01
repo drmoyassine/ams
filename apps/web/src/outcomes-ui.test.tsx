@@ -13,6 +13,7 @@ import { MemoryStore } from '@ams/core';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import { createApi } from './lib/api';
 import { outcomesApi } from './lib/outcomes-api';
+import { assessmentApi } from './lib/assessment-api';
 import { settingsApi } from './lib/settings-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
 
@@ -32,7 +33,7 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
 }) as typeof fetch;
 function page(who: string, tab: OrganizationTab) {
   const f = fetchAs(who);
-  const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} tab={tab} />;
+  const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} tab={tab} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -126,5 +127,45 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.click(screen.getByRole('button', { name: '← Programs' }));
     await user.click(screen.getByRole('tab', { name: 'Review' }));
     await screen.findByLabelText('BS Electrical and Computer Engineering, PLO-to-CLO mapping: Developing');
+  });
+
+  it('plans, computes attainment, records results against the target, and starts a corrective action', async () => {
+    const user = userEvent.setup();
+    await db.su.query(`update institution set assessment_benchmarks = '{"ploScore": 85, "cloScore": 70}'`);
+    page('admin', 'programs');
+    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    const card = await screen.findByRole('region', { name: 'Assessment' });
+    await user.clear(await within(card).findByLabelText('Academic year'));
+    await user.type(within(card).getByLabelText('Academic year'), '2026-27');
+    await user.click(within(card).getByRole('button', { name: /Start plan/ }));
+    await within(card).findByText('SO1 has no direct measure in a course');
+    await user.click(within(card).getByRole('button', { name: 'Plan for SO1' }));
+    await user.selectOptions(within(card).getByLabelText('Direct course'), 'ECE 420');
+    await user.type(within(card).getByLabelText('Direct method'), 'Final exam questions');
+    await user.click(within(card).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(within(card).queryByText('SO1 has no direct measure in a course')).toBeNull());
+
+    await user.click(within(card).getByRole('tab', { name: 'Attainment' }));
+    await user.type(within(card).getByLabelText('Term'), 'Spring 2026');
+    await user.click(await within(card).findByRole('button', { name: 'Add assessment' }));
+    await user.type(within(card).getByLabelText('Assessment name'), 'Final');
+    await user.type(within(card).getByLabelText('Class average'), '16');
+    await user.type(within(card).getByLabelText('Part 1 marks'), '20');
+    await user.click(within(card).getByLabelText('Part 1 assesses CLO1'));
+    await user.click(within(card).getByRole('button', { name: 'Save assessment' }));
+    await within(card).findByText(/PLOs: SO1 80%/);
+    await user.click(within(card).getByRole('button', { name: 'Record as results' }));
+    await within(card).findByText('Recorded 2 results.');
+
+    await user.click(within(card).getByRole('tab', { name: 'Results' }));
+    const table = await within(card).findByRole('table', { name: 'Results' });
+    const row = within(table).getAllByRole('row').find((r) => r.textContent?.startsWith('SO1'))!;
+    expect(row.textContent).toContain('Below target');
+    await user.click(within(card).getByRole('tab', { name: /Actions \(1 gaps\)/ }));
+    await user.click(await within(card).findByRole('button', { name: 'Start action' }));
+    await user.type(within(card).getByLabelText('Action'), 'More practice on discrete-time systems');
+    await user.click(within(card).getByRole('button', { name: 'Save action' }));
+    await within(card).findByText(/Action: More practice on discrete-time systems/);
+    await waitFor(() => expect(within(card).getByRole('tab', { name: 'Actions' })).toBeTruthy());
   });
 });

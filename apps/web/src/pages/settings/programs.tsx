@@ -15,6 +15,7 @@ import { ProgramOutcomesPanel } from './program-outcomes';
 import { WorkbookLoader } from './workbook-loader';
 import { ReviewHeatmap } from './program-review';
 import type { OutcomesApi } from '../../lib/outcomes-api';
+import type { AssessmentApi } from '../../lib/assessment-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
@@ -89,7 +90,7 @@ function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
  * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
  * the AI import proposes programs for review (TASK-076). `docs` is for tests; the app's own client is the default.
  */
-export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi }) {
+export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes, assessment }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
   const [section, setSection] = useState<'list' | 'review' | 'docs'>('list');
@@ -108,7 +109,7 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcom
       </div>
       <div role="tabpanel" id="programs-section-panel" aria-labelledby={`programs-section-${section}`}>
         {section === 'list'
-          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} opened={open} onOpened={setOpen} />
+          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} {...(assessment ? { assessment } : {})} opened={open} onOpened={setOpen} />
           : section === 'review' ? <ReviewHeatmap {...(outcomes ? { api: outcomes } : {})} onOpen={(id) => { setOpen(id); setSection('list'); }} />
           : <DocsTab scopeKind="programs" scopeId={null} targets={targets.data ?? []} canWrite={writer} api={docs} />}
       </div>
@@ -116,7 +117,7 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcom
   );
 }
 
-function ProgramsList({ api, outcomes, opened: openedId, onOpened }: { api: SettingsApi; outcomes?: OutcomesApi; opened: string | null; onOpened: (id: string | null) => void }) {
+function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }: { api: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; opened: string | null; onOpened: (id: string | null) => void }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -134,7 +135,7 @@ function ProgramsList({ api, outcomes, opened: openedId, onOpened }: { api: Sett
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); return act(fn); }, onSuccess: () => { void refresh(); } });
   const rows = (programs.data ?? []).filter((p) => showInactive || p.active);
   const opened = outcomesOf ? programs.data?.find((p) => p.id === outcomesOf) : undefined;
-  if (opened) return <ProgramOutcomesPanel program={opened} canWrite={canWrite} onBack={() => setOutcomesOf(null)} {...(outcomes ? { api: outcomes } : {})} />;
+  if (opened) return <ProgramOutcomesPanel program={opened} canWrite={canWrite} onBack={() => setOutcomesOf(null)} {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} />;
 
   return (
     <div className="space-y-4">

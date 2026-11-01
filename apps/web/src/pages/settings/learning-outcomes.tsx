@@ -9,12 +9,14 @@ import { Input } from '../../components/ui/input';
 import { useConfirm } from '../../components/confirm-dialog';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useAction } from '../../lib/use-action';
+import type { AssessmentApi } from '../../lib/assessment-api';
+import { BenchmarksCard, IloRotationCard } from './ilo-rotation';
 
 /**
  * Settings -> Organization -> Learning outcomes (TASK-112): the institution's learning outcomes (ILOs, which every program's PLOs link
  * to) and the CLO-PLO mapping levels (DEC-036).
  */
-export function LearningOutcomesSection({ api: override, canEdit }: { api?: OutcomesApi; canEdit: boolean }) {
+export function LearningOutcomesSection({ api: override, assessment, canEdit }: { api?: OutcomesApi; assessment?: AssessmentApi; canEdit: boolean }) {
   const api = useOutcomesApi(override);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -34,7 +36,9 @@ export function LearningOutcomesSection({ api: override, canEdit }: { api?: Outc
           onSave={(id, d) => run.mutate(() => api.updateOutcome(id, patchOf(d)))}
           onDelete={(o) => { void confirm({ title: `Delete ${o.code}?`, message: 'The draft and its links to PLOs are deleted.', confirmLabel: 'Delete', tone: 'danger' }).then((ok) => { if (ok) run.mutate(() => api.deleteOutcome(o.id)); }); }} />
       </Card>
+      <IloRotationCard {...(assessment ? { api: assessment } : {})} canEdit={canEdit} />
       <LevelsCard api={api} canEdit={canEdit} />
+      <BenchmarksCard {...(assessment ? { api: assessment } : {})} canEdit={canEdit} />
     </div>
   );
 }

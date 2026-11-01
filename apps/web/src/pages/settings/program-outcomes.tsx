@@ -9,6 +9,8 @@ import { useConfirm } from '../../components/confirm-dialog';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useAction } from '../../lib/use-action';
 import { ProgramReviewCard } from './program-review';
+import { ProgramAssessmentCard } from './program-assessment';
+import type { AssessmentApi } from '../../lib/assessment-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const COVERAGE_TITLE = {
@@ -20,7 +22,7 @@ const COVERAGE_TITLE = {
  * A program's outcomes (TASK-112): its statements, PEOs, PLOs with performance indicators and their links to ILOs and PEOs, the
  * courses in the program, the curriculum map (PLO x course, from the CLO-PLO links and their levels) and the coverage checks.
  */
-export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override }: { program: Program; canWrite: boolean; onBack: () => void; api?: OutcomesApi }) {
+export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override, assessment }: { program: Program; canWrite: boolean; onBack: () => void; api?: OutcomesApi; assessment?: AssessmentApi }) {
   const api = useOutcomesApi(override);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -57,6 +59,7 @@ export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override 
             extra={(plo) => <PloExtras plo={plo} v={v} canWrite={canWrite} linked={linked} toggle={toggle} run={(fn) => run.mutate(fn)} api={api} onDelete={del} />} /></Card>
           <Card><CurriculumMap v={v} canWrite={canWrite} api={api} run={(fn) => run.mutate(fn)} /></Card>
           <Card><Coverage v={v} /></Card>
+          <ProgramAssessmentCard programId={program.id} outcomes={v} canWrite={canWrite} {...(assessment ? { api: assessment } : {})} />
           <ProgramReviewCard programId={program.id} canWrite={canWrite} {...(override ? { api: override } : {})} />
         </>
       )}
