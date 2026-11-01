@@ -2203,4 +2203,47 @@ related_tasks:
     url: /TASKS.md#TASK-109
 ---
 
+---
+
+## DEC-036 — Outcome mapping levels are configuration; the default is I/R/M and D is read as R
+
+---
+title: Outcome mapping levels are configuration; the default is I/R/M and D is read as R
+status: accepted
+context: >-
+  Three collections of curriculum maps run at AIU (2026-11): the QAIEO AOL guidance defines
+  Introduced/Developed/Mastered, the EDUVAL upload templates and the integrated assessment plan use
+  Introduced/Reinforced/Mastered, and some programs mark only X. The AMS will hold CLO-PLO links once and export each
+  format.
+decision: >-
+  The levels of a CLO-PLO link are an institution setting (codes, names, order, which level counts as mastery). The
+  default is I Introduced, R Reinforced, M Mastered. Imports accept D (Developed) as R and X as a link without a level,
+  flagged for review. Exports write the codes each format expects.
+rationale: >-
+  No institution-specific vocabulary in code (DEC-002); I/R/M matches EDUVAL and ABET practice; accepting D and X lets
+  the existing maps come in without retyping.
+consequences: >-
+  Coverage checks (every PLO reaches mastery, every course maps to a PLO) read the configured mastery level. A level
+  change renames, it does not rewrite links.
+tags:
+  - assessment
+  - outcomes
+  - configuration
+id: DEC-036
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:12.669Z'
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:33.551Z'
+related_tasks:
+  - id: TASK-112
+    name: 'Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with configurable mapping levels'
+    url: /TASKS.md#TASK-112
+  - id: TASK-113
+    name: EDUVAL and integrated-plan import and export
+    url: /TASKS.md#TASK-113
+---
+
 <!-- End VEF generated items. -->

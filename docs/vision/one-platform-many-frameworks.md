@@ -12,14 +12,14 @@ generated:
   at: '2026-10-05T07:53:03.944Z'
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:17.250Z'
+  at: '2026-11-01T12:25:14.705Z'
 related_decisions:
   - id: DEC-002
     name: Accreditor frameworks are versioned configuration; no accreditor-specific code
     url: /DECISIONS.md#DEC-002
 related_roadmap_items:
   - id: ROADMAP-002
-    name: 'M1 — Framework library'
+    name: M1 — Framework library
     url: /ROADMAP.md#ROADMAP-002
   - id: ROADMAP-012
     name: Settings, internal framework and glossary
@@ -27,6 +27,9 @@ related_roadmap_items:
   - id: ROADMAP-013
     name: 'Quality Management: cycles and reporting'
     url: /ROADMAP.md#ROADMAP-013
+  - id: ROADMAP-014
+    name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+    url: /ROADMAP.md#ROADMAP-014
 ---
 # one-platform-many-frameworks — Accreditor frameworks are configuration, not code
 

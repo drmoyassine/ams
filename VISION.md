@@ -225,7 +225,7 @@ generated:
   at: '2026-10-05T07:53:03.944Z'
 modified:
   by: agent/claude-code
-  at: '2026-10-06T05:43:17.250Z'
+  at: '2026-11-01T12:25:14.705Z'
 related_decisions:
   - id: DEC-002
     name: Accreditor frameworks are versioned configuration; no accreditor-specific code
@@ -240,6 +240,9 @@ related_roadmap_items:
   - id: ROADMAP-013
     name: 'Quality Management: cycles and reporting'
     url: /ROADMAP.md#ROADMAP-013
+  - id: ROADMAP-014
+    name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+    url: /ROADMAP.md#ROADMAP-014
 ---
 
 WSCUC, ABET, NBAQ and PUC differ in vocabulary, hierarchy, lifecycle, report templates and decision language. All of that lives in a framework version: requirement tree, notes with authority, lifecycle template, report templates, decision/finding/response vocabularies. Success: a new accreditor is a configuration and review exercise, and the same code path runs an institution-level and a program-level engagement side by side. PRD §1, §5, §7.

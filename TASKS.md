@@ -4596,4 +4596,212 @@ Done (2026-10-28): the `organise` stage of the import engine (migration 0071); p
 
 Open: run it on the owner's real files (needs the Reading model configured in Settings -> AI; the PUC scan needs one quarter turn); automatic detection of sideways scans; the "From this document" filter on the IQF list and "Evidence for those items" on the Evidence list (meaning to be confirmed with the owner); load the PUC standard as an external standard so it maps onto the IQF.
 
+---
+
+## TASK-112 — Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with configurable mapping levels
+
+---
+title: 'Outcomes and links: ILO, PEO, PLO, performance indicators and CLO with configurable mapping levels'
+description: >-
+  Versioned outcome records on the institution, program and course; links CLO-PLO (with level), PLO-ILO, PLO-PEO;
+  coverage checks (every PLO reaches mastery, every course maps to a PLO, orphans and over-coverage).
+status: pending
+priority: P1
+id: TASK-112
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:31.245Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+depends_on:
+  - id: TASK-104
+    name: Program schema
+    url: /TASKS.md#TASK-104
+  - id: TASK-105
+    name: 'Courses: entity, schema, tab and import'
+    url: /TASKS.md#TASK-105
+related_decisions:
+  - id: DEC-036
+    name: Outcome mapping levels are configuration; the default is I/R/M and D is read as R
+    url: /DECISIONS.md#DEC-036
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:31.245Z'
+---
+
+Plan section 1 (docs/assessment-of-learning-plan.md). One approved ILO list first (catalog 7 vs QAIEO guidance 8). Screens on the program and the course; Arabic beside English.
+
+---
+
+## TASK-113 — EDUVAL and integrated-plan import and export
+
+---
+title: EDUVAL and integrated-plan import and export
+description: >-
+  Import and export the EDUVAL CLO-PLO Mapping and Course Details workbooks and the Integrated Assessment Plan workbook
+  from the outcome records; D read as R, X flagged; SIS ids as the join key.
+status: pending
+priority: P1
+id: TASK-113
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:33.551Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+related_decisions:
+  - id: DEC-036
+    name: Outcome mapping levels are configuration; the default is I/R/M and D is read as R
+    url: /DECISIONS.md#DEC-036
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:33.551Z'
+---
+
+Plan section 8. Course details (textbooks, weekly outline, assessment methods with weights, performance indicators) live on a course offering / syllabus record per term. Export first: programs are being asked to fill EDUVAL now.
+
+---
+
+## TASK-114 — Program assessment plan (IE-001)
+
+---
+title: Program assessment plan (IE-001)
+description: >-
+  Per program and year, per PLO: benchmark, direct method in a mastery course with rubric, indirect method with
+  frequency, responsible faculty, calendar, two-year rotation and re-assessment year; Assessment Coordinator review,
+  Dean endorsement, QAIEO submission and the missing-plan flag.
+status: pending
+priority: P1
+id: TASK-114
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:35.809Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:35.809Z'
+---
+
+Plan section 2. Benchmarks are institution settings with a program override (CLO, PLO and indirect thresholds); none hard-coded.
+
+---
+
+## TASK-115 — Course attainment and indirect measures
+
+---
+title: Course attainment and indirect measures
+description: >-
+  Assessment, question, marks and CLO; CLO attainment and share of students at or above threshold; CLO to PLO roll-up;
+  CAP/CAS and survey imports as dataset sources; diagnostics (CLO weight in the design, bottleneck courses, comparison
+  with the previous offering).
+status: pending
+priority: P1
+id: TASK-115
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:37.990Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:37.990Z'
+---
+
+Plan sections 3-4. Student-level marks stay in the BI; the AMS receives aggregates (BI rule 5, DEC-012).
+
+---
+
+## TASK-116 — Closing the loop: corrective action plans on the quality cycles
+
+---
+title: 'Closing the loop: corrective action plans on the quality cycles'
+description: >-
+  A below-target PLO or CLO opens a corrective action (gap, shares, root cause, action, owner, term, verification plan)
+  linked to its result; re-assessment closes it; at-or-above-target confirmations; focus-group records; the four-stage
+  annual cycle template.
+status: pending
+priority: P1
+id: TASK-116
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:40.209Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:40.209Z'
+---
+
+Plan sections 5-6, on ROADMAP-013 cycles.
+
+---
+
+## TASK-117 — ILO rotation and the institutional assessment report
+
+---
+title: ILO rotation and the institutional assessment report
+description: >-
+  Five-year ILO rotation as an institutional cycle, aggregation from designated courses across programs, the yearly ILO
+  Assessment Audit Report and the five-year review.
+status: pending
+priority: P1
+id: TASK-117
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:42.332Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:42.332Z'
+---
+
+Plan section 6.
+
+---
+
+## TASK-118 — Program review rubric with maturity levels
+
+---
+title: Program review rubric with maturity levels
+description: >-
+  The 8-criterion program review (mission, objectives, PLOs, mapping, assessment design, results, closing the loop,
+  stakeholder input) recorded per program with a configurable level scale, finding, evidence links, gaps, date and
+  reviewer; a cross-program summary and export.
+status: pending
+priority: P1
+id: TASK-118
+last_updated: '2026-11-01'
+generated:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:44.510Z'
+roadmap_item:
+  id: ROADMAP-014
+  name: 'Assessment of learning: outcomes, plans, results and closing the loop'
+  url: /ROADMAP.md#ROADMAP-014
+modified:
+  by: agent/claude-code
+  at: '2026-11-01T12:25:44.510Z'
+---
+
+Plan section 7. Internal self-rating, never an accreditation outcome (DEC-005). First used for the President's baseline audit (Nov 2026), currently kept in the owner's workbook.
+
 <!-- End VEF generated items. -->
