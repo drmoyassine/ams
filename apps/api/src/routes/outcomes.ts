@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   createCourse, createOutcome, deleteOutcome, getCourse, getOutcomeLevels, getProgramOutcomes, listCourseOutcomes, listCourses, listIlos,
-  removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
+  loadOutcomesWorkbook, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
 } from '@ams/core';
 import {
   CourseProgramInputSchema, CourseSchema, CreateCourseSchema, CreateOutcomeSchema, LearningOutcomeSchema, OutcomeLevelSchema, OutcomeLinkInputSchema,
-  OutcomeLinkSchema, ProgramOutcomesSchema, UpdateCourseSchema, UpdateOutcomeSchema, toDto,
+  OutcomeLinkSchema, OutcomesWorkbookResultSchema, OutcomesWorkbookSchema, ProgramOutcomesSchema, UpdateCourseSchema, UpdateOutcomeSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -103,6 +103,13 @@ export function outcomeRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { body: { required: true, ...json(z.object({ fromId: z.uuid(), toId: z.uuid() })) } },
       responses: { 200: { description: 'Removed', ...json(z.object({ removed: z.boolean() })) }, ...errors },
     }), async (c) => { const b = c.req.valid('json'); return c.json(await removeOutcomeLink(c.get('ctx'), b.fromId, b.toId), 200); })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/outcomes/workbook', access: requires('org:write'), tags: tag,
+      description: 'Loads programs, PEOs and PLOs from the rows of a workbook (read in the browser). Additive: creates what is missing, fills empty program fields, never overwrites. With apply false it only reports what would happen.',
+      request: { body: { required: true, ...json(OutcomesWorkbookSchema) } },
+      responses: { 200: { description: 'What was (or would be) done', ...json(OutcomesWorkbookResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(OutcomesWorkbookResultSchema, await loadOutcomesWorkbook(c.get('ctx'), c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/settings/outcome-levels', access: requires('org:read'), tags: tag,

@@ -1,7 +1,8 @@
 import { hc } from 'hono/client';
 import type { OutcomeRoutes } from '@ams/api';
 import type {
-  Course, CourseProgramInput, CreateCourse, CreateOutcome, LearningOutcome, OutcomeLevel, OutcomeLink, OutcomeLinkInput, ProgramOutcomes, UpdateCourse, UpdateOutcome,
+  Course, CourseProgramInput, CreateCourse, CreateOutcome, LearningOutcome, OutcomeLevel, OutcomeLink, OutcomeLinkInput, OutcomesWorkbook, OutcomesWorkbookResult,
+  ProgramOutcomes, UpdateCourse, UpdateOutcome,
 } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
@@ -29,6 +30,7 @@ export function outcomesApi(fetcher: typeof fetch = fetch) {
     deleteOutcome: (id: string) => a.outcomes[':id'].$delete({ param: { id } }).then((r) => unwrap<{ deleted: true }>(r)),
     setLink: (json: OutcomeLinkInput) => a['outcome-links'].$put({ json }).then((r) => unwrap<OutcomeLink>(r)),
     removeLink: (fromId: string, toId: string) => a['outcome-links'].remove.$post({ json: { fromId, toId } }).then((r) => unwrap<{ removed: boolean }>(r)),
+    loadWorkbook: (json: OutcomesWorkbook) => a.outcomes.workbook.$post({ json }).then((r) => unwrap<OutcomesWorkbookResult>(r)),
     levels: () => a.settings['outcome-levels'].$get().then((r) => unwrap<OutcomeLevel[]>(r)),
     setLevels: (json: OutcomeLevel[]) => a.settings['outcome-levels'].$put({ json }).then((r) => unwrap<OutcomeLevel[]>(r)),
   };

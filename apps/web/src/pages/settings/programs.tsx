@@ -12,6 +12,7 @@ import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { ProgramOutcomesPanel } from './program-outcomes';
+import { WorkbookLoader } from './workbook-loader';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -121,6 +122,7 @@ function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: Outcomes
   const [editing, setEditing] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [outcomesOf, setOutcomesOf] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const canWrite = can(me.data, 'program:write');
@@ -140,10 +142,12 @@ function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: Outcomes
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
+          {can(me.data, 'org:write') && <Button type="button" variant="outline" onClick={() => setLoading(!loading)}>Load from workbook</Button>}
           {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add program'}</Button>}
         </div>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {loading && <WorkbookLoader {...(outcomes ? { api: outcomes } : {})} onDone={() => setLoading(false)} />}
       {adding && canWrite && (
         <Card aria-label="Add program">
           <ProgramForm units={units.data ?? []} submitLabel="Add program" onCancel={() => setAdding(false)}

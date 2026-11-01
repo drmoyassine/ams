@@ -161,3 +161,29 @@ export const ProgramOutcomesSchema = z.object({
   coverage: z.array(CoverageIssueSchema),
 });
 export type ProgramOutcomes = z.infer<typeof ProgramOutcomesSchema>;
+
+// ---- Loading programs and outcomes from a workbook (the Integrated Assessment Plan) ----------------------------------------
+
+const cell = z.string().trim().nullable().optional();
+/** Rows of the workbook's Programs, PEOs and PLOs sheets, read in the browser (headers as in the workbook). */
+export const OutcomesWorkbookSchema = z.object({
+  programs: z.array(z.object({ programId: cell, title: z.string().trim().min(1), mission: cell, vision: cell, school: cell })).max(500),
+  peos: z.array(z.object({ id: z.string().trim().min(1), text: z.string().trim().min(1), program: z.string().trim().min(1) })).max(5000),
+  plos: z.array(z.object({ id: z.string().trim().min(1), text: z.string().trim().min(1), program: z.string().trim().min(1) })).max(5000),
+  /** Where the rows came from, kept on each outcome ("Integrated Assessment Plan v3"). */
+  source: z.string().trim().min(1).max(200),
+  /** false: say what would happen and change nothing. */
+  apply: z.boolean().default(false),
+});
+export type OutcomesWorkbook = z.infer<typeof OutcomesWorkbookSchema>;
+export const OutcomesWorkbookResultSchema = z.object({
+  applied: z.boolean(),
+  unitsCreated: z.array(z.string()),
+  programsCreated: z.array(z.string()),
+  programsUpdated: z.array(z.object({ program: z.string(), fields: z.array(z.string()) })),
+  outcomesCreated: z.number().int(),
+  outcomesUnchanged: z.number().int(),
+  /** Rows left alone, with why (an outcome whose code exists with other words, an unknown program). Nothing is overwritten. */
+  skipped: z.array(z.object({ sheet: z.string(), row: z.string(), reason: z.string() })),
+});
+export type OutcomesWorkbookResult = z.infer<typeof OutcomesWorkbookResultSchema>;

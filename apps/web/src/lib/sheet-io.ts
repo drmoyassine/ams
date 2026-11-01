@@ -137,6 +137,29 @@ export async function importSheet(file: File, columns: DataColumn[]): Promise<Im
   return { rows, ignored, missing };
 }
 
+/** Reads the named sheets of an .xlsx as rows keyed by their header text (formulas give their last computed value). */
+export async function readSheets(file: File, names: string[]): Promise<Record<string, Record<string, string>[]>> {
+  const { default: ExcelJS } = await import('exceljs');
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await readBytes(file));
+  const out: Record<string, Record<string, string>[]> = {};
+  for (const name of names) {
+    const ws = wb.getWorksheet(name);
+    if (!ws) continue;
+    let headers: string[] = [];
+    const rows: Record<string, string>[] = [];
+    ws.eachRow({ includeEmpty: false }, (row, n) => {
+      const values = (row.values as unknown[]).slice(1).map(cellValue).map((v) => (v === null || v === undefined ? '' : String(v).trim()));
+      if (n === 1) { headers = values; return; }
+      const r: Record<string, string> = {};
+      headers.forEach((h, i) => { if (h) r[h] = values[i] ?? ''; });
+      if (Object.values(r).some(Boolean)) rows.push(r);
+    });
+    out[name] = rows;
+  }
+  return out;
+}
+
 /** Hands the browser a file to save. */
 export function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
