@@ -32,6 +32,8 @@ export function UnitDrawer({ api, mode, types, people, editable, onClose, onSave
   const [headUser, setHeadUser] = useState(unit?.headUserId ?? '');
   const [headName, setHeadName] = useState(unit?.headName ?? '');
   const [description, setDescription] = useState(unit?.description ?? '');
+  const [code, setCode] = useState(unit?.code ?? '');
+  const [externalId, setExternalId] = useState(unit?.externalId ?? '');
   const [locked, setLocked] = useState(unit?.locked ?? false);
   const [active, setActive] = useState(unit?.active ?? true);
   const act = useAction(setError);
@@ -47,6 +49,7 @@ export function UnitDrawer({ api, mode, types, people, editable, onClose, onSave
         const r = await act(() => api.createOrgUnit({
           parentId: mode.kind === 'add' ? (mode.parent?.id ?? null) : null, type, nameEn: nameEn.trim(),
           ...(nameAr.trim() ? { nameAr: nameAr.trim() } : {}), ...(description.trim() ? { description: description.trim() } : {}), ...(head ?? {}),
+          ...(code.trim() ? { code: code.trim() } : {}), ...(externalId.trim() ? { externalId: externalId.trim() } : {}),
         }));
         if (r) { await onSaved(r.id); onClose(); }
         return;
@@ -57,6 +60,8 @@ export function UnitDrawer({ api, mode, types, people, editable, onClose, onSave
       if (type !== unit.type) patch.type = type;
       if (description.trim() !== (unit.description ?? '')) patch.description = description.trim() || null;
       if (locked !== unit.locked) patch.locked = locked;
+      if (code.trim() !== (unit.code ?? '')) patch.code = code.trim() || null;
+      if (externalId.trim() !== (unit.externalId ?? '')) patch.externalId = externalId.trim() || null;
       if (active !== unit.active) patch.active = active;
       const sameHead = (headUser || null) === unit.headUserId && (headUser ? true : (headName.trim() || null) === unit.headName);
       if (!sameHead) { patch.headUserId = headUser || null; patch.headName = headUser ? null : (headName.trim() || null); }
@@ -104,6 +109,12 @@ export function UnitDrawer({ api, mode, types, people, editable, onClose, onSave
         </label>
         <label className={`${field} sm:col-span-2`}>Head (a name, when the head is not a user of this system)
           <Input aria-label="Head (name)" dir="auto" value={headUser ? '' : headName} onChange={(e) => setHeadName(e.target.value)} disabled={off || !!headUser} placeholder="Dr X" />
+        </label>
+        <label className={field}>Code
+          <Input aria-label="Unit code" value={code} onChange={(e) => setCode(e.target.value)} disabled={off} placeholder="SEC" />
+        </label>
+        <label className={field}>Student-system id
+          <Input aria-label="Unit student-system id" value={externalId} onChange={(e) => setExternalId(e.target.value)} disabled={off} />
         </label>
         <label className={`${field} sm:col-span-2`}>Description
           <textarea aria-label="Description" rows={3} dir="auto" value={description} onChange={(e) => setDescription(e.target.value)} disabled={off} className="rounded-md border border-border bg-background p-2 text-sm" />

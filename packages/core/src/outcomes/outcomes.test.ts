@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { listPrograms, updateProgram } from '../org/programs.js';
+import { createOrgUnit, updateOrgUnit } from '../org/units.js';
 import { createCourse, listCourses, removeCourseProgram, setCourseProgram, updateCourse } from './courses.js';
 import {
   createOutcome, deleteOutcome, getOutcomeLevels, getProgramOutcomes, listIlos, removeOutcomeLink, setOutcomeLevels, setOutcomeLink, updateOutcome,
@@ -19,6 +20,15 @@ describe('the program record', () => {
     expect(p).toMatchObject({ code: 'BS-MCE', externalId: 'MCE01', mission: 'To educate engineers.', durationYears: 4, credits: 132, mode: 'full_time' });
     expect((await w.as('alo', (c) => updateProgram(c, w.ids.mech!, { mission: '' }))).mission).toBeNull();
     expect((await w.as('contrib', (c) => listPrograms(c)))[0]).toMatchObject({ code: 'BS-MCE' });
+  });
+});
+
+describe('the unit record', () => {
+  it('keeps a unique code and a student-system id', async () => {
+    const u = await w.as('admin', (c) => createOrgUnit(c, { parentId: null, type: 'college', nameEn: 'School of Engineering and Computing', code: 'SEC', externalId: 'S01' }));
+    expect(u).toMatchObject({ code: 'SEC', externalId: 'S01' });
+    await expect(w.as('admin', (c) => createOrgUnit(c, { parentId: null, type: 'college', nameEn: 'Other', code: 'sec' }))).rejects.toThrow(ConflictError);
+    expect((await w.as('admin', (c) => updateOrgUnit(c, u.id, { code: null }))).code).toBeNull();
   });
 });
 
