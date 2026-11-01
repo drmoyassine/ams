@@ -51,16 +51,16 @@ const appRoute = createRoute({
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/engagements' }); } });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsLayout });
 const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/', beforeLoad: () => { throw redirect({ to: '/settings/organization' }); } });
-// Organization: two tabs, deep-linkable as ?tab=institution|programs (the address follows the tab, replacing the entry).
+// Organization: four tabs, deep-linkable as ?tab=institution|programs|courses|outcomes (the address follows the tab, replacing the entry).
 const organizationRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationRoute />,
-  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab } => (s.tab === 'institution' || s.tab === 'programs' ? { tab: s.tab } : {}),
+  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab } => (s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'outcomes' ? { tab: s.tab } : {}),
 });
 function OrganizationRoute() {
   const { tab } = organizationRoute.useSearch();
   const navigate = organizationRoute.useNavigate();
   // The parent routes pass the raw address through, so an unknown value is dropped here as well.
-  return <OrganizationPage tab={tab === 'programs' ? 'programs' : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
+  return <OrganizationPage tab={tab === 'programs' || tab === 'courses' || tab === 'outcomes' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
 }
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });

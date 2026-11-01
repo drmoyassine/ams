@@ -6,6 +6,9 @@ import { OrgChartSection } from './org-chart/org-chart-section';
 import { useTranslation } from '../../i18n';
 import { LanguagesSection } from './languages-section';
 import { ProgramsSettingsPage } from './programs';
+import { CoursesSettingsPage } from './courses';
+import { LearningOutcomesSection } from './learning-outcomes';
+import type { OutcomesApi } from '../../lib/outcomes-api';
 import { AcademicCalendarSection } from './academic-calendar-section';
 import { ScopeLevelsSection } from './scope-levels-section';
 import { Button } from '../../components/ui/button';
@@ -125,14 +128,14 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'outcomes' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
- * Settings -> Organization: one screen, two tabs. Institution holds the details, the logo and the org chart (Languages
+ * Settings -> Organization: one screen, four tabs (Courses and Learning outcomes join with TASK-105 and TASK-112). Institution holds the details, the logo and the org chart (Languages
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
-export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?: SettingsApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void }) {
+export function OrganizationPage({ api: override, outcomes, tab: tabProp, onTab }: { api?: SettingsApi; outcomes?: OutcomesApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void }) {
   const { t } = useTranslation();
   const api = useSettingsApi(override);
   const me = useMe(api);
@@ -140,7 +143,7 @@ export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?:
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
-  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs') } as const;
+  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), outcomes: t('org.tab.outcomes') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -175,7 +178,9 @@ export function OrganizationPage({ api: override, tab: tabProp, onTab }: { api?:
             <ScopeLevelsSection api={api} canEdit={can(me.data, 'org:write')} />
             <AcademicCalendarSection api={api} canEdit={can(me.data, 'org:write')} />
           </>
-        ) : <ProgramsSettingsPage api={api} />}
+        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
+          : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
+          : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} canEdit={can(me.data, 'org:write')} />}
       </div>
     </div>
   );

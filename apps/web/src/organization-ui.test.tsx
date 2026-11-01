@@ -63,7 +63,7 @@ beforeAll(async () => {
 afterEach(() => { cleanup(); document.documentElement.style.removeProperty('--primary'); });
 afterAll(async () => { await pool.end(); await db.close(); });
 
-describe('Organization: two tabs, deep-linkable', () => {
+describe('Organization: tabs, deep-linkable', () => {
   // The real router, signed in as whoever `current` names (the page's own requests go to the test API).
   async function openRouter(path: string) {
     (globalThis as unknown as { __testFetch: unknown }).__testFetch = fetchAs(() => current);
@@ -78,7 +78,7 @@ describe('Organization: two tabs, deep-linkable', () => {
     current = 'admin';
     const router = await openRouter('/settings/organization');
     const tabs = await screen.findByRole('tablist', { name: 'Organization' });
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'Programs']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'Programs', 'Courses', 'Learning outcomes']);
     expect(within(tabs).getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true');
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });
@@ -120,7 +120,7 @@ describe('Organization: two tabs, deep-linkable', () => {
     await user.keyboard('{Home}');
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
     await user.keyboard('{End}');
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Programs' }).getAttribute('aria-selected')).toBe('true'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Learning outcomes' }).getAttribute('aria-selected')).toBe('true'));
   });
 
   it('sends the old Programs address to the Programs tab, and ignores an unknown tab', async () => {

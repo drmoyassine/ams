@@ -465,6 +465,8 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
 
   'org.tab.institution': 'Institution',
   'org.tab.programs': 'Programs',
+  'org.tab.courses': 'Courses',
+  'org.tab.outcomes': 'Learning outcomes',
 
   'iqf.intro': "Your institution's own standards and sub-standards, each with the evidence that supports it. Each accreditor's standard maps onto it from its own page, so evidence is collected once and reported to every accreditor.",
   'terms.title': 'Terms',
