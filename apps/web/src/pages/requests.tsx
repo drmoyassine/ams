@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../components/page-header';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EvidenceRequest } from '@ams/shared';
 import { DataFormView } from '../components/data-form';
@@ -23,7 +24,7 @@ export function RequestsPage({ api: override }: { api?: EvidenceApi; framework?:
   const open = (list.data ?? []).filter((r) => r.status === 'open').length;
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold sm:text-2xl">My requests</h1>
+      <PageHeader title="My requests" />
       <p className="text-sm text-muted-foreground">
         {`Evidence others asked you for${open ? ` (${open} open)` : ''}. What you send is added as evidence and reviewed before it counts.`}
       </p>

@@ -4,6 +4,7 @@ import { COLLECTION_DUE_SOON_DAYS, type EvidenceItem } from '@ams/shared';
 import type { CycleApis } from '../components/cycles/directory';
 import { EvidenceBulkBar } from '../components/evidence-bulk-bar';
 import { EvidenceCard } from '../components/evidence-card';
+import { PageHeader } from '../components/page-header';
 import { RequestList } from '../components/evidence-requests';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
 import { Button } from '../components/ui/button';
@@ -42,9 +43,11 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
   const me = useMe(framework);
   const [tab, setTab] = useState<Tab>('library');
   const canWrite = can(me.data, 'evidence:write');
+  const [adding, setAdding] = useState(false);
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold sm:text-2xl">Evidence</h1>
+      <PageHeader title="Evidence" action={tab === 'library' && canWrite && <Button type="button" onClick={() => setAdding(true)}>+ Evidence</Button>}
+        intro="Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason." />
       <div role="tablist" aria-label="Evidence" className="flex gap-1 border-b border-border">
         {TABS.map(([k, label]) => (
           <Button key={k} type="button" role="tab" aria-selected={tab === k} variant="ghost"
@@ -52,20 +55,19 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
         ))}
       </div>
       {tab === 'library'
-        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(doc !== undefined ? { doc } : {})} {...(onDoc ? { onDoc } : {})} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
+        ? <Library api={api} framework={framework} canWrite={canWrite} adding={adding} setAdding={setAdding} canReview={can(me.data, 'evidence:review')} {...(doc !== undefined ? { doc } : {})} {...(onDoc ? { onDoc } : {})} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
         : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
 
-function Library({ api, framework, canWrite, canReview, apis, openItem, doc: docProp, onDoc }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis; openItem?: string;
+function Library({ api, framework, canWrite, canReview, adding, setAdding, apis, openItem, doc: docProp, onDoc }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; adding: boolean; setAdding: (v: boolean) => void; apis?: CycleApis; openItem?: string;
   doc?: string | null; onDoc?: (v: string | null) => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [opened, setOpened] = useState<Set<string>>(() => new Set(openItem ? [openItem] : []));
   const [ownDoc, setOwnDoc] = useState<string | null>(null);
@@ -112,9 +114,7 @@ function Library({ api, framework, canWrite, canReview, apis, openItem, doc: doc
             </select>
           </label>
         )}
-        {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}
       </div>
-      <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>
       {canWrite && chosen.length > 0 && (
         <EvidenceBulkBar selected={chosen} shown={shown} api={api} apis={apis} onSelectAll={() => setPicked(new Set(shown.map((e) => e.id)))} onClear={() => setPicked(new Set())}
           onDone={() => { refreshAll(); setPicked((s) => new Set([...s].filter((id) => shown.some((e) => e.id === id)))); }} />

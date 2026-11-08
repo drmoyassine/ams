@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../components/page-header';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../i18n';
@@ -72,7 +73,7 @@ export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabPr
   const setTab = (next: QmTab) => { setOwn(next); onTab?.(next); };
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold sm:text-2xl">{t('nav.quality')}</h1>
+      <PageHeader title={t('nav.quality')} />
       <div role="tablist" aria-label={t('nav.quality')} className="flex flex-wrap gap-1 border-b border-border">
         {QM_TABS.map((x) => (
           <button key={x.id} role="tab" type="button" id={`qm-tab-${x.id}`} aria-selected={tab === x.id} aria-controls="qm-tabpanel" onClick={() => setTab(x.id)}

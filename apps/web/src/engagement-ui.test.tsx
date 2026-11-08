@@ -113,6 +113,8 @@ describe('engagements list and wizard', () => {
     expect(list.textContent).toMatch(/ABET/);
     expect(list.textContent).toMatch(/Eligibility/);
     expect(list.textContent).toMatch(/lead coord/);
+    // Each engagement is a card of the same kind as the evidence and standards lists; a click opens it.
+    expect(within(list).getAllByTestId ? within(list).getAllByRole('region').length : 0).toBe(1);
   });
 });
 
