@@ -275,7 +275,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
                 ? <p className="whitespace-pre-line text-sm"><ContentText>{d.item.definition}</ContentText></p>
                 : <p className="text-sm text-muted-foreground">No definition.</p>}
             </div>
-            {d.item.kpi && <KpiCardView card={d.item.kpi} owner={d.item.ownerName} />}
+            {d.item.kpi && <KpiCardView card={d.item.kpi} owner={d.item.ownerName} definition={d.item.definition} />}
             <CollectionSection item={d.item} apis={{ evidence: api, ...apis }} canWrite={canWrite} />
             <section aria-label="Versions" className="space-y-2">
               <Shaded>Versions</Shaded>

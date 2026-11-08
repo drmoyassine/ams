@@ -78,7 +78,7 @@ export function AccordionCard({ label, gutter, toggleProps, lead, tag, title, st
             {subtitle && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{subtitle}</span>}
           </span>
           {meta && (
-            <span className="order-2 flex min-w-0 basis-full flex-wrap items-center gap-2 @max-xl:mt-1.5 @max-xl:has-[>.hidden:only-child]:mt-0 @xl:order-none @xl:shrink-0 @xl:basis-auto">
+            <span className="order-2 flex min-w-0 basis-full flex-wrap items-center gap-2 @max-xl:mt-1.5 @max-xl:has-[>.hidden:only-child]:mt-0 @xl:order-none @xl:max-w-[60%] @xl:shrink @xl:basis-auto">
               {meta}
             </span>
           )}

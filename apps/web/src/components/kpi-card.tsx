@@ -26,7 +26,7 @@ export function KpiChips({ card }: { card: KpiCard }) {
     <>
       <span className={`${chip} bg-muted`} data-testid="kpi-scope">{SCOPE_LABEL[card.scope]}</span>
       {card.direction && <span className={`${chip} bg-muted`}>{card.direction === 'higher' ? '↑ higher is better' : '↓ lower is better'}</span>}
-      {target && <span className={`${chip} bg-muted`} data-testid="kpi-target">Target {card.target2027 ? '2027' : '2030'}: {target}</span>}
+      {target && <span className={`${chip} max-w-[14rem] truncate bg-muted`} title={target} data-testid="kpi-target">Target {card.target2027 ? '2027' : '2030'}: {target}</span>}
     </>
   );
 }
@@ -45,7 +45,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** The card as a read-only documentation form, in the sections of the KPI Institute's sheet. */
-export function KpiCardView({ card, owner, unit }: { card: KpiCard; owner?: string | null | undefined; unit?: string | null | undefined }) {
+export function KpiCardView({ card, owner, unit, definition }: { card: KpiCard; owner?: string | null | undefined; unit?: string | null | undefined; /** The item's definition, so a purpose that repeats it is not shown twice. */ definition?: string | null | undefined }) {
   const trend = card.direction === 'higher' ? 'Higher' : card.direction === 'lower' ? 'Lower' : undefined;
   const nature = card.nature === 'lagging' ? 'Lagging (measures a result)' : card.nature === 'leading' ? 'Leading (measures an intermediate process)' : undefined;
   return (
@@ -53,7 +53,7 @@ export function KpiCardView({ card, owner, unit }: { card: KpiCard; owner?: stri
       <Section title="Definition and usage">
         <Row label="Type" value={`${card.symbol}  ${SYMBOL_LABEL[card.symbol]}`} />
         <Row label="Scope" value={`${SCOPE_LABEL[card.scope]}${card.scope === 'course' ? ' (one value set per course offering)' : ''}`} />
-        <Row label="Purpose" value={card.purpose} />
+        {card.purpose && !definition?.startsWith(card.purpose) && <Row label="Purpose" value={card.purpose} />}
         <Row label="Strategic objective" value={card.objective} />
       </Section>
       <Section title="Calculation">
