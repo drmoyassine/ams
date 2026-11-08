@@ -3,7 +3,8 @@ import type {
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, Notification, RequirementContexts, ResubmitLink, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
-import { api as defaultApi } from './api';
+import { api as defaultApi, fetcherOf } from './api';
+import { outcomesApi } from './outcomes-api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
 
@@ -29,7 +30,8 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
 
     internalLinks: (requirementId: string) => api.api.requirements[':id']['evidence-links'].$get({ param: { id: requirementId } }).then((r) => unwrap<EvidenceLink[]>(r)),
     /** The evidence items linked to these items of the internal framework, by code (TASK-111). */
-    forItems: (versionId: string, requirementIds: string[]) => ev['for-items'].$post({ json: { versionId, requirementIds } }).then((r) => unwrap<{ ids: string[] }>(r)),
+    // Served beside the main chain (OutcomeRoutes): sent with the main client's own fetch.
+    forItems: (versionId: string, requirementIds: string[]) => outcomesApi(fetcherOf(api)).forItems(versionId, requirementIds),
     /** Evidence linked straight to a requirement of any standard (an external one too); it carries over to new versions of that standard. */
     linkLibrary: (requirementId: string, json: LinkEvidence) => api.api.requirements[':id']['evidence-links'].$post({ param: { id: requirementId }, json }).then((r) => unwrap<EvidenceLink>(r)),
     /** For a whole version in one request: per requirement code, its mapped IQF items and the evidence inherited and linked directly (the hover card). */

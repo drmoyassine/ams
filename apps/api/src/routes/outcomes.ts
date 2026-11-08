@@ -1,7 +1,7 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   createCourse, createOutcome, deleteOutcome, getCourse, getOutcomeLevels, getProgramOutcomes, listCourseOutcomes, listCourses, listIlos,
-  addReviewFinding, getProgramReview, getReviewRubric, getReviewSummary, loadOutcomesWorkbook, setReviewRubric, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
+  evidenceItemsForInternal, importedItemsByDocument, addReviewFinding, getProgramReview, getReviewRubric, getReviewSummary, loadOutcomesWorkbook, setReviewRubric, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
 } from '@ams/core';
 import {
   CourseProgramInputSchema, CourseSchema, CreateCourseSchema, CreateOutcomeSchema, LearningOutcomeSchema, OutcomeLevelSchema, OutcomeLinkInputSchema,
@@ -140,6 +140,23 @@ export function outcomeRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { body: { required: true, ...json(ReviewRubricSchema) } },
       responses: { 200: { description: 'Saved', ...json(ReviewRubricSchema) }, ...errors },
     }), async (c) => c.json(await setReviewRubric(c.get('ctx'), c.req.valid('json')), 200))
+
+    // Moved here from the evidence and framework modules: the main chain's type is at the compiler's limit.
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence/for-items', access: requires('evidence:read'), tags: ['evidence'],
+      description: 'The evidence items linked to these items of the internal framework, by code on the framework.',
+      request: { body: { required: true, ...json(z.object({ versionId: z.uuid(), requirementIds: z.array(z.uuid()).max(2000) })) } },
+      responses: { 200: { description: 'Distinct evidence item ids', ...json(z.object({ ids: z.array(z.uuid()) })) }, ...errors },
+    }), async (c) => {
+      const { versionId, requirementIds } = c.req.valid('json');
+      return c.json({ ids: await evidenceItemsForInternal(c.get('ctx'), versionId, requirementIds) }, 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/imported-items', access: requires('framework:read'), tags: ['frameworks'],
+      request: { params: idParam },
+      responses: { 200: { description: 'The items each import of this version created, by the document its run read: document id -> requirement ids', ...json(z.record(z.string(), z.array(z.string().uuid()))) }, ...errors },
+    }), async (c) => c.json(await importedItemsByDocument(c.get('ctx'), c.req.valid('param').id), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/settings/outcome-levels', access: requires('org:read'), tags: tag,

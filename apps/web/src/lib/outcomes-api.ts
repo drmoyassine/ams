@@ -35,6 +35,10 @@ export function outcomesApi(fetcher: typeof fetch = fetch) {
     programReview: (id: string) => a.programs[':id'].review.$get({ param: { id } }).then((r) => unwrap<ProgramReview>(r)),
     addFinding: (id: string, json: AddReviewFinding) => a.programs[':id'].review.$post({ param: { id }, json }).then((r) => unwrap<ReviewFinding>(r)),
     reviewRubric: () => a.settings['review-rubric'].$get().then((r) => unwrap<ReviewRubric>(r)),
+    /** The evidence items linked to these items of the internal framework, by code (TASK-111). */
+    forItems: (versionId: string, requirementIds: string[]) => a.evidence['for-items'].$post({ json: { versionId, requirementIds } }).then((r) => unwrap<{ ids: string[] }>(r)),
+    /** Which items each import of this version created, by the document its run read (TASK-111): document id -> requirement ids. */
+    importedItems: (versionId: string) => a['framework-versions'][':id']['imported-items'].$get({ param: { id: versionId } }).then((r) => unwrap<Record<string, string[]>>(r)),
     levels: () => a.settings['outcome-levels'].$get().then((r) => unwrap<OutcomeLevel[]>(r)),
     setLevels: (json: OutcomeLevel[]) => a.settings['outcome-levels'].$put({ json }).then((r) => unwrap<OutcomeLevel[]>(r)),
   };

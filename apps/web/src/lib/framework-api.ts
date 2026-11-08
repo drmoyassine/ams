@@ -7,7 +7,8 @@ import type {
 } from '@ams/shared';
 import { readBytes } from './read-bytes';
 import { documentsApi } from './documents-api';
-import { api as defaultApi, type createApi } from './api';
+import { api as defaultApi, fetcherOf, type createApi } from './api';
+import { outcomesApi } from './outcomes-api';
 
 export type Api = ReturnType<typeof createApi>;
 export type FrameworkListItem = z.infer<typeof FrameworkListItemSchema>;
@@ -160,7 +161,8 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
 
     documents: (versionId: string) => v[':id']['source-documents'].$get({ param: { id: versionId } }).then((r) => unwrap<SourceDocument[]>(r)),
     /** Which items each import of this version created, by the document its run read (TASK-111): document id -> requirement ids. */
-    importedItems: (versionId: string) => v[':id']['imported-items'].$get({ param: { id: versionId } }).then((r) => unwrap<Record<string, string[]>>(r)),
+    // Served beside the main chain (OutcomeRoutes): sent with the main client's own fetch.
+    importedItems: (versionId: string) => outcomesApi(fetcherOf(api)).importedItems(versionId),
     addDocument: (versionId: string, json: { title: string; role?: SourceRole; authority: SourceAuthority; filePath?: string; sha256?: string; language?: string }) =>
       v[':id']['source-documents'].$post({ param: { id: versionId }, json }).then((r) => unwrap<SourceDocument>(r)),
     updateDocument: (id: string, json: { title?: string; role?: SourceRole; authority?: SourceAuthority; language?: string }) =>
