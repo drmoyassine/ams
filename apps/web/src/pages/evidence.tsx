@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLLECTION_DUE_SOON_DAYS, type EvidenceItem } from '@ams/shared';
 import type { CycleApis } from '../components/cycles/directory';
@@ -32,7 +32,10 @@ const FILTERS = {
 type Filter = keyof typeof FILTERS;
 
 /** The evidence repository (PRD 9.1): stored once, versioned, linked many times; and every request for evidence. */
-export function EvidencePage({ api: override, framework: frameworkOverride, apis, openItem }: { api?: EvidenceApi; framework?: FrameworkApi; apis?: CycleApis; /** An item to show open (the link of My work). */ openItem?: string }) {
+export function EvidencePage({ api: override, framework: frameworkOverride, apis, openItem, doc, onDoc }: { api?: EvidenceApi; framework?: FrameworkApi; apis?: CycleApis; /** An item to show open (the link of My work). */ openItem?: string;
+  /** The document the library is filtered to (TASK-111): the evidence of the items its imports created. Owned by the page when opened by a plain link. */
+  doc?: string | null; onDoc?: (v: string | null) => void;
+}) {
   const api = useEvidenceApi(override);
   const framework = useApi(frameworkOverride);
   const me = useMe(framework);
@@ -48,22 +51,40 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
         ))}
       </div>
       {tab === 'library'
-        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
+        ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(doc !== undefined ? { doc } : {})} {...(onDoc ? { onDoc } : {})} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
         : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
 
-function Library({ api, framework, canWrite, canReview, apis, openItem }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis; openItem?: string }) {
+function Library({ api, framework, canWrite, canReview, apis, openItem, doc: docProp, onDoc }: { api: EvidenceApi; framework: FrameworkApi; canWrite: boolean; canReview: boolean; apis?: CycleApis; openItem?: string;
+  doc?: string | null; onDoc?: (v: string | null) => void;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<Set<string>>(() => new Set(openItem ? [openItem] : []));
+  const [ownDoc, setOwnDoc] = useState<string | null>(null);
+  const docFilter = docProp !== undefined ? docProp : ownDoc;
+  const setDoc = (v: string | null) => { setOwnDoc(v); onDoc?.(v); };
+  // "From document" (TASK-111): the items the imports of the framework's newest version created from a document, and the evidence linked to those items by code.
+  const qf = useQuery({ queryKey: ['quality-framework'], queryFn: () => framework.qualityFramework() });
+  const latest = qf.data?.versions[qf.data.versions.length - 1];
+  const imported = useQuery({ queryKey: ['imported-items', latest?.id], queryFn: () => framework.importedItems(latest!.id), enabled: !!latest });
+  const importedMap = imported.data ?? {};
+  const hasImports = Object.keys(importedMap).length > 0;
+  const docs = useQuery({ queryKey: ['documents', latest?.id], queryFn: () => framework.documents(latest!.id), enabled: !!latest && hasImports });
+  const forItems = useQuery({
+    queryKey: ['evidence-for-items', latest?.id, docFilter],
+    queryFn: () => api.forItems(latest!.id, importedMap[docFilter!] ?? []),
+    enabled: !!latest && !!docFilter,
+  });
+  const linkedIds = useMemo(() => new Set(forItems.data?.ids ?? []), [forItems.data]);
   // Archived items come along so the Archived filter needs no second request.
   const list = useQuery({ queryKey: ['evidence', q, 'with-archived'], queryFn: () => api.list(q || undefined, { includeArchived: true }) });
-  const shown = (list.data ?? []).filter(FILTERS[filter].keep);
+  const shown = (list.data ?? []).filter(FILTERS[filter].keep).filter((e) => !docFilter || linkedIds.has(e.id));
   const filterLabel = (k: Filter) => { const f: { label: string; labelKey?: string } = FILTERS[k]; return f.labelKey ? t(f.labelKey) : f.label; };
   const toggle = (id: string, open: boolean) => setOpened((s) => { const n = new Set(s); if (open) n.add(id); else n.delete(id); return n; });
 
@@ -77,6 +98,15 @@ function Library({ api, framework, canWrite, canReview, apis, openItem }: { api:
               className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs ${filter === k ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}>{filterLabel(k)}</button>
           ))}
         </div>
+        {(hasImports || !!docFilter) && (
+          <label className="flex items-center gap-1 text-sm text-muted-foreground">From document
+            <select aria-label="From document" data-testid="evidence-doc-filter" className="max-w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm"
+              value={docFilter ?? ''} onChange={(e) => setDoc(e.target.value || null)}>
+              <option value="">All documents</option>
+              {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}
+            </select>
+          </label>
+        )}
         {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}
       </div>
       <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>

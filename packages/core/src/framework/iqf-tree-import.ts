@@ -12,7 +12,7 @@ import { restoreTrash } from '../trash/trash.js';
 import { deleteMany } from '../trash/delete.js';
 import { saveContentTranslation } from '../translation/content.js';
 import { registerImportTarget, type ApplyItem, type ApplyOutcome, type ImportTarget, type OutlineEntry } from '../documents/targets.js';
-import { getDraftVersion, isInternalVersion } from './common.js';
+import { getDraftVersion, isInternalVersion, require_ } from './common.js';
 import { createRequirement, listRequirements } from './requirements.js';
 import { normalizeQuoteText } from './quote-match.js';
 
@@ -213,5 +213,25 @@ export const iqfTreeTarget: ImportTarget<IqfNode> = {
     return { created: inv.created, state: 'applied' } satisfies Inverse;
   },
 };
+
+/**
+ * Which items the imports of this version created, by the document their run read (TASK-111): the applied proposals of the
+ * version's `iqf_tree` runs. A run reads its documents together and draws one framework from all of them, so its items
+ * belong to each of them. Items removed since (Undo, delete) keep their entry here; the reader filters by what exists.
+ */
+export async function importedItemsByDocument(ctx: Ctx, versionId: string): Promise<Record<string, string[]>> {
+  await require_(ctx, 'framework:read');
+  const rows = await ctx.tx.execute(sql`
+    select d.doc as document_id, p.applied_ref ->> 'requirementId' as requirement_id
+    from import_run r
+    join lateral unnest(r.document_ids) as d(doc) on true
+    join import_proposal p on p.run_id = r.id
+    where r.scope_kind = 'framework_version' and r.scope_id = ${versionId}::uuid
+      and r.target_kind = ${IQF_TREE_TARGET_KIND} and p.applied_ref ->> 'requirementId' is not null`);
+  const out: Record<string, string[]> = {};
+  for (const row of rows.rows as { document_id: string; requirement_id: string }[]) (out[row.document_id] ??= []).push(row.requirement_id);
+  for (const k of Object.keys(out)) out[k] = [...new Set(out[k])];
+  return out;
+}
 
 registerImportTarget(iqfTreeTarget);

@@ -1,6 +1,6 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
+  addFileVersion, addUrlVersion, createEvidence, evidenceItemsForInternal, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
   dismissNotification, linkToRequirement, listEvidence, listMyNotifications, markNotificationRead, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, resubmitLink, reviewLink, suggestionsFor, updateEvidence, ValidationError,
 } from '@ams/core';
 import {
@@ -23,6 +23,16 @@ export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options
     }), async (c) => {
       const { q, includeArchived } = c.req.valid('query');
       return c.json(toDto(z.array(EvidenceItemSchema), await listEvidence(c.get('ctx'), { ...(q ? { q } : {}), includeArchived: includeArchived === 'true' })), 200);
+    })
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/evidence/for-items', access: requires('evidence:read'), tags: tag,
+      description: 'The evidence items linked to these items of the internal framework, by code on the framework.',
+      request: { body: { required: true, ...json(z.object({ versionId: z.string().uuid(), requirementIds: z.array(z.string().uuid()).max(2000) })) } },
+      responses: { 200: { description: 'Distinct evidence item ids', ...json(z.object({ ids: z.array(z.string().uuid()) })) }, ...errors },
+    }), async (c) => {
+      const { versionId, requirementIds } = c.req.valid('json');
+      return c.json({ ids: await evidenceItemsForInternal(c.get('ctx'), versionId, requirementIds) }, 200);
     })
 
     .openapi(secured(registry, deps, {

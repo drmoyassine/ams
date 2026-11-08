@@ -520,6 +520,26 @@ export async function linksForInternal(ctx: Ctx, internalRequirementId: string):
 }
 
 /**
+ * The evidence items linked to these items of the institution's own framework (TASK-111): by code on the framework,
+ * which is how links to internal items are kept (an engagement is never built on the IQF, so there is no second path).
+ * Rejected links do not count. Distinct evidence item ids, for the Evidence library's "from this document" filter.
+ */
+export async function evidenceItemsForInternal(ctx: Ctx, versionId: string, requirementIds: string[]): Promise<string[]> {
+  await assertPermitted(ctx, 'evidence:read', any);
+  if (!requirementIds.length) return [];
+  const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, versionId));
+  if (!v) throw new NotFoundError('no such framework version');
+  const codes = [...new Set((await ctx.tx.select({ code: requirement.code }).from(requirement).where(inArray(requirement.id, requirementIds))).map((r) => r.code))];
+  if (!codes.length) return [];
+  const rows = await ctx.tx.select({ itemId: evidenceItem.id }).from(evidenceLink)
+    .innerJoin(evidenceVersion, eq(evidenceVersion.id, evidenceLink.evidenceVersionId))
+    .innerJoin(evidenceItem, eq(evidenceItem.id, evidenceVersion.evidenceItemId))
+    .where(and(eq(evidenceLink.internalFrameworkId, v.frameworkId), inArray(evidenceLink.internalCode, codes),
+      isNull(evidenceLink.engagementRequirementId), sql`${evidenceLink.reviewStatus} <> 'rejected'`));
+  return [...new Set(rows.map((r) => r.itemId))];
+}
+
+/**
  * What the institution's own framework already holds for an engagement requirement: evidence approved on the internal
  * items its standard maps to (approved mappings only), that is not yet linked to this requirement.
  */

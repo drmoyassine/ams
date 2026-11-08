@@ -12,7 +12,7 @@ import { newVersionFrom } from './versions.js';
 import { addSourceDocument, addSourcePage } from './sources.js';
 import { setUpQualityFramework } from './internal.js';
 import { listRequirements } from './requirements.js';
-import { IQF_TREE_TARGET_KIND } from './iqf-tree-import.js';
+import { IQF_TREE_TARGET_KIND, importedItemsByDocument } from './iqf-tree-import.js';
 
 let w: World;
 const sent: (JobEnvelope & { type: JobType })[] = [];
@@ -86,6 +86,15 @@ describe('draft the framework from documents', () => {
     expect(tree.filter((r) => r.levelLabel === 'Sub-standard').every((r) => r.parentId !== null)).toBe(true);
     const std = tree.find((r) => r.code === 'S1');
     expect(std).toMatchObject({ levelLabel: 'Standard', title: 'Institutional effectiveness' });
+
+    // What the import created, by the document its run read (TASK-111): one run read both documents together, so its
+    // items belong to each of them, and only to documents a run actually read.
+    const byDoc = await as('alo', (c) => importedItemsByDocument(c, versionId));
+    const made = new Set(tree.map((r) => r.id));
+    expect(byDoc[a.id]).toHaveLength(4);
+    expect([...byDoc[a.id]!].sort()).toEqual([...byDoc[b.id]!].sort());
+    expect(byDoc[a.id]!.every((id) => made.has(id))).toBe(true);
+    expect(Object.keys(byDoc)).toEqual(expect.arrayContaining([a.id, b.id]));
 
     const before = tree.length;
         await as('alo', (c) => undoImportApply(c, done.applyId!));

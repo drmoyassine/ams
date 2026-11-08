@@ -82,6 +82,10 @@ export function ImportPanel({ api, scope, targets, docs, canImport, onReview, on
               <span className="text-xs text-muted-foreground">{spendText(r.usage)}</span>
               {r.status === 'failed' && r.error && <span className="min-w-0 text-xs text-red-700">{r.error}</span>}
               {!active(r) && r.counts.total > 0 && <button type="button" className="text-xs underline" aria-label={`Review the proposals of the ${r.targetLabel} import`} onClick={() => onReview(r.id)}>Review</button>}
+              {!active(r) && r.targetKind === 'iqf_tree' && r.counts.applied > 0 && !!r.documentIds[0] && (
+                <Link to="/settings/quality-framework" search={{ doc: r.documentIds[0] }} className="text-xs underline"
+                  aria-label="See the items this import created on the framework">See the items on the framework</Link>
+              )}
               {!active(r) && <button type="button" className="text-xs underline" aria-label={`Report of the ${r.targetLabel} import`} onClick={() => onReport(r.id)}>Report</button>}
             </li>
           ))}
