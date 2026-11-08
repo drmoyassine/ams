@@ -76,7 +76,9 @@ export function CourseReport({ api, items }: { api: EvidenceApi; items: Evidence
         {parts.map((p) => {
           const valueCol = p.columns.find((c) => c.type !== 'text' && c.key !== 'target');
           const target = p.columns.find((c) => c.key === 'target');
-          const others = p.columns.filter((c) => !['course', 'term', 'outcome'].includes(c.key) && c.key !== valueCol?.key && c.key !== target?.key && c.type !== 'text');
+          const others = p.columns.filter((c) => !['course', 'term', 'outcome'].includes(c.key) && c.key !== valueCol?.key && c.key !== target?.key);
+          const words = others.filter((c) => c.type === 'text');
+          const figures = others.filter((c) => c.type !== 'text');
           return (
             <section key={p.item.id} aria-label={p.item.title} className="space-y-1">
               <h3 className="flex items-center gap-2 text-sm font-semibold">{p.item.kpi && <KpiTile card={p.item.kpi} />}<ContentText>{p.item.title}</ContentText></h3>
@@ -84,9 +86,10 @@ export function CourseReport({ api, items }: { api: EvidenceApi; items: Evidence
                 <table className="w-full min-w-[28rem] text-sm">
                   <thead><tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="py-1 pe-2 font-medium">Outcome</th>
+                    {words.map((c) => <th key={c.key} className="py-1 pe-2 font-medium">{c.label}</th>)}
                     {valueCol && <th className="py-1 pe-2 font-medium">{valueCol.label}</th>}
                     {target && <th className="py-1 pe-2 font-medium">{target.label}</th>}
-                    {others.map((c) => <th key={c.key} className="py-1 pe-2 font-medium">{c.label}</th>)}
+                    {figures.map((c) => <th key={c.key} className="py-1 pe-2 font-medium">{c.label}</th>)}
                     {valueCol && target && <th className="py-1 font-medium">Against target</th>}
                   </tr></thead>
                   <tbody>
@@ -97,9 +100,10 @@ export function CourseReport({ api, items }: { api: EvidenceApi; items: Evidence
                       return (
                         <tr key={text(r.outcome)} className="border-b border-border/60 last:border-0">
                           <td className="py-1 pe-2 font-medium"><ContentText>{text(r.outcome)}</ContentText></td>
+                          {words.map((c) => <td key={c.key} className="py-1 pe-2 align-top"><ContentText>{text(r[c.key])}</ContentText></td>)}
                           {valueCol && <td className="py-1 pe-2">{v !== null ? `${v}${valueCol.unit === '%' ? '%' : ''}` : '—'}</td>}
                           {target && <td className="py-1 pe-2">{t !== null ? `${t}${target.unit === '%' ? '%' : ''}` : '—'}</td>}
-                          {others.map((c) => <td key={c.key} className="py-1 pe-2">{r[c.key] == null ? '—' : `${text(r[c.key])}${c.unit === '%' ? '%' : ''}`}</td>)}
+                          {figures.map((c) => <td key={c.key} className="py-1 pe-2">{r[c.key] == null ? '—' : `${text(r[c.key])}${c.unit === '%' ? '%' : ''}`}</td>)}
                           {valueCol && target && (
                             <td className="py-1">{ok === null ? <span className="text-muted-foreground">—</span>
                               : ok ? <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-900">At or above target</span>
