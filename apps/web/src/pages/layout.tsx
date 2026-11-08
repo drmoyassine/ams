@@ -68,6 +68,8 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
     { to: '/quality-management', label: t('nav.quality') },
     { to: '/engagements', label: t('nav.engagements') },
     { to: '/evidence', label: t('nav.evidence') },
+    // Reports draw on the values of evidence (KPIs), so they sit under it.
+    { to: '/reports', label: t('nav.reports'), sub: true },
   ] as const;
   const inst = institution.data;
   const logoUrl = inst?.logoVersion ? api.institutionLogoUrl(inst.logoVersion) : null;
@@ -111,7 +113,7 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
     <>
       <nav className="flex flex-col gap-1" aria-label={t('nav.main')}>
         {nav.map((n) => (
-          <Link key={n.to} to={n.to} className={navLink}>
+          <Link key={n.to} to={n.to} className={'sub' in n && n.sub ? `${navLink} ms-4 py-1.5 text-muted-foreground [&.active]:text-foreground` : navLink}>
             {n.label}
           </Link>
         ))}

@@ -2263,12 +2263,12 @@ context: >-
 decision: >-
   An evidence item is a KPI or a document. A KPI is the dataset type plus a documentation card (symbol # % $, scope
   institution, unit, program or course, formula, direction, targets, thresholds, custodian, data source); the unit comes
-  from the formula. Names follow symbol plus capital letter. A KPI's values are its versions. For a course-scope KPI one
-  set of values is kept per course offering (course, term, section). Reports (Course Report, Program Assessment Report)
-  are not evidence: they are generated from KPI values. The AMS owns the card, targets, links to standards and reports;
-  when the BI is connected it owns the formula and the values and the AMS asks for them with the existing bi method. The
-  generic schema builder lives in the BI; the AMS keeps its basic column list for manual entry so it works alone
-  (DEC-008).
+  from the formula. The symbol is shown as the KPI's tile and is not repeated in its name. A KPI's values are its
+  versions. For a course-scope KPI one set of values is kept per course offering (course, term, section). Reports
+  (Course Report, Program Assessment Report) are not evidence: they are generated from KPI values. The AMS owns the
+  card, targets, links to standards and reports; when the BI is connected it owns the formula and the values and the AMS
+  asks for them with the existing bi method. The generic schema builder lives in the BI; the AMS keeps its basic column
+  list for manual entry so it works alone (DEC-008).
 rationale: >-
   One product owns each fact: meaning and accreditation links in the AMS, computation and student-level data in the BI.
   Nothing is duplicated, and the AMS stays usable without the BI.

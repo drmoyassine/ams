@@ -109,7 +109,7 @@ describe('engagements list and wizard', () => {
 
   it('lists the engagement with its accreditor, phase and lead', async () => {
     render(wrap(<EngagementsPage api={apiFor('contrib')} />));
-    const list = await screen.findByRole('list', { name: 'Accreditations' });
+    const list = await screen.findByRole('list', { name: 'Accreditation' });
     expect(list.textContent).toMatch(/ABET/);
     expect(list.textContent).toMatch(/Eligibility/);
     expect(list.textContent).toMatch(/lead coord/);

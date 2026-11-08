@@ -17,6 +17,7 @@ import { frameworkApi } from './lib/framework-api';
 import { scopeApi } from './lib/scope-api';
 import { settingsApi } from './lib/settings-api';
 import { EvidencePage } from './pages/evidence';
+import { ReportsPage } from './pages/reports';
 
 configure({ asyncUtilTimeout: 15000 });
 let db: TestDb;
@@ -106,8 +107,9 @@ describe('the KPI card', () => {
     await fetcherOf('admin')(`/api/evidence/${k.id}/data`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows: [
       { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO1', pass_rate: 76.5, target: 70 }, { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO2', pass_rate: 52.9, target: 70 },
       { course: 'ECE 420', term: 'Fall 2025', outcome: 'SO1', pass_rate: 100, target: 70 }] }) });
-    render(library('admin'));
-    await user.click(await screen.findByRole('tab', { name: 'Reports' }));
+    const a = apis('admin');
+    const router = createRouter({ routeTree: createRootRoute({ component: () => <ReportsPage api={a.evidence} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
     const report = await screen.findByTestId('course-report');
     expect(await within(report).findByRole('heading', { name: /ECE 420 · Spring 2026/ })).toBeTruthy();
     const table = await within(report).findByRole('table');

@@ -230,8 +230,9 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'ops.cycle.created': 'Cycle created',
   'ops.cycle.createdDraft': 'was created as a draft.',
   'ops.cycle.unresolved': '{{count}} item(s) still need a person chosen before the cycle starts.',
-  'nav.engagements': 'Accreditations',
+  'nav.engagements': 'Accreditation',
   'nav.evidence': 'Evidence',
+  'nav.reports': 'Reports',
   'nav.myRequests': 'My requests ({{count}})',
 
   'settings.organization': 'Organization',
