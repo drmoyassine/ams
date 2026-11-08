@@ -4,7 +4,7 @@
 // them at once or delete them.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
-import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ import { frameworkApi } from './lib/framework-api';
 import { scopeApi } from './lib/scope-api';
 import { settingsApi } from './lib/settings-api';
 import { EvidencePage } from './pages/evidence';
-import { ReportsPage } from './pages/reports';
+import { ReportsPage, ReportViewPage } from './pages/reports';
 
 configure({ asyncUtilTimeout: 15000 });
 let db: TestDb;
@@ -108,7 +108,7 @@ describe('the KPI card', () => {
       { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO1', pass_rate: 76.5, target: 70 }, { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO2', pass_rate: 52.9, target: 70 },
       { course: 'ECE 420', term: 'Fall 2025', outcome: 'SO1', pass_rate: 100, target: 70 }] }) });
     const a = apis('admin');
-    const router = createRouter({ routeTree: createRootRoute({ component: () => <ReportsPage api={a.evidence} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    const router = createRouter({ routeTree: createRootRoute({ component: () => <ReportViewPage id="course" api={a.evidence} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
     const report = await screen.findByTestId('course-report');
     expect(await within(report).findByRole('heading', { name: /ECE 420 · Spring 2026/ })).toBeTruthy();
@@ -119,6 +119,22 @@ describe('the KPI card', () => {
     expect(report.textContent).not.toMatch(/not met|\bmet\b|compliant/i);
     await user.selectOptions(within(report).getByLabelText('Term'), 'Fall 2025');
     expect(within(await within(report).findByRole('table')).getAllByRole('row').length).toBe(2);
+  });
+
+  it('lists the Course Report as a card on the Reports page, and a click opens it as a page of its own with its filters inside', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    const root = createRootRoute();
+    const home = createRoute({ getParentRoute: () => root, path: '/', component: () => <ReportsPage /> });
+    const one = createRoute({ getParentRoute: () => root, path: '/reports/type/$id', component: () => <ReportViewPage id="course" api={a.evidence} /> });
+    const router = createRouter({ routeTree: root.addChildren([home, one]), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
+    const list = await screen.findByRole('list', { name: 'Reports' });
+    await user.click(within(within(list).getByRole('region', { name: 'Report: Course Report' })).getByRole('button', { expanded: false }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Course Report' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: '← Reports' })).toBeTruthy();
+    expect(await screen.findByTestId('course-report')).toBeTruthy();
+    expect(screen.getByLabelText('Course')).toBeTruthy();
   });
 
   it('turns a KPI back into a document: the card is dropped', async () => {
