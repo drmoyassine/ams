@@ -21,12 +21,13 @@ export function KpiTile({ card }: { card: KpiCard }) {
 /** The right-hand chips of a closed KPI card: scope, the trend that is good, and the next target. */
 export function KpiChips({ card }: { card: KpiCard }) {
   const chip = 'rounded px-1.5 py-0.5';
-  const target = card.target2027 ?? card.target2030;
+  const stated = (v: string | undefined) => (v && !/^(not set|not recorded|tbd)/i.test(v) ? v : undefined);
+  const target = stated(card.target2027) ?? stated(card.target2030);
   return (
     <>
       <span className={`${chip} bg-muted`} data-testid="kpi-scope">{SCOPE_LABEL[card.scope]}</span>
-      {card.direction && <span className={`${chip} bg-muted`}>{card.direction === 'higher' ? '↑ higher is better' : '↓ lower is better'}</span>}
-      {target && <span className={`${chip} max-w-[14rem] truncate bg-muted`} title={target} data-testid="kpi-target">Target {card.target2027 ? '2027' : '2030'}: {target}</span>}
+      {card.direction && <span className={`${chip} bg-muted`}>{card.direction === 'higher' ? '↑ higher' : '↓ lower'}</span>}
+      {target && <span className={`${chip} max-w-[12rem] truncate bg-muted`} title={target} data-testid="kpi-target">Target {stated(card.target2027) ? '2027' : '2030'}: {target}</span>}
     </>
   );
 }

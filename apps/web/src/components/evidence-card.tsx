@@ -56,7 +56,7 @@ function CardMeta({ item }: { item: EvidenceItem }) {
   const v = item.latest;
   const data = item.type === 'dataset';
   return (
-    <span className="hidden shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground md:flex" data-testid="evidence-meta">
+    <span className="hidden min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground md:flex" data-testid="evidence-meta">
       {item.kpi && <KpiChips card={item.kpi} />}
       <CollectionChips item={item} />
       {item.linkCount > 0 && <span>Linked to {item.linkCount}</span>}
