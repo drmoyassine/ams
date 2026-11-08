@@ -874,3 +874,8 @@ Then the owner redefined evidence from the KPI Institute's framework: **evidence
 - **Learning.** Before building a thing the BI might own, read its decisions and context spec: its KPI registry, entity builder and "manual entry belongs to the BI" proposal changed the design.
 - **Learning.** The main route chain is at the compiler's limit: any growth in a schema used by it breaks the build (TS7056). Declare shared shapes as named interfaces and move routes to the side-mounted modules.
 - **Learning.** Do not seed what you have not shown the owner: show the list, then write.
+
+## 2026-11-08 (night) — Demo rehearsal and fixes
+
+Rehearsed the whole path on the deployed server with a scripted browser (no page errors). Fixes: a KPI's older linked value no longer says "Newer version available" (its versions are its values over time); the administrator's sign-in email and name now follow `ADMIN_EMAIL` / `ADMIN_NAME` after the first start (the password never does); the primary domain is `qms.drmoyassine.com` and the old Easypanel host refuses sign-in by design. The 15 old documents were moved to the Trash by the owner.
+- **Learning.** `ADMIN_*` seed the first start only; changing them later changed nothing, which looked like a broken login after the domain change.
