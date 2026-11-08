@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
 import { createApp } from './app.js';
 import { createAuth, sessionAuthenticator } from './auth.js';
-import { seedAdmin } from './seed.js';
+import { seedAdmin, syncAdmin } from './seed.js';
 
 const cfg = {
   AUTH_SECRET: 'test-secret-'.repeat(4), APP_URL: 'http://localhost:3000',
@@ -88,6 +88,18 @@ describe('authentication', () => {
     expect(res.status).toBe(200);
     const programs = await app.request('/api/programs', { headers: { cookie: cookieOf(res) } });
     expect(programs.status).toBe(200);
+  });
+
+  it('after the first start, the administrator follows ADMIN_EMAIL and ADMIN_NAME (not the password), unless the email is taken', async () => {
+    expect(await syncAdmin(pool, { ADMIN_EMAIL: seedEnv.ADMIN_EMAIL })).toEqual([]);
+    expect(await syncAdmin(pool, { ADMIN_EMAIL: 'owner@test.edu', ADMIN_NAME: 'Dr. Owner' })).toEqual(['email', 'name']);
+    expect((await signIn('owner@test.edu', seedEnv.ADMIN_PASSWORD)).status).toBe(200);
+    const { rows: [u] } = await db.su.query(`select email, full_name from app_user order by created_at limit 1`);
+    expect(u).toEqual({ email: 'owner@test.edu', full_name: 'Dr. Owner' });
+    await db.su.query(`insert into "user" (id, name, email, "emailVerified") values ('other', 'Other', 'taken@test.edu', true)`);
+    expect(await syncAdmin(pool, { ADMIN_EMAIL: 'taken@test.edu' })).toEqual([]);
+    // back to the seed email for the tests that follow
+    expect(await syncAdmin(pool, { ADMIN_EMAIL: seedEnv.ADMIN_EMAIL })).toEqual(['email']);
   });
 
   it('rejects a wrong password', async () => {

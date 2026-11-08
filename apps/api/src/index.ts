@@ -7,6 +7,6 @@ export type OutcomeRoutes = ReturnType<typeof import('./routes/outcomes.js').out
 /** Deleting evidence and bulk edits: a fourth typed client. */
 export type EvidenceOpsRoutes = ReturnType<typeof import('./routes/evidence-ops.js').evidenceOpsRoutes>;
 export type AssessmentRoutes = ReturnType<typeof import('./routes/assessment.js').assessmentRoutes>;
-export { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
+export { seedAdmin, seedFrameworks, seedGlossary, syncAdmin } from './seed.js';
 /** In-memory evidence storage, for tests and local runs without object storage. */
 export { MemoryStore } from '@ams/core';

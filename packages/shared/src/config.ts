@@ -31,6 +31,8 @@ export const envSchema = z.object({
   INSTITUTION_NAME: z.string().min(1).optional(),
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),
+  // After the first start, the first administrator's sign-in email follows ADMIN_EMAIL, and their name ADMIN_NAME when set (the password does not).
+  ADMIN_NAME: z.string().trim().min(1).optional(),
   // Optional: publish the three Appendix A frameworks on first start so the library is not empty.
   SEED_DEMO_FRAMEWORKS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   // Generic OIDC single sign-on (all three required to enable it).

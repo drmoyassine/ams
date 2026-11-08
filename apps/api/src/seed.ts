@@ -49,6 +49,48 @@ export async function seedAdmin(
 }
 
 /**
+ * After the first start: the first institution administrator's sign-in email follows ADMIN_EMAIL, and their displayed name follows
+ * ADMIN_NAME when it is set. The password never follows the environment (a person changes it). Nothing changes when ADMIN_EMAIL is
+ * already used by another account. Returns what changed.
+ */
+export async function syncAdmin(pool: pg.Pool, env: Pick<Env, 'ADMIN_EMAIL' | 'ADMIN_NAME'>): Promise<string[]> {
+  const { rows: [admin] } = await pool.query<{ id: string; auth_id: string; email: string; full_name: string }>(
+    `select u.id, u.auth_user_id as auth_id, au.email, u.full_name from app_user u
+       join role_assignment r on r.user_id = u.id and r.role = 'admin' and r.scope_type = 'institution'
+       join "user" au on au.id = u.auth_user_id
+      order by u.created_at limit 1`);
+  if (!admin) return [];
+  const changed: string[] = [];
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const email = env.ADMIN_EMAIL?.trim();
+    if (email && email.toLowerCase() !== admin.email.toLowerCase()) {
+      const { rowCount } = await client.query(`select 1 from "user" where lower(email) = lower($1) union all select 1 from app_user where lower(email) = lower($1) and id <> $2`, [email, admin.id]);
+      if (!rowCount) {
+        await client.query(`update "user" set email = $1, "updatedAt" = now() where id = $2`, [email, admin.auth_id]);
+        // A name that was only the old email follows the new one.
+        await client.query(`update app_user set email = $1, full_name = case when full_name = $2 then $1 else full_name end where id = $3`, [email, admin.email, admin.id]);
+        changed.push('email');
+      }
+    }
+    const name = env.ADMIN_NAME;
+    if (name) {
+      const { rowCount } = await client.query(`update app_user set full_name = $1 where id = $2 and full_name <> $1`, [name, admin.id]);
+      await client.query(`update "user" set name = $1, "updatedAt" = now() where id = $2 and name <> $1`, [name, admin.auth_id]);
+      if (rowCount) changed.push('name');
+    }
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return changed;
+}
+
+/**
  * Optional demo data: imports and publishes each framework file in the fixtures folder that is not already in the
  * library (matched by accreditor short name and edition), as the institution's administrator. It goes through the
  * same importer and publish gate as a person would, so nothing is written that the UI could not write. Safe to run

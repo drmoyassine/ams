@@ -10,7 +10,7 @@ import { runMigrations } from '@ams/db';
 import { loadEnv } from '@ams/shared';
 import { createApp } from './app.js';
 import { createAuth, seedOAuthClients, sessionAuthenticator } from './auth.js';
-import { seedAdmin, seedFrameworks, seedGlossary } from './seed.js';
+import { seedAdmin, seedFrameworks, seedGlossary, syncAdmin } from './seed.js';
 
 const env = loadEnv();
 
@@ -37,6 +37,10 @@ const auth = createAuth(pool, env);
   if (env.BI_OAUTH_AUDIENCE) console.log(JSON.stringify({ level: 'info', msg: 'bi sign-in enabled', audience: env.BI_OAUTH_AUDIENCE, clients }));
 }
 if (await seedAdmin(pool, auth, env)) console.log(JSON.stringify({ level: 'info', msg: 'seeded institution and admin' }));
+else {
+  const changed = await syncAdmin(pool, env);
+  if (changed.length) console.log(JSON.stringify({ level: 'info', msg: 'administrator follows ADMIN_EMAIL / ADMIN_NAME', changed }));
+}
 if (env.SEED_DEMO_FRAMEWORKS) {
   const added = await seedFrameworks(pool);
   if (added.length) console.log(JSON.stringify({ level: 'info', msg: 'seeded frameworks', added }));
