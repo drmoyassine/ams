@@ -52,7 +52,7 @@ describe('dataset evidence', () => {
     await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Title'), 'Fall-to-fall retention');
-    await user.click(within(dialog).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'KPI' }));
     await user.type(within(dialog).getByLabelText('Definition'), 'Students still enrolled the next fall');
     expect(within(dialog).getByText('File (optional)')).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Create evidence' }));
