@@ -270,3 +270,22 @@ describe('evidence linked directly to a requirement of an external standard', ()
     expect((await w.as('contrib', (c) => linksForInternal(c, ids.abetReq!))).map((l) => l.id)).toContain(ids.extLink);
   });
 });
+
+describe('a KPI that gets a new value', () => {
+  it('does not make its links look out of date (its versions are its values over time)', async () => {
+    const kpi = await w.as('contrib', (c) => createEvidence(c, { title: 'Retention rate', type: 'dataset', kpi: { symbol: '%', scope: 'institution' } }));
+    await w.as('contrib', (c) => saveDatasetSpec(c, kpi.id, { columns: [{ key: 'period', label: 'Period', type: 'text', required: true }] }));
+    const v1 = await w.as('contrib', (c) => saveDatasetRows(c, kpi.id, { rows: [{ period: '2026' }] }));
+    const link = await w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: v1.id, rationale: 'The rate shows student success' }));
+    await w.as('contrib', (c) => saveDatasetRows(c, kpi.id, { rows: [{ period: '2026' }, { period: '2027' }] }));
+    const [after] = (await w.as('contrib', (c) => getEvidence(c, kpi.id))).links.filter((l) => l.id === link.id);
+    expect(after).toMatchObject({ versionNo: 1, latestVersionNo: 2, newerVersionAvailable: false });
+    // A plain dataset (no card) still says so.
+    const plain = await w.as('contrib', (c) => createEvidence(c, { title: 'Plain table', type: 'dataset' }));
+    await w.as('contrib', (c) => saveDatasetSpec(c, plain.id, { columns: [{ key: 'period', label: 'Period', type: 'text', required: true }] }));
+    const p1 = await w.as('contrib', (c) => saveDatasetRows(c, plain.id, { rows: [{ period: '2026' }] }));
+    const pl = await w.as('contrib', (c) => linkToRequirement(c, ids.abetReq!, { evidenceVersionId: p1.id, rationale: 'A plain table' }));
+    await w.as('contrib', (c) => saveDatasetRows(c, plain.id, { rows: [{ period: '2026' }, { period: '2027' }] }));
+    expect((await w.as('contrib', (c) => getEvidence(c, plain.id))).links.find((l) => l.id === pl.id)).toMatchObject({ newerVersionAvailable: true });
+  });
+});

@@ -385,7 +385,8 @@ export async function describeLinks(ctx: Ctx, rows: LinkRow[]): Promise<Evidence
     const year = periodYear(i.periodLabel);
     return {
       id: r.id, evidenceItemId: i.id, evidenceTitle: i.title, evidenceVersionId: v.id, versionNo: v.versionNo, latestVersionNo: latestNo,
-      newerVersionAvailable: latestNo > v.versionNo, periodLabel: i.periodLabel,
+      // A KPI's versions are its values over time: a newer one is normal, not a sign that the link is out of date.
+      newerVersionAvailable: i.kpi == null && latestNo > v.versionNo, periodLabel: i.periodLabel,
       stale: !!er && year !== null && year < er.e.reviewYear - STALE_AFTER_YEARS,
       target: er
         ? { kind: 'engagement' as const, code: er.req.code, title: er.req.title, engagementRequirementId: er.er.id, engagementId: er.e.id, engagementTitle: er.e.title }
