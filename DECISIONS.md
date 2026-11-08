@@ -2246,4 +2246,52 @@ related_tasks:
     url: /TASKS.md#TASK-113
 ---
 
+---
+
+## DEC-037 — Evidence is a KPI or a document; reports draw on KPIs; the KPI card lives in the AMS and the numbers in the BI when connected
+
+---
+title: >-
+  Evidence is a KPI or a document; reports draw on KPIs; the KPI card lives in the AMS and the numbers in the BI when
+  connected
+status: accepted
+context: >-
+  Evidence was modelled as items of type document or dataset, and the demo seeded reports and policies as evidence. The
+  owner's view (2026-11-08), from the KPI Institute's framework (KPI documentation form): evidence is an indicator, not
+  a report; a report is generated from several pieces of evidence. The BI (DEC-007 there) already owns KPI formulas and
+  values as governed Cube measures and has a builder for subjects, entities and events.
+decision: >-
+  An evidence item is a KPI or a document. A KPI is the dataset type plus a documentation card (symbol # % $, scope
+  institution, unit, program or course, formula, direction, targets, thresholds, custodian, data source); the unit comes
+  from the formula. Names follow symbol plus capital letter. A KPI's values are its versions. For a course-scope KPI one
+  set of values is kept per course offering (course, term, section). Reports (Course Report, Program Assessment Report)
+  are not evidence: they are generated from KPI values. The AMS owns the card, targets, links to standards and reports;
+  when the BI is connected it owns the formula and the values and the AMS asks for them with the existing bi method. The
+  generic schema builder lives in the BI; the AMS keeps its basic column list for manual entry so it works alone
+  (DEC-008).
+rationale: >-
+  One product owns each fact: meaning and accreditation links in the AMS, computation and student-level data in the BI.
+  Nothing is duplicated, and the AMS stays usable without the BI.
+consequences: >-
+  Migration 0077 adds evidence_item.kpi. Offerings as an entity, BI-supplied values per offering, computed program-scope
+  KPIs and generated reports beyond the Course Report come next. The BI is told with a for-bi issue what the AMS will
+  ask of it.
+tags:
+  - evidence
+  - kpi
+  - bi
+id: DEC-037
+last_updated: '2026-11-08'
+generated:
+  by: agent/claude-code
+  at: '2026-11-08T09:51:13.606Z'
+related_tasks:
+  - id: TASK-120
+    name: 'Evidence is a KPI or a document: the KPI card, KPI views and the Course Report'
+    url: /TASKS.md#TASK-120
+modified:
+  by: agent/claude-code
+  at: '2026-11-08T09:51:13.606Z'
+---
+
 <!-- End VEF generated items. -->

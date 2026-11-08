@@ -56,7 +56,7 @@ describe('the add and edit dialog', () => {
     const form = await screen.findByRole('dialog', { name: 'New evidence' });
     expect(within(form).getByRole('group', { name: 'Ownership and handling' })).toBeTruthy();
     await user.type(within(form).getByLabelText('Title'), 'First-year retention rate');
-    await user.click(within(form).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(form).getByRole('radio', { name: 'KPI' }));
     await user.selectOptions(within(form).getByLabelText('Owning unit'), 'Institutional Effectiveness');
     await user.type(within(form).getByLabelText('Period covered'), '2026-27');
     await user.selectOptions(within(form).getByLabelText('Confidentiality'), 'restricted');
@@ -66,6 +66,65 @@ describe('the add and edit dialog', () => {
     await waitFor(async () => expect((await apis('admin').evidence.list('First-year')).length).toBe(1));
     const item = (await apis('admin').evidence.list('First-year'))[0]!;
     expect(item).toMatchObject({ type: 'dataset', ownerUnitId: ids.unit, periodLabel: '2026-27', confidentiality: 'restricted', tags: ['kpi', 'RISE'], containsStudentData: true });
+  });
+});
+
+describe('the KPI card', () => {
+  it('fills in the card in the dialog, shows its symbol, scope and target on the closed card, and the whole card when opened', async () => {
+    const user = userEvent.setup();
+    render(library('admin'));
+    await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
+    const form = await screen.findByRole('dialog', { name: 'New evidence' });
+    await user.type(within(form).getByLabelText('Title'), '%Achievement of course learning outcomes');
+    await user.click(within(form).getByRole('radio', { name: 'KPI' }));
+    await user.selectOptions(within(form).getByLabelText('KPI type'), '%');
+    await user.selectOptions(within(form).getByLabelText('KPI scope'), 'course');
+    await user.selectOptions(within(form).getByLabelText('Trend'), 'higher');
+    await user.type(within(form).getByLabelText('Formula'), 'Students at or above the threshold ÷ students assessed');
+    await user.type(within(form).getByLabelText('Target 2027'), '70%');
+    await user.click(within(form).getByRole('button', { name: 'Create evidence' }));
+    await waitFor(async () => expect((await apis('admin').evidence.list('Achievement')).length).toBe(1));
+    const item = (await apis('admin').evidence.list('Achievement'))[0]!;
+    expect(item.kpi).toMatchObject({ symbol: '%', scope: 'course', direction: 'higher', target2027: '70%' });
+    const card = await screen.findByRole('region', { name: 'Evidence: %Achievement of course learning outcomes' });
+    expect(within(card).getByRole('img', { name: 'Percent KPI' }).textContent).toBe('%');
+    expect(within(card).getByTestId('kpi-scope').textContent).toBe('Course');
+    expect(within(card).getByTestId('kpi-target').textContent).toContain('70%');
+    await user.click(within(card).getAllByRole('button', { expanded: false })[0]!);
+    const view = await screen.findByTestId('kpi-card');
+    expect(within(view).getByText('Students at or above the threshold ÷ students assessed')).toBeTruthy();
+    expect(within(view).getByText(/one value set per course offering/)).toBeTruthy();
+  });
+
+  it('makes a Course Report for a course and term from the values of a course-scope KPI, and says "below target", never "not met"', async () => {
+    const user = userEvent.setup();
+    const ev = apis('admin').evidence;
+    const k = await ev.create({ title: '%Students at or above target per outcome', type: 'dataset', kpi: { symbol: '%', scope: 'course', formula: 'Students at or above ÷ assessed' } });
+    await fetcherOf('admin')(`/api/evidence/${k.id}/data-definition`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ columns: [
+      { key: 'course', label: 'Course', type: 'text', required: true }, { key: 'term', label: 'Term', type: 'text', required: true }, { key: 'outcome', label: 'Outcome', type: 'text', required: true },
+      { key: 'pass_rate', label: 'Students at target', type: 'number', unit: '%' }, { key: 'target', label: 'Target', type: 'number', unit: '%' }] }) });
+    await fetcherOf('admin')(`/api/evidence/${k.id}/data`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows: [
+      { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO1', pass_rate: 76.5, target: 70 }, { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO2', pass_rate: 52.9, target: 70 },
+      { course: 'ECE 420', term: 'Fall 2025', outcome: 'SO1', pass_rate: 100, target: 70 }] }) });
+    render(library('admin'));
+    await user.click(await screen.findByRole('tab', { name: 'Reports' }));
+    const report = await screen.findByTestId('course-report');
+    expect(await within(report).findByRole('heading', { name: /ECE 420 · Spring 2026/ })).toBeTruthy();
+    const table = await within(report).findByRole('table');
+    const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent);
+    expect(rows[0]).toContain('SO1'); expect(rows[0]).toContain('At or above target');
+    expect(rows[1]).toContain('SO2'); expect(rows[1]).toContain('Below target');
+    expect(report.textContent).not.toMatch(/not met|\bmet\b|compliant/i);
+    await user.selectOptions(within(report).getByLabelText('Term'), 'Fall 2025');
+    expect(within(await within(report).findByRole('table')).getAllByRole('row').length).toBe(2);
+  });
+
+  it('turns a KPI back into a document: the card is dropped', async () => {
+    const ev = apis('admin').evidence;
+    const k = await ev.create({ title: 'Throwaway indicator', type: 'dataset', kpi: { symbol: '#', scope: 'unit' } });
+    expect(k.kpi).toMatchObject({ symbol: '#', scope: 'unit' });
+    const d = await ev.update(k.id, { type: 'document', kpi: null });
+    expect(d.kpi).toBeNull();
   });
 });
 

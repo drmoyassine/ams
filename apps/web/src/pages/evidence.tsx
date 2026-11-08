@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLLECTION_DUE_SOON_DAYS, type EvidenceItem } from '@ams/shared';
 import type { CycleApis } from '../components/cycles/directory';
 import { EvidenceBulkBar } from '../components/evidence-bulk-bar';
+import { CourseReport } from '../components/course-report';
 import { EvidenceCard } from '../components/evidence-card';
 import { RequestList } from '../components/evidence-requests';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
@@ -14,14 +15,14 @@ import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { type FrameworkApi } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
 
-const TABS = [['library', 'Library'], ['requests', 'Requests']] as const;
+const TABS = [['library', 'Library'], ['reports', 'Reports'], ['requests', 'Requests']] as const;
 type Tab = (typeof TABS)[number][0];
 
 /** The library's filters; every one but Archived shows active items only. */
 const FILTERS = {
   all: { label: 'All', keep: (e: EvidenceItem) => e.status === 'active' },
   documents: { label: 'Documents', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'document' },
-  datasets: { label: 'Datasets', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'dataset' },
+  datasets: { label: 'KPIs', keep: (e: EvidenceItem) => e.status === 'active' && e.type === 'dataset' },
   unlinked: { label: 'Not linked', keep: (e: EvidenceItem) => e.status === 'active' && e.linkCount === 0 },
   review: { label: 'To review', keep: (e: EvidenceItem) => e.status === 'active' && e.proposedLinkCount > 0 },
   // Collection (TASK-090): what is coming up, late or failed on its schedule, so such items can be found.
@@ -53,7 +54,7 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
       </div>
       {tab === 'library'
         ? <Library api={api} framework={framework} canWrite={canWrite} canReview={can(me.data, 'evidence:review')} {...(doc !== undefined ? { doc } : {})} {...(onDoc ? { onDoc } : {})} {...(apis ? { apis } : {})} {...(openItem ? { openItem } : {})} />
-        : <AllRequests api={api} canWrite={canWrite} />}
+        : tab === 'reports' ? <Reports api={api} /> : <AllRequests api={api} canWrite={canWrite} />}
     </section>
   );
 }
@@ -136,6 +137,18 @@ function Library({ api, framework, canWrite, canReview, apis, openItem, doc: doc
         {list.data && shown.length === 0 && <p className="text-sm text-muted-foreground">{q || filter !== 'all' ? 'Nothing matches.' : 'No evidence yet.'}</p>}
         {list.isLoading && <p className="text-sm">Loading…</p>}
       </div>
+    </div>
+  );
+}
+
+/** Reports are not evidence: they draw on the values of KPIs. The Course Report is made for one course and term from the course-scope KPIs. */
+function Reports({ api }: { api: EvidenceApi }) {
+  const list = useQuery({ queryKey: ['evidence', '', 'with-archived'], queryFn: () => api.list(undefined, { includeArchived: true }) });
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">A report is not evidence: it draws on the values of KPIs for a scope and a period, and adds the instructor’s or the program’s own analysis.</p>
+      <h2 className="text-lg font-semibold">Course Report</h2>
+      {list.data ? <CourseReport api={api} items={list.data} /> : <p className="text-sm">Loading…</p>}
     </div>
   );
 }

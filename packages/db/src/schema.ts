@@ -1086,7 +1086,10 @@ export const evidenceItem = pgTable('evidence_item', {
   /** The next due date of the schedule and the last time a run fired; kept by the services, null until there is one. */
   nextDueAt: timestamp('next_due_at', { withTimezone: true }),
   lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  /** A KPI's documentation card (TASK-120): present for a dataset item that is a KPI; null for a document or a plain dataset. */
+  kpi: jsonb('kpi'),
 }, (t) => [
+  check('evidence_item_kpi_check', sql`${t.kpi} is null or (jsonb_typeof(${t.kpi}) = 'object' and ${t.type} = 'dataset')`),
   oneOf('evidence_item_type_check', t.type, EVIDENCE_TYPES),
   oneOf('evidence_item_confidentiality_check', t.confidentiality, CONFIDENTIALITY),
   oneOf('evidence_item_status_check', t.status, ['active', 'archived', 'deleted']),

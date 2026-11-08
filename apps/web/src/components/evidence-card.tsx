@@ -11,13 +11,14 @@ import { ContentText } from './content-text';
 import { DatasetPanel } from './dataset-panel';
 import type { CycleApis } from './cycles/directory';
 import { CollectionChips, CollectionSection } from './evidence-collection';
-import { draftOf, errorText, EVERY_LABEL, handlingOf, ItemFields, METHOD_LABEL, methodConfigOf, scheduleOf } from './evidence-item-form';
+import { draftOf, errorText, EVERY_LABEL, handlingOf, ItemFields, kpiOf, METHOD_LABEL, methodConfigOf, scheduleOf } from './evidence-item-form';
+import { KpiCardView, KpiChips, KpiTile } from './kpi-card';
 import { EvidenceLinkList } from './evidence-links';
 import { RequestEvidenceDialog, RequestFormDialog, RequestList } from './evidence-requests';
 import { Modal } from './link-evidence-dialog';
 import { Button } from './ui/button';
 
-const TYPE_LABEL = { document: 'Document', dataset: 'Dataset' } as const;
+const TYPE_LABEL = { document: 'Document', dataset: 'KPI' } as const;
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const size = (n: number | null) => (n === null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -40,6 +41,7 @@ export function kindOf(item: Pick<EvidenceItem, 'type' | 'latest'>): string {
 
 /** A small tile on the left of the card saying what the item is. */
 function KindTile({ item }: { item: EvidenceItem }) {
+  if (item.kpi) return <KpiTile card={item.kpi} />;
   const kind = kindOf(item);
   const label = kind === '—' ? 'No file yet' : kind === 'DATA' ? 'Dataset' : kind === 'LINK' ? 'Link' : `${kind} file`;
   return (
@@ -55,6 +57,7 @@ function CardMeta({ item }: { item: EvidenceItem }) {
   const data = item.type === 'dataset';
   return (
     <span className="hidden shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground md:flex" data-testid="evidence-meta">
+      {item.kpi && <KpiChips card={item.kpi} />}
       <CollectionChips item={item} />
       {item.linkCount > 0 && <span>Linked to {item.linkCount}</span>}
       {item.proposedLinkCount > 0 && <span className={`${chip} bg-amber-50 text-amber-900`}>{item.proposedLinkCount} to review</span>}
@@ -174,7 +177,7 @@ function EditDetailsDialog({ item, api, apis, onDone, onClose }: { item: Evidenc
       await api.update(item.id, {
         title: draft.title.trim(), definition: draft.definition.trim() || null, ownerUserId: draft.ownerUserId || null, ...handlingOf(draft),
         ...(draft.type !== item.type ? { type: draft.type } : {}),
-        method: draft.method, methodConfig: methodConfigOf(draft), schedule: scheduleOf(draft),
+        method: draft.method, methodConfig: methodConfigOf(draft), schedule: scheduleOf(draft), kpi: kpiOf(draft) ?? null,
       });
       onDone(); onClose();
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
@@ -272,6 +275,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
                 ? <p className="whitespace-pre-line text-sm"><ContentText>{d.item.definition}</ContentText></p>
                 : <p className="text-sm text-muted-foreground">No definition.</p>}
             </div>
+            {d.item.kpi && <KpiCardView card={d.item.kpi} owner={d.item.ownerName} />}
             <CollectionSection item={d.item} apis={{ evidence: api, ...apis }} canWrite={canWrite} />
             <section aria-label="Versions" className="space-y-2">
               <Shaded>Versions</Shaded>

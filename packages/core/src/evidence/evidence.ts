@@ -7,9 +7,9 @@ import {
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
-  BulkEvidenceSchema, checkMethod, CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, ScheduleSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
+  BulkEvidenceSchema, checkMethod, CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, KpiCardSchema, ReviewLinkSchema, ScheduleSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
   type BulkEvidence, type CreateEvidence, type DeleteResult, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
-  type EvidenceMethod, type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type Schedule, type UpdateEvidence,
+  type EvidenceMethod, type KpiCard, type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type Schedule, type UpdateEvidence,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
@@ -50,9 +50,16 @@ const scheduleOf = (r: ItemRow): Schedule | null => {
   return p.success ? p.data : null;
 };
 
+/** The stored KPI card read back (an unreadable one is shown as none rather than failing a list). */
+const kpiOf = (r: ItemRow): KpiCard | null => {
+  if (r.kpi == null) return null;
+  const p = KpiCardSchema.safeParse(r.kpi);
+  return p.success ? p.data : null;
+};
+
 const itemDto = (r: ItemRow, latest: VersionRow | null, stats: ItemStats, ownerName: string | null, scheduleGap: EvidenceItem['scheduleGap']): EvidenceItem => ({
   id: r.id, title: r.title, definition: r.definition, type: r.type, subtype: r.subtype, ownerUnitId: r.ownerUnitId, ownerUserId: r.ownerUserId, ownerName,
-  periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags,
+  periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags, kpi: kpiOf(r),
   method: r.method, methodConfig: (r.methodConfig ?? {}) as Record<string, unknown>, schedule: scheduleOf(r),
   nextDueAt: r.nextDueAt?.toISOString() ?? null, lastRunAt: r.lastRunAt?.toISOString() ?? null, scheduleGap,
   status: r.status === 'deleted' ? 'archived' : r.status, latest: latest ? versionDto(latest) : null, ...stats,
@@ -143,7 +150,7 @@ export async function createEvidence(ctx: Ctx, input: CreateEvidence): Promise<E
     institutionId: ctx.caller.institutionId, title: d.title, definition: d.definition || null, type: d.type, subtype: d.subtype ?? null,
     ownerUnitId: d.ownerUnitId ?? null, ownerUserId: d.ownerUserId ?? ctx.caller.userId, periodLabel: d.periodLabel ?? null,
     confidentiality: d.confidentiality, containsStudentData: d.containsStudentData, tags: d.tags,
-    method: d.method, methodConfig: config, schedule, nextDueAt,
+    method: d.method, methodConfig: config, schedule, nextDueAt, kpi: d.kpi ?? null,
   }).returning());
   if (d.url) await ctx.tx.insert(evidenceVersion).values({ institutionId: ctx.caller.institutionId, evidenceItemId: row!.id, versionNo: 1, url: d.url });
   return (await describeItems(ctx, [row!]))[0]!;

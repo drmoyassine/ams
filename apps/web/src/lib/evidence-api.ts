@@ -35,9 +35,9 @@ export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     deleteItems: (ids: string[]) => ops().delete.$post({ json: { ids } }).then((r) => unwrap<DeleteResult>(r)),
     /** Changes several items at once, all or none. */
     bulk: (json: BulkEvidence) => ops().bulk.$post({ json }).then((r) => unwrap<{ updated: number; unchanged: number }>(r)),
-    create: (json: CreateEvidence) => ev.$post({ json }).then((r) => unwrap<EvidenceItem>(r)),
+    create: (json: CreateEvidence) => ops().$post({ json }).then((r) => unwrap<EvidenceItem>(r)),
     get: (id: string) => ev[':id'].$get({ param: { id } }).then((r) => unwrap<EvidenceDetail>(r)),
-    update: (id: string, json: UpdateEvidence) => ev[':id'].$patch({ param: { id }, json }).then((r) => unwrap<EvidenceItem>(r)),
+    update: (id: string, json: UpdateEvidence) => ops()[':id'].$patch({ param: { id }, json }).then((r) => unwrap<EvidenceItem>(r)),
     upload: async (id: string, file: File, extra: { asOfDate?: string; notes?: string } = {}) => {
       const query = new URLSearchParams({ fileName: file.name, ...extra });
       const body = await readBytes(file);

@@ -272,7 +272,7 @@ describe('the evidence library', () => {
     await user.click(within(card).getByRole('button', { name: 'Actions for Assessment plan 2026' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Edit details' }));
     const dialog = await screen.findByRole('dialog', { name: 'Edit details' });
-    await user.click(within(dialog).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'KPI' }));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect((await within(dialog).findByRole('alert')).textContent).toContain('this document has file versions; it cannot become a dataset');
     await user.click(within(dialog).getByRole('radio', { name: 'Document' }));
@@ -304,7 +304,7 @@ describe('the evidence library', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Restore' }));
     expect(await screen.findByText('Nothing matches.')).toBeTruthy();
 
-    await user.click(within(filters).getByRole('button', { name: 'Datasets' }));
+    await user.click(within(filters).getByRole('button', { name: 'KPIs' }));
     await waitFor(() => expect(cardNames()).toEqual(['Evidence: Graduate headcount']));
     await user.click(within(filters).getByRole('button', { name: 'Documents' }));
     await waitFor(() => expect(cardNames()).not.toContain('Evidence: Graduate headcount'));

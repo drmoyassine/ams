@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { SCHEDULE_EVERY, type BiQuery, type EvidenceItem, type EvidenceMethod, type ScheduleEvery } from '@ams/shared';
 import { ApiError } from '../lib/framework-api';
 import { useDirectory, type CycleApis } from './cycles/directory';
+import { EMPTY_KPI, KpiFields, kpiDraftOf, kpiFromDraft, type KpiDraft } from './kpi-card';
 import { Input } from './ui/input';
 
 export const METHOD_LABEL: Record<EvidenceMethod, string> = { manual: 'Manual', form: 'Online form', request: 'Request', bi: 'BI', survey: 'Survey' };
@@ -29,6 +30,8 @@ export interface ItemDraft {
   /** Filters of a structured BI query written elsewhere: kept as they are, not edited here. */
   biFilters: BiQuery['filters'] | undefined;
   every: '' | ScheduleEvery; startDate: string; dueAfterDays: string; timezone: string;
+  /** The KPI card (a KPI is the dataset type: evidence is a KPI or a document). */
+  kpi: KpiDraft;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -55,6 +58,7 @@ export function draftOf(item?: EvidenceItem, defaults: { title?: string; ownerUs
     period: item?.method === 'bi' ? ((c.period as ScheduleEvery | undefined) ?? '') : '', timeoutSeconds: item?.method === 'bi' && typeof c.timeoutSeconds === 'number' ? String(c.timeoutSeconds) : '',
     biFilters: item?.method === 'bi' ? query.filters : undefined,
     every: s?.every ?? '', startDate: s?.startDate ?? today(), dueAfterDays: s ? String(s.dueAfterDays) : '14', timezone: s?.timezone ?? localZone(),
+    kpi: item?.kpi ? kpiDraftOf(item.kpi) : EMPTY_KPI,
   };
 }
 
@@ -101,6 +105,9 @@ export function scheduleOf(d: ItemDraft) {
   return { every: d.every, startDate: d.startDate, dueAfterDays: due, timezone: d.timezone.trim() };
 }
 
+/** The KPI card as the API takes it: present for a KPI (the dataset type), none for a document. */
+export const kpiOf = (d: ItemDraft) => (d.type === 'dataset' ? kpiFromDraft(d.kpi) : undefined);
+
 /** What the item carries besides its method and schedule, as the API takes it. */
 export function handlingOf(d: ItemDraft) {
   return {
@@ -142,14 +149,16 @@ export function ItemFields({ draft, onChange, apis, currentOwner, showMethod = t
         <label className={field}>Title<Input name="title" aria-label="Title" required value={draft.title} onChange={(e) => set('title')(e.target.value)} dir="auto" /></label>
         <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
           <label className="flex items-center gap-1"><input type="radio" name="type" checked={draft.type === 'document'} onChange={() => onChange({ type: 'document', ...(draft.method === 'form' ? { method: 'manual' as const } : {}) })} /> Document</label>
-          <label className="flex items-center gap-1"><input type="radio" name="type" checked={dataset} onChange={() => set('type')('dataset')} /> Dataset</label>
+          <label className="flex items-center gap-1"><input type="radio" name="type" checked={dataset} onChange={() => set('type')('dataset')} /> KPI</label>
         </div>
-        <p className="-mt-1 text-xs text-muted-foreground">{dataset ? 'A dataset is data with columns: counts, rates, survey returns, KPI values. It is collected each period.' : 'A document is a file or a link: a report, minutes, a record.'}</p>
+        <p className="-mt-1 text-xs text-muted-foreground">{dataset ? 'A KPI is an indicator with a symbol (#, % or $), a formula, a scope and targets. Its values are collected each period.' : 'A document is a file or a link: a report, minutes, a record.'}</p>
         <label className={field}>Definition
           <textarea name="definition" aria-label="Definition" rows={3} dir="auto" value={draft.definition} onChange={(e) => set('definition')(e.target.value)} className={area}
-            placeholder={dataset ? 'What the data means: who is counted, from where, for which period' : 'What this evidence is and what it should contain'} />
+            placeholder={dataset ? 'What the KPI measures: who is counted, from where, for which period' : 'What this evidence is and what it should contain'} />
         </label>
       </fieldset>
+
+      {dataset && <KpiFields value={draft.kpi} onChange={(p) => onChange({ kpi: { ...draft.kpi, ...p } })} />}
 
       {showMethod && <fieldset className={section}>
         <legend className={legend}>Collection method</legend>

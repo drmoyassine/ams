@@ -71,7 +71,7 @@ describe('the item form', () => {
     const form = await openNew(user);
     expect(within(form).getByLabelText('Title')).toBeTruthy();
     expect((within(form).getByRole('radio', { name: 'Document' }) as HTMLInputElement).checked).toBe(true);
-    expect(within(form).getByRole('radio', { name: 'Dataset' })).toBeTruthy();
+    expect(within(form).getByRole('radio', { name: 'KPI' })).toBeTruthy();
     expect(within(form).queryByRole('radio', { name: 'Data' })).toBeNull();
     expect(within(form).getByLabelText('Definition')).toBeTruthy();
     expect(within(form).queryByLabelText('Description')).toBeNull();
@@ -87,7 +87,7 @@ describe('the item form', () => {
     expect(within(form).queryByLabelText('Start date')).toBeNull();         // only once a schedule is chosen
     expect(within(form).getByLabelText('Owner')).toBeTruthy();
     expect((within(form).getByLabelText('Owner') as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Me');
-    await user.click(within(form).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(form).getByRole('radio', { name: 'KPI' }));
     expect(option(/^Online form/).disabled).toBe(false);
     await user.click(within(form).getByRole('radio', { name: 'Document' }));
     expect(option(/^Online form/).disabled).toBe(true);
@@ -120,7 +120,7 @@ describe('the item form', () => {
     render(library('admin'));
     const form = await openNew(user);
     await user.type(within(form).getByLabelText('Title'), 'Employer feedback');
-    await user.click(within(form).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(form).getByRole('radio', { name: 'KPI' }));
     await user.selectOptions(within(form).getByLabelText('Collection method'), 'form');
     expect(within(form).getByTestId('method-help').textContent).toMatch(/online form, or return its spreadsheet template/);
     expect(within(form).queryByLabelText('File')).toBeNull();             // the form collects it
@@ -168,7 +168,7 @@ describe('the item form', () => {
     await user.type(within(form).getByLabelText('Title'), 'Enrollment headcount');
     await user.selectOptions(within(form).getByLabelText('Collection method'), 'bi');
     expect(within(form).getByRole('note').textContent).toMatch(/A dataset suits the BI best/);     // a document is accepted, a dataset recommended
-    await user.click(within(form).getByRole('radio', { name: 'Dataset' }));
+    await user.click(within(form).getByRole('radio', { name: 'KPI' }));
     expect(within(form).queryByRole('note')).toBeNull();
     await user.type(within(form).getByLabelText('BI endpoint'), 'https://bi.example.org');
     await user.type(within(form).getByLabelText('Metric'), 'enrollment_headcount');

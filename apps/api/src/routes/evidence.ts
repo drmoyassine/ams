@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  addFileVersion, addUrlVersion, createEvidence, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
-  dismissNotification, linkToRequirement, listEvidence, listMyNotifications, markNotificationRead, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, resubmitLink, reviewLink, suggestionsFor, updateEvidence, ValidationError,
+  addFileVersion, addUrlVersion, getEvidence, linksForEngagementRequirement, linksForInternal, linkToEngagementRequirement,
+  dismissNotification, linkToRequirement, listEvidence, listMyNotifications, markNotificationRead, MAX_UPLOAD_BYTES, readVersionFile, removeLink, requirementContexts, resubmitLink, reviewLink, suggestionsFor, ValidationError,
 } from '@ams/core';
 import {
-  CreateEvidenceSchema, EvidenceDetailSchema, EvidenceItemSchema, EvidenceLinkSchema, EvidenceSuggestionSchema, EvidenceVersionSchema,
-  LinkEvidenceSchema, NotificationSchema, RequirementContextsSchema, ResubmitLinkSchema, ReviewLinkSchema, UpdateEvidenceSchema, toDto,
+  EvidenceDetailSchema, EvidenceItemSchema, EvidenceLinkSchema, EvidenceSuggestionSchema, EvidenceVersionSchema,
+  LinkEvidenceSchema, NotificationSchema, RequirementContextsSchema, ResubmitLinkSchema, ReviewLinkSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -27,22 +27,10 @@ export function evidenceRoutes(registry: RouteRegistry, deps: ChainDeps, options
 
 
     .openapi(secured(registry, deps, {
-      method: 'post', path: '/api/evidence', access: requires('evidence:write'), tags: tag,
-      request: { body: { required: true, ...json(CreateEvidenceSchema) } },
-      responses: { 201: { description: 'Created', ...json(EvidenceItemSchema) }, ...errors },
-    }), async (c) => c.json(toDto(EvidenceItemSchema, await createEvidence(c.get('ctx'), c.req.valid('json'))), 201))
-
-    .openapi(secured(registry, deps, {
       method: 'get', path: '/api/evidence/{id}', access: requires('evidence:read'), tags: tag,
       request: { params: idParam },
       responses: { 200: { description: 'The item, its versions and everything it is linked to', ...json(EvidenceDetailSchema) }, ...errors },
     }), async (c) => c.json(toDto(EvidenceDetailSchema, await getEvidence(c.get('ctx'), c.req.valid('param').id)), 200))
-
-    .openapi(secured(registry, deps, {
-      method: 'patch', path: '/api/evidence/{id}', access: requires('evidence:write'), tags: tag,
-      request: { params: idParam, body: { required: true, ...json(UpdateEvidenceSchema) } },
-      responses: { 200: { description: 'Updated', ...json(EvidenceItemSchema) }, ...errors },
-    }), async (c) => c.json(toDto(EvidenceItemSchema, await updateEvidence(c.get('ctx'), c.req.valid('param').id, c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/evidence/{id}/files', access: requires('evidence:write'), tags: tag,
