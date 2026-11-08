@@ -294,6 +294,26 @@ export async function trashEvidenceLink(ctx: Ctx, row: Row, labels: { text: stri
   });
 }
 
+/**
+ * Evidence deleted (TASK-119). Its versions are immutable, so they stay and the item's status becomes 'deleted'; what the Trash holds is
+ * the links the item had (restored with it) and the status it came from. The caller sets the status.
+ */
+export async function trashEvidenceItems(ctx: Ctx, items: { id: string; title: string; status: string; links: Row[] }[], place: string): Promise<DeleteResult> {
+  const rows: NewTrashItem[] = [];
+  for (const it of items) {
+    await deleteRows(ctx, 'evidence_link', idsOf(it.links));
+    rows.push({
+      kind: 'evidence_item', label: it.title, context: place,
+      payload: { ...emptyPayload({ itemId: it.id, title: it.title, previousStatus: it.status }), tables: it.links.length ? { evidence_link: it.links } : {} },
+      counts: { items: 1, links: it.links.length },
+    });
+  }
+  const label = items.length === 1 ? `Deleted ${items[0]!.title}` : `Deleted ${plural(items.length, 'piece of evidence', 'pieces of evidence')}`;
+  const groupId = await writeTrash(ctx, rows);
+  reportUndo(ctx, restoreUndo(groupId, label));
+  return { groupId, label, counts: { items: items.length, links: items.reduce((n, i) => n + i.links.length, 0) }, items: items.length };
+}
+
 export async function trashMilestone(ctx: Ctx, row: Row, place: string): Promise<DeleteResult> {
   return trashSingle(ctx, 'milestone', 'milestone', row, {
     label: text(row.name), context: place, root: { engagementId: row.engagement_id }, undoLabel: `Deleted the milestone ${text(row.name)}`,

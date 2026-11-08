@@ -7,8 +7,8 @@ import {
   frameworkVersion, requirement, requirementMapping,
 } from '@ams/db';
 import {
-  checkMethod, CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, ScheduleSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
-  type CreateEvidence, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
+  BulkEvidenceSchema, checkMethod, CreateEvidenceSchema, LinkEvidenceSchema, periodYear, ResubmitLinkSchema, ReviewLinkSchema, ScheduleSchema, STALE_AFTER_YEARS, UpdateEvidenceSchema,
+  type BulkEvidence, type CreateEvidence, type DeleteResult, type EvidenceDetail, type EvidenceItem, type EvidenceLink, type EvidenceSuggestion, type EvidenceVersion,
   type EvidenceMethod, type LinkEvidence, type RequirementContext, type RequirementContexts, type ResubmitLink, type ReviewLink, type Schedule, type UpdateEvidence,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
@@ -21,7 +21,7 @@ import { loadAssignments } from '../scope/assignments.js';
 import { noteEvidenceVersion } from '../cycles/evidence-hook.js';
 import { loadPlanAssignments } from '../cycles/plan-service.js';
 import { calendarEntries } from '../cycles/calendar.js';
-import { trashEvidenceLink } from '../trash/delete.js';
+import { trashEvidenceItems, trashEvidenceLink } from '../trash/delete.js';
 import { readRows } from '../trash/rows.js';
 import { createNotification, dismissFor } from '../notifications/store.js';
 import { nextDue, type CalendarTerm } from './schedule.js';
@@ -55,7 +55,7 @@ const itemDto = (r: ItemRow, latest: VersionRow | null, stats: ItemStats, ownerN
   periodLabel: r.periodLabel, confidentiality: r.confidentiality, containsStudentData: r.containsStudentData, tags: r.tags,
   method: r.method, methodConfig: (r.methodConfig ?? {}) as Record<string, unknown>, schedule: scheduleOf(r),
   nextDueAt: r.nextDueAt?.toISOString() ?? null, lastRunAt: r.lastRunAt?.toISOString() ?? null, scheduleGap,
-  status: r.status, latest: latest ? versionDto(latest) : null, ...stats,
+  status: r.status === 'deleted' ? 'archived' : r.status, latest: latest ? versionDto(latest) : null, ...stats,
 });
 
 /** The next due time of a schedule as of now (null without one, or where a semester has no term to place), for the column `next_due_at`. */
@@ -114,7 +114,7 @@ async function describeItems(ctx: Ctx, rows: ItemRow[]): Promise<EvidenceItem[]>
 
 export async function getItem(ctx: Ctx, id: string) {
   const [row] = await ctx.tx.select().from(evidenceItem).where(eq(evidenceItem.id, id));
-  if (!row) throw new NotFoundError(`evidence ${id}`);
+  if (!row || row.status === 'deleted') throw new NotFoundError(`evidence ${id}`);
   return row;
 }
 async function getVersionRow(ctx: Ctx, id: string) {
@@ -169,6 +169,62 @@ export async function updateEvidence(ctx: Ctx, id: string, patch: UpdateEvidence
   return (await describeItems(ctx, [row!]))[0]!;
 }
 
+/**
+ * Changes several items at once, in one transaction (all or none): the owner (unit and person), confidentiality, student-data flag,
+ * period label, archive or restore, and tags added or removed. Needs evidence:write like any edit; an item that cannot be changed
+ * makes the whole request fail and says which.
+ */
+export async function bulkUpdateEvidence(ctx: Ctx, input: BulkEvidence): Promise<{ updated: number; unchanged: number }> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'evidence:write', any);
+  const d = BulkEvidenceSchema.parse(input);
+  const ids = [...new Set(d.ids)];
+  const rows = await ctx.tx.select().from(evidenceItem).where(inArray(evidenceItem.id, ids));
+  const found = new Map(rows.filter((r) => r.status !== 'deleted').map((r) => [r.id, r]));
+  const missing = ids.filter((i) => !found.has(i));
+  if (missing.length) throw new NotFoundError(`evidence ${missing[0]}${missing.length > 1 ? ` and ${missing.length - 1} more` : ''}`);
+  let updated = 0;
+  for (const id of ids) {
+    const item = found.get(id)!;
+    const patch: UpdateEvidence = { ...d.set };
+    if (d.addTags?.length || d.removeTags?.length) {
+      const drop = new Set((d.removeTags ?? []).map((t) => t.toLowerCase()));
+      const next = [...new Set([...item.tags, ...(d.addTags ?? [])])].filter((t) => !drop.has(t.toLowerCase()));
+      if (next.length !== item.tags.length || next.some((t, i) => t !== item.tags[i])) patch.tags = next;
+    }
+    if (!Object.keys(patch).length) continue;
+    try { await updateEvidence(ctx, id, patch); } catch (e) { throw new ConflictError(`${item.title}: ${(e as Error).message}`); }
+    updated += 1;
+  }
+  return { updated, unchanged: ids.length - updated };
+}
+
+/**
+ * Deletes evidence: each item goes to the Trash with its links and disappears from the library (its versions and files stay: they are
+ * immutable). An item with an open request or an open collection run is not deleted: close those first.
+ */
+export async function deleteEvidence(ctx: Ctx, idsIn: string[]): Promise<DeleteResult> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'evidence:write', any);
+  const ids = [...new Set(idsIn)];
+  if (!ids.length) throw new ValidationError('choose what to delete');
+  const items: { id: string; title: string; status: string; links: Record<string, unknown>[] }[] = [];
+  for (const id of ids) {
+    const item = await getItem(ctx, id);
+    const open = await ctx.tx.execute<{ n: number }>(sql`select (
+      (select count(*) from evidence_request where data_item_id = ${id}::uuid and status = 'open')
+      + (select count(*) from evidence_collection_run where evidence_item_id = ${id}::uuid and status in ('pending', 'requested', 'late'))
+    )::int as n`);
+    if ((open.rows[0]?.n ?? 0) > 0) throw new ConflictError(`${item.title} has an open request or collection run: close it first`);
+    const versions = await ctx.tx.select({ id: evidenceVersion.id }).from(evidenceVersion).where(eq(evidenceVersion.evidenceItemId, id));
+    const linkIds = versions.length ? (await ctx.tx.select({ id: evidenceLink.id }).from(evidenceLink).where(inArray(evidenceLink.evidenceVersionId, versions.map((v) => v.id)))).map((l) => l.id) : [];
+    items.push({ id, title: item.title, status: item.status, links: linkIds.length ? await readRows(ctx, 'evidence_link', linkIds) : [] });
+  }
+  const result = await trashEvidenceItems(ctx, items, 'Evidence');
+  await ctx.tx.update(evidenceItem).set({ status: 'deleted' }).where(inArray(evidenceItem.id, ids));
+  return result;
+}
+
 /** Checks a method's settings and its fit with the type; the stored settings come back normalised. */
 function methodSettings(method: EvidenceMethod, type: EvidenceItem['type'], settings: unknown, opts: { type?: boolean } = {}) {
   const r = checkMethod(method, type, settings);
@@ -204,7 +260,7 @@ export async function listEvidence(ctx: Ctx, opts: { q?: string; includeArchived
   const rows = await ctx.tx.select().from(evidenceItem)
     .where(and(
       q ? sql`(${evidenceItem.title} ilike ${`%${q}%`} or ${q} = any(${evidenceItem.tags}))` : undefined,
-      opts.includeArchived ? undefined : eq(evidenceItem.status, 'active'),
+      opts.includeArchived ? sql`${evidenceItem.status} <> 'deleted'` : eq(evidenceItem.status, 'active'),
     ))
     .orderBy(desc(evidenceItem.createdAt));
   return describeItems(ctx, rows);

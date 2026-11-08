@@ -5,7 +5,7 @@ import type { EvidenceApi } from '../lib/evidence-api';
 import { useTranslation } from '../i18n';
 import type { CycleApis } from './cycles/directory';
 import { Dialog } from './dialog';
-import { draftOf, errorText, ItemFields, methodConfigOf, scheduleOf, type ItemDraft } from './evidence-item-form';
+import { draftOf, errorText, handlingOf, ItemFields, methodConfigOf, scheduleOf, type ItemDraft } from './evidence-item-form';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
@@ -40,6 +40,8 @@ export function NewEvidenceDialog({ api, initialTitle = '', onCreated, onClose, 
       const item = await api.create({
         title: draft.title.trim(), type: draft.type, ...(draft.definition.trim() ? { definition: draft.definition.trim() } : {}),
         ...(draft.ownerUserId ? { ownerUserId: draft.ownerUserId } : {}),
+        ...(draft.ownerUnitId ? { ownerUnitId: draft.ownerUnitId } : {}), ...(draft.periodLabel.trim() ? { periodLabel: draft.periodLabel.trim() } : {}),
+        confidentiality: draft.confidentiality, containsStudentData: draft.containsStudentData, tags: handlingOf(draft).tags,
         method: draft.method, methodConfig: methodConfigOf(draft), ...(schedule ? { schedule } : {}),
       });
       if (file && manual) await api.upload(item.id, file);

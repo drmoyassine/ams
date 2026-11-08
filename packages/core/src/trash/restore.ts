@@ -254,6 +254,24 @@ async function restoreImportDocument(ctx: Ctx, payload: TrashPayload): Promise<O
   return out;
 }
 
+/** A deleted evidence item: its status goes back to what it was, and the links it had come back with it. */
+async function restoreEvidenceItem(ctx: Ctx, payload: TrashPayload): Promise<Outcome> {
+  await require_(ctx, 'evidence:write');
+  const out = blank();
+  const root = payload.root as { itemId: string; previousStatus?: 'active' | 'archived' };
+  const res = await ctx.tx.execute<{ id: string }>(sql`update evidence_item set status = ${root.previousStatus ?? 'active'} where id = ${root.itemId}::uuid and status = 'deleted' returning id`);
+  if (!res.rows.length) throw new ConflictError('Cannot restore: this evidence is no longer deleted.');
+  add(out.restored, 'evidence', 1);
+  const links = payload.tables.evidence_link ?? [];
+  const have = await existing(ctx, 'evidence_link', links.map((l) => String(l.id)));
+  const back = links.filter((l) => !have.has(String(l.id)));
+  const live = back.length ? new Set((await ctx.tx.execute<{ id: string }>(sql`select id from evidence_version where id = any(${uuids(back.map((l) => String(l.evidence_version_id)))})`)).rows.map((r) => r.id)) : new Set<string>();
+  const ok = back.filter((l) => live.has(String(l.evidence_version_id)));
+  if (ok.length) await insertRows(ctx, 'evidence_link', ok);
+  add(out.restored, 'links', ok.length);
+  return out;
+}
+
 async function restoreSourcePage(ctx: Ctx, payload: TrashPayload): Promise<Outcome> {
   await require_(ctx, 'framework:write');
   const out = blank();
@@ -404,6 +422,7 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
     case 'framework': return restoreVersionOrFramework(ctx, item, payload);
     case 'mapping': return restoreMapping(ctx, payload);
     case 'evidence_link': return restoreEvidenceLink(ctx, payload);
+    case 'evidence_item': return restoreEvidenceItem(ctx, payload);
     case 'milestone': return restoreMilestone(ctx, payload);
     case 'org_unit': return restoreOrgUnitItem(ctx, item, payload, opts);
     case 'cycle': return restoreCycleItem(ctx, payload);
@@ -412,7 +431,7 @@ export async function restoreRow(ctx: Ctx, item: ItemRow, opts: RestoreOptions):
 }
 
 /** The kinds in the order a group is restored: what others hang from first. */
-export const RESTORE_ORDER = ['org_unit', 'framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_link', 'milestone', 'import_document', 'cycle', 'report'] as const;
+export const RESTORE_ORDER = ['org_unit', 'framework', 'framework_version', 'source_document', 'source_page', 'requirement', 'note', 'report_template', 'mapping', 'evidence_item', 'evidence_link', 'milestone', 'import_document', 'cycle', 'report'] as const;
 
 export function mergeOutcomes(parts: Outcome[]): Pick<RestoreResult, 'restored' | 'dropped' | 'renamed' | 'placedUnder'> & { notes: string[] } {
   const o = blank();

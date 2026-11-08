@@ -7,6 +7,7 @@ import {
 import { buildRoutes } from './routes.js';
 import { outcomeRoutes } from './routes/outcomes.js';
 import { assessmentRoutes } from './routes/assessment.js';
+import { evidenceOpsRoutes } from './routes/evidence-ops.js';
 import type pg from 'pg';
 
 export interface AppOptions {
@@ -39,6 +40,7 @@ export function createApp(opts: AppOptions) {
   // Mounted beside the main chain: its own typed client (OutcomeRoutes), because one chain's type has outgrown the compiler.
   app.route('/', outcomeRoutes(registry, deps, options));
   app.route('/', assessmentRoutes(registry, deps, options));
+  app.route('/', evidenceOpsRoutes(registry, deps, options));
   if (opts.authHandler) {
     const authHandler = opts.authHandler;
     rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);

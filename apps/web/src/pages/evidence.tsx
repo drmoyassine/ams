@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLLECTION_DUE_SOON_DAYS, type EvidenceItem } from '@ams/shared';
 import type { CycleApis } from '../components/cycles/directory';
+import { EvidenceBulkBar } from '../components/evidence-bulk-bar';
 import { EvidenceCard } from '../components/evidence-card';
 import { RequestList } from '../components/evidence-requests';
 import { NewEvidenceDialog } from '../components/link-evidence-dialog';
@@ -65,6 +66,7 @@ function Library({ api, framework, canWrite, canReview, apis, openItem, doc: doc
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [adding, setAdding] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [opened, setOpened] = useState<Set<string>>(() => new Set(openItem ? [openItem] : []));
   const [ownDoc, setOwnDoc] = useState<string | null>(null);
   const docFilter = docProp !== undefined ? docProp : ownDoc;
@@ -86,6 +88,9 @@ function Library({ api, framework, canWrite, canReview, apis, openItem, doc: doc
   const list = useQuery({ queryKey: ['evidence', q, 'with-archived'], queryFn: () => api.list(q || undefined, { includeArchived: true }) });
   const shown = (list.data ?? []).filter(FILTERS[filter].keep).filter((e) => !docFilter || linkedIds.has(e.id));
   const filterLabel = (k: Filter) => { const f: { label: string; labelKey?: string } = FILTERS[k]; return f.labelKey ? t(f.labelKey) : f.label; };
+  const chosen = shown.filter((e) => picked.has(e.id));
+  const pick = (id: string, on: boolean) => setPicked((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
+  const refreshAll = () => { void qc.invalidateQueries({ queryKey: ['evidence'] }); void qc.invalidateQueries({ queryKey: ['evidence-item'] }); };
   const toggle = (id: string, open: boolean) => setOpened((s) => { const n = new Set(s); if (open) n.add(id); else n.delete(id); return n; });
 
   return (
@@ -110,16 +115,24 @@ function Library({ api, framework, canWrite, canReview, apis, openItem, doc: doc
         {canWrite && <Button type="button" className="ms-auto" onClick={() => setAdding(true)}>+ Evidence</Button>}
       </div>
       <p className="text-sm text-muted-foreground">Evidence belongs to the institution: add it once, attach it to your internal framework, and link it to every accreditor requirement it supports, each with its own reason.</p>
+      {canWrite && chosen.length > 0 && (
+        <EvidenceBulkBar selected={chosen} shown={shown} api={api} apis={apis} onSelectAll={() => setPicked(new Set(shown.map((e) => e.id)))} onClear={() => setPicked(new Set())}
+          onDone={() => { refreshAll(); setPicked((s) => new Set([...s].filter((id) => shown.some((e) => e.id === id)))); }} />
+      )}
       {adding && canWrite && (
         <NewEvidenceDialog api={api} dataWithoutFile {...(apis ? { apis } : {})} onClose={() => setAdding(false)}
           onCreated={(item) => { setAdding(false); setFilter('all'); toggle(item.id, true); void qc.invalidateQueries({ queryKey: ['evidence'] }); }} />
       )}
       <div className="min-w-0 space-y-2 break-words" role="list" aria-label="Evidence">
         {shown.map((e) => (
-          <div role="listitem" key={e.id}>
-            <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} {...(apis ? { apis } : {})} />
+          <div role="listitem" key={e.id} className="flex items-start gap-2">
+            {canWrite && <input type="checkbox" className="mt-4 shrink-0" aria-label={`Select ${e.title}`} checked={picked.has(e.id)} onChange={(ev) => pick(e.id, ev.target.checked)} />}
+            <div className="min-w-0 flex-1">
+              <EvidenceCard item={e} api={api} framework={framework} canWrite={canWrite} canReview={canReview} open={opened.has(e.id)} onToggle={(o) => toggle(e.id, o)} {...(apis ? { apis } : {})} />
+            </div>
           </div>
         ))}
+        {canWrite && shown.length > 1 && chosen.length === 0 && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setPicked(new Set(shown.map((e) => e.id)))}>Select all {shown.length} shown</button>}
         {list.data && shown.length === 0 && <p className="text-sm text-muted-foreground">{q || filter !== 'all' ? 'Nothing matches.' : 'No evidence yet.'}</p>}
         {list.isLoading && <p className="text-sm">Loading…</p>}
       </div>

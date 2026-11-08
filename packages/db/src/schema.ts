@@ -1077,7 +1077,7 @@ export const evidenceItem = pgTable('evidence_item', {
   confidentiality: text('confidentiality', { enum: CONFIDENTIALITY }).notNull().default('internal'),
   containsStudentData: boolean('contains_student_data').notNull().default(false),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
-  status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
+  status: text('status', { enum: ['active', 'archived', 'deleted'] }).notNull().default('active'),
   /** How it is collected (one per item) and that method's settings, validated by Zod per method in the services (DEC-031). */
   method: text('method', { enum: EVIDENCE_METHODS }).notNull().default('manual'),
   methodConfig: jsonb('method_config').notNull().default(sql`'{}'::jsonb`),
@@ -1089,7 +1089,7 @@ export const evidenceItem = pgTable('evidence_item', {
 }, (t) => [
   oneOf('evidence_item_type_check', t.type, EVIDENCE_TYPES),
   oneOf('evidence_item_confidentiality_check', t.confidentiality, CONFIDENTIALITY),
-  oneOf('evidence_item_status_check', t.status, ['active', 'archived']),
+  oneOf('evidence_item_status_check', t.status, ['active', 'archived', 'deleted']),
   oneOf('evidence_item_method_check', t.method, EVIDENCE_METHODS),
   check('evidence_item_method_config_check', sql`jsonb_typeof(${t.methodConfig}) = 'object'`),
   check('evidence_item_form_dataset_check', sql`${t.method} <> 'form' or ${t.type} = 'dataset'`),
@@ -1295,7 +1295,7 @@ export const datasetResponse = pgTable('dataset_response', {
 // ---- Trash (DEC-026) ------------------------------------------------------------------------------------------
 
 export const TRASH_KIND_VALUES = [
-  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'milestone', 'import_document', 'org_unit', 'cycle', 'report',
+  'requirement', 'note', 'source_document', 'source_page', 'report_template', 'framework_version', 'framework', 'mapping', 'evidence_link', 'evidence_item', 'milestone', 'import_document', 'org_unit', 'cycle', 'report',
 ] as const;
 /**
  * What a person deleted, kept for the retention period so it can be restored. A snapshot, not a soft delete: the rows are

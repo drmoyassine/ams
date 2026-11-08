@@ -6,11 +6,12 @@ import type { FrameworkApi, Requirement } from '../lib/framework-api';
 import { download, fileNameFor, toXlsx } from '../lib/sheet-io';
 import { tag } from '../pages/settings/iqf-requirements';
 import { AccordionCard, HoverCard, Shaded } from './accordion';
+import { confirmDialog } from './confirm-dialog';
 import { ContentText } from './content-text';
 import { DatasetPanel } from './dataset-panel';
 import type { CycleApis } from './cycles/directory';
 import { CollectionChips, CollectionSection } from './evidence-collection';
-import { draftOf, errorText, EVERY_LABEL, ItemFields, METHOD_LABEL, methodConfigOf, scheduleOf } from './evidence-item-form';
+import { draftOf, errorText, EVERY_LABEL, handlingOf, ItemFields, METHOD_LABEL, methodConfigOf, scheduleOf } from './evidence-item-form';
 import { EvidenceLinkList } from './evidence-links';
 import { RequestEvidenceDialog, RequestFormDialog, RequestList } from './evidence-requests';
 import { Modal } from './link-evidence-dialog';
@@ -171,7 +172,7 @@ function EditDetailsDialog({ item, api, apis, onDone, onClose }: { item: Evidenc
     setBusy(true); setError('');
     try {
       await api.update(item.id, {
-        title: draft.title.trim(), definition: draft.definition.trim() || null, ownerUserId: draft.ownerUserId || null,
+        title: draft.title.trim(), definition: draft.definition.trim() || null, ownerUserId: draft.ownerUserId || null, ...handlingOf(draft),
         ...(draft.type !== item.type ? { type: draft.type } : {}),
         method: draft.method, methodConfig: methodConfigOf(draft), schedule: scheduleOf(draft),
       });
@@ -245,6 +246,7 @@ export function EvidenceCard({ item, api, framework, canWrite, canReview, open, 
     ...may(!!latest, 'Download latest', () => act(downloadLatest)),
     ...may(canWrite, 'Edit details', () => setDialog('edit')),
     ...may(canWrite, active ? 'Archive' : 'Restore', () => act(() => api.update(item.id, { status: active ? 'archived' : 'active' }))),
+    ...may(canWrite, 'Delete', () => void confirmDialog({ title: `Delete ${item.title}?`, confirmLabel: 'Delete', tone: 'danger', message: `${item.title} moves to the Trash with its links to standards. You can restore it for 30 days. Its versions and files are kept.` }).then((ok) => { if (ok) act(() => api.deleteItem(item.id)); })),
   ];
   const close = () => setDialog(null);
   const d = detail.data;

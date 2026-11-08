@@ -3,18 +3,38 @@ import type {
   DatasetData, DatasetSpec, SaveDatasetRows, SaveDatasetSpec,
   CreateEvidence, CreateEvidenceRequest, EvidenceRequest, IssuedRequest, RequestByLink, EvidenceDetail, EvidenceItem, EvidenceLink, EvidenceSuggestion, EvidenceVersion, LinkEvidence, Notification, RequirementContexts, ResubmitLink, ReviewLink, UpdateEvidence,
 } from '@ams/shared';
+import { hc } from 'hono/client';
+import type { EvidenceOpsRoutes } from '@ams/api';
+import type { BulkEvidence, DeleteResult } from '@ams/shared';
 import { api as defaultApi, fetcherOf } from './api';
+import { noteResponse } from './undo';
 import { outcomesApi } from './outcomes-api';
 import { unwrap, type Api } from './framework-api';
 import { readBytes } from './read-bytes';
 
 /** Evidence calls through the typed client; the file itself goes up as the request body. */
+/** Deleting evidence and bulk edits: a typed client of their own (EvidenceOpsRoutes, see the API's app.ts). */
+function evidenceOps(fetcher: typeof fetch) {
+  const wrapped = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await fetcher(input, { ...init, credentials: 'include' });
+    noteResponse(res, fetcher, init?.method ?? 'GET');
+    return res;
+  }) as typeof fetch;
+  return hc<EvidenceOpsRoutes>('/', { fetch: wrapped }).api.evidence;
+}
+
 export function evidenceApi(api: Api = defaultApi, fetcher: typeof fetch = fetch) {
   const ev = api.api.evidence;
+  const ops = () => evidenceOps(fetcherOf(api) === fetch ? fetcher : fetcherOf(api));
   return {
     /** Archived items are left out unless `includeArchived`. */
     list: (q?: string, opts: { includeArchived?: boolean } = {}) => ev.$get({ query: { ...(q ? { q } : {}), ...(opts.includeArchived ? { includeArchived: 'true' as const } : {}) } })
       .then((r) => unwrap<EvidenceItem[]>(r)),
+    /** Moves evidence to the Trash with its links (an Undo toast follows). */
+    deleteItem: (id: string) => ops()[':id'].$delete({ param: { id } }).then((r) => unwrap<DeleteResult>(r)),
+    deleteItems: (ids: string[]) => ops().delete.$post({ json: { ids } }).then((r) => unwrap<DeleteResult>(r)),
+    /** Changes several items at once, all or none. */
+    bulk: (json: BulkEvidence) => ops().bulk.$post({ json }).then((r) => unwrap<{ updated: number; unchanged: number }>(r)),
     create: (json: CreateEvidence) => ev.$post({ json }).then((r) => unwrap<EvidenceItem>(r)),
     get: (id: string) => ev[':id'].$get({ param: { id } }).then((r) => unwrap<EvidenceDetail>(r)),
     update: (id: string, json: UpdateEvidence) => ev[':id'].$patch({ param: { id }, json }).then((r) => unwrap<EvidenceItem>(r)),

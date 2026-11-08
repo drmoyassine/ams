@@ -82,8 +82,9 @@ describe('evidence', () => {
     await user.click(await screen.findByRole('button', { name: '+ Evidence' }));
     const form = await screen.findByRole('dialog', { name: 'New evidence' });
     // a title, document or dataset, a definition, how it is collected (manual by default), a schedule (none) and the owner; the file with manual collection
-    expect(within(form).queryByLabelText('Period')).toBeNull();
-    expect(within(form).queryByLabelText('Confidentiality')).toBeNull();
+    // ... and, under "Ownership and handling", the owning unit, the period covered, confidentiality, tags and the student-data flag
+    expect(within(form).getByLabelText('Period covered')).toBeTruthy();
+    expect((within(form).getByLabelText('Confidentiality') as HTMLSelectElement).value).toBe('internal');
     await user.type(within(form).getByLabelText('Title'), 'Course review minutes');
     expect((within(form).getByLabelText('Document') as HTMLInputElement).checked).toBe(true);
     expect((within(form).getByLabelText('Collection method') as HTMLSelectElement).value).toBe('manual');
@@ -201,7 +202,7 @@ describe('the evidence library', () => {
     expect(within(minutes).getByTestId('evidence-kind').textContent).toBe('PDF');
     // Attached to Standard 3.2 and linked to the ABET requirement, both approved: nothing to flag.
     expect(within(minutes).getByTestId('evidence-meta').textContent).toMatch(/^ManualLinked to 2v2 · \d+ \w{3} \d{4}$/);
-    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Download latest', 'Edit details', 'Archive']);
+    expect(await menuOf(minutes, 'Course review minutes')).toEqual(['Upload a new version', 'Link to a standard', 'Request an update', 'Download latest', 'Edit details', 'Archive', 'Delete']);
 
     const observations = screen.getByRole('region', { name: 'Evidence: Teaching observation reports' });
     expect(within(observations).getByTestId('evidence-meta').textContent).toContain('1 to review');
@@ -210,7 +211,7 @@ describe('the evidence library', () => {
     expect(within(headcount).getByTestId('evidence-kind').textContent).toBe('DATA');
     expect(within(headcount).getByTestId('evidence-meta').textContent).toBe('ManualNot linked');
     // No version yet: nothing to link or download.
-    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Edit details', 'Archive']);
+    expect(await menuOf(headcount, 'Graduate headcount')).toEqual(['Open sheet', 'Ask people to fill in the form', 'Edit details', 'Archive', 'Delete']);
     await user.click(within(headcount).getByRole('button', { name: 'Actions for Graduate headcount' }));
     await user.click(screen.getByRole('menuitem', { name: 'Open sheet' }));
     expect(await within(headcount).findByRole('region', { name: 'Dataset' })).toBeTruthy(); // the sheet, inside the card
@@ -298,7 +299,7 @@ describe('the evidence library', () => {
     const archived = await screen.findByRole('region', { name: 'Evidence: Graduate headcount' });
     expect(cardNames()).toEqual(['Evidence: Graduate headcount']);
     expect(within(archived).getByTestId('evidence-meta').textContent).toContain('Archived');
-    expect(await menuOf(archived, 'Graduate headcount')).toEqual(['Open sheet', 'Edit details', 'Restore']);
+    expect(await menuOf(archived, 'Graduate headcount')).toEqual(['Open sheet', 'Edit details', 'Restore', 'Delete']);
     await user.click(within(archived).getByRole('button', { name: 'Actions for Graduate headcount' }));
     await user.click(screen.getByRole('menuitem', { name: 'Restore' }));
     expect(await screen.findByText('Nothing matches.')).toBeTruthy();

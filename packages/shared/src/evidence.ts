@@ -200,6 +200,16 @@ export const UpdateEvidenceSchema = z.object({
   method: z.enum(EVIDENCE_METHODS).optional(), methodConfig: z.record(z.string(), z.unknown()).optional(), schedule: ScheduleSchema.nullable().optional(),
 }).strict().superRefine((d, ctx) => { if (d.method && d.methodConfig) methodRules(d, ctx, 'dataset'); });
 export type UpdateEvidence = z.infer<typeof UpdateEvidenceSchema>;
+/** Several items changed at once: the fields to set on all of them, and tags to add or remove. */
+export const BulkEvidenceSchema = z.object({
+  ids: z.array(z.uuid()).min(1).max(500),
+  set: z.object({
+    ownerUnitId: z.uuid().nullable().optional(), ownerUserId: z.uuid().nullable().optional(), periodLabel: z.string().trim().nullable().optional(),
+    confidentiality: z.enum(CONFIDENTIALITY_LEVELS).optional(), containsStudentData: z.boolean().optional(), status: z.enum(['active', 'archived']).optional(),
+  }).strict().default({}),
+  addTags: z.array(z.string().trim().min(1)).max(20).optional(), removeTags: z.array(z.string().trim().min(1)).max(20).optional(),
+}).strict();
+export type BulkEvidence = z.input<typeof BulkEvidenceSchema>;
 
 export const LinkEvidenceSchema = z.object({ evidenceVersionId: z.uuid(), rationale: z.string().trim().min(1, 'say why this evidence supports it') }).strict();
 export type LinkEvidence = z.infer<typeof LinkEvidenceSchema>;

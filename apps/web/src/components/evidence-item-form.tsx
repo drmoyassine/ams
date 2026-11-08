@@ -20,6 +20,8 @@ export const EVERY_LABEL: Record<ScheduleEvery, string> = { day: 'Every day', we
 
 export interface ItemDraft {
   title: string; type: EvidenceItem['type']; definition: string; ownerUserId: string;
+  /** Who is responsible for supplying it (a unit), the period it covers, how it is handled, and its tags (comma-separated). */
+  ownerUnitId: string; periodLabel: string; confidentiality: EvidenceItem['confidentiality']; containsStudentData: boolean; tags: string;
   method: EvidenceMethod;
   instructions: string; expectedFormat: string;
   askKind: 'person' | 'email'; assigneeUserId: string; assigneeEmail: string; requestNote: string;
@@ -43,6 +45,7 @@ export function draftOf(item?: EvidenceItem, defaults: { title?: string; ownerUs
   const s = item?.schedule;
   return {
     title: item?.title ?? defaults.title ?? '', type: item?.type ?? 'document', definition: item?.definition ?? '', ownerUserId: item ? item.ownerUserId ?? '' : defaults.ownerUserId ?? '',
+    ownerUnitId: item?.ownerUnitId ?? '', periodLabel: item?.periodLabel ?? '', confidentiality: item?.confidentiality ?? 'internal', containsStudentData: item?.containsStudentData ?? false, tags: (item?.tags ?? []).join(', '),
     method: item?.method ?? 'manual',
     instructions: item?.method === 'manual' ? str(c.instructions) : '', expectedFormat: item?.method === 'manual' ? str(c.expectedFormat) : '',
     askKind: item?.method === 'request' && c.assigneeEmail ? 'email' : 'person',
@@ -98,7 +101,17 @@ export function scheduleOf(d: ItemDraft) {
   return { every: d.every, startDate: d.startDate, dueAfterDays: due, timezone: d.timezone.trim() };
 }
 
+/** What the item carries besides its method and schedule, as the API takes it. */
+export function handlingOf(d: ItemDraft) {
+  return {
+    ownerUnitId: d.ownerUnitId || null, periodLabel: d.periodLabel.trim() || null, confidentiality: d.confidentiality, containsStudentData: d.containsStudentData,
+    tags: [...new Set(d.tags.split(',').map((t) => t.trim()).filter(Boolean))],
+  };
+}
+
 const field = 'flex flex-col gap-1 text-sm';
+const section = 'space-y-3 rounded-lg border border-border p-3';
+const legend = 'px-1 text-sm font-semibold';
 const select = 'h-9 rounded-md border border-border bg-background px-2';
 const area = 'rounded-md border border-border p-2 text-sm';
 
@@ -124,18 +137,22 @@ export function ItemFields({ draft, onChange, apis, currentOwner, showMethod = t
 
   return (
     <>
-      <label className={field}>Title<Input name="title" aria-label="Title" required value={draft.title} onChange={(e) => set('title')(e.target.value)} dir="auto" /></label>
-      <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
-        <label className="flex items-center gap-1"><input type="radio" name="type" checked={draft.type === 'document'} onChange={() => onChange({ type: 'document', ...(draft.method === 'form' ? { method: 'manual' as const } : {}) })} /> Document</label>
-        <label className="flex items-center gap-1"><input type="radio" name="type" checked={dataset} onChange={() => set('type')('dataset')} /> Dataset</label>
-      </div>
-      <label className={field}>Definition
-        <textarea name="definition" aria-label="Definition" rows={3} dir="auto" value={draft.definition} onChange={(e) => set('definition')(e.target.value)} className={area}
-          placeholder={dataset ? 'What the data means: who is counted, from where, for which period' : 'What this evidence is and what it should contain'} />
-      </label>
+      <fieldset className={section}>
+        <legend className={legend}>About</legend>
+        <label className={field}>Title<Input name="title" aria-label="Title" required value={draft.title} onChange={(e) => set('title')(e.target.value)} dir="auto" /></label>
+        <div role="radiogroup" aria-label="Type" className="flex gap-4 text-sm">
+          <label className="flex items-center gap-1"><input type="radio" name="type" checked={draft.type === 'document'} onChange={() => onChange({ type: 'document', ...(draft.method === 'form' ? { method: 'manual' as const } : {}) })} /> Document</label>
+          <label className="flex items-center gap-1"><input type="radio" name="type" checked={dataset} onChange={() => set('type')('dataset')} /> Dataset</label>
+        </div>
+        <p className="-mt-1 text-xs text-muted-foreground">{dataset ? 'A dataset is data with columns: counts, rates, survey returns, KPI values. It is collected each period.' : 'A document is a file or a link: a report, minutes, a record.'}</p>
+        <label className={field}>Definition
+          <textarea name="definition" aria-label="Definition" rows={3} dir="auto" value={draft.definition} onChange={(e) => set('definition')(e.target.value)} className={area}
+            placeholder={dataset ? 'What the data means: who is counted, from where, for which period' : 'What this evidence is and what it should contain'} />
+        </label>
+      </fieldset>
 
-      {showMethod && <fieldset className="space-y-2 rounded-md border border-border p-3">
-        <legend className="px-1 text-sm font-medium">Collection method</legend>
+      {showMethod && <fieldset className={section}>
+        <legend className={legend}>Collection method</legend>
         <label className={field}>How it is collected
           <select aria-label="Collection method" className={select} value={draft.method} onChange={(e) => set('method')(e.target.value as EvidenceMethod)}>
             <option value="manual">{METHOD_LABEL.manual}</option>
@@ -192,8 +209,8 @@ export function ItemFields({ draft, onChange, apis, currentOwner, showMethod = t
         {draft.method === 'form' && <p className="text-xs text-muted-foreground">Uses the dataset’s columns. Define them in the sheet under the item once it is saved.</p>}
       </fieldset>}
 
-      <fieldset className="space-y-2 rounded-md border border-border p-3">
-        <legend className="px-1 text-sm font-medium">Schedule</legend>
+      <fieldset className={section}>
+        <legend className={legend}>Schedule</legend>
         <label className={field}>Repeats
           <select aria-label="Repeats" className={select} value={draft.every} onChange={(e) => set('every')(e.target.value as ItemDraft['every'])}>
             <option value="">No schedule</option>
@@ -214,12 +231,31 @@ export function ItemFields({ draft, onChange, apis, currentOwner, showMethod = t
         {draft.every && <p className="text-xs text-muted-foreground">Nothing is sent or run yet: this records when the evidence is due.</p>}
       </fieldset>
 
-      <label className={field}>Owner
-        <select aria-label="Owner" className={select} value={draft.ownerUserId} onChange={(e) => set('ownerUserId')(e.target.value)} dir="auto">
-          <option value="">{emptyOwner}</option>
-          {people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-        </select>
-      </label>
+      <fieldset className={section}>
+        <legend className={legend}>Ownership and handling</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={field}>Owning unit
+            <select aria-label="Owning unit" className={select} value={draft.ownerUnitId} onChange={(e) => set('ownerUnitId')(e.target.value)} dir="auto">
+              <option value="">No unit</option>
+              {dir.units.map((u) => <option key={u.id} value={u.id}>{u.nameEn}{u.detail ? ` (${u.detail})` : ""}</option>)}
+            </select>
+          </label>
+          <label className={field}>Owner
+            <select aria-label="Owner" className={select} value={draft.ownerUserId} onChange={(e) => set('ownerUserId')(e.target.value)} dir="auto">
+              <option value="">{emptyOwner}</option>
+              {people.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+            </select>
+          </label>
+          <label className={field}>Period covered<Input aria-label="Period covered" dir="auto" placeholder="2026-27, Fall 2026…" value={draft.periodLabel} onChange={(e) => set('periodLabel')(e.target.value)} /></label>
+          <label className={field}>Confidentiality
+            <select aria-label="Confidentiality" className={select} value={draft.confidentiality} onChange={(e) => set('confidentiality')(e.target.value as ItemDraft['confidentiality'])}>
+              <option value="public">Public</option><option value="internal">Internal</option><option value="restricted">Restricted</option>
+            </select>
+          </label>
+        </div>
+        <label className={field}>Tags<Input aria-label="Tags" dir="auto" placeholder="kpi, RISE, assessment" value={draft.tags} onChange={(e) => set('tags')(e.target.value)} /></label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" aria-label="Contains student data" checked={draft.containsStudentData} onChange={(e) => set('containsStudentData')(e.target.checked)} /> Contains student data (it is never sent to an AI model)</label>
+      </fieldset>
     </>
   );
 }

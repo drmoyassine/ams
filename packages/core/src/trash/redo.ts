@@ -46,6 +46,7 @@ export function redeleteDescriptor(items: RestoredItem[], opts: { revertMerge?: 
     case 'framework_version': { const id = str(root.versionId); return id ? d('DELETE', `/api/framework-versions/${id}`) : null; }
     case 'framework': { const id = str(root.frameworkId); return id ? d('DELETE', `/api/frameworks/${id}`) : null; }
     case 'mapping': { const id = first(p, 'requirement_mapping'); return id ? d('DELETE', `/api/mappings/${id}`) : null; }
+    case 'evidence_item': { const id = str(root.itemId); return id ? d('DELETE', `/api/evidence/${id}`) : null; }
     case 'evidence_link': { const id = first(p, 'evidence_link'); return id ? d('DELETE', `/api/evidence-links/${id}`) : null; }
     case 'milestone': { const id = first(p, 'milestone'); return id ? d('DELETE', `/api/milestones/${id}`) : null; }
     case 'cycle': { const id = str(root.cycleId); return id ? d('DELETE', `/api/cycles/${id}`) : null; }

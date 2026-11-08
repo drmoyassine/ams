@@ -20,7 +20,7 @@ type ItemRow = typeof trashItem.$inferSelect;
 /** The permission that lets a person delete (and so see, restore and remove) each kind. */
 export const KIND_PERMISSION: Record<TrashKind, Permission> = {
   requirement: 'framework:write', note: 'framework:write', source_document: 'framework:write', source_page: 'framework:write', report_template: 'framework:write',
-  framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
+  framework_version: 'framework:write', framework: 'framework:write', mapping: 'framework:write', evidence_link: 'evidence:write', evidence_item: 'evidence:write', milestone: 'engagement:manage', import_document: 'org:write',
   org_unit: 'org:write', cycle: 'cycle:manage', report: 'report:manage',
 };
 
@@ -163,6 +163,7 @@ function describe(payload: TrashPayload): Described[] {
   if (!reqs.length) for (const [rid, notes] of notesBy) for (const n of notes) out.push({ table: 'requirement_note', id: str(n.id), label: `Note on ${rid.slice(0, 8)}: ${str(n.text).replace(/\s+/g, ' ').slice(0, 80)}`, depth: 0 });
   for (const r of t.report_template ?? []) out.push({ table: 'report_template', id: str(r.id), label: str(r.name), depth: 1 });
   for (const r of t.requirement_mapping ?? []) out.push({ table: 'requirement_mapping', id: str(r.id), label: `${str(r.external_code)} → ${str(r.internal_code)} (${str(r.relation).replace('_', ' ')})`, depth: 1 });
+  if (payload.root && (payload.root as { itemId?: string }).itemId) out.push({ table: 'evidence_item', id: String((payload.root as { itemId: string }).itemId), label: String((payload.root as { title?: string }).title ?? 'Evidence'), depth: 0 });
   for (const r of t.evidence_link ?? []) out.push({ table: 'evidence_link', id: str(r.id), label: str(r.rationale).slice(0, 80), depth: 0 });
   for (const r of t.milestone ?? []) out.push({ table: 'milestone', id: str(r.id), label: str(r.name), depth: 0 });
   // Org units as a tree (parents first, siblings in their order).
