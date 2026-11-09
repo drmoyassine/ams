@@ -6,7 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
-  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric,
+  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric, type SyllabusSettings, type SyllabusTemplate,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -51,6 +51,9 @@ export const institution = pgTable('institution', {
   reviewRubric: jsonb('review_rubric').$type<ReviewRubric>().notNull().default(DEFAULT_REVIEW_RUBRIC),
   /** Institution assessment targets (TASK-114, migration 0075); empty until set. */
   assessmentBenchmarks: jsonb('assessment_benchmarks').$type<AssessmentBenchmarks>().notNull().default({}),
+  /** The syllabus limits and escalation, and the template an admin edits (DEC-038); empty means the defaults. */
+  syllabusSettings: jsonb('syllabus_settings').$type<Partial<SyllabusSettings>>().notNull().default({}),
+  syllabusTemplate: jsonb('syllabus_template').$type<Partial<SyllabusTemplate>>().notNull().default({}),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [
   check('institution_accent_color_check', sql`${t.accentColor} is null or ${t.accentColor} ~ '^#[0-9a-fA-F]{6}$'`),
@@ -250,9 +253,49 @@ export const course = pgTable('course', {
   level: integer('level'),
   languageOfInstruction: text('language_of_instruction'),
   active: boolean('active').notNull().default(true),
+  /** From the approved syllabus (TASK-122): contact hours, type, level band, category, sustainability indicator and the coordinator. */
+  contactLecture: numeric('contact_lecture', { precision: 4, scale: 1 }), contactLab: numeric('contact_lab', { precision: 4, scale: 1 }), contactOther: numeric('contact_other', { precision: 4, scale: 1 }),
+  courseType: text('course_type'), levelBand: text('level_band'), category: text('category'), sustainability: text('sustainability'),
+  coordinatorUserId: uuid('coordinator_user_id').references(() => appUser.id),
 }, (t) => [index('course_unit_idx').on(t.orgUnitId)]);
 
 /** Which programs a course serves, and how: core, elective or service, in which year and term of study. */
+/** Who teaches a course: an instructor may suggest changes to its syllabus. */
+export const courseInstructor = pgTable('course_instructor', {
+  ...base(), ...tenant(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+}, (t) => [uniqueIndex('course_instructor_idx').on(t.courseId, t.userId)]);
+export const courseRequisite = pgTable('course_requisite', {
+  ...base(), ...tenant(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  requisiteId: uuid('requisite_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['prerequisite', 'corequisite'] }).notNull(),
+}, (t) => [uniqueIndex('course_requisite_idx').on(t.courseId, t.requisiteId)]);
+/** The syllabus of a course, one document per version (DEC-038): locked by a trigger once approved. */
+export const syllabusVersion = pgTable('syllabus_version', {
+  ...base(), ...tenant(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  versionNo: integer('version_no').notNull(),
+  status: text('status', { enum: ['draft', 'in_review', 'endorsed', 'approved', 'superseded'] }).notNull().default('draft'),
+  content: jsonb('content').notNull(),
+  /** Computed by the rule checker when the draft is saved or the settings change. */
+  issues: jsonb('issues').notNull().default(sql`'[]'::jsonb`),
+  errorCount: integer('error_count').notNull().default(0), warningCount: integer('warning_count').notNull().default(0),
+  flaggedSince: timestamp('flagged_since', { withTimezone: true }), escalationLevel: smallint('escalation_level').notNull().default(0),
+  effectiveFrom: text('effective_from'), source: text('source'),
+  submittedBy: uuid('submitted_by').references(() => appUser.id), submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  endorsedBy: uuid('endorsed_by').references(() => appUser.id), endorsedAt: timestamp('endorsed_at', { withTimezone: true }),
+  approvedBy: uuid('approved_by').references(() => appUser.id), approvedAt: timestamp('approved_at', { withTimezone: true }),
+  returnedNote: text('returned_note'),
+}, (t) => [uniqueIndex('syllabus_version_no_idx').on(t.courseId, t.versionNo)]);
+export const syllabusSuggestion = pgTable('syllabus_suggestion', {
+  ...base(), ...tenant(),
+  syllabusVersionId: uuid('syllabus_version_id').notNull().references(() => syllabusVersion.id, { onDelete: 'cascade' }),
+  section: text('section').notNull(), suggestion: text('suggestion').notNull(),
+  status: text('status', { enum: ['open', 'accepted', 'declined'] }).notNull().default('open'),
+  resolvedBy: uuid('resolved_by').references(() => appUser.id), resolvedAt: timestamp('resolved_at', { withTimezone: true }), resolutionNote: text('resolution_note'),
+}, (t) => [index('syllabus_suggestion_idx').on(t.syllabusVersionId, t.status)]);
 export const courseProgram = pgTable('course_program', {
   ...base(), ...tenant(),
   courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
@@ -1192,7 +1235,7 @@ export const evidenceLink = pgTable('evidence_link', {
   check('evidence_link_one_target', sql`(${t.engagementRequirementId} is not null) <> (${t.internalFrameworkId} is not null and ${t.internalCode} is not null)`),
 ]);
 
-export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed'] as const;
+export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed', 'syllabus_flagged'] as const;
 /**
  * An in-app notice for one person (TASK-088): something they proposed was decided (a link of evidence to a standard rejected, with
  * the reason, or approved by someone else). Row-level security shows each person only their own; anyone acting in the institution

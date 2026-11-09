@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { EvidenceLinkSchema } from './evidence.js';
 
 /** `collection_*`: an evidence collection run is due, late or failed (TASK-090). */
-export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed'] as const;
+export const NOTIFICATION_KINDS = ['link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed', 'syllabus_flagged'] as const;
 
 export const NotificationSchema = z.object({
   id: z.string(), kind: z.enum(NOTIFICATION_KINDS), title: z.string(), body: z.string(),

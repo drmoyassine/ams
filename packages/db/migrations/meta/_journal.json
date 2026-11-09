@@ -533,6 +533,13 @@
       "when": 1792857600000,
       "tag": "0077_evidence_kpi_card",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1792944000000,
+      "tag": "0078_syllabus",
+      "breakpoints": true
     }
   ]
 }
