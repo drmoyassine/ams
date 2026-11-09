@@ -102,7 +102,7 @@ describe('Quality Management -> Standards', () => {
   it('has a Standards tab with the institution\'s standards, full width, and no side panel', async () => {
     render(wrap(qm('lead')));
     expect(await screen.findByRole('heading', { name: 'Quality Management' })).toBeTruthy();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'Plans', 'My work']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'Plans', 'Syllabi', 'My work']);
     expect(screen.getByRole('tab', { name: 'Standards' }).getAttribute('aria-selected')).toBe('true');
     const list = await screen.findByRole('list', { name: 'Standards' });
     await waitFor(() => expect(list.textContent).toContain('Assessment of learning'));

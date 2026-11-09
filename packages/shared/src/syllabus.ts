@@ -147,7 +147,7 @@ export const SyllabusTemplateSchema: z.ZodType<SyllabusTemplate, SyllabusTemplat
 export const DEFAULT_SYLLABUS_TEMPLATE: SyllabusTemplate = {
   optional: ['info.titleAr'],
   sections: [
-    { key: 'info', title: 'Basic course information', locked: true, help: 'Course code and title (the English name is mandatory, also for Arabic-taught courses: WSCUC), language of delivery, credit and contact hours (lecture, lab, other), prerequisites and co-requisites, type, level, category and the sustainability indicator.' },
+    { key: 'info', title: 'Basic course information', locked: true, help: 'Course code and title (the English name is mandatory, also for Arabic-taught courses, because accreditors need it), language of delivery, credit and contact hours (lecture, lab, other), prerequisites and co-requisites, type, level, category and the sustainability indicator.' },
     { key: 'description', title: 'Course description', locked: false, help: 'Start with the course role (introductory, intermediate, advanced), state its purpose and scope and the major topics, the target audience, the key skills students gain, and how it connects theory to practice. Keep it concise and objective.' },
     { key: 'clos', title: 'Course learning outcomes (CLOs)', locked: true, help: 'One row per CLO with its Bloom level. Each CLO maps to one PLO and says whether it Introduces, Reinforces or Masters it.' },
     { key: 'outline', title: 'Course outline', locked: false, help: 'Week by week: topic and reading, lab or other sessions, the CLOs and SDGs it serves, and the assessment that falls in the week.' },
