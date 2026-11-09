@@ -12,6 +12,7 @@ import { createTestDb, type TestDb } from '@ams/db/test-db';
 import { emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
 import './i18n';
 import { SyllabiList } from './components/syllabus/syllabi-list';
+import { SyllabusAlertBar } from './components/syllabus/syllabus-alert-bar';
 import { SyllabusImport } from './components/syllabus/syllabus-import';
 import { SyllabusLimits } from './components/syllabus/syllabus-limits';
 import { SyllabusTemplateEditor } from './components/syllabus/syllabus-template-editor';
@@ -164,6 +165,28 @@ describe('the workflow through each role', () => {
     cleanup();
     render(page('coordinator'));
     expect((await screen.findByTestId('returned-note')).textContent).toMatch(/too thin/);
+  });
+});
+
+describe('the red bar', () => {
+  it('stays at the top for the person it needs while errors stand, and not for someone it does not need yet', async () => {
+    const a = apisOf('coordinator');
+    // The earlier tests left a draft with errors on the course.
+    await a.syllabus.save(ids.course!, { content: emptySyllabus() }).catch(() => undefined);
+    render(wrap(<SyllabusAlertBar enabled api={a.syllabus} />));
+    const bar = await screen.findByTestId('syllabus-alert-bar');
+    expect(bar.textContent).toMatch(/1 syllabus has \d+ errors? and needs your attention/);
+    expect(within(bar).getByRole('link', { name: /MCE 410 \(\d+\)/ })).toBeTruthy();
+    cleanup();
+    // The program chair is not reached on the first day.
+    render(wrap(<SyllabusAlertBar enabled api={apisOf('chair').syllabus} />));
+    await new Promise((r) => setTimeout(r, 600));
+    expect(screen.queryByTestId('syllabus-alert-bar')).toBeNull();
+    // Once the flag is days old the line reaches the chair, and the bar shows for the chair too.
+    await db.su.query(`update syllabus_version set flagged_since = now() - interval '5 days' where course_id = $1 and error_count > 0`, [ids.course]);
+    cleanup();
+    render(wrap(<SyllabusAlertBar enabled api={apisOf('chair').syllabus} />));
+    expect((await screen.findByTestId('syllabus-alert-bar')).textContent).toMatch(/need/);
   });
 });
 

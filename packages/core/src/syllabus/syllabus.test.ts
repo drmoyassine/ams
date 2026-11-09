@@ -134,6 +134,13 @@ describe('the workflow', () => {
     await expect(w.as('second', (c) => resolveSuggestion(c, s.id, { decision: 'accepted' }))).rejects.toThrow(ConflictError);
   });
 
+  it('lets everyone on the line propose a change (instructor, coordinator, chair, Dean, VPAA), and nobody outside it', async () => {
+    const open = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).open!;
+    for (const who of ['outsider', 'second', 'coord', 'alo']) expect((await w.as(who, (c) => suggestChange(c, open.id, { section: 'outline', suggestion: `Idea from ${who}` }))).byName).toBe(who);
+    expect(((await withDean((c) => suggestChange(c, open.id, { section: 'outline', suggestion: 'Idea from the Dean' }))) as { byName: string | null }).byName).toBe('dean');
+    await expect(w.as('contrib', (c) => suggestChange(c, open.id, { section: 'outline', suggestion: 'x' }))).rejects.toThrow(ForbiddenError);
+  });
+
   it('is endorsed by the chair, returned with a note on request, and approved only by the Dean', async () => {
     const open = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).open!;
     await expect(w.as('second', (c) => endorseSyllabus(c, open.id))).rejects.toThrow(ForbiddenError);

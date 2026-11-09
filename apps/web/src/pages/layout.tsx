@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SyllabusAlertBar } from '../components/syllabus/syllabus-alert-bar';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { isReadableAccent } from '@ams/shared';
@@ -168,7 +169,7 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
           </div>
         </div>
       )}
-      <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><Outlet /></main>
+      <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><SyllabusAlertBar enabled={can(me.data, 'org:read')} /><Outlet /></main>
       <ConfirmHost />
       <UndoToaster />
       {can(me.data, 'org:read') && <AssistantLauncher canManageAi={can(me.data, 'ai:manage')} {...(assistant ? { api: assistant } : {})} />}
