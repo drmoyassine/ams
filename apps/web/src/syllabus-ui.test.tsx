@@ -9,10 +9,12 @@ import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, MemoryStore } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
-import { emptySyllabus, type SyllabusContent } from '@ams/shared';
+import { emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
 import './i18n';
 import { SyllabiList } from './components/syllabus/syllabi-list';
+import { SyllabusImport } from './components/syllabus/syllabus-import';
 import { SyllabusLimits } from './components/syllabus/syllabus-limits';
+import { writeSyllabusWorkbook } from './lib/syllabus-sheets';
 import { createApi } from './lib/api';
 import { settingsApi } from './lib/settings-api';
 import { scopeApi } from './lib/scope-api';
@@ -161,6 +163,27 @@ describe('the workflow through each role', () => {
     cleanup();
     render(page('coordinator'));
     expect((await screen.findByTestId('returned-note')).textContent).toMatch(/too thin/);
+  });
+});
+
+describe('the Excel import', () => {
+  it('loads a workbook as drafts, flags what breaks a rule without refusing it, and reports each course', async () => {
+    const user = userEvent.setup();
+    const wb = emptyWorkbook();
+    wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer', 'Credit hours': 3 }, { 'Course code': 'GHOST 1', 'Title (English)': 'Nothing' });
+    wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'Analyse conduction', 'Bloom level': 'Analyze', PLO: 'PLO1', Coverage: 'Introduced' });
+    const blob = await writeSyllabusWorkbook(wb);
+    const file = new File([await blob.arrayBuffer()], 'syllabi.xlsx', { type: blob.type });
+    // A draft in progress is replaced by the import, so start from the state the earlier tests left (an open draft or none).
+    render(wrap(<SyllabusImport api={apisOf('coordinator').syllabus} />));
+    await user.upload(await screen.findByLabelText('Syllabus workbook'), file);
+    const result = await screen.findByTestId('import-result');
+    expect(result.textContent).toMatch(/1 syllabus loaded, 1 flagged/);
+    expect(result.textContent).toMatch(/MCE 410: Loaded as a draft/);
+    expect(result.textContent).toMatch(/GHOST 1: Skipped: no such course/);
+    const open = (await apisOf('coordinator').syllabus.overview(ids.course!)).open!;
+    expect(open).toMatchObject({ status: 'draft', source: 'excel import' });
+    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', level: 'I', bloom: 'analyze' });
   });
 });
 

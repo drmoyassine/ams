@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
-  approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
+  approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, importSyllabi, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
   saveSyllabusDraft, setCourseStaff, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
 } from '@ams/core';
 import {
   ApproveSyllabusSchema, CourseStaffSchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
-  SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
+  SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusWorkbookSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -58,6 +58,13 @@ export function syllabusRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { params: idParam, body: { required: true, ...json(CourseStaffSchema) } },
       responses: { 200: { description: 'The staff', ...json(CourseStaffSchema) }, ...errors },
     }), async (c) => c.json(await setCourseStaff(c.get('ctx'), c.req.valid('param').id, c.req.valid('json')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/syllabi/import', access: requires('org:read'), tags: tag,
+      description: 'Loads the rows of the Excel workbook (sheets Courses, CLOs, Outline, Materials, Assessments, Rubrics) as draft syllabi. A rule never refuses a course: it loads with its issues flagged. A course the caller may not edit, that is in review, or that does not exist is reported and skipped.',
+      request: { body: { required: true, ...json(SyllabusWorkbookSchema) } },
+      responses: { 200: { description: 'What loaded and what was skipped', ...json(z.object({ results: z.array(z.object({ courseCode: z.string(), status: z.enum(['loaded', 'unknown_course', 'not_allowed', 'in_review']), versionNo: z.number().optional(), errors: z.number().optional(), warnings: z.number().optional(), message: z.string().optional() })), loaded: z.number(), flagged: z.number() })) }, ...errors },
+    }), async (c) => c.json(await importSyllabi(c.get('ctx'), c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/syllabi', access: requires('org:read'), tags: tag,

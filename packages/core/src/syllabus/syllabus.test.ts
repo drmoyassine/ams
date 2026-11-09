@@ -1,7 +1,8 @@
 // The syllabus services (TASK-123): who may do what in the workflow, rules that flag but never block an upsert, errors that stop a
 // submission, approval writing the course's CLOs, tightened settings flagging an approved syllabus, and the escalation up the line.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_SYLLABUS_SETTINGS, emptySyllabus, type SyllabusContent } from '@ams/shared';
+import { DEFAULT_SYLLABUS_SETTINGS, emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
+import { importSyllabi } from './import.js';
 import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { createCourse, setCourseProgram } from '../outcomes/courses.js';
@@ -191,5 +192,35 @@ describe('tightening a limit flags the syllabi that now break it', () => {
     await w.as('alo', (c) => setSyllabusSettings(c, DEFAULT_SYLLABUS_SETTINGS));
     expect(await w.as('second', (c) => listSyllabi(c, { flagged: true }))).toEqual([]);
     expect((await w.db.su.query(`select flagged_since, escalation_level from syllabus_version where status = 'approved'`)).rows[0]).toEqual({ flagged_since: null, escalation_level: 0 });
+  });
+});
+
+describe('the Excel import', () => {
+  it('loads each course as a draft, flags what breaks a rule without refusing it, skips an unknown course, and replaces a draft', async () => {
+    const wb = emptyWorkbook();
+    wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer', 'Credit hours': 3 }, { 'Course code': 'NOPE 999', 'Title (English)': 'Ghost' });
+    wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'Analyse conduction', 'Bloom level': 'Analyze', PLO: 'PLO1', Coverage: 'Introduced' });
+    const r = await w.as('second', (c) => importSyllabi(c, wb));
+    expect(r.results.map((x) => [x.courseCode, x.status])).toEqual([['MCE 410', 'loaded'], ['NOPE 999', 'unknown_course']]);
+    expect(r.results[0]!.errors).toBeGreaterThan(3);
+    expect(r).toMatchObject({ loaded: 1, flagged: 1 });
+    const open = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).open!;
+    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', ploId: ids.plo1, level: 'I', bloom: 'analyze' });
+    expect(open.source).toBe('excel import');
+    // Importing again replaces the draft (the version number stays).
+    const again = await w.as('second', (c) => importSyllabi(c, wb));
+    expect(again.results[0]).toMatchObject({ status: 'loaded', versionNo: open.versionNo });
+  });
+
+  it('skips a course the importer may not edit, and one already in review, and loads the rest', async () => {
+    const wb = emptyWorkbook();
+    wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer' });
+    expect((await w.as('contrib', (c) => importSyllabi(c, wb))).results[0]).toMatchObject({ status: 'not_allowed' });
+    // Put it in review: a complete draft, submitted.
+    const done = await w.as('second', (c) => saveSyllabusDraft(c, ids.course!, { content: complete() }));
+    await w.as('second', (c) => submitSyllabus(c, done.id));
+    expect((await w.as('second', (c) => importSyllabi(c, wb))).results[0]).toMatchObject({ status: 'in_review' });
+    await w.as('coord', (c) => returnSyllabus(c, done.id, 'back'));
+    await w.as('second', (c) => discardDraft(c, ids.course!));
   });
 });

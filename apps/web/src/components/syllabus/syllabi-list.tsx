@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AccordionCard } from '../accordion';
 import { Input } from '../ui/input';
 import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
+import { SyllabusImport } from './syllabus-import';
 import { LINE, StatusChip } from './syllabus-panels';
 
 const FILTERS = [['all', 'All'], ['flagged', 'With errors'], ['mine', 'Needs my attention']] as const;
@@ -23,6 +24,7 @@ export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Each course has one syllabus, approved by its Dean. A syllabus with errors needs its coordinator at once and goes up the line while it is unfixed.</p>
+      <SyllabusImport api={api} />
       <div className="flex flex-wrap items-center gap-3">
         <Input aria-label="Search syllabi" placeholder="Search by code or title" value={text} onChange={(e) => setText(e.target.value)} className="w-full sm:w-64" />
         <div role="group" aria-label="Show" className="flex flex-wrap gap-1">

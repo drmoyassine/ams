@@ -22,6 +22,18 @@ export type SyllabusStatus = (typeof SYLLABUS_STATUSES)[number];
 export const SECTION_KEYS = ['info', 'description', 'clos', 'outline', 'materials', 'assessments', 'rubrics', 'methodology'] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
+/** Words for the vocabularies, shared by the screens and the Excel import and export. */
+export const LABEL: Record<string, string> = {
+  english: 'English', arabic: 'Arabic', bilingual: 'Bilingual',
+  didactic: 'Didactic', lab: 'Lab', studio: 'Studio', internship: 'Internship', independent_study: 'Independent study', project: 'Project',
+  general_education: 'General education', program_core: 'Program core', program_elective: 'Program elective', free_elective: 'Free elective',
+  focused: 'Sustainability-focused', related: 'Sustainability-related', none: 'None',
+  textbook: 'Required textbook', recommended: 'Recommended reading', material: 'Material', software: 'Software',
+  quiz: 'Quiz', assignment: 'Assignment', midterm: 'Midterm exam', final: 'Final exam', presentation: 'Presentation', participation: 'Participation', other: 'Other',
+  remember: 'Remember', understand: 'Understand', apply: 'Apply', analyze: 'Analyze', evaluate: 'Evaluate', create: 'Create',
+  draft: 'Draft', in_review: 'In review', endorsed: 'Endorsed', approved: 'Approved', superseded: 'Superseded',
+};
+
 // ---- The document ------------------------------------------------------------------------------------------------------------
 
 export interface SyllabusInfo {

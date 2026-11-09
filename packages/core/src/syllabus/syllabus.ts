@@ -53,6 +53,9 @@ export async function getSyllabusTemplate(ctx: Ctx): Promise<SyllabusTemplate> {
   return { sections: t.sections?.length ? t.sections : DEFAULT_SYLLABUS_TEMPLATE.sections, optional: t.optional ?? DEFAULT_SYLLABUS_TEMPLATE.optional };
 }
 
+export async function getLevels(ctx: Ctx): Promise<OutcomeLevel[]> {
+  return levelsOf(ctx);
+}
 async function levelsOf(ctx: Ctx): Promise<OutcomeLevel[]> {
   const [row] = await ctx.tx.select({ levels: institution.outcomeLevels }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
   const parsed = OutcomeLevelsSchema.safeParse(row?.levels);

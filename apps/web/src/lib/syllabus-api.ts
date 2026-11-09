@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { SyllabusRoutes } from '@ams/api';
 import type {
-  CourseStaff, ResolveSuggestion, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusVersion, UpsertSyllabus,
+  CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusVersion, UpsertSyllabus,
 } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
@@ -20,6 +20,7 @@ export function syllabusApi(fetcher: typeof fetch = fetch) {
     save: (courseId: string, json: SaveSyllabus) => a.courses[':id'].syllabus.$put({ param: { id: courseId }, json }).then((r) => unwrap<SyllabusVersion>(r)),
     discard: (courseId: string) => a.courses[':id'].syllabus.draft.$delete({ param: { id: courseId } }).then((r) => unwrap<{ deleted: boolean }>(r)),
     upsert: (json: UpsertSyllabus) => a.syllabi.upsert.$post({ json }).then((r) => unwrap<SyllabusVersion>(r)),
+    importWorkbook: (json: SyllabusWorkbook) => a.syllabi.import.$post({ json }).then((r) => unwrap<{ results: { courseCode: string; status: 'loaded' | 'unknown_course' | 'not_allowed' | 'in_review'; versionNo?: number; errors?: number; warnings?: number; message?: string }[]; loaded: number; flagged: number }>(r)),
     setStaff: (courseId: string, json: CourseStaff) => a.courses[':id'].staff.$put({ param: { id: courseId }, json }).then((r) => unwrap<CourseStaff>(r)),
     list: (opts: { flagged?: boolean; mine?: boolean } = {}) => a.syllabi.$get({ query: { ...(opts.flagged ? { flagged: 'true' as const } : {}), ...(opts.mine ? { mine: 'true' as const } : {}) } }).then((r) => unwrap<SyllabusListRow[]>(r)),
     escalate: () => a.syllabi.escalate.$post().then((r) => unwrap<{ notified: number }>(r)),

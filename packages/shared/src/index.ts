@@ -24,6 +24,7 @@ export * from './plans.js';
 export * from './documents.js';
 export * from './outcomes.js';
 export * from './syllabus.js';
+export * from './syllabus-sheets.js';
 export * from './assessment.js';
 export * from './languages.js';
 export * from './i18n-keys.js';

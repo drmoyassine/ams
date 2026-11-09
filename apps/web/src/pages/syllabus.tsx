@@ -4,13 +4,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { checkSyllabus, errorsOf, type SyllabusContent } from '@ams/shared';
+import { checkSyllabus, errorsOf, syllabusToWorkbook, type SyllabusContent } from '@ams/shared';
 import { confirmDialog } from '../components/confirm-dialog';
 import type { CycleApis } from '../components/cycles/directory';
 import { PageHeader } from '../components/page-header';
 import { SyllabusEditor } from '../components/syllabus/syllabus-editor';
 import { FlagBanner, HistoryList, StaffPanel, SuggestionsPanel, WorkflowBar } from '../components/syllabus/syllabus-panels';
 import { SyllabusView } from '../components/syllabus/syllabus-view';
+import { download } from '../lib/sheet-io';
+import { writeSyllabusWorkbook } from '../lib/syllabus-sheets';
 import { Button } from '../components/ui/button';
 import { errorText } from '../components/evidence-item-form';
 import { useSyllabusApi, type SyllabusApi } from '../lib/syllabus-api';
@@ -52,7 +54,12 @@ export function SyllabusPage({ courseId, api: override, apis }: { courseId: stri
     <section className="space-y-4">
       <Link to="/quality-management" search={{ tab: 'syllabi' }} className="inline-block text-sm text-muted-foreground underline-offset-2 hover:underline">← Syllabi</Link>
       <PageHeader title={`${ov.course.code} · ${ov.course.titleEn}`} intro={`Course syllabus${ov.course.unitName ? ` · ${ov.course.unitName}` : ''}${ov.course.credits !== null ? ` · ${ov.course.credits} credits` : ''}. Coordinator: ${ov.course.coordinatorName ?? 'not named'}.`}
-        action={!editing && shown ? <Button type="button" variant="outline" onClick={() => window.print()}>Print or save as PDF</Button> : undefined} />
+        action={shown ? (
+          <span className="flex flex-wrap gap-2 print:hidden">
+            <Button type="button" variant="outline" onClick={() => void writeSyllabusWorkbook(syllabusToWorkbook((editing ? draft : shown.content)!, { code: ov.course.code, levels: ov.levels, plos: ov.plos, courses: ov.courses })).then((b) => download(b, `${ov.course.code} syllabus.xlsx`))}>Export to Excel</Button>
+            {!editing && <Button type="button" variant="outline" onClick={() => window.print()}>Print or save as PDF</Button>}
+          </span>
+        ) : undefined} />
       <FlagBanner version={flaggedVersion} errors={errors} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <WorkflowBar overview={ov} version={open ?? ov.current} editing={editing} dirty={dirty} errors={errors} busy={busy}
