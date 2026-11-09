@@ -265,3 +265,51 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
 }
 
 export const errorsOf = (issues: SyllabusIssue[]) => issues.filter((x) => x.severity === 'error');
+
+// ---- What the services return and take --------------------------------------------------------------------------------------
+
+export interface SyllabusVersion {
+  id: string; courseId: string; versionNo: number; status: SyllabusStatus; content: SyllabusContent;
+  issues: SyllabusIssue[]; errorCount: number; warningCount: number;
+  /** When the syllabus first had an error, and how far up the line the flag has gone (0 coordinator, 1 chair, 2 Dean, 3 VPAA). */
+  flaggedSince: string | null; escalationLevel: number;
+  effectiveFrom: string | null; source: string | null; returnedNote: string | null;
+  submittedAt: string | null; endorsedAt: string | null; approvedAt: string | null;
+  submittedByName: string | null; endorsedByName: string | null; approvedByName: string | null; updatedAt: string;
+}
+export interface SyllabusSuggestion { id: string; versionId: string; section: string; suggestion: string; status: 'open' | 'accepted' | 'declined'; byName: string | null; createdAt: string; resolutionNote: string | null }
+export interface SyllabusPlo { id: string; code: string; textEn: string; programId: string; programName: string }
+/** Everything the course's Syllabus tab needs, in one read. */
+export interface SyllabusOverview {
+  course: { id: string; code: string; titleEn: string; titleAr: string | null; credits: number | null; unitName: string | null; coordinatorName: string | null; coordinatorUserId: string | null; programIds: string[] };
+  /** The approved version, and the version in progress (draft, in review or endorsed). */
+  current: SyllabusVersion | null; open: SyllabusVersion | null;
+  history: { id: string; versionNo: number; status: SyllabusStatus; effectiveFrom: string | null; approvedAt: string | null }[];
+  suggestions: SyllabusSuggestion[];
+  /** What the signed-in person may do with it. */
+  can: { edit: boolean; suggest: boolean; endorse: boolean; approve: boolean };
+  settings: SyllabusSettings; template: SyllabusTemplate; levels: OutcomeLevel[]; plos: SyllabusPlo[];
+  courses: { id: string; code: string; titleEn: string }[];
+}
+export interface SyllabusListRow {
+  courseId: string; code: string; titleEn: string; unitName: string | null; coordinatorName: string | null;
+  currentVersionNo: number | null; currentApprovedAt: string | null; openStatus: SyllabusStatus | null;
+  errorCount: number; warningCount: number; flaggedSince: string | null; escalationLevel: number; needsMyAttention: boolean;
+}
+const lenient = <T>() => z.custom<T>();
+export const SyllabusOverviewSchema = lenient<SyllabusOverview>();
+export const SyllabusVersionSchema = lenient<SyllabusVersion>();
+export const SyllabusListSchema = lenient<SyllabusListRow[]>();
+export const SyllabusSuggestionSchema = lenient<SyllabusSuggestion>();
+
+export interface SaveSyllabus { content: SyllabusContent; source?: string | undefined }
+export const SaveSyllabusSchema: z.ZodType<SaveSyllabus, SaveSyllabus> = z.object({ content: SyllabusContentSchema, source: z.string().trim().max(200).optional() }).strict() as unknown as z.ZodType<SaveSyllabus, SaveSyllabus>;
+/** Upsert by course code (the API and the import): always makes or updates a draft; only people approve. */
+export interface UpsertSyllabus extends SaveSyllabus { courseCode: string }
+export const UpsertSyllabusSchema: z.ZodType<UpsertSyllabus, UpsertSyllabus> = z.object({ courseCode: z.string().trim().min(1), content: SyllabusContentSchema, source: z.string().trim().max(200).optional() }).strict() as unknown as z.ZodType<UpsertSyllabus, UpsertSyllabus>;
+export const SuggestSchema = z.object({ section: z.string().trim().min(1).max(40), suggestion: z.string().trim().min(1).max(4000) }).strict();
+export type Suggest = z.infer<typeof SuggestSchema>;
+export const ResolveSuggestionSchema = z.object({ decision: z.enum(['accepted', 'declined']), note: z.string().trim().max(1000).optional() }).strict();
+export type ResolveSuggestion = z.infer<typeof ResolveSuggestionSchema>;
+export const SyllabusNoteSchema = z.object({ note: z.string().trim().max(2000).optional() }).strict();
+export const ApproveSyllabusSchema = z.object({ effectiveFrom: z.string().trim().max(40).optional() }).strict();

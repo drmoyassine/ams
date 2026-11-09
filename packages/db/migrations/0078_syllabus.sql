@@ -106,6 +106,16 @@ CREATE TABLE syllabus_suggestion (
 CREATE INDEX syllabus_suggestion_idx ON syllabus_suggestion (syllabus_version_id, status);--> statement-breakpoint
 ALTER TABLE notification DROP CONSTRAINT notification_kind_check;--> statement-breakpoint
 ALTER TABLE notification ADD CONSTRAINT notification_kind_check CHECK (kind in ('link_rejected', 'link_approved', 'collection_due', 'collection_late', 'collection_failed', 'syllabus_flagged'));--> statement-breakpoint
+-- Who answers for a syllabus up the line (program chair, Dean, VPAA): role_assignment rows are visible only to their owner and admins,
+-- so this narrow function reads them as its owner and returns only user ids, for the roles and scopes asked.
+CREATE FUNCTION syllabus_responsible(p_roles text[], p_scope_type text, p_scope_ids uuid[]) RETURNS TABLE (user_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ams, pg_temp AS $$
+  SELECT DISTINCT r.user_id FROM role_assignment r
+   WHERE r.institution_id = app_institution_id() AND r.role = ANY(p_roles) AND r.scope_type = p_scope_type AND r.scope_id = ANY(p_scope_ids)
+     AND (r.expires_at IS NULL OR r.expires_at > now());
+$$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION syllabus_responsible(text[], text, uuid[]) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION syllabus_responsible(text[], text, uuid[]) TO ams_app;--> statement-breakpoint
 -- Courses and their syllabi are institution-wide like the course catalogue; writes are checked in the services.
 DO $$
 DECLARE t text;
