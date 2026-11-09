@@ -296,7 +296,7 @@ export interface SyllabusListRow {
   currentVersionNo: number | null; currentApprovedAt: string | null; openStatus: SyllabusStatus | null;
   errorCount: number; warningCount: number; flaggedSince: string | null; escalationLevel: number; needsMyAttention: boolean;
 }
-const lenient = <T>() => z.custom<T>();
+const lenient = <T>() => z.any() as unknown as z.ZodType<T, T>;
 export const SyllabusOverviewSchema = lenient<SyllabusOverview>();
 export const SyllabusVersionSchema = lenient<SyllabusVersion>();
 export const SyllabusListSchema = lenient<SyllabusListRow[]>();
