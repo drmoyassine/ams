@@ -1,6 +1,6 @@
 ---
 title: Syllabus import and export (Excel, print)
-status: pending
+status: completed
 description: An Excel template, import that flags and never blocks, export to Excel and print/PDF in the AIU layout.
 priority: P1
 tags:
@@ -16,6 +16,8 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:52.094Z'
+  at: '2026-11-09T11:26:19.549Z'
 ---
 # TASK-126 — Syllabus import and export (Excel, print)
+
+Done (2026-11-09): Excel import (never refuses a rule) and export, a round trip that returns the same syllabus, a template download.

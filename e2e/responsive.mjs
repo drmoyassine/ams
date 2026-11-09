@@ -525,6 +525,19 @@ async function seedDemo(db, base) {
     await q(`insert into memory_item (institution_id, scope_type, scope_id, visibility, kind, text, created_by) values
       ($1, 'version', $3, 'workspace', 'convention', 'في هذا الإصدار يُكتب نص المؤشر في خانة العنوان ويُحفظ كما ورد في المصدر دون اختصار.', $2)`, [inst, admin, versionId]);
   } catch (e) { warn('assistant', e); }
+  // The course syllabus (DEC-038): a course in the program with a draft that has a few CLOs and an assessment and plenty of flagged errors, so the
+  // editor, the flag banner, the issues and the Syllabi list are all on screen.
+  try {
+    const [{ id: course }] = await q(`insert into course (institution_id, org_unit_id, code, title_en, coordinator_user_id) values ($1, $2, 'MCE 410', 'Heat Transfer with a long title that has to wrap on a phone', $3) returning id`, [inst, unit, admin]);
+    await q(`insert into course_program (institution_id, course_id, program_id) values ($1, $2, $3)`, [inst, course, program]);
+    await q(`insert into learning_outcome (institution_id, kind, program_id, code, text_en) values ($1, 'plo', $2, 'PLO1', 'Solve engineering problems')`, [inst, program]);
+    const doc = await call('GET', `/api/courses/${course}/syllabus/starting`);
+    const [{ id: plo }] = await q(`select id from learning_outcome where program_id = $1 and kind = 'plo' limit 1`, [program]);
+    doc.clos = [{ id: crypto.randomUUID(), code: 'CLO1', textEn: 'Analyse conduction in steady state', textAr: '', bloom: 'analyze', ploId: plo, level: 'R' }, { id: crypto.randomUUID(), code: 'CLO2', textEn: 'Design a heat exchanger', textAr: '', bloom: 'create', ploId: '', level: '' }];
+    doc.assessments = [{ id: crypto.randomUUID(), name: 'Final exam', category: 'final', objective: '', weight: 60, dueWeek: null, clos: [{ cloId: doc.clos[0].id, share: 100, rubricId: '' }] }];
+    await call('PUT', `/api/courses/${course}/syllabus`, { content: doc });
+    ids.courseId = course;
+  } catch (e) { console.warn(`seed: syllabus skipped (${e.message})`); }
   return ids;
 }
 
@@ -636,6 +649,10 @@ function pagesFor(ids) {
     { name: 'evidence-card-open', path: '/evidence', action: expandFirst },
     { name: 'evidence-requests', path: '/evidence', action: clickTab('Requests') },
     { name: 'my-requests', path: '/requests' },
+    // The course syllabus (DEC-038): the Syllabi list with the import, the editor with its flag banner and issues, and the limits and template in Settings.
+    { name: 'syllabi', path: '/quality-management?tab=syllabi' },
+    ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
+    { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
     // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
     { name: 'settings-organization', path: '/settings/organization' },
     { name: 'org-chart-tree', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); } },

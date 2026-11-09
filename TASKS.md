@@ -4871,7 +4871,7 @@ related_decisions:
 
 ---
 title: Syllabus schema, rules and settings (shared)
-status: pending
+status: completed
 description: >-
   The typed syllabus document, the AIU template as configuration, the limits (min and max CLOs and PLOs) and one rule
   checker returning errors and warnings.
@@ -4889,8 +4889,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:44.606Z'
+  at: '2026-11-09T11:26:11.083Z'
 ---
+
+Done (2026-11-09): packages/shared/src/syllabus.ts: the typed document, the AIU template as configuration, the settings (min and max CLOs and PLOs, escalation days) and one rule checker used by the screen, the import and the API.
 
 ---
 
@@ -4898,7 +4900,7 @@ modified:
 
 ---
 title: 'Syllabus data model: course fields, requisites, staff, versions, suggestions, flags (migration 0078)'
-status: pending
+status: completed
 description: >-
   Course contact hours, type, level, category, sustainability; requisites; coordinator and instructors; syllabus
   versions locked when approved; suggestions; flags; RLS and audit.
@@ -4916,8 +4918,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:46.143Z'
+  at: '2026-11-09T11:26:12.879Z'
 ---
+
+Done (2026-11-09, migration 0078): course facts, requisites, instructors, syllabus_version locked by a trigger once approved, suggestions, settings and template columns, the syllabus_flagged notice, and a narrow SECURITY DEFINER function for who answers up the line.
 
 ---
 
@@ -4925,7 +4929,7 @@ modified:
 
 ---
 title: 'Syllabus services: draft, upsert, suggestions, workflow, approval writes the CLOs, flags and escalation'
-status: pending
+status: completed
 description: >-
   Instructor suggests, coordinator edits and submits, chair endorses, Dean approves; errors block submission; flags
   escalate coordinator, chair, Dean, VPAA.
@@ -4943,8 +4947,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:47.606Z'
+  at: '2026-11-09T11:26:14.575Z'
 ---
+
+Done (2026-11-09): packages/core/src/syllabus: save draft and upsert that never block on a rule, suggestions, submit/return/endorse/approve with the coordinator, chair and Dean, approval writes the course and its CLOs, recheck on settings change, escalation up the line.
 
 ---
 
@@ -4952,7 +4958,7 @@ modified:
 
 ---
 title: 'Syllabus API: read, upsert, workflow, suggestions, flagged list'
-status: pending
+status: completed
 description: Routes beside the main chain with typed clients.
 priority: P1
 tags:
@@ -4968,8 +4974,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:49.148Z'
+  at: '2026-11-09T11:26:16.265Z'
 ---
+
+Done (2026-11-09): routes beside the main chain (SyllabusRoutes) with a typed client: read, save, upsert, import, staff, suggestions, workflow, list, escalate, settings, template.
 
 ---
 
@@ -4977,7 +4985,7 @@ modified:
 
 ---
 title: 'Syllabus screens: course tab, editor by section, workflow bar, suggestions, Syllabi list, settings'
-status: pending
+status: completed
 description: The syllabus in the AIU layout with an editor by section, inline issues, version history and a flagged list.
 priority: P1
 tags:
@@ -4993,8 +5001,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:50.672Z'
+  at: '2026-11-09T11:26:17.859Z'
 ---
+
+Done (2026-11-09): the course Syllabus page (AIU layout, editor with live rules, flag banner, workflow bar, suggestions, staff, versions), the Syllabi tab in Quality Management, the limits and template in Settings, Courses.
 
 ---
 
@@ -5002,7 +5012,7 @@ modified:
 
 ---
 title: Syllabus import and export (Excel, print)
-status: pending
+status: completed
 description: An Excel template, import that flags and never blocks, export to Excel and print/PDF in the AIU layout.
 priority: P1
 tags:
@@ -5018,8 +5028,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:52.094Z'
+  at: '2026-11-09T11:26:19.549Z'
 ---
+
+Done (2026-11-09): Excel import (never refuses a rule) and export, a round trip that returns the same syllabus, a template download.
 
 ---
 
@@ -5027,7 +5039,7 @@ modified:
 
 ---
 title: 'Syllabus template settings: sections, order and required flags'
-status: pending
+status: completed
 description: An admin edits the sections of the template; fields the rules need cannot be removed.
 priority: P1
 tags:
@@ -5043,8 +5055,10 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:53.587Z'
+  at: '2026-11-09T11:26:21.223Z'
 ---
+
+Done (2026-11-09): the template as configuration: reorder, rename, added free-text sections that appear in every draft and in the export, optional fields; the sections the rules depend on stay.
 
 ---
 

@@ -131,7 +131,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
             <div key={x.id} className="space-y-1 rounded-md border border-border p-2" data-testid="clo-row">
               <div className="grid gap-2 sm:grid-cols-12">
                 <div className="flex items-center text-sm font-semibold sm:col-span-1">{x.code}</div>
-                <label className={`${field} sm:col-span-5`}>Outcome (English)<textarea aria-label={`${x.code} text`} rows={2} className={area} value={x.textEn} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, textEn: e.target.value }) })} /></label>
+                <label className={`${field} sm:col-span-4`}>Outcome (English)<textarea aria-label={`${x.code} text`} rows={2} className={area} value={x.textEn} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, textEn: e.target.value }) })} /></label>
                 <label className={`${field} sm:col-span-2`}>Bloom level
                   <select aria-label={`${x.code} Bloom level`} className={select} value={x.bloom} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, bloom: e.target.value }) })}>
                     <option value="">Choose</option>{BLOOM_LEVELS.map((v) => <option key={v} value={v}>{label(v)}</option>)}
@@ -143,7 +143,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
                     {programs.map((pn) => <optgroup key={pn} label={pn}>{plos.filter((p) => p.programName === pn).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}</optgroup>)}
                   </select>
                 </label>
-                <label className={`${field} sm:col-span-2`}>Coverage
+                <label className={`${field} sm:col-span-3`}>Coverage
                   <select aria-label={`${x.code} coverage`} className={select} value={x.level} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, level: e.target.value }) })}>
                     <option value="">Choose</option>{levels.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                   </select>
@@ -219,7 +219,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
             return (
               <div key={a.id} className="space-y-2 rounded-md border border-border p-3" data-testid="assessment-row">
                 <div className="grid gap-2 sm:grid-cols-12">
-                  <label className={`${field} sm:col-span-4`}>Assessment<Input aria-label={`Assessment ${k + 1} name`} value={a.name} onChange={(e) => setA({ name: e.target.value })} /></label>
+                  <label className={`${field} sm:col-span-3`}>Assessment<Input aria-label={`Assessment ${k + 1} name`} value={a.name} onChange={(e) => setA({ name: e.target.value })} /></label>
                   <label className={`${field} sm:col-span-3`}>Category
                     <select aria-label={`Assessment ${k + 1} category`} className={select} value={a.category} onChange={(e) => setA({ category: e.target.value })}>
                       <option value="">Choose</option>{ASSESSMENT_CATEGORIES.map((v) => <option key={v} value={v}>{label(v)}</option>)}
@@ -227,7 +227,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
                   </label>
                   <label className={`${field} sm:col-span-2`}>% of grade<Num ariaLabel={`Assessment ${k + 1} weight`} value={a.weight} onChange={(v) => setA({ weight: v })} /></label>
                   <label className={`${field} sm:col-span-2`}>Due week<Num ariaLabel={`Assessment ${k + 1} due week`} value={a.dueWeek} onChange={(v) => setA({ dueWeek: v })} /></label>
-                  <div className="flex items-end sm:col-span-1"><Button type="button" variant="ghost" aria-label={`Remove assessment ${k + 1}`} onClick={() => set({ assessments: removeAt(c.assessments, k), outline: c.outline.map((w) => (w.assessmentId === a.id ? { ...w, assessmentId: '' } : w)) })}>Remove</Button></div>
+                  <div className="flex items-end sm:col-span-2"><Button type="button" variant="ghost" aria-label={`Remove assessment ${k + 1}`} onClick={() => set({ assessments: removeAt(c.assessments, k), outline: c.outline.map((w) => (w.assessmentId === a.id ? { ...w, assessmentId: '' } : w)) })}>Remove</Button></div>
                 </div>
                 <label className={field}>Objective<Input aria-label={`Assessment ${k + 1} objective`} value={a.objective} onChange={(e) => setA({ objective: e.target.value })} /></label>
                 <div className="space-y-1">

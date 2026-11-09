@@ -1,6 +1,6 @@
 ---
 title: 'Syllabus API: read, upsert, workflow, suggestions, flagged list'
-status: pending
+status: completed
 description: Routes beside the main chain with typed clients.
 priority: P1
 tags:
@@ -16,6 +16,8 @@ roadmap_item:
   url: /ROADMAP.md#ROADMAP-015
 modified:
   by: agent/claude-code
-  at: '2026-11-09T10:31:49.148Z'
+  at: '2026-11-09T11:26:16.265Z'
 ---
 # TASK-124 — Syllabus API: read, upsert, workflow, suggestions, flagged list
+
+Done (2026-11-09): routes beside the main chain (SyllabusRoutes) with a typed client: read, save, upsert, import, staff, suggestions, workflow, list, escalate, settings, template.
