@@ -4865,4 +4865,210 @@ related_decisions:
     url: /DECISIONS.md#DEC-037
 ---
 
+---
+
+## TASK-121 — Syllabus schema, rules and settings (shared)
+
+---
+title: Syllabus schema, rules and settings (shared)
+status: pending
+description: >-
+  The typed syllabus document, the AIU template as configuration, the limits (min and max CLOs and PLOs) and one rule
+  checker returning errors and warnings.
+priority: P1
+tags:
+  - syllabus
+id: TASK-121
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:44.606Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:44.606Z'
+---
+
+---
+
+## TASK-122 — Syllabus data model: course fields, requisites, staff, versions, suggestions, flags (migration 0078)
+
+---
+title: 'Syllabus data model: course fields, requisites, staff, versions, suggestions, flags (migration 0078)'
+status: pending
+description: >-
+  Course contact hours, type, level, category, sustainability; requisites; coordinator and instructors; syllabus
+  versions locked when approved; suggestions; flags; RLS and audit.
+priority: P1
+tags:
+  - syllabus
+id: TASK-122
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:46.143Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:46.143Z'
+---
+
+---
+
+## TASK-123 — Syllabus services: draft, upsert, suggestions, workflow, approval writes the CLOs, flags and escalation
+
+---
+title: 'Syllabus services: draft, upsert, suggestions, workflow, approval writes the CLOs, flags and escalation'
+status: pending
+description: >-
+  Instructor suggests, coordinator edits and submits, chair endorses, Dean approves; errors block submission; flags
+  escalate coordinator, chair, Dean, VPAA.
+priority: P1
+tags:
+  - syllabus
+id: TASK-123
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:47.606Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:47.606Z'
+---
+
+---
+
+## TASK-124 — Syllabus API: read, upsert, workflow, suggestions, flagged list
+
+---
+title: 'Syllabus API: read, upsert, workflow, suggestions, flagged list'
+status: pending
+description: Routes beside the main chain with typed clients.
+priority: P1
+tags:
+  - syllabus
+id: TASK-124
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:49.148Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:49.148Z'
+---
+
+---
+
+## TASK-125 — Syllabus screens: course tab, editor by section, workflow bar, suggestions, Syllabi list, settings
+
+---
+title: 'Syllabus screens: course tab, editor by section, workflow bar, suggestions, Syllabi list, settings'
+status: pending
+description: The syllabus in the AIU layout with an editor by section, inline issues, version history and a flagged list.
+priority: P1
+tags:
+  - syllabus
+id: TASK-125
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:50.672Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:50.672Z'
+---
+
+---
+
+## TASK-126 — Syllabus import and export (Excel, print)
+
+---
+title: Syllabus import and export (Excel, print)
+status: pending
+description: An Excel template, import that flags and never blocks, export to Excel and print/PDF in the AIU layout.
+priority: P1
+tags:
+  - syllabus
+id: TASK-126
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:52.094Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:52.094Z'
+---
+
+---
+
+## TASK-127 — Syllabus template settings: sections, order and required flags
+
+---
+title: 'Syllabus template settings: sections, order and required flags'
+status: pending
+description: An admin edits the sections of the template; fields the rules need cannot be removed.
+priority: P1
+tags:
+  - syllabus
+id: TASK-127
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:53.587Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:53.587Z'
+---
+
+---
+
+## TASK-128 — Syllabus real data and polish: ECE 420, responsive, Arabic, rehearsal
+
+---
+title: 'Syllabus real data and polish: ECE 420, responsive, Arabic, rehearsal'
+status: pending
+description: Load ECE 420 from the QAIEO guidance, check phone widths and Arabic direction, run all suites.
+priority: P1
+tags:
+  - syllabus
+id: TASK-128
+last_updated: '2026-11-09'
+generated:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:54.978Z'
+roadmap_item:
+  id: ROADMAP-015
+  name: 'The course syllabus: schema, workflow, flags, import, export and API'
+  url: /ROADMAP.md#ROADMAP-015
+modified:
+  by: agent/claude-code
+  at: '2026-11-09T10:31:54.978Z'
+---
+
 <!-- End VEF generated items. -->
