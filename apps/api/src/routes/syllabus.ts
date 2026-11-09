@@ -1,11 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, importSyllabi, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
-  saveSyllabusDraft, setCourseStaff, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
+  getSyllabusTemplate, saveSyllabusDraft, setCourseStaff, setSyllabusSettings, setSyllabusTemplate, submitSyllabus, suggestChange, upsertSyllabus,
 } from '@ams/core';
 import {
   ApproveSyllabusSchema, CourseStaffSchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
-  SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusWorkbookSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
+  SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusTemplateSchema, SyllabusWorkbookSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -126,6 +126,19 @@ export function syllabusRoutes(registry: RouteRegistry, deps: ChainDeps, options
       description: 'The syllabus limits (minimum and maximum CLOs and PLOs per course) and the escalation days.',
       responses: { 200: { description: 'The settings', ...json(SyllabusSettingsSchema) }, ...errors },
     }), async (c) => c.json(await getSyllabusSettings(c.get('ctx')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/settings/syllabus-template', access: requires('org:read'), tags: tag,
+      description: 'The sections of the syllabus template (order, names, help, added sections) and the fields that are optional.',
+      responses: { 200: { description: 'The template', ...json(SyllabusTemplateSchema) }, ...errors },
+    }), async (c) => c.json(await getSyllabusTemplate(c.get('ctx')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/settings/syllabus-template', access: requires('org:write'), tags: tag,
+      description: 'Sets the template: reorders and renames sections, adds free-text sections, makes unlocked fields optional. The sections the rules depend on cannot be removed. Every syllabus is checked again.',
+      request: { body: { required: true, ...json(SyllabusTemplateSchema) } },
+      responses: { 200: { description: 'The template', ...json(SyllabusTemplateSchema) }, ...errors },
+    }), async (c) => c.json(await setSyllabusTemplate(c.get('ctx'), c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'put', path: '/api/settings/syllabus', access: requires('org:write'), tags: tag,

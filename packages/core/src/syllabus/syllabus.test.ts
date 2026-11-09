@@ -1,14 +1,14 @@
 // The syllabus services (TASK-123): who may do what in the workflow, rules that flag but never block an upsert, errors that stop a
 // submission, approval writing the course's CLOs, tightened settings flagging an approved syllabus, and the escalation up the line.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_SYLLABUS_SETTINGS, emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
+import { DEFAULT_SYLLABUS_SETTINGS, DEFAULT_SYLLABUS_TEMPLATE, emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
 import { importSyllabi } from './import.js';
 import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { createCourse, setCourseProgram } from '../outcomes/courses.js';
 import { createOutcome } from '../outcomes/outcomes.js';
 import {
-  approveSyllabus, setCourseStaff, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
+  approveSyllabus, setCourseStaff, setSyllabusTemplate, getSyllabusTemplate, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
   saveSyllabusDraft, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
 } from './syllabus.js';
 
@@ -61,6 +61,25 @@ describe('the course staff', () => {
     expect(done).toEqual({ coordinatorUserId: w.ids.second, instructorIds: [w.ids.outsider] });
     const ov = await w.as('second', (c) => getSyllabusOverview(c, ids.course!));
     expect(ov.course).toMatchObject({ coordinatorName: 'second', instructors: [{ id: w.ids.outsider, name: 'outsider' }] });
+  });
+});
+
+describe('the template', () => {
+  it('is changed by an admin only; an optional field changes what is an error; a required section cannot be removed', async () => {
+    const t = DEFAULT_SYLLABUS_TEMPLATE;
+    await expect(w.as('second', (c) => setSyllabusTemplate(c, t))).rejects.toThrow(ForbiddenError);
+    await expect(w.as('alo', (c) => setSyllabusTemplate(c, { ...t, sections: t.sections.filter((x) => x.key !== 'rubrics') }))).rejects.toThrow(ValidationError);
+    expect((await w.as('second', (c) => getSyllabusTemplate(c))).optional).toEqual(['info.titleAr']);
+    const added = await w.as('alo', (c) => setSyllabusTemplate(c, { optional: ['methodology', 'info.titleAr'], sections: [...t.sections, { key: 'custom:policies-1a2b', title: 'Policy links', help: 'Links to the policies', locked: false }] }));
+    expect(added.sections.at(-1)?.title).toBe('Policy links');
+    const ov = await w.as('second', (c) => getSyllabusOverview(c, ids.course!));
+    expect(ov.template.sections.at(-1)?.key).toBe('custom:policies-1a2b');
+    // With the methodology optional, an empty one is no longer an error.
+    const content = { ...complete(), methodology: '' };
+    const saved = await w.as('second', (c) => saveSyllabusDraft(c, ids.course!, { content }));
+    expect(saved.issues.map((x) => x.code)).not.toContain('methodology.missing');
+    await w.as('second', (c) => discardDraft(c, ids.course!));
+    await w.as('alo', (c) => setSyllabusTemplate(c, t));
   });
 });
 

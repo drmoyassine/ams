@@ -8,7 +8,7 @@ import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { assertPermitted } from '../permissions.js';
-import { getLevels as levelsOf, saveSyllabusDraft } from './syllabus.js';
+import { getLevels as levelsOf, getSyllabusTemplate, saveSyllabusDraft } from './syllabus.js';
 
 export interface SyllabusImportResult {
   courseCode: string;
@@ -27,6 +27,7 @@ export async function importSyllabi(ctx: Ctx, input: SyllabusWorkbook, source = 
   const clos = await ctx.tx.select().from(learningOutcome).where(and(eq(learningOutcome.kind, 'clo'), inArray(learningOutcome.courseId, courses.map((c) => c.id).concat('00000000-0000-0000-0000-000000000000'))));
   const resolver = {
     levels: await levelsOf(ctx),
+    customSections: (await getSyllabusTemplate(ctx)).sections.filter((x) => x.key.startsWith('custom:')),
     courseId: (c: string) => byCode.get(c)?.id,
     cloId: (c: string, k: string) => clos.find((x) => x.courseId === byCode.get(c)?.id && x.code.toUpperCase() === k.toUpperCase())?.id,
     plo: (c: string, text: string) => {

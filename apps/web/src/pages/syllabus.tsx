@@ -56,7 +56,7 @@ export function SyllabusPage({ courseId, api: override, apis }: { courseId: stri
       <PageHeader title={`${ov.course.code} · ${ov.course.titleEn}`} intro={`Course syllabus${ov.course.unitName ? ` · ${ov.course.unitName}` : ''}${ov.course.credits !== null ? ` · ${ov.course.credits} credits` : ''}. Coordinator: ${ov.course.coordinatorName ?? 'not named'}.`}
         action={shown ? (
           <span className="flex flex-wrap gap-2 print:hidden">
-            <Button type="button" variant="outline" onClick={() => void writeSyllabusWorkbook(syllabusToWorkbook((editing ? draft : shown.content)!, { code: ov.course.code, levels: ov.levels, plos: ov.plos, courses: ov.courses })).then((b) => download(b, `${ov.course.code} syllabus.xlsx`))}>Export to Excel</Button>
+            <Button type="button" variant="outline" onClick={() => void writeSyllabusWorkbook(syllabusToWorkbook((editing ? draft : shown.content)!, { code: ov.course.code, levels: ov.levels, plos: ov.plos, courses: ov.courses, customSections: ov.template.sections.filter((x) => x.key.startsWith('custom:')) })).then((b) => download(b, `${ov.course.code} syllabus.xlsx`))}>Export to Excel</Button>
             {!editing && <Button type="button" variant="outline" onClick={() => window.print()}>Print or save as PDF</Button>}
           </span>
         ) : undefined} />
@@ -76,7 +76,7 @@ export function SyllabusPage({ courseId, api: override, apis }: { courseId: stri
           {editing
             ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} />
             : shown
-              ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} />
+              ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} template={ov.template} />
               : (
                 <div className="space-y-2 rounded-lg border border-dashed border-border p-6 text-center">
                   <p className="text-sm text-muted-foreground">This course has no syllabus yet.</p>

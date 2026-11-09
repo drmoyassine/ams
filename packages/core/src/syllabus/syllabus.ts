@@ -9,7 +9,7 @@ import {
 } from '@ams/db';
 import {
   checkSyllabus, DEFAULT_OUTCOME_LEVELS, DEFAULT_SYLLABUS_SETTINGS, DEFAULT_SYLLABUS_TEMPLATE, emptySyllabus, errorsOf, OutcomeLevelsSchema, resolveOutcomeLevel,
-  CourseStaffSchema, ROLE_PERMISSIONS, ROLES, SaveSyllabusSchema, SuggestSchema, ResolveSuggestionSchema, SyllabusContentSchema, SyllabusSettingsSchema, UpsertSyllabusSchema,
+  CourseStaffSchema, ROLE_PERMISSIONS, ROLES, SaveSyllabusSchema, SuggestSchema, ResolveSuggestionSchema, SyllabusContentSchema, SyllabusSettingsSchema, SyllabusTemplateSchema, UpsertSyllabusSchema,
   type CourseStaff, type OutcomeLevel, type ResolveSuggestion, type SaveSyllabus, type Suggest, type SyllabusCheckContext, type SyllabusContent, type SyllabusIssue,
   type SyllabusListRow, type SyllabusOverview, type SyllabusPlo, type SyllabusSettings, type SyllabusStatus, type SyllabusSuggestion, type SyllabusTemplate,
   type SyllabusVersion, type UpsertSyllabus,
@@ -56,6 +56,20 @@ export async function getSyllabusTemplate(ctx: Ctx): Promise<SyllabusTemplate> {
 export async function getLevels(ctx: Ctx): Promise<OutcomeLevel[]> {
   return levelsOf(ctx);
 }
+/**
+ * Sets the sections of the syllabus template: their order, names and help, the sections an admin adds (free text), and which unlocked
+ * fields are optional. The sections the rules depend on stay. Every syllabus is checked again, since an optional field changes what is an error.
+ */
+export async function setSyllabusTemplate(ctx: Ctx, input: SyllabusTemplate): Promise<SyllabusTemplate> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'org:write', { type: 'institution' });
+  const parsed = SyllabusTemplateSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError(parsed.error.issues.map((i) => i.message).join('; '));
+  await ctx.tx.update(institution).set({ syllabusTemplate: parsed.data }).where(eq(institution.id, ctx.caller.institutionId));
+  await recheckSyllabi(ctx);
+  return getSyllabusTemplate(ctx);
+}
+
 async function levelsOf(ctx: Ctx): Promise<OutcomeLevel[]> {
   const [row] = await ctx.tx.select({ levels: institution.outcomeLevels }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
   const parsed = OutcomeLevelsSchema.safeParse(row?.levels);

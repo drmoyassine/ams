@@ -120,6 +120,30 @@ export const OPTIONAL_FIELDS = [
   'description.en', 'methodology', 'materials.textbook',
 ] as const;
 
+/** The fields an admin may make optional, in words. */
+export const OPTIONAL_FIELD_LABEL: Record<(typeof OPTIONAL_FIELDS)[number], string> = {
+  'info.titleAr': 'Arabic course title', 'info.languageOfDelivery': 'Language of delivery', 'info.courseType': 'Course type', 'info.courseLevel': 'Course level', 'info.category': 'Course category',
+  'info.sustainability': 'Sustainability indicator', 'info.contact': 'Contact hours', 'description.en': 'Course description', methodology: 'Teaching methodology', 'materials.textbook': 'A required textbook',
+};
+/** The built-in sections the rules depend on: they stay, in any order and under any name. The others are fixed too, but their fields may be optional. */
+export const BUILT_IN_SECTIONS = SECTION_KEYS as readonly string[];
+export const CUSTOM_PREFIX = 'custom:';
+export const MAX_CUSTOM_SECTIONS = 12;
+
+export const SyllabusTemplateSchema: z.ZodType<SyllabusTemplate, SyllabusTemplate> = z.object({
+  sections: z.array(z.object({ key: z.string().min(1).max(60), title: z.string().trim().min(1).max(120), help: z.string().trim().max(1000).default(''), locked: z.boolean() })).min(SECTION_KEYS.length).max(SECTION_KEYS.length + MAX_CUSTOM_SECTIONS),
+  optional: z.array(z.string()).default([]),
+}).superRefine((t, ctx) => {
+  const keys = t.sections.map((x) => x.key);
+  if (new Set(keys).size !== keys.length) ctx.addIssue({ code: 'custom', path: ['sections'], message: 'a section appears twice' });
+  for (const k of SECTION_KEYS) if (!keys.includes(k)) ctx.addIssue({ code: 'custom', path: ['sections'], message: `the section "${DEFAULT_SYLLABUS_TEMPLATE.sections.find((x) => x.key === k)?.title ?? k}" cannot be removed: the rules depend on it` });
+  for (const x of t.sections) {
+    if (!BUILT_IN_SECTIONS.includes(x.key) && !x.key.startsWith(CUSTOM_PREFIX)) ctx.addIssue({ code: 'custom', path: ['sections'], message: `unknown section ${x.key}` });
+    if (BUILT_IN_SECTIONS.includes(x.key) && x.locked !== (DEFAULT_SYLLABUS_TEMPLATE.sections.find((d) => d.key === x.key)?.locked ?? false)) ctx.addIssue({ code: 'custom', path: ['sections'], message: `"${x.title}": whether the rules depend on a built-in section cannot be changed` });
+  }
+  for (const o of t.optional) if (!(OPTIONAL_FIELDS as readonly string[]).includes(o)) ctx.addIssue({ code: 'custom', path: ['optional'], message: `${o} cannot be made optional: the rules need it (CLOs, their PLO and coverage, the weights and the rubrics are always required)` });
+}) as unknown as z.ZodType<SyllabusTemplate, SyllabusTemplate>;
+
 export const DEFAULT_SYLLABUS_TEMPLATE: SyllabusTemplate = {
   optional: ['info.titleAr'],
   sections: [

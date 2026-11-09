@@ -14,6 +14,7 @@ import './i18n';
 import { SyllabiList } from './components/syllabus/syllabi-list';
 import { SyllabusImport } from './components/syllabus/syllabus-import';
 import { SyllabusLimits } from './components/syllabus/syllabus-limits';
+import { SyllabusTemplateEditor } from './components/syllabus/syllabus-template-editor';
 import { writeSyllabusWorkbook } from './lib/syllabus-sheets';
 import { createApi } from './lib/api';
 import { settingsApi } from './lib/settings-api';
@@ -184,6 +185,30 @@ describe('the Excel import', () => {
     const open = (await apisOf('coordinator').syllabus.overview(ids.course!)).open!;
     expect(open).toMatchObject({ status: 'draft', source: 'excel import' });
     expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', level: 'I', bloom: 'analyze' });
+  });
+});
+
+describe('the template', () => {
+  it('lets an admin add a section and make a field optional; it then appears in the coordinator\'s draft, and a required section cannot be removed', async () => {
+    const user = userEvent.setup();
+    const a = apisOf('admin');
+    render(wrap(<SyllabusTemplateEditor canWrite api={a.syllabus} />));
+    const list = await screen.findByRole('list', { name: 'Sections' });
+    expect(within(list).queryByRole('button', { name: /^Remove Basic course information/ })).toBeNull(); // only added sections can be removed
+    await user.type(screen.getByLabelText('New section title'), 'Industry links');
+    await user.click(screen.getByRole('button', { name: '+ Section' }));
+    await user.click(screen.getByLabelText('Teaching methodology is required'));
+    await user.click(screen.getByRole('button', { name: 'Save template' }));
+    expect((await screen.findByRole('status')).textContent).toMatch(/Template saved/);
+    cleanup();
+    await a.syllabus.discard(ids.course!).catch(() => undefined);
+    render(page('coordinator'));
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Start a new version' })); // the course has an approved version from the workflow tests
+    const industry = await screen.findByRole('region', { name: 'Industry links' });
+    expect(within(industry).getByLabelText('Industry links')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Teaching methodology' })).queryByText(/methodology is required/)).toBeNull();
+    // Put the template back.
+    await a.syllabus.setTemplate((await import('@ams/shared')).DEFAULT_SYLLABUS_TEMPLATE);
   });
 });
 

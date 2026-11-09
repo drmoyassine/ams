@@ -1,5 +1,5 @@
 // The syllabus in the layout of the AIU Course Syllabus Template, read-only. It is also what is printed.
-import { cloWeights, type OutcomeLevel, type SyllabusContent, type SyllabusPlo } from '@ams/shared';
+import { cloWeights, type OutcomeLevel, type SyllabusContent, type SyllabusPlo, type SyllabusTemplate } from '@ams/shared';
 import { ContentText } from '../content-text';
 import { label, LEVEL_NAME } from './labels';
 
@@ -23,7 +23,7 @@ function Facts({ rows }: { rows: [string, string][] }) {
   return <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">{rows.map(([k, v]) => <div key={k} className="flex gap-2 text-sm"><dt className="w-44 shrink-0 text-muted-foreground">{k}</dt><dd className="min-w-0 break-words"><ContentText>{v}</ContentText></dd></div>)}</dl>;
 }
 
-export function SyllabusView({ content: c, code, plos, levels, courses }: { content: SyllabusContent; code: string; plos: SyllabusPlo[]; levels: OutcomeLevel[]; courses: { id: string; code: string }[] }) {
+export function SyllabusView({ content: c, code, plos, levels, courses, template }: { content: SyllabusContent; code: string; plos: SyllabusPlo[]; levels: OutcomeLevel[]; courses: { id: string; code: string }[]; template?: SyllabusTemplate }) {
   const i = c.info;
   const courseCode = (id: string) => courses.find((x) => x.id === id)?.code ?? id;
   const plo = (id: string) => plos.find((p) => p.id === id);
@@ -62,6 +62,9 @@ export function SyllabusView({ content: c, code, plos, levels, courses }: { cont
         {c.assessments.length > 0 && <p className="text-xs text-muted-foreground">Total {c.assessments.reduce((s, a) => s + (a.weight ?? 0), 0)}%. Share of the grade by CLO: {c.clos.map((x) => `${x.code} ${Math.round((weights.get(x.id) ?? 0) * 10) / 10}%`).join(', ')}.</p>}
         {(c.assessmentNotes.passPercentage || c.assessmentNotes.howItWorks) && <p className="whitespace-pre-line text-sm"><ContentText>{[c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks].filter(Boolean).join('\n')}</ContentText></p>}
       </Block>
+      {(template?.sections ?? []).filter((x) => x.key.startsWith('custom:') && c.custom[x.key]?.trim()).map((x) => (
+        <Block key={x.key} title={x.title}><p className="whitespace-pre-line text-sm"><ContentText>{c.custom[x.key]!}</ContentText></p></Block>
+      ))}
       {c.rubrics.length > 0 && (
         <Block title="Rubrics">
           {c.rubrics.map((r) => (

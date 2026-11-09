@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useConfirm } from '../../components/confirm-dialog';
 import { SyllabusLimits } from '../../components/syllabus/syllabus-limits';
+import { SyllabusTemplateEditor } from '../../components/syllabus/syllabus-template-editor';
 import { Link } from '@tanstack/react-router';
 import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
@@ -85,6 +86,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes: outcomesO
         {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add course'}</Button>}
       </div>
       <SyllabusLimits canWrite={canLimits} />
+      <SyllabusTemplateEditor canWrite={canLimits} />
       <div className="flex flex-wrap gap-2">
         <Input aria-label="Search courses" placeholder="Search by code or title" className="max-w-xs" value={q} onChange={(e) => setQ(e.target.value)} />
         <select aria-label="Filter by program" className={select} value={programFilter} onChange={(e) => setProgramFilter(e.target.value)}>

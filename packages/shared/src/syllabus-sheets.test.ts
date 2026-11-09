@@ -29,9 +29,19 @@ const plain = (c: SyllabusContent) => {
   })) as unknown;
 };
 
+describe('the sections an admin added', () => {
+  it('go out in the Sections sheet and come back into the same key', () => {
+    const c = sample(); c.custom['custom:industry-9f'] = 'Joint workshops with industry';
+    const custom = [{ key: 'custom:industry-9f', title: 'Industry links' }];
+    const wb = syllabusToWorkbook(c, { ...ex, customSections: custom });
+    expect(wb.sections).toEqual([{ 'Course code': 'MCE 410', Section: 'Industry links', Text: 'Joint workshops with industry' }]);
+    expect(workbookToSyllabi(wb, { ...resolver, customSections: custom }).get('MCE 410')!.custom).toEqual({ 'custom:industry-9f': 'Joint workshops with industry' });
+  });
+});
+
 describe('the syllabus workbook', () => {
-  it('has the six sheets with their headers', () => {
-    expect(Object.values(SYLLABUS_SHEETS).map((s) => s.name)).toEqual(['Courses', 'CLOs', 'Outline', 'Materials', 'Assessments', 'Rubrics']);
+  it('has the sheets with their headers', () => {
+    expect(Object.values(SYLLABUS_SHEETS).map((s) => s.name)).toEqual(['Courses', 'CLOs', 'Outline', 'Materials', 'Assessments', 'Rubrics', 'Sections']);
   });
 
   it('survives the round trip: export a syllabus, import it, and get the same syllabus back', () => {

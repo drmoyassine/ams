@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { SyllabusRoutes } from '@ams/api';
 import type {
-  CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusVersion, UpsertSyllabus,
+  CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusTemplate, SyllabusVersion, UpsertSyllabus,
 } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
@@ -30,6 +30,8 @@ export function syllabusApi(fetcher: typeof fetch = fetch) {
     return: (versionId: string, note?: string) => a['syllabus-versions'][':id'].return.$post({ param: { id: versionId }, json: { ...(note ? { note } : {}) } }).then((r) => unwrap<SyllabusVersion>(r)),
     endorse: (versionId: string) => a['syllabus-versions'][':id'].endorse.$post({ param: { id: versionId } }).then((r) => unwrap<SyllabusVersion>(r)),
     approve: (versionId: string, effectiveFrom?: string) => a['syllabus-versions'][':id'].approve.$post({ param: { id: versionId }, json: { ...(effectiveFrom ? { effectiveFrom } : {}) } }).then((r) => unwrap<SyllabusVersion>(r)),
+    template: () => a.settings['syllabus-template'].$get().then((r) => unwrap<SyllabusTemplate>(r)),
+    setTemplate: (json: SyllabusTemplate) => a.settings['syllabus-template'].$put({ json }).then((r) => unwrap<SyllabusTemplate>(r)),
     settings: () => a.settings.syllabus.$get().then((r) => unwrap<SyllabusSettings>(r)),
     setSettings: (json: SyllabusSettings) => a.settings.syllabus.$put({ json }).then((r) => unwrap<SyllabusSettings>(r)),
   };

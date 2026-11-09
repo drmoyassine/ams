@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_OUTCOME_LEVELS } from './outcomes.js';
 import {
+  DEFAULT_SYLLABUS_TEMPLATE, SyllabusTemplateSchema,
   checkSyllabus, cloWeights, DEFAULT_SYLLABUS_SETTINGS, emptySyllabus, errorsOf, SyllabusSettingsSchema, type SyllabusCheckContext, type SyllabusContent,
 } from './syllabus.js';
 
@@ -110,5 +111,23 @@ describe('the syllabus settings', () => {
     expect(SyllabusSettingsSchema.safeParse({ ...settings, minClos: 9 }).success).toBe(false);
     expect(SyllabusSettingsSchema.safeParse({ ...settings, minPlos: 6 }).success).toBe(false);
     expect(SyllabusSettingsSchema.safeParse({ ...settings, escalateDays: { chair: 10, dean: 5, vpaa: 20 } }).success).toBe(false);
+  });
+});
+
+describe('the syllabus template', () => {
+  const t = DEFAULT_SYLLABUS_TEMPLATE;
+  it('accepts the default, a reordered one, an added section and an optional field', () => {
+    expect(SyllabusTemplateSchema.safeParse(t).success).toBe(true);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, sections: [...t.sections].reverse() }).success).toBe(true);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, sections: [...t.sections, { key: 'custom:policy-links', title: 'Policy links', help: '', locked: false }] }).success).toBe(true);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, optional: ['methodology', 'info.titleAr'] }).success).toBe(true);
+  });
+  it('refuses to remove a section the rules depend on, to make a locked field optional, or to hide a built-in lock', () => {
+    const r = SyllabusTemplateSchema.safeParse({ ...t, sections: t.sections.filter((x) => x.key !== 'clos') });
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r.error?.issues)).toMatch(/cannot be removed/);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, optional: ['clos'] }).success).toBe(false);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, sections: t.sections.map((x) => (x.key === 'assessments' ? { ...x, locked: false } : x)) }).success).toBe(false);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, sections: [...t.sections, { key: 'made-up', title: 'X', help: '', locked: false }] }).success).toBe(false);
   });
 });

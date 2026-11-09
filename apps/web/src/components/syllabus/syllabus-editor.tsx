@@ -76,8 +76,8 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
   const title = (key: string, fallback: string) => sec(key)?.title ?? fallback;
   const Row = ({ about }: { about: string }) => <>{refIssues(about).map((x, k) => <p key={k} role="alert" className={`text-xs ${x.severity === 'error' ? 'text-red-800' : 'text-amber-800'}`}>{x.message}</p>)}</>;
 
-  return (
-    <div className="space-y-4" data-testid="syllabus-editor">
+  const blocks: Record<string, React.ReactNode> = {
+    info: (
       <Section id="info" title={title('info', 'Basic course information')} help={hint('info')} issues={of('info')}>
         <div className="grid gap-3 sm:grid-cols-6">
           <div className={`${field} sm:col-span-1`}>Course code<Input aria-label="Course code" value={code} readOnly disabled /></div>
@@ -116,12 +116,14 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
           <div className={`${field} sm:col-span-3`}>Co-requisite(s)<Chips ariaLabel="Co-requisites" options={otherCourses.map((x) => ({ id: x.id, text: x.code }))} value={c.info.corequisiteIds} onChange={(v) => setInfo({ corequisiteIds: v })} /></div>
         </div>
       </Section>
-
+    ),
+    description: (
       <Section id="description" title={title('description', 'Course description')} help={hint('description')} issues={of('description')}>
         <label className={field}>Description (English)<textarea aria-label="Description (English)" rows={5} className={area} value={c.description.en} onChange={(e) => set({ description: { ...c.description, en: e.target.value } })} /></label>
         <label className={field}>Description (Arabic)<textarea aria-label="Description (Arabic)" dir="auto" rows={3} className={area} value={c.description.ar} onChange={(e) => set({ description: { ...c.description, ar: e.target.value } })} /></label>
       </Section>
-
+    ),
+    clos: (
       <Section id="clos" title={title('clos', 'Course learning outcomes (CLOs)')} help={`${hint('clos')} Between ${settings.minClos} and ${settings.maxClos} CLOs, mapping to ${settings.minPlos} to ${settings.maxPlos} PLOs.`} issues={of('clos')}>
         {plos.length === 0 && <p className="text-xs text-amber-800">This course serves no program with PLOs yet: put it in a program (Settings, Organization, Courses) before mapping CLOs.</p>}
         <div className="space-y-3">
@@ -153,7 +155,8 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
         </div>
         <Button type="button" variant="outline" onClick={() => set({ clos: recode([...c.clos, { id: newId(), code: '', textEn: '', textAr: '', bloom: '', ploId: '', level: '' }]) })}>+ CLO</Button>
       </Section>
-
+    ),
+    outline: (
       <Section id="outline" title={title('outline', 'Course outline')} help={hint('outline')} issues={of('outline')}>
         <div className="space-y-2">
           {c.outline.map((w, k) => (
@@ -183,7 +186,8 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
           {c.outline.length === 0 && <Button type="button" variant="outline" onClick={() => set({ outline: Array.from({ length: 14 }, (_, k) => ({ week: k + 1, topic: '', reading: '', lab: '', cloIds: [], sdgs: [], assessmentId: '', activity: '' })) })}>Add 14 weeks</Button>}
         </div>
       </Section>
-
+    ),
+    materials: (
       <Section id="materials" title={title('materials', 'Textbooks, materials and software')} help={hint('materials')} issues={of('materials')}>
         {c.materials.map((m, k) => (
           <div key={k} className="grid gap-2 sm:grid-cols-12" data-testid="material-row">
@@ -200,11 +204,13 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
         ))}
         <Button type="button" variant="outline" onClick={() => set({ materials: [...c.materials, { kind: c.materials.length ? 'recommended' : 'textbook', citation: '', isbn: '', year: null }] })}>+ Material</Button>
       </Section>
-
+    ),
+    methodology: (
       <Section id="methodology" title={title('methodology', 'Teaching methodology')} help={hint('methodology')} issues={of('methodology')}>
         <textarea aria-label="Teaching methodology" rows={4} className={area} value={c.methodology} onChange={(e) => set({ methodology: e.target.value })} />
       </Section>
-
+    ),
+    assessments: (
       <Section id="assessments" title={title('assessments', 'Assessment plan')} help={hint('assessments')} issues={of('assessments')}>
         <div className="space-y-3">
           {c.assessments.map((a, k) => {
@@ -255,7 +261,8 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
           <label className={field}>How assignments, quizzes and exams work<textarea aria-label="How assessments work" rows={2} className={area} value={c.assessmentNotes.howItWorks} onChange={(e) => set({ assessmentNotes: { ...c.assessmentNotes, howItWorks: e.target.value } })} /></label>
         </div>
       </Section>
-
+    ),
+    rubrics: (
       <Section id="rubrics" title={title('rubrics', 'Rubrics')} help={hint('rubrics')} issues={of('rubrics')}>
         <div className="space-y-3">
           {c.rubrics.map((r, k) => {
@@ -304,6 +311,19 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
         </div>
         <Button type="button" variant="outline" onClick={() => set({ rubrics: [...c.rubrics, { id: newId(), title: '', levels: [{ name: 'Exemplary', min: 90, max: 100 }, { name: 'Proficient', min: 70, max: 89 }, { name: 'Developing', min: 50, max: 69 }, { name: 'Beginning', min: 0, max: 49 }], criteria: [] }] })}>+ Rubric</Button>
       </Section>
+    ),
+  };
+  // Sections an admin added to the template (Settings, Organization, Courses) are free text, kept in the document under their key.
+  const custom = (key: string, titleText: string, help: string) => (
+    <section key={key} aria-label={titleText} data-section={key} className="space-y-2 rounded-lg border border-border p-4">
+      <div><h3 className="text-base font-semibold">{titleText}</h3>{help && <p className="text-xs text-muted-foreground">{help}</p>}</div>
+      <textarea aria-label={titleText} rows={4} className={area} value={c.custom[key] ?? ''} onChange={(e) => set({ custom: { ...c.custom, [key]: e.target.value } })} />
+    </section>
+  );
+
+  return (
+    <div className="space-y-4" data-testid="syllabus-editor">
+      {template.sections.map((s2) => (blocks[s2.key] ? <div key={s2.key}>{blocks[s2.key]}</div> : s2.key.startsWith('custom:') ? custom(s2.key, s2.title, s2.help) : null))}
     </div>
   );
 }

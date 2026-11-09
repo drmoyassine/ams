@@ -13,14 +13,16 @@ export const SYLLABUS_SHEETS = {
   materials: { name: 'Materials', headers: ['Course code', 'Kind', 'Citation', 'ISBN', 'Year'] },
   assessments: { name: 'Assessments', headers: ['Course code', 'Assessment', 'Category', 'Objective', '% of grade', 'Due week', 'CLO', 'Share of assessment %', 'Rubric'] },
   rubrics: { name: 'Rubrics', headers: ['Course code', 'Rubric', 'Criterion', 'Level', 'From', 'To', 'Description'] },
+  /** The sections an admin added to the template: one row per course and section. */
+  sections: { name: 'Sections', headers: ['Course code', 'Section', 'Text'] },
 } as const;
 export type SheetKey = keyof typeof SYLLABUS_SHEETS;
 export type SheetRow = Record<string, string | number | null>;
 /** A workbook as the sheets' rows, each row keyed by its header as written. */
-export interface SyllabusWorkbook { courses: SheetRow[]; clos: SheetRow[]; outline: SheetRow[]; materials: SheetRow[]; assessments: SheetRow[]; rubrics: SheetRow[] }
+export interface SyllabusWorkbook { courses: SheetRow[]; clos: SheetRow[]; outline: SheetRow[]; materials: SheetRow[]; assessments: SheetRow[]; rubrics: SheetRow[]; sections: SheetRow[] }
 const rows = z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))).max(20000).default([]);
-export const SyllabusWorkbookSchema: z.ZodType<SyllabusWorkbook, SyllabusWorkbook> = z.object({ courses: rows, clos: rows, outline: rows, materials: rows, assessments: rows, rubrics: rows }).strict() as unknown as z.ZodType<SyllabusWorkbook, SyllabusWorkbook>;
-export const emptyWorkbook = (): SyllabusWorkbook => ({ courses: [], clos: [], outline: [], materials: [], assessments: [], rubrics: [] });
+export const SyllabusWorkbookSchema: z.ZodType<SyllabusWorkbook, SyllabusWorkbook> = z.object({ courses: rows, clos: rows, outline: rows, materials: rows, assessments: rows, rubrics: rows, sections: rows }).strict() as unknown as z.ZodType<SyllabusWorkbook, SyllabusWorkbook>;
+export const emptyWorkbook = (): SyllabusWorkbook => ({ courses: [], clos: [], outline: [], materials: [], assessments: [], rubrics: [], sections: [] });
 
 const norm = (s: string) => s.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '');
 /** A row's cell by header, however the header is spelled or cased. */
@@ -46,6 +48,8 @@ export interface SheetResolver {
   cloId?(courseCode: string, cloCode: string): string | undefined;
   /** The course a code in a Prerequisites cell names. */
   courseId(courseCode: string): string | undefined;
+  /** The sections an admin added to the template (key and title), so a Sections sheet row finds its key. */
+  customSections?: { key: string; title: string }[];
 }
 const BLOOM = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'];
 const LANG = ['english', 'arabic', 'bilingual'];
@@ -130,10 +134,16 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     const cc = cell(r, 'Course code'); if (!cc || !cell(r, 'Citation')) continue;
     doc(cc).materials.push({ kind: vocab(cell(r, 'Kind'), KINDS), citation: cell(r, 'Citation'), isbn: cell(r, 'ISBN'), year: numOf(cell(r, 'Year')) });
   }
+  for (const r of wb.sections) {
+    const cc = cell(r, 'Course code'); const sec = cell(r, 'Section'); const text = cell(r, 'Text');
+    if (!cc || !sec || !text) continue;
+    const key = rs.customSections?.find((x) => norm(x.title) === norm(sec) || norm(x.key) === norm(sec))?.key;
+    if (key) doc(cc).custom[key] = text;
+  }
   return out;
 }
 
-export interface ExportContext { code: string; levels: OutcomeLevel[]; plos: { id: string; code: string; programName: string }[]; courses: { id: string; code: string }[] }
+export interface ExportContext { code: string; levels: OutcomeLevel[]; plos: { id: string; code: string; programName: string }[]; courses: { id: string; code: string }[]; customSections?: { key: string; title: string }[] }
 const put = (headers: readonly string[], values: (string | number | null)[]): SheetRow => Object.fromEntries(headers.map((h, i) => [h, values[i] ?? null]));
 
 /** One syllabus as the rows of the six sheets (a template when the content is empty). */
@@ -153,5 +163,6 @@ export function syllabusToWorkbook(c: SyllabusContent, ex: ExportContext): Sylla
     for (const l of a.clos) wb.assessments.push(put(S.assessments.headers, [ex.code, a.name, lbl(a.category), a.objective, a.weight, a.dueWeek, cloCode(l.cloId), l.share, c.rubrics.find((r) => r.id === l.rubricId)?.title ?? '']));
   }
   for (const r of c.rubrics) for (const k of r.criteria) r.levels.forEach((l, j) => wb.rubrics.push(put(S.rubrics.headers, [ex.code, r.title, k.name, l.name, l.min, l.max, k.descriptions[j] ?? ''])));
+  for (const sec of ex.customSections ?? []) if (c.custom[sec.key]?.trim()) wb.sections.push(put(S.sections.headers, [ex.code, sec.title, c.custom[sec.key]!]));
   return wb;
 }
