@@ -9,8 +9,8 @@ import {
 } from '@ams/db';
 import {
   checkSyllabus, DEFAULT_OUTCOME_LEVELS, DEFAULT_SYLLABUS_SETTINGS, DEFAULT_SYLLABUS_TEMPLATE, emptySyllabus, errorsOf, OutcomeLevelsSchema, resolveOutcomeLevel,
-  ROLE_PERMISSIONS, ROLES, SaveSyllabusSchema, SuggestSchema, ResolveSuggestionSchema, SyllabusContentSchema, SyllabusSettingsSchema, UpsertSyllabusSchema,
-  type OutcomeLevel, type ResolveSuggestion, type SaveSyllabus, type Suggest, type SyllabusCheckContext, type SyllabusContent, type SyllabusIssue,
+  CourseStaffSchema, ROLE_PERMISSIONS, ROLES, SaveSyllabusSchema, SuggestSchema, ResolveSuggestionSchema, SyllabusContentSchema, SyllabusSettingsSchema, UpsertSyllabusSchema,
+  type CourseStaff, type OutcomeLevel, type ResolveSuggestion, type SaveSyllabus, type Suggest, type SyllabusCheckContext, type SyllabusContent, type SyllabusIssue,
   type SyllabusListRow, type SyllabusOverview, type SyllabusPlo, type SyllabusSettings, type SyllabusStatus, type SyllabusSuggestion, type SyllabusTemplate,
   type SyllabusVersion, type UpsertSyllabus,
 } from '@ams/shared';
@@ -199,11 +199,12 @@ export async function getSyllabusOverview(ctx: Ctx, courseId: string): Promise<S
   const versions = await toVersions(ctx, rows);
   const open = versions.find((v) => ['draft', 'in_review', 'endorsed'].includes(v.status)) ?? null;
   const sugg = open ? await ctx.tx.select().from(syllabusSuggestion).where(eq(syllabusSuggestion.syllabusVersionId, open.id)).orderBy(asc(syllabusSuggestion.createdAt)) : [];
-  const who = await names(ctx, [...sugg.map((s) => s.createdBy), c.coordinatorUserId]);
+  const teachers = await ctx.tx.select({ userId: courseInstructor.userId }).from(courseInstructor).where(eq(courseInstructor.courseId, c.id));
+  const who = await names(ctx, [...sugg.map((s) => s.createdBy), c.coordinatorUserId, ...teachers.map((t) => t.userId)]);
   const [unit] = c.orgUnitId ? await ctx.tx.select({ name: orgUnit.nameEn }).from(orgUnit).where(eq(orgUnit.id, c.orgUnitId)) : [];
   const courses = await ctx.tx.select({ id: course.id, code: course.code, titleEn: course.titleEn }).from(course).orderBy(asc(course.code));
   return {
-    course: { id: c.id, code: c.code, titleEn: c.titleEn, titleAr: c.titleAr, credits: c.credits === null ? null : Number(c.credits), unitName: unit?.name ?? null, coordinatorName: c.coordinatorUserId ? who.get(c.coordinatorUserId) ?? null : null, coordinatorUserId: c.coordinatorUserId, programIds: await programIdsOf(ctx, c.id) },
+    course: { id: c.id, code: c.code, titleEn: c.titleEn, titleAr: c.titleAr, credits: c.credits === null ? null : Number(c.credits), unitName: unit?.name ?? null, coordinatorName: c.coordinatorUserId ? who.get(c.coordinatorUserId) ?? null : null, coordinatorUserId: c.coordinatorUserId, instructors: teachers.map((t) => ({ id: t.userId, name: who.get(t.userId) ?? '' })), programIds: await programIdsOf(ctx, c.id) },
     current: versions.find((v) => v.status === 'approved') ?? null, open,
     history: versions.map((v) => ({ id: v.id, versionNo: v.versionNo, status: v.status, effectiveFrom: v.effectiveFrom, approvedAt: v.approvedAt })),
     suggestions: sugg.map((s): SyllabusSuggestion => ({ id: s.id, versionId: s.syllabusVersionId, section: s.section, suggestion: s.suggestion, status: s.status, byName: s.createdBy ? who.get(s.createdBy) ?? null : null, createdAt: s.createdAt.toISOString(), resolutionNote: s.resolutionNote })),
@@ -215,6 +216,21 @@ export async function getSyllabusOverview(ctx: Ctx, courseId: string): Promise<S
 export async function getStartingSyllabus(ctx: Ctx, courseId: string): Promise<SyllabusContent> {
   await assertPermitted(ctx, 'org:read', { type: 'any' });
   return startingContent(ctx, await loadCourse(ctx, courseId));
+}
+
+/** Names the course coordinator (who edits the syllabus and is told first when it is flagged) and the instructors (who may suggest changes). Needs program:write at the course's unit. */
+export async function setCourseStaff(ctx: Ctx, courseId: string, input: CourseStaff): Promise<CourseStaff> {
+  assertHuman(ctx);
+  const c = await loadCourse(ctx, courseId);
+  await assertPermitted(ctx, 'program:write', courseScope(c.orgUnitId));
+  const d = CourseStaffSchema.parse(input);
+  const wanted = [...new Set([...(d.coordinatorUserId ? [d.coordinatorUserId] : []), ...d.instructorIds])];
+  const found = wanted.length ? await ctx.tx.select({ id: appUser.id }).from(appUser).where(and(inArray(appUser.id, wanted), eq(appUser.active, true))) : [];
+  if (found.length !== wanted.length) throw new NotFoundError('a person named as coordinator or instructor');
+  await ctx.tx.update(course).set({ coordinatorUserId: d.coordinatorUserId }).where(eq(course.id, courseId));
+  await ctx.tx.delete(courseInstructor).where(eq(courseInstructor.courseId, courseId));
+  for (const userId of new Set(d.instructorIds)) await ctx.tx.insert(courseInstructor).values({ institutionId: ctx.caller.institutionId, courseId, userId });
+  return { coordinatorUserId: d.coordinatorUserId, instructorIds: [...new Set(d.instructorIds)] };
 }
 
 // ---- Saving a draft (the screen, an import and the API all come here) ---------------------------------------------------------------

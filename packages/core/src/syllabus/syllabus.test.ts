@@ -7,7 +7,7 @@ import { buildWorld, type World } from '../engagement/test-support.js';
 import { createCourse, setCourseProgram } from '../outcomes/courses.js';
 import { createOutcome } from '../outcomes/outcomes.js';
 import {
-  approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
+  approveSyllabus, setCourseStaff, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
   saveSyllabusDraft, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
 } from './syllabus.js';
 
@@ -51,6 +51,17 @@ const withDean = async (fn: Parameters<World['as']>[1]) => {
   const caller = { userId: ids.dean!, institutionId: w.ids.inst!, requestId: crypto.randomUUID(), actorType: 'user' as const };
   return withIdentity(w.pool, caller, (tx) => fn({ tx, caller, queue: { send: async () => undefined }, afterCommit: () => undefined, store: w.store }));
 };
+
+describe('the course staff', () => {
+  it('lets a writer name the coordinator and instructors, and refuses a stranger or someone who is not a person of the institution', async () => {
+    await expect(w.as('contrib', (c) => setCourseStaff(c, ids.course!, { coordinatorUserId: w.ids.second!, instructorIds: [] }))).rejects.toThrow(ForbiddenError);
+    await expect(w.as('alo', (c) => setCourseStaff(c, ids.course!, { coordinatorUserId: crypto.randomUUID(), instructorIds: [] }))).rejects.toThrow();
+    const done = await w.as('alo', (c) => setCourseStaff(c, ids.course!, { coordinatorUserId: w.ids.second!, instructorIds: [w.ids.outsider!, w.ids.outsider!] }));
+    expect(done).toEqual({ coordinatorUserId: w.ids.second, instructorIds: [w.ids.outsider] });
+    const ov = await w.as('second', (c) => getSyllabusOverview(c, ids.course!));
+    expect(ov.course).toMatchObject({ coordinatorName: 'second', instructors: [{ id: w.ids.outsider, name: 'outsider' }] });
+  });
+});
 
 describe('settings', () => {
   it('start at the defaults, are changed by an admin only, and refuse a minimum above a maximum', async () => {

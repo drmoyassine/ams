@@ -281,7 +281,7 @@ export interface SyllabusSuggestion { id: string; versionId: string; section: st
 export interface SyllabusPlo { id: string; code: string; textEn: string; programId: string; programName: string }
 /** Everything the course's Syllabus tab needs, in one read. */
 export interface SyllabusOverview {
-  course: { id: string; code: string; titleEn: string; titleAr: string | null; credits: number | null; unitName: string | null; coordinatorName: string | null; coordinatorUserId: string | null; programIds: string[] };
+  course: { id: string; code: string; titleEn: string; titleAr: string | null; credits: number | null; unitName: string | null; coordinatorName: string | null; coordinatorUserId: string | null; instructors: { id: string; name: string }[]; programIds: string[] };
   /** The approved version, and the version in progress (draft, in review or endorsed). */
   current: SyllabusVersion | null; open: SyllabusVersion | null;
   history: { id: string; versionNo: number; status: SyllabusStatus; effectiveFrom: string | null; approvedAt: string | null }[];
@@ -307,6 +307,8 @@ export const SaveSyllabusSchema: z.ZodType<SaveSyllabus, SaveSyllabus> = z.objec
 /** Upsert by course code (the API and the import): always makes or updates a draft; only people approve. */
 export interface UpsertSyllabus extends SaveSyllabus { courseCode: string }
 export const UpsertSyllabusSchema: z.ZodType<UpsertSyllabus, UpsertSyllabus> = z.object({ courseCode: z.string().trim().min(1), content: SyllabusContentSchema, source: z.string().trim().max(200).optional() }).strict() as unknown as z.ZodType<UpsertSyllabus, UpsertSyllabus>;
+export const CourseStaffSchema = z.object({ coordinatorUserId: z.uuid().nullable(), instructorIds: z.array(z.uuid()).max(50) }).strict();
+export type CourseStaff = z.infer<typeof CourseStaffSchema>;
 export const SuggestSchema = z.object({ section: z.string().trim().min(1).max(40), suggestion: z.string().trim().min(1).max(4000) }).strict();
 export type Suggest = z.infer<typeof SuggestSchema>;
 export const ResolveSuggestionSchema = z.object({ decision: z.enum(['accepted', 'declined']), note: z.string().trim().max(1000).optional() }).strict();

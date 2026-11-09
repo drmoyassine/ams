@@ -1,10 +1,10 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
-  saveSyllabusDraft, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
+  saveSyllabusDraft, setCourseStaff, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
 } from '@ams/core';
 import {
-  ApproveSyllabusSchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
+  ApproveSyllabusSchema, CourseStaffSchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
   SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -51,6 +51,13 @@ export function syllabusRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { body: { required: true, ...json(UpsertSyllabusSchema) } },
       responses: { 200: { description: 'The draft, with its issues', ...json(SyllabusVersionSchema) }, ...errors },
     }), async (c) => c.json(toDto(SyllabusVersionSchema, await upsertSyllabus(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/courses/{id}/staff', access: requires('org:read'), tags: tag,
+      description: 'Names the course coordinator and the instructors. Needs program:write at the course\'s unit.',
+      request: { params: idParam, body: { required: true, ...json(CourseStaffSchema) } },
+      responses: { 200: { description: 'The staff', ...json(CourseStaffSchema) }, ...errors },
+    }), async (c) => c.json(await setCourseStaff(c.get('ctx'), c.req.valid('param').id, c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/syllabi', access: requires('org:read'), tags: tag,
