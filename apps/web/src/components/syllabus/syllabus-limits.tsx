@@ -8,7 +8,6 @@ import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
-const field = 'flex flex-col gap-1 text-xs text-muted-foreground';
 const n = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
 const toText = (s: SyllabusSettings): Record<string, string> => ({
@@ -25,7 +24,7 @@ export function SyllabusLimits({ canWrite, api: override }: { canWrite: boolean;
   return (
     <>
       <LimitsForm key={JSON.stringify(q.data)} settings={q.data} canWrite={canWrite} api={api} onSaved={() => setSaved(true)} onEdit={() => setSaved(false)} />
-      {saved && <p role="status" className="text-sm text-emerald-800">Saved. Every syllabus was checked again.</p>}
+      {saved && <p role="status" className="text-sm text-emerald-800">Saved.</p>}
     </>
   );
 }
@@ -42,21 +41,31 @@ function LimitsForm({ settings, canWrite, api, onSaved, onEdit }: { settings: Sy
     onSuccess: async () => { setError(''); onSaved(); await qc.invalidateQueries({ queryKey: ['syllabus-settings'] }); await qc.invalidateQueries({ queryKey: ['syllabi'] }); },
     onError: (e) => { onEdit(); setError(errorText(e)); },
   });
+  // A number in a sentence: the sentence says what it is, the box holds it.
   const num = (k: string, text: string) => (
-    <label className={field}>{text}<Input aria-label={text} inputMode="numeric" disabled={!canWrite} value={v[k] ?? ''} onChange={(e) => { onEdit(); setV({ ...v, [k]: e.target.value }); }} /></label>
+    <Input aria-label={text} inputMode="numeric" className="w-16 text-center" disabled={!canWrite} value={v[k] ?? ''} onChange={(e) => { onEdit(); setV({ ...v, [k]: e.target.value }); }} />
   );
+  const line = 'flex flex-wrap items-center gap-2 text-sm';
   return (
-    <section aria-label="Syllabus limits" className="space-y-3 rounded-lg border border-border p-4">
-      <div><h4 className="font-semibold">Syllabus limits</h4><p className="text-xs text-muted-foreground">A syllabus that breaks a limit still loads (an import, an upsert): it is flagged to the coordinator, then up the line, until fixed.</p></div>
-      <div className="grid gap-3 sm:grid-cols-5">
-        {num('minClos', 'Minimum CLOs per course')}{num('maxClos', 'Maximum CLOs per course')}{num('minPlos', 'Minimum PLOs per course')}{num('maxPlos', 'Maximum PLOs per course')}{num('minCloWeightPct', 'Warn below this % of the grade for a CLO')}
+    <section aria-label="Syllabus limits" className="space-y-6 rounded-lg border border-border p-5">
+      <div className="space-y-3">
+        <h4 className="font-semibold">How big a syllabus may be</h4>
+        <p className={line}>Course learning outcomes (CLOs) in a course: at least {num('minClos', 'Minimum CLOs per course')} and at most {num('maxClos', 'Maximum CLOs per course')}</p>
+        <p className={line}>Program learning outcomes (PLOs) a course serves: at least {num('minPlos', 'Minimum PLOs per course')} and at most {num('maxPlos', 'Maximum PLOs per course')}</p>
+        <p className={line}>Warn when a CLO is worth less than {num('minCloWeightPct', 'Warn below this % of the grade for a CLO')} % of the course grade</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-5">
-        <p className="self-end text-xs text-muted-foreground sm:col-span-2">An error goes to the coordinator at once, then, if unfixed after this many days, to the</p>
-        {num('chair', 'Program chair after (days)')}{num('dean', 'Dean after (days)')}{num('vpaa', 'VPAA after (days)')}
+      <div className="space-y-3">
+        <h4 className="font-semibold">When a syllabus has errors</h4>
+        <p className="text-sm">The course coordinator is told at once, and a red bar stays at the top of their screen until it is fixed. If it is still not fixed:</p>
+        <ul className="space-y-2">
+          <li className={line}>after {num('chair', 'Program chair after (days)')} days the program chair is told too</li>
+          <li className={line}>after {num('dean', 'Dean after (days)')} days the Dean is told</li>
+          <li className={line}>after {num('vpaa', 'VPAA after (days)')} days the VPAA is told</li>
+        </ul>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {canWrite && <Button type="button" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>Save limits</Button>}
+      {canWrite && <Button type="button" disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+      {!canWrite && <p className="text-xs text-muted-foreground">Only an administrator changes these.</p>}
     </section>
   );
 }

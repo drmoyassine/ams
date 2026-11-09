@@ -653,6 +653,7 @@ function pagesFor(ids) {
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
     ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
     { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
+    { name: 'settings-syllabus-rules', path: '/settings/organization', action: async (page) => { await clickTab('Syllabus rules')(page); await page.getByText('When a syllabus has errors').waitFor(); } },
     // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
     { name: 'settings-organization', path: '/settings/organization' },
     { name: 'org-chart-tree', path: '/settings/organization', action: async (page) => { await page.getByRole('list', { name: 'Org chart', exact: true }).waitFor(); } },

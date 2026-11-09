@@ -56,13 +56,13 @@ const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, pa
 // Organization: four tabs, deep-linkable as ?tab=institution|programs|courses|outcomes (the address follows the tab, replacing the entry).
 const organizationRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationRoute />,
-  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab } => (s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'outcomes' ? { tab: s.tab } : {}),
+  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab } => (s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'outcomes' || s.tab === 'syllabus' ? { tab: s.tab } : {}),
 });
 function OrganizationRoute() {
   const { tab } = organizationRoute.useSearch();
   const navigate = organizationRoute.useNavigate();
   // The parent routes pass the raw address through, so an unknown value is dropped here as well.
-  return <OrganizationPage tab={tab === 'programs' || tab === 'courses' || tab === 'outcomes' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
+  return <OrganizationPage tab={tab === 'programs' || tab === 'courses' || tab === 'outcomes' || tab === 'syllabus' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
 }
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });

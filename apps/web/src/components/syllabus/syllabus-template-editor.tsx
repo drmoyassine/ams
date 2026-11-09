@@ -20,7 +20,7 @@ export function SyllabusTemplateEditor({ canWrite, api: override }: { canWrite: 
   return (
     <>
       <TemplateForm key={JSON.stringify(q.data)} template={q.data} canWrite={canWrite} api={api} onSaved={() => setSaved(true)} onEdit={() => setSaved(false)} />
-      {saved && <p role="status" className="text-sm text-emerald-800">Template saved. Every syllabus was checked again.</p>}
+      {saved && <p role="status" className="text-sm text-emerald-800">Saved.</p>}
     </>
   );
 }
@@ -39,14 +39,15 @@ function TemplateForm({ template, canWrite, api, onSaved, onEdit }: { template: 
     onError: (e) => setError(errorText(e)),
   });
   return (
-    <section aria-label="Syllabus template" className="space-y-3 rounded-lg border border-border p-4">
-      <div><h4 className="font-semibold">Syllabus template</h4><p className="text-xs text-muted-foreground">AIU’s Course Syllabus Template, as configuration. Rename and reorder the sections, add your own, and choose which fields are required before a syllabus is submitted. The sections the rules depend on cannot be removed.</p></div>
-      <ol className="space-y-2" aria-label="Sections">
-        {sections.map((s, i) => (
-          <li key={s.key} className="space-y-1 rounded-md border border-border p-2" data-testid="template-section">
-            <div className="flex flex-wrap items-center gap-2">
-              <Input aria-label={`Section ${i + 1} title`} className="min-w-0 grow" disabled={!canWrite} value={s.title} onChange={(e) => edit(setSections)(sections.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
-              {s.key.startsWith(CUSTOM_PREFIX) ? <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-900">Added section</span> : s.locked ? <span className="rounded bg-muted px-1.5 py-0.5 text-xs">Needed by the rules</span> : null}
+    <details className="rounded-lg border border-border" data-testid="template-details">
+      <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">Change the sections of the syllabus form (advanced)</summary>
+      <section aria-label="Syllabus template" className="space-y-4 border-t border-border p-5">
+        <p className="text-sm text-muted-foreground">Rename the sections, move them up or down, or add your own. A section you add is a free-text box that appears in every syllabus. The sections marked “needed by the rules” cannot be removed.</p>
+        <ol className="space-y-2" aria-label="Sections">
+          {sections.map((s, i) => (
+            <li key={s.key} className="flex flex-wrap items-center gap-2" data-testid="template-section">
+              <Input aria-label={`Section ${i + 1} title`} className="min-w-0 grow sm:max-w-md" disabled={!canWrite} value={s.title} onChange={(e) => edit(setSections)(sections.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+              {s.key.startsWith(CUSTOM_PREFIX) ? <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-900">Your section</span> : s.locked ? <span className="rounded bg-muted px-1.5 py-0.5 text-xs">Needed by the rules</span> : null}
               {canWrite && (
                 <>
                   <Button type="button" variant="ghost" aria-label={`Move ${s.title} up`} disabled={i === 0} onClick={() => edit(setSections)(move(sections, i, -1))}>↑</Button>
@@ -54,29 +55,28 @@ function TemplateForm({ template, canWrite, api, onSaved, onEdit }: { template: 
                   {s.key.startsWith(CUSTOM_PREFIX) && <Button type="button" variant="ghost" aria-label={`Remove ${s.title}`} onClick={() => edit(setSections)(sections.filter((_, j) => j !== i))}>Remove</Button>}
                 </>
               )}
-            </div>
-            <Input aria-label={`Section ${i + 1} help`} placeholder="Guidance shown to the coordinator" disabled={!canWrite} value={s.help} onChange={(e) => edit(setSections)(sections.map((x, j) => (j === i ? { ...x, help: e.target.value } : x)))} />
-          </li>
-        ))}
-      </ol>
-      {canWrite && (
-        <form className="flex flex-wrap gap-2" aria-label="Add a section" onSubmit={(e) => { e.preventDefault(); const t = name.trim(); if (!t) return; edit(setSections)([...sections, { key: `${CUSTOM_PREFIX}${slug(t)}-${crypto.randomUUID().slice(0, 4)}`, title: t, help: '', locked: false }]); setName(''); }}>
-          <Input aria-label="New section title" className="min-w-0 grow sm:max-w-xs" placeholder="Title of a new section" value={name} onChange={(e) => setName(e.target.value)} />
-          <Button type="submit" variant="outline" disabled={!name.trim() || customCount >= MAX_CUSTOM_SECTIONS}>+ Section</Button>
-        </form>
-      )}
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">Required before a syllabus can be submitted</legend>
-        <p className="text-xs text-muted-foreground">Untick a field to make it optional. The CLOs, their PLO and coverage level, the assessment weights and the rubrics are always required.</p>
-        <div className="grid gap-1 sm:grid-cols-2">
-          {OPTIONAL_FIELDS.map((f) => (
-            <label key={f} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!canWrite} checked={!optional.includes(f)} aria-label={`${OPTIONAL_FIELD_LABEL[f]} is required`}
-              onChange={(e) => edit(setOptional)(e.target.checked ? optional.filter((x) => x !== f) : [...optional, f])} />{OPTIONAL_FIELD_LABEL[f]}</label>
+            </li>
           ))}
-        </div>
-      </fieldset>
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {canWrite && <Button type="button" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>Save template</Button>}
-    </section>
+        </ol>
+        {canWrite && (
+          <form className="flex flex-wrap gap-2" aria-label="Add a section" onSubmit={(e) => { e.preventDefault(); const t = name.trim(); if (!t) return; edit(setSections)([...sections, { key: `${CUSTOM_PREFIX}${slug(t)}-${crypto.randomUUID().slice(0, 4)}`, title: t, help: '', locked: false }]); setName(''); }}>
+            <Input aria-label="New section title" className="min-w-0 grow sm:max-w-xs" placeholder="Title of a new section" value={name} onChange={(e) => setName(e.target.value)} />
+            <Button type="submit" variant="outline" disabled={!name.trim() || customCount >= MAX_CUSTOM_SECTIONS}>+ Section</Button>
+          </form>
+        )}
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">These must be filled in before a syllabus can be submitted</legend>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {OPTIONAL_FIELDS.map((f) => (
+              <label key={f} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!canWrite} checked={!optional.includes(f)} aria-label={`${OPTIONAL_FIELD_LABEL[f]} is required`}
+                onChange={(e) => edit(setOptional)(e.target.checked ? optional.filter((x) => x !== f) : [...optional, f])} />{OPTIONAL_FIELD_LABEL[f]}</label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">The CLOs, their PLO and coverage level, the assessment weights and the rubrics are always required.</p>
+        </fieldset>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {canWrite && <Button type="button" disabled={save.isPending} onClick={() => save.mutate()}>Save the sections</Button>}
+      </section>
+    </details>
   );
 }

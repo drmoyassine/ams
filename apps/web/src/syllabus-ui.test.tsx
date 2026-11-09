@@ -221,8 +221,8 @@ describe('the template', () => {
     await user.type(screen.getByLabelText('New section title'), 'Industry links');
     await user.click(screen.getByRole('button', { name: '+ Section' }));
     await user.click(screen.getByLabelText('Teaching methodology is required'));
-    await user.click(screen.getByRole('button', { name: 'Save template' }));
-    expect((await screen.findByRole('status')).textContent).toMatch(/Template saved/);
+    await user.click(screen.getByRole('button', { name: 'Save the sections' }));
+    expect((await screen.findByRole('status')).textContent).toMatch(/Saved/);
     cleanup();
     await a.syllabus.discard(ids.course!).catch(() => undefined);
     render(page('coordinator'));
@@ -243,8 +243,8 @@ describe('the limits', () => {
     const max = await screen.findByLabelText('Maximum CLOs per course') as HTMLInputElement;
     await waitFor(() => expect(max.value).toBe('8')); // the saved value has loaded
     await user.clear(max); await user.type(max, '3');
-    await user.click(screen.getByRole('button', { name: 'Save limits' }));
-    expect((await screen.findByRole('status')).textContent).toMatch(/checked again/);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect((await screen.findByRole('status')).textContent).toMatch(/Saved/);
     cleanup();
     render(wrap(<SyllabiList api={a.syllabus} />));
     await user.click(await screen.findByRole('button', { name: 'With errors' }));
@@ -256,6 +256,6 @@ describe('the limits', () => {
   it('shows a viewer the limits read-only', async () => {
     render(wrap(<SyllabusLimits canWrite={false} api={apisOf('instructor').syllabus} />));
     expect((await screen.findByLabelText('Maximum CLOs per course') as HTMLInputElement).disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Save limits' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });
