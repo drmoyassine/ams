@@ -12,6 +12,7 @@ import { CyclePage } from './pages/cycles/cycle-page';
 import { AppLayout } from './pages/layout';
 import { EvidencePage } from './pages/evidence';
 import { ReportsPage, ReportViewPage } from './pages/reports';
+import { SyllabusPage } from './pages/syllabus';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
 import { FrameworksPage } from './pages/frameworks';
 import { LoginPage } from './pages/login';
@@ -197,9 +198,11 @@ function AnswerFormRoute() { const { id } = answerFormRoute.useParams(); return 
 const reportsRoute = createRoute({ getParentRoute: () => appRoute, path: '/reports', component: () => <ReportsPage /> });
 const reportDetailRoute = createRoute({ getParentRoute: () => appRoute, path: '/reports/type/$id', component: () => <ReportViewRoute /> });
 function ReportViewRoute() { const { id } = reportDetailRoute.useParams(); return <ReportViewPage key={id} id={id} />; }
+const syllabusRoute = createRoute({ getParentRoute: () => appRoute, path: '/courses/$id/syllabus', component: () => <SyllabusRoute /> });
+function SyllabusRoute() { const { id } = syllabusRoute.useParams(); return <SyllabusPage key={id} courseId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

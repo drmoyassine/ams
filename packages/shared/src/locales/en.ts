@@ -649,6 +649,7 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'nav.myWork': 'My work ({{count}})',
   'quality.tab.cycles': 'Cycles',
   'quality.tab.myWork': 'My work',
+  'quality.tab.syllabi': 'Syllabi',
   'qmc.new.template': 'Template',
   'qmc.new.evidence': 'Evidence item',
   'qmc.new.owner': 'Owner',

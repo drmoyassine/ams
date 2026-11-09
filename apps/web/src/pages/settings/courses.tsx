@@ -8,6 +8,8 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useConfirm } from '../../components/confirm-dialog';
+import { SyllabusLimits } from '../../components/syllabus/syllabus-limits';
+import { Link } from '@tanstack/react-router';
 import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
@@ -60,6 +62,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes: outcomesO
   const qc = useQueryClient();
   const me = useMe(api);
   const canWrite = can(me.data, 'program:write');
+  const canLimits = can(me.data, 'org:write');
   const courses = useQuery({ queryKey: ['courses'], queryFn: () => oapi.courses() });
   const units = useQuery({ queryKey: ['org-units'], queryFn: () => api.orgUnits() });
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -81,6 +84,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes: outcomesO
         <div><h3 className="text-lg font-semibold">Courses</h3><ReadOnlyNote show={!!me.data && !canWrite} /></div>
         {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add course'}</Button>}
       </div>
+      <SyllabusLimits canWrite={canLimits} />
       <div className="flex flex-wrap gap-2">
         <Input aria-label="Search courses" placeholder="Search by code or title" className="max-w-xs" value={q} onChange={(e) => setQ(e.target.value)} />
         <select aria-label="Filter by program" className={select} value={programFilter} onChange={(e) => setProgramFilter(e.target.value)}>
@@ -131,12 +135,15 @@ function CourseDetail({ course, units, programs, canWrite, oapi, run }: {
           <div className="space-y-1 text-sm">
             {course.description && <ContentText className="block">{course.description}</ContentText>}
             {course.externalId && <p className="text-xs text-muted-foreground">Student-system id: {course.externalId}</p>}
+            <div className="flex flex-wrap gap-2">
+              <Link to="/courses/$id/syllabus" params={{ id: course.id }} className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm hover:bg-muted">Syllabus</Link>
             {canWrite && (
-              <div className="flex gap-2">
+              <>
                 <Button type="button" variant="outline" className="px-3 py-1" onClick={() => setEditing(true)}>Edit course</Button>
                 <Button type="button" variant="ghost" className="px-3 py-1" onClick={() => run(() => oapi.updateCourse(course.id, { active: !course.active }))}>{course.active ? 'Deactivate' : 'Reactivate'}</Button>
-              </div>
+              </>
             )}
+            </div>
           </div>
         )}
       <section aria-label="Programs it serves" className="space-y-2">

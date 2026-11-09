@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SyllabiList } from '../components/syllabus/syllabi-list';
 import { PageHeader } from '../components/page-header';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ export const QM_TABS = [
   { id: 'standards', label: 'quality.tab.standards' },
   { id: 'cycles', label: 'quality.tab.cycles' },
   { id: 'plans', label: 'quality.tab.plans' },
+  { id: 'syllabi', label: 'quality.tab.syllabi' },
   { id: 'my-work', label: 'quality.tab.myWork' },
 ] as const;
 export type QmTab = (typeof QM_TABS)[number]['id'];
@@ -84,6 +86,7 @@ export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabPr
         {tab === 'standards' && <StandardsTab api={api} {...(evidence ? { evidence } : {})} {...(apis ? { apis } : {})} />}
         {tab === 'cycles' && <CyclesTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} onOpen={(id) => { void navigate({ to: '/quality-management/cycles/$id', params: { id } }); }} />}
         {tab === 'plans' && <PlansTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} />}
+        {tab === 'syllabi' && <SyllabiList />}
         {tab === 'my-work' && <MyWorkTab {...(apis ? { apis } : {})} />}
       </div>
     </div>
