@@ -19,7 +19,7 @@ export const patchOf = (d: OutcomeDraft): UpdateOutcome => ({
 });
 
 /** The code after this one ("PLO3" gives "PLO4"); empty when the code ends in no number. */
-const nextCode = (code: string) => { const m = /^(.*?)(\d+)$/.exec(code.trim()); return m ? `${m[1]}${Number(m[2]) + 1}` : ''; };
+export const nextCode = (code: string) => { const m = /^(.*?)(\d+)$/.exec(code.trim()); return m ? `${m[1]}${Number(m[2]) + 1}` : ''; };
 
 function OutcomeForm({ initial, label, codeHint, withBloom, submitLabel, cancelLabel = 'Cancel', defaults, focusStatement = false, onSubmit, onCancel }: {
   initial?: LearningOutcome; label: string; codeHint: string; withBloom: boolean; submitLabel: string; cancelLabel?: string; defaults?: Partial<OutcomeDraft>; focusStatement?: boolean;
@@ -59,8 +59,8 @@ function OutcomeForm({ initial, label, codeHint, withBloom, submitLabel, cancelL
  * One list of outcomes of one kind (ILOs, PEOs, PLOs, indicators, CLOs): code, statement in both languages, Bloom level, status;
  * add, edit, delete (a draft) or retire. `extra` draws what a place adds under a row (link chips, indicators).
  */
-export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom = false, onAdd, onSave, onDelete, extra, empty }: {
-  title?: string; label: string; items: LearningOutcome[]; canWrite: boolean; codeHint: string; withBloom?: boolean;
+export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom = false, canAdd = true, onAdd, onSave, onDelete, extra, empty }: {
+  title?: string; label: string; items: LearningOutcome[]; canWrite: boolean; codeHint: string; withBloom?: boolean; /** False where outcomes are added somewhere else (the program's dialog). */ canAdd?: boolean;
   onAdd: (d: OutcomeDraft) => void; onSave: (id: string, d: OutcomeDraft) => void; onDelete: (o: LearningOutcome) => void;
   extra?: (o: LearningOutcome) => ReactNode; empty?: string;
 }) {
@@ -83,7 +83,7 @@ export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom
       {title && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="font-semibold">{title}</h4>
-          {canWrite && !adding && <Button type="button" variant="outline" className="px-3 py-1" onClick={() => setAdding(true)}>Add {label}</Button>}
+          {canWrite && canAdd && !adding && <Button type="button" variant="outline" className="px-3 py-1" onClick={() => setAdding(true)}>Add {label}</Button>}
         </div>
       )}
       {items.length === 0 && !adding && <p className="text-sm text-muted-foreground">{empty ?? `No ${label}s yet.`}</p>}
@@ -113,7 +113,7 @@ export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom
           </li>
         ))}
       </ul>
-      {(adding || (!title && canWrite)) && canWrite && (adding
+      {canAdd && (adding || (!title && canWrite)) && canWrite && (adding
         ? addForm
         : <Button type="button" variant="outline" className="px-3 py-1" onClick={() => setAdding(true)}>Add {label}</Button>)}
     </section>

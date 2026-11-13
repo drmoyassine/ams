@@ -73,15 +73,21 @@ describe('courses, outcomes and the curriculum map', () => {
     await screen.findByText('Analyse discrete-time signals');
   });
 
-  it('adds a PLO, maps the CLO at a level and shows the map and the coverage', async () => {
+  const openOutcomesDialog = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    await user.click(await screen.findByRole('button', { name: 'Add PEOs and PLOs' }));
+    return screen.findByRole('dialog', { name: 'Edit BS Electrical and Computer Engineering' });
+  };
+
+  it('adds a PLO in the program dialog, maps the CLO at a level and shows the map and the coverage', async () => {
     const user = userEvent.setup();
     page('admin', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
-    const plos = await screen.findByRole('region', { name: 'Program learning outcomes' });
-    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
-    await user.type(within(plos).getByLabelText('PLO code'), 'SO1');
-    await user.type(within(plos).getByLabelText('PLO statement'), 'Solve complex engineering problems');
-    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
+    const dlg = await openOutcomesDialog(user);
+    await user.click(within(dlg).getByRole('button', { name: 'Add PLO' }));
+    await user.type(within(dlg).getByLabelText('PLO 1 code'), 'SO1');
+    await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Solve complex engineering problems');
+    await user.click(within(dlg).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const coverage = await screen.findByRole('region', { name: 'Coverage' });
     await within(coverage).findByText('SO1 has no course outcome mapped to it');
     await user.click(await screen.findByRole('button', { name: 'ECE 420 SO1: not mapped' }));
@@ -90,29 +96,33 @@ describe('courses, outcomes and the curriculum map', () => {
     await within(coverage).findByText(/Every PLO is mapped and reaches mastery/);
   });
 
-  it('adds PLOs one after another without reopening the form: the next code is ready, and Done closes it', async () => {
+  it('adds PEOs and several PLOs in one dialog: Add another brings the next code, and the panel has no add buttons of its own', async () => {
     const user = userEvent.setup();
     page('admin', 'programs');
     await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    await screen.findByRole('region', { name: 'Program learning outcomes' });
+    expect(screen.queryByRole('button', { name: 'Add PLO' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add PEO' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Add PEOs and PLOs' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Edit BS Electrical and Computer Engineering' });
+    await user.click(within(dlg).getByRole('button', { name: 'Add PEO' }));
+    await user.type(within(dlg).getByLabelText('PEO 1 code'), 'PEO1');
+    await user.type(within(dlg).getByLabelText('PEO 1 statement'), 'Graduates lead engineering projects');
+    await user.click(within(dlg).getByRole('button', { name: 'Add PLO' }));
+    // The first row already holds the next code after the PLOs the program has; replace it.
+    await user.clear(within(dlg).getByLabelText('PLO 1 code'));
+    await user.type(within(dlg).getByLabelText('PLO 1 code'), 'PLO7');
+    await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Communicate effectively');
+    const plosGroup = within(dlg).getByRole('group', { name: 'Program learning outcomes (PLOs)' });
+    await user.click(within(plosGroup).getByRole('button', { name: 'Add another' }));
+    expect((within(plosGroup).getByLabelText('PLO 2 code') as HTMLInputElement).value).toBe('PLO8');
+    await user.type(within(plosGroup).getByLabelText('PLO 2 statement'), 'Work in teams');
+    await user.click(within(dlg).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const plos = await screen.findByRole('region', { name: 'Program learning outcomes' });
-    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
-    await user.type(within(plos).getByLabelText('PLO code'), 'PLO7');
-    await user.type(within(plos).getByLabelText('PLO statement'), 'Communicate effectively');
-    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
-    expect((await within(plos).findByRole('status')).textContent).toMatch(/1 PLO added/);
-    // The form is open again, empty, with the next code filled in and the cursor in the statement.
-    const code = within(plos).getByLabelText('PLO code') as HTMLInputElement;
-    const statement = within(plos).getByLabelText('PLO statement') as HTMLInputElement;
-    expect(code.value).toBe('PLO8'); expect(statement.value).toBe('');
-    expect(document.activeElement).toBe(statement);
-    await user.type(statement, 'Work in teams');
-    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
     await within(plos).findByText('Work in teams');
     expect(within(plos).getByText('Communicate effectively')).toBeTruthy();
-    expect(within(plos).getByRole('status').textContent).toMatch(/2 PLOs added/);
-    await user.click(within(plos).getByRole('button', { name: 'Done' }));
-    expect(within(plos).queryByLabelText('PLO code')).toBeNull();
-    expect(within(plos).getByRole('button', { name: 'Add PLO' })).toBeTruthy();
+    expect(within(await screen.findByRole('region', { name: 'Program educational objectives' })).getByText('Graduates lead engineering projects')).toBeTruthy();
   });
 
   it('adds an ILO, links a PLO to it, and shows a viewer everything without the buttons', async () => {

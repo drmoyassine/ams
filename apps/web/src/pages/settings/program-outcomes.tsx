@@ -22,7 +22,7 @@ const COVERAGE_TITLE = {
  * A program's outcomes (TASK-112): its statements, PEOs, PLOs with performance indicators and their links to ILOs and PEOs, the
  * courses in the program, the curriculum map (PLO x course, from the CLO-PLO links and their levels) and the coverage checks.
  */
-export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override, assessment }: { program: Program; canWrite: boolean; onBack: () => void; api?: OutcomesApi; assessment?: AssessmentApi }) {
+export function ProgramOutcomesPanel({ program, canWrite, onBack, onAddOutcomes, api: override, assessment }: { program: Program; canWrite: boolean; onBack: () => void; /** Opens the program's dialog, where PEOs and PLOs are added. */ onAddOutcomes?: () => void; api?: OutcomesApi; assessment?: AssessmentApi }) {
   const api = useOutcomesApi(override);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -41,6 +41,7 @@ export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override,
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="ghost" className="px-2 py-1" onClick={onBack}>← Programs</Button>
         <h3 className="text-lg font-semibold"><ContentText>{program.nameEn}</ContentText>{program.code ? <span className="ms-2 font-mono text-sm text-muted-foreground">{program.code}</span> : null}</h3>
+        {canWrite && onAddOutcomes && <Button type="button" className="ms-auto" onClick={onAddOutcomes}>Add PEOs and PLOs</Button>}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <Card aria-label="Statements">
@@ -50,10 +51,10 @@ export function ProgramOutcomesPanel({ program, canWrite, onBack, api: override,
       </Card>
       {!v ? <p className="text-sm text-muted-foreground">{data.isError ? 'Could not load the outcomes.' : 'Loading…'}</p> : (
         <>
-          <Card><OutcomeList title="Program educational objectives" label="PEO" items={v.peos} canWrite={canWrite} codeHint="PEO1"
+          <Card><OutcomeList title="Program educational objectives" label="PEO" items={v.peos} canWrite={canWrite} canAdd={false} codeHint="PEO1"
             onAdd={(d) => run.mutate(() => api.createOutcome({ kind: 'peo', programId: program.id, ...patchOf(d), code: d.code, textEn: d.textEn }))}
             onSave={(id, d) => run.mutate(() => api.updateOutcome(id, patchOf(d)))} onDelete={del} /></Card>
-          <Card><OutcomeList title="Program learning outcomes" label="PLO" items={v.plos} canWrite={canWrite} codeHint="PLO1" withBloom
+          <Card><OutcomeList title="Program learning outcomes" label="PLO" items={v.plos} canWrite={canWrite} canAdd={false} codeHint="PLO1" withBloom
             onAdd={(d) => run.mutate(() => api.createOutcome({ kind: 'plo', programId: program.id, ...patchOf(d), code: d.code, textEn: d.textEn }))}
             onSave={(id, d) => run.mutate(() => api.updateOutcome(id, patchOf(d)))} onDelete={del}
             extra={(plo) => <PloExtras plo={plo} v={v} canWrite={canWrite} linked={linked} toggle={toggle} run={(fn) => run.mutate(fn)} api={api} onDelete={del} />} /></Card>

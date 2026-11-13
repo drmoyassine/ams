@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DEGREE_LEVELS, PROGRAM_MODES, type CreateProgram, type Program } from '@ams/shared';
+import { DEGREE_LEVELS, PROGRAM_MODES, type CreateProgram, type LearningOutcome, type Program } from '@ams/shared';
 import { DocsTab } from '../../components/docs';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/dialog';
 import { Input } from '../../components/ui/input';
+import { patchOf } from '../../components/outcomes/outcome-list';
+import { OutcomeRows, type OutcomeRow } from '../../components/outcomes/outcome-rows';
 import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
 import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
@@ -14,7 +16,7 @@ import { useAction } from '../../lib/use-action';
 import { ProgramOutcomesPanel } from './program-outcomes';
 import { WorkbookLoader } from './workbook-loader';
 import { ReviewHeatmap } from './program-review';
-import type { OutcomesApi } from '../../lib/outcomes-api';
+import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import type { AssessmentApi } from '../../lib/assessment-api';
 
 const select = 'w-full min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -24,11 +26,14 @@ const tagsOf = (s: string) => [...new Set(s.split(',').map((t) => t.trim()).filt
 type Unit = { id: string; nameEn: string; active: boolean };
 const MODE = { full_time: 'Full time', part_time: 'Part time', online: 'Online', blended: 'Blended' } as const;
 type Facts = Pick<CreateProgram, 'code' | 'externalId' | 'mode' | 'credits' | 'durationYears' | 'languageOfInstruction' | 'mission' | 'vision'>;
-type ProgramValues = { orgUnitId: string; nameEn: string; nameAr: string; degreeLevel: Program['degreeLevel']; discipline: string; tags: string[]; facts: Facts };
+type ProgramValues = { orgUnitId: string; nameEn: string; nameAr: string; degreeLevel: Program['degreeLevel']; discipline: string; tags: string[]; facts: Facts; peos: OutcomeRow[]; plos: OutcomeRow[] };
+/** The outcomes a program already has, and rows left to add. */
+interface OutcomeContext { peos: LearningOutcome[]; plos: LearningOutcome[] }
+const NO_ROWS: { peos: OutcomeRow[]; plos: OutcomeRow[] } = { peos: [], plos: [] };
 const n = (s: string) => (s.trim() === '' ? null : Number(s));
 
-function ProgramForm({ initial, units, submitLabel, error, busy, onSubmit, onCancel }: {
-  initial?: Program; units: Unit[]; submitLabel: string; error?: string | null; busy?: boolean; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
+function ProgramForm({ initial, units, existing, rows, submitLabel, error, busy, onSubmit, onCancel }: {
+  initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; submitLabel: string; error?: string | null; busy?: boolean; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
 }) {
   const [f, setF] = useState({
     code: initial?.code ?? '', externalId: initial?.externalId ?? '', mode: initial?.mode ?? '', credits: initial?.credits?.toString() ?? '',
@@ -45,13 +50,15 @@ function ProgramForm({ initial, units, submitLabel, error, busy, onSubmit, onCan
   const [degreeLevel, setLevel] = useState<Program['degreeLevel']>(initial?.degreeLevel ?? 'bachelor');
   const [discipline, setDiscipline] = useState(initial?.discipline ?? '');
   const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
+  const [peos, setPeos] = useState(rows.peos);
+  const [plos, setPlos] = useState(rows.plos);
   const field = 'flex min-w-0 flex-col gap-1 text-xs';
   const legend = 'px-1 text-sm font-semibold';
   const box = 'grid min-w-0 gap-3 rounded-lg border border-border p-3 sm:grid-cols-2';
   const text = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
   const ok = !!orgUnitId && !!nameEn.trim();
   return (
-    <form className="space-y-4" aria-label={submitLabel} onSubmit={(e) => { e.preventDefault(); if (ok) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts }); }}>
+    <form className="space-y-4" aria-label={submitLabel} onSubmit={(e) => { e.preventDefault(); if (ok) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts, peos, plos }); }}>
       <fieldset className={box}>
         <legend className={legend}>The program</legend>
         <label className={field}>Name (English)<Input aria-label="Program name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} required autoFocus /></label>
@@ -93,6 +100,8 @@ function ProgramForm({ initial, units, submitLabel, error, busy, onSubmit, onCan
         <label className={field}>Mission<textarea aria-label="Program mission" dir="auto" rows={3} className={text} value={f.mission} onChange={setFact('mission')} /></label>
         <label className={field}>Vision<textarea aria-label="Program vision" dir="auto" rows={2} className={text} value={f.vision} onChange={setFact('vision')} /></label>
       </fieldset>
+      <OutcomeRows label="PEO" title="Program educational objectives (PEOs)" codeHint="PEO1" rows={peos} existing={existing.peos} onChange={setPeos} />
+      <OutcomeRows label="PLO" title="Program learning outcomes (PLOs)" codeHint="PLO1" rows={plos} existing={existing.plos} onChange={setPlos} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
@@ -103,14 +112,14 @@ function ProgramForm({ initial, units, submitLabel, error, busy, onSubmit, onCan
 }
 
 /** Adding or editing a program, in a dialog over the list (not in line with it). */
-function ProgramDialog({ initial, units, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
+function ProgramDialog({ initial, units, existing, rows, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
   return (
     <Dialog labelledBy="program-dialog-title" onClose={onClose} size="lg">
       <div className="mb-4 flex items-start justify-between gap-2">
         <h2 id="program-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{initial ? `Edit ${initial.nameEn}` : 'Add a program'}</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-      <ProgramForm initial={initial} units={units} submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
+      <ProgramForm initial={initial} units={units} existing={existing} rows={rows} submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
     </Dialog>
   );
 }
@@ -152,7 +161,9 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
   const units = useQuery({ queryKey: ['org-units'], queryFn: () => api.orgUnits() });
   // The program being added (null program) or edited, in a dialog.
-  const [dialog, setDialog] = useState<{ program: Program | null } | null>(null);
+  const [dialog, setDialog] = useState<{ program: Program | null; rows?: { peos: OutcomeRow[]; plos: OutcomeRow[] } } | null>(null);
+  const oapi = useOutcomesApi(outcomes);
+  const existing = useQuery({ queryKey: ['program-outcomes', dialog?.program?.id], queryFn: () => oapi.programOutcomes(dialog!.program!.id), enabled: !!dialog?.program });
   const [saving, setSaving] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const outcomesOf = openedId; const setOutcomesOf = onOpened;
@@ -164,8 +175,41 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
   const refresh = () => qc.invalidateQueries({ queryKey: ['programs'] });
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); return act(fn); }, onSuccess: () => { void refresh(); } });
   const rows = (programs.data ?? []).filter((p) => showInactive || p.active);
+  const save = async (v: ProgramValues) => {
+    if (!dialog) return;
+    setSaving(true); setError(null);
+    const target = dialog.program;
+    const body = { orgUnitId: v.orgUnitId, nameEn: v.nameEn, degreeLevel: v.degreeLevel, tags: v.tags, ...v.facts };
+    const saved = await act(() => (target
+      ? api.updateProgram(target.id, { ...body, nameAr: v.nameAr || null, discipline: v.discipline || null })
+      : api.createProgram({ ...body, ...(v.nameAr ? { nameAr: v.nameAr } : {}), ...(v.discipline ? { discipline: v.discipline } : {}) })));
+    if (saved === undefined) { setSaving(false); return; }
+    void refresh();
+    // The outcomes, one after the other; the first that fails stops the rest and stays in the dialog with what is left.
+    const todo = [...v.peos.map((r) => ({ kind: 'peo' as const, r })), ...v.plos.map((r) => ({ kind: 'plo' as const, r }))].filter((x) => x.r.textEn.trim());
+    let done = 0;
+    for (const { kind, r } of todo) {
+      const draft = { code: r.code.trim(), textEn: r.textEn.trim(), textAr: r.textAr.trim(), bloomLevel: '', status: 'draft', approvedOn: '' };
+      const ok = await act(() => oapi.createOutcome({ kind, programId: (saved as Program).id, ...patchOf(draft), code: draft.code, textEn: draft.textEn }));
+      if (ok === undefined) {
+        const left = todo.slice(done);
+        setDialog({ program: saved as Program, rows: { peos: left.filter((x) => x.kind === 'peo').map((x) => x.r), plos: left.filter((x) => x.kind === 'plo').map((x) => x.r) } });
+        void qc.invalidateQueries({ queryKey: ['program-outcomes', (saved as Program).id] });
+        setSaving(false);
+        return;
+      }
+      done += 1;
+    }
+    if (todo.length) void qc.invalidateQueries({ queryKey: ['program-outcomes', (saved as Program).id] });
+    setDialog(null); setSaving(false);
+  };
+  const dialogEl = dialog && canWrite && (
+    <ProgramDialog key={`${dialog.program?.id ?? 'new'}-${dialog.rows ? 'again' : 'first'}`} initial={dialog.program ?? undefined} units={units.data ?? []}
+      existing={dialog.program && existing.data ? existing.data : { peos: [], plos: [] }} rows={dialog.rows ?? NO_ROWS}
+      error={error} busy={saving} onClose={() => { setDialog(null); setError(null); }} onSubmit={(v) => { void save(v); }} />
+  );
   const opened = outcomesOf ? programs.data?.find((p) => p.id === outcomesOf) : undefined;
-  if (opened) return <ProgramOutcomesPanel program={opened} canWrite={canWrite} onBack={() => setOutcomesOf(null)} {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} />;
+  if (opened) return <><ProgramOutcomesPanel program={opened} canWrite={canWrite} onBack={() => setOutcomesOf(null)} onAddOutcomes={() => setDialog({ program: opened })} {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} />{dialogEl}</>;
 
   return (
     <div className="space-y-4">
@@ -205,14 +249,7 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
           </li>
         ))}
       </ul>
-      {dialog && canWrite && (
-        <ProgramDialog initial={dialog.program ?? undefined} units={units.data ?? []} error={error} busy={saving} onClose={() => { setDialog(null); setError(null); }}
-          onSubmit={(v) => {
-            setSaving(true); setError(null);
-            const target = dialog.program;
-            void act(() => (target ? api.updateProgram(target.id, { orgUnitId: v.orgUnitId, nameEn: v.nameEn, nameAr: v.nameAr || null, degreeLevel: v.degreeLevel, discipline: v.discipline || null, tags: v.tags, ...v.facts }) : api.createProgram({ orgUnitId: v.orgUnitId, nameEn: v.nameEn, degreeLevel: v.degreeLevel, ...(v.nameAr ? { nameAr: v.nameAr } : {}), ...(v.discipline ? { discipline: v.discipline } : {}), tags: v.tags, ...v.facts }))).then((r) => { if (r !== undefined) { setDialog(null); void refresh(); } }).finally(() => setSaving(false));
-          }} />
-      )}
+      {dialogEl}
     </div>
   );
 }
