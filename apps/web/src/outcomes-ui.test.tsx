@@ -90,6 +90,31 @@ describe('courses, outcomes and the curriculum map', () => {
     await within(coverage).findByText(/Every PLO is mapped and reaches mastery/);
   });
 
+  it('adds PLOs one after another without reopening the form: the next code is ready, and Done closes it', async () => {
+    const user = userEvent.setup();
+    page('admin', 'programs');
+    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    const plos = await screen.findByRole('region', { name: 'Program learning outcomes' });
+    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
+    await user.type(within(plos).getByLabelText('PLO code'), 'PLO7');
+    await user.type(within(plos).getByLabelText('PLO statement'), 'Communicate effectively');
+    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
+    expect((await within(plos).findByRole('status')).textContent).toMatch(/1 PLO added/);
+    // The form is open again, empty, with the next code filled in and the cursor in the statement.
+    const code = within(plos).getByLabelText('PLO code') as HTMLInputElement;
+    const statement = within(plos).getByLabelText('PLO statement') as HTMLInputElement;
+    expect(code.value).toBe('PLO8'); expect(statement.value).toBe('');
+    expect(document.activeElement).toBe(statement);
+    await user.type(statement, 'Work in teams');
+    await user.click(within(plos).getByRole('button', { name: 'Add PLO' }));
+    await within(plos).findByText('Work in teams');
+    expect(within(plos).getByText('Communicate effectively')).toBeTruthy();
+    expect(within(plos).getByRole('status').textContent).toMatch(/2 PLOs added/);
+    await user.click(within(plos).getByRole('button', { name: 'Done' }));
+    expect(within(plos).queryByLabelText('PLO code')).toBeNull();
+    expect(within(plos).getByRole('button', { name: 'Add PLO' })).toBeTruthy();
+  });
+
   it('adds an ILO, links a PLO to it, and shows a viewer everything without the buttons', async () => {
     const user = userEvent.setup();
     const first = page('admin', 'outcomes');

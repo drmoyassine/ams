@@ -18,16 +18,20 @@ export const patchOf = (d: OutcomeDraft): UpdateOutcome => ({
   status: d.status as UpdateOutcome['status'], approvedOn: d.approvedOn || null,
 });
 
-function OutcomeForm({ initial, label, codeHint, withBloom, submitLabel, onSubmit, onCancel }: {
-  initial?: LearningOutcome; label: string; codeHint: string; withBloom: boolean; submitLabel: string; onSubmit: (d: OutcomeDraft) => void; onCancel: () => void;
+/** The code after this one ("PLO3" gives "PLO4"); empty when the code ends in no number. */
+const nextCode = (code: string) => { const m = /^(.*?)(\d+)$/.exec(code.trim()); return m ? `${m[1]}${Number(m[2]) + 1}` : ''; };
+
+function OutcomeForm({ initial, label, codeHint, withBloom, submitLabel, cancelLabel = 'Cancel', defaults, focusStatement = false, onSubmit, onCancel }: {
+  initial?: LearningOutcome; label: string; codeHint: string; withBloom: boolean; submitLabel: string; cancelLabel?: string; defaults?: Partial<OutcomeDraft>; focusStatement?: boolean;
+  onSubmit: (d: OutcomeDraft) => void; onCancel: () => void;
 }) {
-  const [d, setD] = useState(draftOf(initial));
+  const [d, setD] = useState({ ...draftOf(initial), ...defaults });
   const set = (k: keyof OutcomeDraft) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
   const field = 'flex flex-col gap-1 text-xs';
   return (
     <form className="grid gap-2 sm:grid-cols-6" aria-label={`${submitLabel} ${label}`} onSubmit={(e) => { e.preventDefault(); if (d.code.trim() && d.textEn.trim()) onSubmit(d); }}>
       <label className={`${field} sm:col-span-1`}>Code<Input aria-label={`${label} code`} value={d.code} placeholder={codeHint} onChange={set('code')} required /></label>
-      <label className={`${field} sm:col-span-5`}>Statement (English)<Input aria-label={`${label} statement`} value={d.textEn} onChange={set('textEn')} required /></label>
+      <label className={`${field} sm:col-span-5`}>Statement (English)<Input aria-label={`${label} statement`} value={d.textEn} onChange={set('textEn')} required autoFocus={focusStatement} /></label>
       <label className={`${field} sm:col-span-6`}>Statement (Arabic)<Input aria-label={`${label} statement (Arabic)`} dir="auto" value={d.textAr} onChange={set('textAr')} /></label>
       {withBloom && (
         <label className={`${field} sm:col-span-2`}>Bloom level
@@ -45,7 +49,7 @@ function OutcomeForm({ initial, label, codeHint, withBloom, submitLabel, onSubmi
       <label className={`${field} sm:col-span-2`}>Approved on<Input type="date" aria-label={`${label} approved on`} value={d.approvedOn} onChange={set('approvedOn')} /></label>
       <div className="flex flex-wrap gap-2 sm:col-span-6">
         <Button type="submit" disabled={!d.code.trim() || !d.textEn.trim()}>{submitLabel}</Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
       </div>
     </form>
   );
@@ -62,6 +66,18 @@ export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // "Add more": the form stays open after each one, with the next code ready, until Done. `round` makes a fresh form each time.
+  const [added, setAdded] = useState(0);
+  const [round, setRound] = useState(0);
+  const [next, setNext] = useState('');
+  const closeAdd = () => { setAdding(false); setAdded(0); setNext(''); };
+  const addForm = (
+    <div className="space-y-2">
+      {added > 0 && <p role="status" className="text-sm text-emerald-800">{added} {label}{added === 1 ? '' : 's'} added. Add the next one, or press Done.</p>}
+      <OutcomeForm key={round} label={label} codeHint={codeHint} withBloom={withBloom} submitLabel={`Add ${label}`} cancelLabel={added > 0 ? 'Done' : 'Cancel'} defaults={{ code: next }} focusStatement={added > 0}
+        onCancel={closeAdd} onSubmit={(d) => { onAdd(d); setAdded(added + 1); setNext(nextCode(d.code)); setRound(round + 1); }} />
+    </div>
+  );
   return (
     <section aria-label={title ?? label} className="space-y-2">
       {title && (
@@ -98,7 +114,7 @@ export function OutcomeList({ title, label, items, canWrite, codeHint, withBloom
         ))}
       </ul>
       {(adding || (!title && canWrite)) && canWrite && (adding
-        ? <OutcomeForm label={label} codeHint={codeHint} withBloom={withBloom} submitLabel={`Add ${label}`} onCancel={() => setAdding(false)} onSubmit={(d) => { onAdd(d); setAdding(false); }} />
+        ? addForm
         : <Button type="button" variant="outline" className="px-3 py-1" onClick={() => setAdding(true)}>Add {label}</Button>)}
     </section>
   );

@@ -168,22 +168,29 @@ describe('programs settings', () => {
     const user = userEvent.setup();
     render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
     await user.click(await screen.findByRole('button', { name: 'Add program' }));
-    const add = await screen.findByLabelText('Add program');
+    // Adding opens a dialog over the list, not a form in line with it.
+    const add = await screen.findByRole('dialog', { name: 'Add a program' });
+    expect(screen.queryByRole('form', { name: 'Add program' })?.closest('[role="dialog"]')).toBe(add);
     await waitFor(() => expect(within(within(add).getByLabelText('Program org unit')).getAllByRole('option').length).toBeGreaterThan(1));
     await user.type(within(add).getByLabelText('Program name (English)'), 'BS Mechanical Engineering');
     await user.type(within(add).getByLabelText('Program name (Arabic)'), 'بكالوريوس الهندسة الميكانيكية');
     await user.selectOptions(within(add).getByLabelText('Program org unit'), ids.col!);
     await user.type(within(add).getByLabelText('Tags'), 'mechanical, engineering, mechanical');
     await user.click(within(add).getByRole('button', { name: 'Add program' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull()); // closed once saved
     const row = (await screen.findByText('بكالوريوس الهندسة الميكانيكية')).closest('[data-testid="program"]') as HTMLElement;
     expect(row.textContent).toMatch(/tags: mechanical, engineering/);
     expect(within(row).getByTestId('program-name').getAttribute('dir')).toBe('auto');
 
+    // Editing opens the same dialog, filled in.
     await user.click(within(row).getByRole('button', { name: 'Edit BS Mechanical Engineering' }));
-    const tags = await within(row).findByLabelText('Tags');
+    const edit = await screen.findByRole('dialog', { name: 'Edit BS Mechanical Engineering' });
+    const tags = within(edit).getByLabelText('Tags') as HTMLInputElement;
+    expect(within(edit).getByLabelText('Program name (English)')).toHaveProperty('value', 'BS Mechanical Engineering');
     await user.clear(tags);
     await user.type(tags, 'mechanical');
-    await user.click(within(row).getByRole('button', { name: 'Save' }));
+    await user.click(within(edit).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(row.textContent).toMatch(/tags: mechanical(?!, engineering)/));
 
     await user.click(within(row).getByRole('button', { name: 'Deactivate' }));
@@ -191,6 +198,18 @@ describe('programs settings', () => {
     await user.click(screen.getByLabelText('Show inactive'));
     const back = (await screen.findByText('بكالوريوس الهندسة الميكانيكية')).closest('[data-testid="program"]') as HTMLElement;
     expect(back.textContent).toMatch(/Inactive/);
+  });
+
+  it('cancels the dialog with Cancel or Escape, keeping the list as it was', async () => {
+    const user = userEvent.setup();
+    render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
+    await user.click(await screen.findByRole('button', { name: 'Add program' }));
+    await user.click(within(await screen.findByRole('dialog', { name: 'Add a program' })).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Add program' }));
+    await screen.findByRole('dialog', { name: 'Add a program' });
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('is read-only for someone who cannot write programs', async () => {

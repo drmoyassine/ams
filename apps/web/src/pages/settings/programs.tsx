@@ -5,7 +5,7 @@ import { DocsTab } from '../../components/docs';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { ContentText } from '../../components/content-text';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Dialog } from '../../components/dialog';
 import { Input } from '../../components/ui/input';
 import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
 import { can, useMe } from '../../lib/me';
@@ -17,7 +17,7 @@ import { ReviewHeatmap } from './program-review';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 import type { AssessmentApi } from '../../lib/assessment-api';
 
-const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
+const select = 'w-full min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
 const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
 const tagsOf = (s: string) => [...new Set(s.split(',').map((t) => t.trim()).filter(Boolean))];
 
@@ -27,8 +27,8 @@ type Facts = Pick<CreateProgram, 'code' | 'externalId' | 'mode' | 'credits' | 'd
 type ProgramValues = { orgUnitId: string; nameEn: string; nameAr: string; degreeLevel: Program['degreeLevel']; discipline: string; tags: string[]; facts: Facts };
 const n = (s: string) => (s.trim() === '' ? null : Number(s));
 
-function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
-  initial?: Program; units: Unit[]; submitLabel: string; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
+function ProgramForm({ initial, units, submitLabel, error, busy, onSubmit, onCancel }: {
+  initial?: Program; units: Unit[]; submitLabel: string; error?: string | null; busy?: boolean; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
 }) {
   const [f, setF] = useState({
     code: initial?.code ?? '', externalId: initial?.externalId ?? '', mode: initial?.mode ?? '', credits: initial?.credits?.toString() ?? '',
@@ -45,44 +45,73 @@ function ProgramForm({ initial, units, submitLabel, onSubmit, onCancel }: {
   const [degreeLevel, setLevel] = useState<Program['degreeLevel']>(initial?.degreeLevel ?? 'bachelor');
   const [discipline, setDiscipline] = useState(initial?.discipline ?? '');
   const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
-  const field = 'flex flex-col gap-1 text-xs';
+  const field = 'flex min-w-0 flex-col gap-1 text-xs';
+  const legend = 'px-1 text-sm font-semibold';
+  const box = 'grid min-w-0 gap-3 rounded-lg border border-border p-3 sm:grid-cols-2';
+  const text = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
+  const ok = !!orgUnitId && !!nameEn.trim();
   return (
-    <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); if (orgUnitId && nameEn.trim()) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts }); }}>
-      <label className={field}>Name (English)<Input aria-label="Program name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} required /></label>
-      <label className={field}>Name (Arabic)<Input aria-label="Program name (Arabic)" dir="auto" value={nameAr} onChange={(e) => setNameAr(e.target.value)} /></label>
-      <label className={field}>Org unit
-        <select aria-label="Program org unit" className={select} value={orgUnitId} onChange={(e) => setOrgUnitId(e.target.value)} required>
-          <option value="">Choose a unit</option>
-          {units.filter((u) => u.active || u.id === initial?.orgUnitId).map((u) => <option key={u.id} value={u.id}>{u.nameEn}</option>)}
-        </select>
-      </label>
-      <label className={field}>Degree level
-        <select aria-label="Degree level" className={select} value={degreeLevel} onChange={(e) => setLevel(e.target.value as Program['degreeLevel'])}>
-          {DEGREE_LEVELS.map((d) => <option key={d} value={d}>{LEVEL[d]}</option>)}
-        </select>
-      </label>
-      <label className={field}>Discipline<Input aria-label="Discipline" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label>
-      <label className={field}>Tags (comma separated; they decide which requirements apply, e.g. mechanical)<Input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} /></label>
-      <label className={field}>Code<Input aria-label="Program code" value={f.code} placeholder="BS-ECE" onChange={setFact('code')} /></label>
-      <label className={field}>Student-system id<Input aria-label="Program student-system id" value={f.externalId} onChange={setFact('externalId')} /></label>
-      <label className={field}>Mode
-        <select aria-label="Mode" className={select} value={f.mode} onChange={setFact('mode')}>
-          <option value="">Not set</option>
-          {PROGRAM_MODES.map((m) => <option key={m} value={m}>{MODE[m]}</option>)}
-        </select>
-      </label>
-      <div className="grid grid-cols-3 gap-2">
-        <label className={field}>Credits<Input aria-label="Total credits" inputMode="numeric" value={f.credits} onChange={setFact('credits')} /></label>
-        <label className={field}>Years<Input aria-label="Duration in years" inputMode="decimal" value={f.durationYears} onChange={setFact('durationYears')} /></label>
-        <label className={field}>Language<Input aria-label="Language of instruction" value={f.languageOfInstruction} onChange={setFact('languageOfInstruction')} /></label>
-      </div>
-      <label className={`${field} sm:col-span-2`}>Mission<textarea aria-label="Program mission" dir="auto" rows={3} className="rounded-md border border-border bg-background px-2 py-1 text-sm" value={f.mission} onChange={setFact('mission')} /></label>
-      <label className={`${field} sm:col-span-2`}>Vision<textarea aria-label="Program vision" dir="auto" rows={2} className="rounded-md border border-border bg-background px-2 py-1 text-sm" value={f.vision} onChange={setFact('vision')} /></label>
-      <div className="flex flex-wrap gap-2 sm:col-span-2">
-        <Button type="submit" disabled={!orgUnitId || !nameEn.trim()}>{submitLabel}</Button>
+    <form className="space-y-4" aria-label={submitLabel} onSubmit={(e) => { e.preventDefault(); if (ok) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts }); }}>
+      <fieldset className={box}>
+        <legend className={legend}>The program</legend>
+        <label className={field}>Name (English)<Input aria-label="Program name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} required autoFocus /></label>
+        <label className={field}>Name (Arabic)<Input aria-label="Program name (Arabic)" dir="auto" value={nameAr} onChange={(e) => setNameAr(e.target.value)} /></label>
+        <label className={field}>School or department
+          <select aria-label="Program org unit" className={select} value={orgUnitId} onChange={(e) => setOrgUnitId(e.target.value)} required>
+            <option value="">Choose a unit</option>
+            {units.filter((u) => u.active || u.id === initial?.orgUnitId).map((u) => <option key={u.id} value={u.id}>{u.nameEn}</option>)}
+          </select>
+        </label>
+        <label className={field}>Degree level
+          <select aria-label="Degree level" className={select} value={degreeLevel} onChange={(e) => setLevel(e.target.value as Program['degreeLevel'])}>
+            {DEGREE_LEVELS.map((d) => <option key={d} value={d}>{LEVEL[d]}</option>)}
+          </select>
+        </label>
+        <label className={field}>Code<Input aria-label="Program code" value={f.code} placeholder="BS-ECE" onChange={setFact('code')} /></label>
+        <label className={field}>Student-system id<Input aria-label="Program student-system id" value={f.externalId} onChange={setFact('externalId')} /></label>
+      </fieldset>
+      <fieldset className={box}>
+        <legend className={legend}>Details</legend>
+        <label className={field}>Discipline<Input aria-label="Discipline" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label>
+        <label className={field}>Mode
+          <select aria-label="Mode" className={select} value={f.mode} onChange={setFact('mode')}>
+            <option value="">Not set</option>
+            {PROGRAM_MODES.map((m) => <option key={m} value={m}>{MODE[m]}</option>)}
+          </select>
+        </label>
+        <div className="grid grid-cols-3 gap-2 sm:col-span-2">
+          <label className={field}>Credits<Input aria-label="Total credits" inputMode="numeric" value={f.credits} onChange={setFact('credits')} /></label>
+          <label className={field}>Years<Input aria-label="Duration in years" inputMode="decimal" value={f.durationYears} onChange={setFact('durationYears')} /></label>
+          <label className={field}>Language<Input aria-label="Language of instruction" value={f.languageOfInstruction} onChange={setFact('languageOfInstruction')} /></label>
+        </div>
+        <label className={`${field} sm:col-span-2`}>Tags<Input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} />
+          <span className="text-muted-foreground">Separate with commas, e.g. mechanical, engineering. Tags decide which accreditor requirements apply to the program.</span>
+        </label>
+      </fieldset>
+      <fieldset className="grid min-w-0 gap-3 rounded-lg border border-border p-3">
+        <legend className={legend}>Mission and vision</legend>
+        <label className={field}>Mission<textarea aria-label="Program mission" dir="auto" rows={3} className={text} value={f.mission} onChange={setFact('mission')} /></label>
+        <label className={field}>Vision<textarea aria-label="Program vision" dir="auto" rows={2} className={text} value={f.vision} onChange={setFact('vision')} /></label>
+      </fieldset>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      <div className="flex flex-wrap justify-end gap-2">
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+        <Button type="submit" disabled={!ok || busy}>{busy ? 'Saving…' : submitLabel}</Button>
       </div>
     </form>
+  );
+}
+
+/** Adding or editing a program, in a dialog over the list (not in line with it). */
+function ProgramDialog({ initial, units, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
+  return (
+    <Dialog labelledBy="program-dialog-title" onClose={onClose} size="lg">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 id="program-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{initial ? `Edit ${initial.nameEn}` : 'Add a program'}</h2>
+        <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
+      </div>
+      <ProgramForm initial={initial} units={units} submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
+    </Dialog>
   );
 }
 
@@ -122,8 +151,9 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
   const units = useQuery({ queryKey: ['org-units'], queryFn: () => api.orgUnits() });
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
+  // The program being added (null program) or edited, in a dialog.
+  const [dialog, setDialog] = useState<{ program: Program | null } | null>(null);
+  const [saving, setSaving] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const outcomesOf = openedId; const setOutcomesOf = onOpened;
   const [loading, setLoading] = useState(false);
@@ -147,17 +177,11 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
           {can(me.data, 'org:write') && <Button type="button" variant="outline" onClick={() => setLoading(!loading)}>Load from workbook</Button>}
-          {canWrite && <Button type="button" onClick={() => setAdding(!adding)}>{adding ? 'Close' : 'Add program'}</Button>}
+          {canWrite && <Button type="button" onClick={() => setDialog({ program: null })}>Add program</Button>}
         </div>
       </div>
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {loading && <WorkbookLoader {...(outcomes ? { api: outcomes } : {})} onDone={() => setLoading(false)} />}
-      {adding && canWrite && (
-        <Card aria-label="Add program">
-          <ProgramForm units={units.data ?? []} submitLabel="Add program" onCancel={() => setAdding(false)}
-            onSubmit={(v) => { run.mutate(() => api.createProgram({ orgUnitId: v.orgUnitId, nameEn: v.nameEn, degreeLevel: v.degreeLevel, ...(v.nameAr ? { nameAr: v.nameAr } : {}), ...(v.discipline ? { discipline: v.discipline } : {}), tags: v.tags, ...v.facts })); setAdding(false); }} />
-        </Card>
-      )}
       {programs.isError && <p role="alert">Could not load programs.</p>}
       {programs.data && rows.length === 0 && <p className="text-muted-foreground">No programs visible to you yet.</p>}
       <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Programs">
@@ -173,20 +197,22 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
               <Button type="button" variant="outline" className="px-2 py-1" aria-label={`Outcomes of ${p.nameEn}`} onClick={() => setOutcomesOf(p.id)}>Outcomes</Button>
               {canWrite && (
                 <>
-                  <Button type="button" variant="ghost" className="px-2 py-1" aria-label={`Edit ${p.nameEn}`} onClick={() => setEditing(editing === p.id ? null : p.id)}>Edit</Button>
+                  <Button type="button" variant="ghost" className="px-2 py-1" aria-label={`Edit ${p.nameEn}`} onClick={() => setDialog({ program: p })}>Edit</Button>
                   <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => run.mutate(() => api.updateProgram(p.id, { active: !p.active }))}>{p.active ? 'Deactivate' : 'Reactivate'}</Button>
                 </>
               )}
             </div>
-            {editing === p.id && canWrite && (
-              <div className="mt-3">
-                <ProgramForm initial={p} units={units.data ?? []} submitLabel="Save" onCancel={() => setEditing(null)}
-                  onSubmit={(v) => { run.mutate(() => api.updateProgram(p.id, { orgUnitId: v.orgUnitId, nameEn: v.nameEn, nameAr: v.nameAr || null, degreeLevel: v.degreeLevel, discipline: v.discipline || null, tags: v.tags, ...v.facts })); setEditing(null); }} />
-              </div>
-            )}
           </li>
         ))}
       </ul>
+      {dialog && canWrite && (
+        <ProgramDialog initial={dialog.program ?? undefined} units={units.data ?? []} error={error} busy={saving} onClose={() => { setDialog(null); setError(null); }}
+          onSubmit={(v) => {
+            setSaving(true); setError(null);
+            const target = dialog.program;
+            void act(() => (target ? api.updateProgram(target.id, { orgUnitId: v.orgUnitId, nameEn: v.nameEn, nameAr: v.nameAr || null, degreeLevel: v.degreeLevel, discipline: v.discipline || null, tags: v.tags, ...v.facts }) : api.createProgram({ orgUnitId: v.orgUnitId, nameEn: v.nameEn, degreeLevel: v.degreeLevel, ...(v.nameAr ? { nameAr: v.nameAr } : {}), ...(v.discipline ? { discipline: v.discipline } : {}), tags: v.tags, ...v.facts }))).then((r) => { if (r !== undefined) { setDialog(null); void refresh(); } }).finally(() => setSaving(false));
+          }} />
+      )}
     </div>
   );
 }

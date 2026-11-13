@@ -652,6 +652,7 @@ function pagesFor(ids) {
     // The course syllabus (DEC-038): the Syllabi list with the import, the editor with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
     ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
+    { name: 'program-add-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: 'Add program' }).click(); await page.getByRole('dialog', { name: 'Add a program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
     { name: 'settings-syllabus-rules', path: '/settings/organization', action: async (page) => { await clickTab('Syllabus rules')(page); await page.getByText('When a syllabus has errors').waitFor(); } },
     // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
