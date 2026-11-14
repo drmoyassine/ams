@@ -132,6 +132,8 @@ export const COVERAGE_ISSUES = [
   // The curriculum map built both ways (DEC-039): a course mapped top-down with no CLO behind it, top-down and CLO levels that differ,
   // and the syllabus rules' minimum and maximum PLOs and CLOs per course. Flags only: nothing is blocked.
   'course_map_no_clo', 'level_mismatch', 'course_plo_count', 'course_clo_count',
+  // A PLO reached at a higher level in an earlier study year than at a lower one (mastered before it is introduced).
+  'level_order',
 ] as const;
 export const CoverageIssueSchema = z.object({
   kind: z.enum(COVERAGE_ISSUES),
@@ -319,3 +321,62 @@ export const ReviewWorkbookRowSchema = z.object({
   pass: z.number().int().min(1).max(99).optional(), basis: z.string().trim().nullable().optional(),
 });
 export type ReviewWorkbookRow = z.infer<typeof ReviewWorkbookRowSchema>;
+
+// ---- The curriculum map as a matrix (DEC-039) --------------------------------------------------------------------------------
+
+/** How a course reaches one outcome on the map: the level, how it was set, and (for an ILO) through which PLOs. */
+export interface MatrixCell {
+  level: string | null;
+  /** top: the course is mapped directly; clo: only its CLOs; both: both, agreeing or not; via: an ILO, through PLOs. */
+  from: 'top' | 'clo' | 'both' | 'via';
+  /** A top-down level with no CLO behind it, or one that differs from the CLOs'. */
+  warn: boolean;
+  via: string[];
+}
+export interface MatrixRow { courseId: string; code: string; titleEn: string; role: string; year: number | null; term: number | null; cells: Record<string, MatrixCell> }
+export interface CurriculumMatrix {
+  plos: LearningOutcome[];
+  ilos: LearningOutcome[];
+  /** Courses grouped by study year, in year and term order; courses with no year last. */
+  groups: { year: number | null; rows: MatrixRow[] }[];
+  /** Per outcome id, how many courses reach it at each level code. */
+  totals: Record<string, Record<string, number>>;
+}
+
+/**
+ * The program's curriculum map as rows (courses, by study year) and columns (its PLOs, then the institution's ILOs). A PLO cell is the
+ * course's own level when it is mapped top-down, else the highest its CLOs reach; an ILO cell is the highest level the course reaches
+ * on the PLOs linked to that ILO. One function for the screen and the download.
+ */
+export function curriculumMatrix(v: ProgramOutcomes): CurriculumMatrix {
+  const order = new Map(v.levels.map((l, i) => [l.code, i]));
+  const higher = (a: string | null, b: string | null) => (!a ? b : !b ? a : (order.get(b) ?? -1) > (order.get(a) ?? -1) ? b : a);
+  const plos = v.plos.filter((p) => p.status !== 'retired');
+  const ilos = v.ilos.filter((i) => i.status !== 'retired');
+  const totals: CurriculumMatrix['totals'] = {};
+  const count = (id: string, level: string | null) => { if (level) { const t = (totals[id] ??= {}); t[level] = (t[level] ?? 0) + 1; } };
+  const rows: MatrixRow[] = v.courses.map((c) => {
+    const cloIds = new Set(c.clos.map((o) => o.id));
+    const cells: Record<string, MatrixCell> = {};
+    for (const p of plos) {
+      const m = v.map.find((x) => x.ploId === p.id && x.courseId === c.courseId);
+      if (!m) continue;
+      const backed = v.links.some((l) => l.toId === p.id && cloIds.has(l.fromId));
+      const level = m.topDown ?? m.highest;
+      cells[p.id] = { level, from: m.topDown ? (backed ? 'both' : 'top') : 'clo', warn: !!m.topDown && (!backed || (!!m.highest && m.highest !== m.topDown)), via: [] };
+      count(p.id, level);
+    }
+    for (const i of ilos) {
+      let level: string | null = null; const via: string[] = [];
+      for (const p of plos) {
+        const cell = cells[p.id];
+        if (!cell?.level || !v.links.some((l) => l.fromId === p.id && l.toId === i.id)) continue;
+        level = higher(level, cell.level); via.push(p.code);
+      }
+      if (via.length) { cells[i.id] = { level, from: 'via', warn: false, via }; count(i.id, level); }
+    }
+    return { courseId: c.courseId, code: c.code, titleEn: c.titleEn, role: c.role, year: c.year, term: c.term, cells };
+  });
+  const years = [...new Set(rows.map((r) => r.year))].sort((a, b) => (a ?? 99) - (b ?? 99));
+  return { plos, ilos, groups: years.map((year) => ({ year, rows: rows.filter((r) => r.year === year) })), totals };
+}

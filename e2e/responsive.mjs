@@ -656,7 +656,12 @@ function pagesFor(ids) {
     ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
     { name: 'program-add-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: 'Add program' }).click(); await page.getByRole('dialog', { name: 'Add a program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
-    { name: 'settings-curriculum-map', path: '/settings/organization', action: clickTab('Curriculum map') },
+    { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
+      await clickTab('Curriculum map')(page);
+      // The map downloads as a workbook (fails the run if the download does not start).
+      const button = page.getByRole('button', { name: 'Download (Excel)' });
+      if (await button.count()) { const [file] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), button.click()]); if (!file.suggestedFilename().endsWith('.xlsx')) throw new Error(`unexpected download ${file.suggestedFilename()}`); }
+    } },
     { name: 'settings-syllabus-rules', path: '/settings/organization', action: async (page) => { await clickTab('Syllabus rules')(page); await page.getByText('When a syllabus has errors').waitFor(); } },
     // Organization: two tabs (TASK-069). Institution holds Details, Logo and Org chart; Programs is the old Programs page.
     { name: 'settings-organization', path: '/settings/organization' },

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ProgramOutcomes } from '@ams/shared';
+import { curriculumMatrix, type CurriculumMatrix, type ProgramOutcomes } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { Button } from '../../components/ui/button';
@@ -9,12 +9,14 @@ import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
+import { download, fileNameFor, toXlsx } from '../../lib/sheet-io';
 
 const select = 'min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
 const COVERAGE_TITLE = {
   plo_unmapped: 'PLO with no course', plo_no_mastery: 'PLO never mastered', course_unmapped: 'Course mapped to no PLO',
   clo_unmapped: 'CLO mapped to no PLO', plo_no_ilo: 'PLO with no ILO', link_no_level: 'Link without a level',
   course_map_no_clo: 'Mapped course with no CLO', level_mismatch: 'Levels differ', course_plo_count: 'PLOs per course', course_clo_count: 'CLOs per course',
+  level_order: 'Out of order',
 } as const;
 
 type Run = (fn: () => Promise<unknown>) => void;
@@ -72,7 +74,7 @@ export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsA
                     className={`rounded-md px-3 py-1 text-sm ${view === id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{label}</button>
                 ))}
               </div>
-              {view === 'course' ? <CurriculumMap v={v} canWrite={canWrite} api={oapi} run={run} /> : <ByPlo v={v} canWrite={canWrite} api={oapi} run={run} />}
+              {view === 'course' ? <CurriculumMap v={v} canWrite={canWrite} api={oapi} run={run} programName={active.find((p) => p.id === programId)?.nameEn ?? 'Program'} /> : <ByPlo v={v} canWrite={canWrite} api={oapi} run={run} />}
             </Card>
             <Card><Coverage v={v} /></Card>
           </>
@@ -96,44 +98,90 @@ function describe(v: ProgramOutcomes, m: Cell | undefined, hasLinks: boolean) {
   return { text: '✓', label: 'linked, no level', warn: false, from: 'clo' as const };
 }
 
-/** PLO x course. A cell opens the course's level for that PLO (top-down) and its CLOs' links to it (bottom-up). */
-export function CurriculumMap({ v, canWrite, api, run }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: Run }) {
+/**
+ * The curriculum map (DEC-039): courses by study year down the side, the program's PLOs and then the institution's ILOs across. A PLO
+ * cell opens the course's own level for it (top-down) and its CLOs' links (bottom-up); an ILO cell is derived through the PLOs linked
+ * to that ILO. A totals row counts the courses at each level; the map downloads as a workbook.
+ */
+export function CurriculumMap({ v, canWrite, api, run, programName }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: Run; programName?: string }) {
   const [cell, setCell] = useState<{ ploId: string; courseId: string } | null>(null);
   const [adding, setAdding] = useState('');
   const all = useQuery({ queryKey: ['courses'], queryFn: () => api.courses(), enabled: canWrite });
   const at = (ploId: string, courseId: string) => v.map.find((m) => m.ploId === ploId && m.courseId === courseId);
   const cloIds = (courseId: string) => new Set(v.courses.find((c) => c.courseId === courseId)?.clos.map((o) => o.id));
   const hasLinks = (ploId: string, courseId: string) => { const ids = cloIds(courseId); return v.links.some((l) => l.toId === ploId && ids.has(l.fromId)); };
-  const plos = v.plos.filter((p) => p.status !== 'retired');
+  const mx = curriculumMatrix(v);
+  const { plos, ilos } = mx;
+  const name = levelNames(v);
+  const th = 'px-2 py-1 font-mono text-xs font-semibold';
+  const sep = 'border-s-2 border-border';
+  const total = (id: string) => v.levels.map((l) => mx.totals[id]?.[l.code] ?? 0);
   return (
     <section aria-label="Curriculum map" className="space-y-3">
-      <Legend v={v} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <Legend v={v} />
+        {plos.length > 0 && v.courses.length > 0 && (
+          <Button type="button" variant="outline" className="px-3 py-1" onClick={() => { void downloadMatrix(mx, v, programName ?? 'Curriculum map'); }}>Download (Excel)</Button>
+        )}
+      </div>
       {v.courses.length === 0 ? <p className="text-sm text-muted-foreground">No courses in this program yet.</p> : plos.length === 0 ? <p className="text-sm text-muted-foreground">Add PLOs to the program to map its courses to.</p> : (
         <div className="overflow-x-auto">
-          <table className="text-sm" aria-label="PLO by course">
+          <table className="text-sm" aria-label="Courses by PLO and ILO">
             <thead>
-              <tr><th className="sticky start-0 bg-background px-2 py-1 text-start">Course</th>{plos.map((p) => <th key={p.id} className="px-2 py-1 font-mono text-xs" title={p.textEn}>{p.code}</th>)}</tr>
+              <tr className="text-xs text-muted-foreground">
+                <th className="sticky start-0 bg-background" />
+                <th colSpan={plos.length} className="px-2 pt-1 text-center font-medium">PLOs</th>
+                {ilos.length > 0 && <th colSpan={ilos.length} className={`${sep} px-2 pt-1 text-center font-medium`}>ILOs (through the PLOs linked to them)</th>}
+              </tr>
+              <tr className="border-b border-border">
+                <th className="sticky start-0 bg-background px-2 py-1 text-start">Course</th>
+                {plos.map((p) => <th key={p.id} className={th} title={p.textEn}>{p.code}</th>)}
+                {ilos.map((i, n) => <th key={i.id} className={`${th} ${n === 0 ? sep : ''}`} title={i.textEn}>{i.code}</th>)}
+              </tr>
             </thead>
             <tbody>
-              {v.courses.map((c) => (
-                <tr key={c.courseId} className="border-t border-border">
-                  <th scope="row" className="sticky start-0 bg-background px-2 py-1 text-start font-normal">
-                    <span className="font-mono">{c.code}</span> <span className="text-xs text-muted-foreground">{c.role !== 'core' ? c.role : ''}{c.year ? ` Y${c.year}` : ''}{c.term ? `T${c.term}` : ''}</span>
-                  </th>
-                  {plos.map((p) => {
-                    const d = describe(v, at(p.id, c.courseId), hasLinks(p.id, c.courseId));
-                    const tone = d.warn ? 'bg-amber-100 font-semibold text-amber-900' : d.from === 'both' || d.from === 'top' ? 'bg-primary/15 font-semibold' : d.from === 'clo' ? 'bg-primary/5 italic' : 'text-muted-foreground';
-                    return (
-                      <td key={p.id} className="px-1 py-0.5 text-center">
-                        <button type="button" aria-label={`${c.code} ${p.code}: ${d.label}`} title={d.label}
-                          className={`min-w-8 rounded px-1 ${tone} ${cell?.ploId === p.id && cell.courseId === c.courseId ? 'ring-2 ring-primary' : ''}`}
-                          onClick={() => setCell({ ploId: p.id, courseId: c.courseId })}>{d.text}{d.warn ? '!' : ''}</button>
-                      </td>
-                    );
-                  })}
-                </tr>
+              {mx.groups.map((g) => (
+                <Fragment key={g.year ?? 'none'}>
+                  <tr><th colSpan={1 + plos.length + ilos.length} className="bg-muted/50 px-2 py-1 text-start text-xs font-semibold">{g.year ? `Year ${g.year}` : 'Year not set'}</th></tr>
+                  {g.rows.map((r) => (
+                    <tr key={r.courseId} className="border-t border-border">
+                      <th scope="row" className="sticky start-0 bg-background px-2 py-1 text-start font-normal">
+                        <span className="font-mono">{r.code}</span> <span className="text-xs text-muted-foreground">{r.role !== 'core' ? r.role : ''}{r.term ? ` T${r.term}` : ''}</span>
+                      </th>
+                      {plos.map((p) => {
+                        const d = describe(v, at(p.id, r.courseId), hasLinks(p.id, r.courseId));
+                        const tone = d.warn ? 'bg-amber-100 font-semibold text-amber-900' : d.from === 'both' || d.from === 'top' ? 'bg-primary/15 font-semibold' : d.from === 'clo' ? 'bg-primary/5 italic' : 'text-muted-foreground';
+                        return (
+                          <td key={p.id} className="px-1 py-0.5 text-center">
+                            <button type="button" aria-label={`${r.code} ${p.code}: ${d.label}`} title={d.label}
+                              className={`min-w-8 rounded px-1 ${tone} ${cell?.ploId === p.id && cell.courseId === r.courseId ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => setCell({ ploId: p.id, courseId: r.courseId })}>{d.text === '·' ? '—' : d.text}{d.warn ? '!' : ''}</button>
+                          </td>
+                        );
+                      })}
+                      {ilos.map((i, n) => {
+                        const c = r.cells[i.id];
+                        const label = c?.level ? `${name.get(c.level) ?? c.level} (through ${c.via.join(', ')})` : 'not reached';
+                        return (
+                          <td key={i.id} className={`px-1 py-0.5 text-center ${n === 0 ? sep : ''}`}>
+                            <span role="img" aria-label={`${r.code} ${i.code}: ${label}`} title={label}
+                              className={`inline-block min-w-8 rounded px-1 ${c?.level ? 'bg-sky-50 text-sky-900' : 'text-muted-foreground'}`}>{c?.level ?? '—'}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border text-xs text-muted-foreground">
+                <th scope="row" className="sticky start-0 bg-background px-2 py-1 text-start font-medium">Courses at {v.levels.map((l) => l.code).join(' / ')}</th>
+                {[...plos, ...ilos].map((o, n) => (
+                  <td key={o.id} className={`px-1 py-1 text-center font-mono ${n === plos.length ? sep : ''}`} aria-label={`${o.code} totals: ${v.levels.map((l, k) => `${total(o.id)[k]} ${l.name}`).join(', ')}`}>{total(o.id).join('/')}</td>
+                ))}
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
@@ -266,6 +314,19 @@ function AddCourseToPlo({ v, ploCode, courses, onAdd }: { v: ProgramOutcomes; pl
       <Button type="submit" variant="outline" className="px-3 py-1" disabled={!courseId}>Map</Button>
     </form>
   );
+}
+
+/** The map as a workbook: one row per course (its year and term), one column per PLO and then per ILO, the level in each cell. */
+async function downloadMatrix(mx: CurriculumMatrix, v: ProgramOutcomes, title: string) {
+  const cols = [
+    { key: 'course', label: 'Course' }, { key: 'title', label: 'Title' }, { key: 'year', label: 'Year' }, { key: 'term', label: 'Term' },
+    ...mx.plos.map((p, n) => ({ key: `plo_${n}`, label: `PLO ${p.code}`, id: p.id })), ...mx.ilos.map((i, n) => ({ key: `ilo_${n}`, label: `ILO ${i.code}`, id: i.id })),
+  ];
+  const rows = mx.groups.flatMap((g) => g.rows).map((r) => Object.fromEntries(cols.map((c) => [c.key,
+    c.key === 'course' ? r.code : c.key === 'title' ? r.titleEn : c.key === 'year' ? r.year : c.key === 'term' ? r.term : r.cells[(c as { id: string }).id]?.level ?? null])));
+  rows.push(Object.fromEntries(cols.map((c) => [c.key, c.key === 'course' ? `Courses at ${v.levels.map((l) => l.code).join(' / ')}` : 'id' in c ? v.levels.map((l) => mx.totals[c.id]?.[l.code] ?? 0).join('/') : null])));
+  const columns = cols.map((c) => ({ key: c.key, label: c.label, type: (c.key === 'year' || c.key === 'term' ? 'integer' : 'text') as 'integer' | 'text', required: false }));
+  download(await toXlsx(`${title} curriculum map`, columns, rows), fileNameFor(`${title} curriculum map`, 'xlsx'));
 }
 
 export function Coverage({ v }: { v: ProgramOutcomes }) {

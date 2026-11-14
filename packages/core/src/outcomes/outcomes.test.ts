@@ -109,6 +109,13 @@ describe('outcomes, links, map and coverage', () => {
     expect(v.coverage.find((i) => i.kind === 'level_mismatch')!.message).toMatch(/mapped to SO1 as Reinforced, but its CLOs reach Introduced/);
     await w.as('coord', (c) => setOutcomeLink(c, { fromId: clo.id, toId: so1.id, level: 'R' }));
     expect(flags(await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!)), 'MCE 110')).toEqual(['course_clo_count']);
+    // Sequence: a course introducing SO1 in year 4 while MCE 110 reinforces it in year 1 is out of order.
+    const late = await w.as('alo', (c) => createCourse(c, { code: 'MCE 400', titleEn: 'Capstone' }));
+    await w.as('coord', (c) => setCourseProgram(c, late.id, w.ids.mech!, { role: 'core', year: 4 }));
+    await w.as('coord', (c) => setCourseMap(c, { courseId: late.id, outcomeId: so1.id, level: 'I' }));
+    expect((await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!))).coverage.find((i) => i.kind === 'level_order')).toMatchObject({ label: 'SO1', message: 'SO1 is Reinforced in year 1 before it is Introduced (year 4)' });
+    await w.as('coord', (c) => removeCourseProgram(c, late.id, w.ids.mech!));
+    expect((await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!))).coverage.some((i) => i.kind === 'level_order')).toBe(false);
     // A CLO linked to a PLO the course was not mapped to top-down is not flagged.
     await w.as('coord', (c) => setOutcomeLink(c, { fromId: clo.id, toId: so2.id, level: 'I' }));
     v = await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!));

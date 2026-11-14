@@ -221,6 +221,11 @@ describe('courses, outcomes and the curriculum map', () => {
     page('viewer', 'map');
     expect((await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' })).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('form', { name: 'Add a course to the program' })).toBeNull();
+    // ILOs are columns after the PLOs: ECE 420 reaches ILO1 through SO1, at SO1's level; the totals row counts the courses.
+    expect(screen.getByRole('img', { name: 'ECE 420 ILO1: Mastered (through SO1)' }).textContent).toBe('M');
+    expect(screen.getByLabelText('SO1 totals: 0 Introduced, 0 Reinforced, 1 Mastered')).toBeTruthy();
+    expect(screen.getByText('Year not set')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download (Excel)' })).toBeTruthy();
     const user2 = userEvent.setup();
     await user2.click(screen.getByRole('tab', { name: 'By PLO' }));
     await screen.findByText('Solve complex engineering problems');

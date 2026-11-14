@@ -232,6 +232,19 @@ export async function getProgramOutcomes(ctx: Ctx, programId: string): Promise<P
     const direct = topDown.filter((m) => m.ploId === plo.id);
     if (!mine.length && !direct.length) coverage.push({ kind: 'plo_unmapped', refId: plo.id, label: plo.code, message: `${plo.code} has no course mapped to it` });
     else if (mastery && !mine.some((l) => l.level === mastery) && !direct.some((m) => m.level === mastery)) coverage.push({ kind: 'plo_no_mastery', refId: plo.id, label: plo.code, message: `${plo.code} is never reached at the mastery level (${mastery})` });
+    // Sequence (DEC-039): the first study year at each level, by the course's own level or else its CLOs'; a higher level may not
+    // come in an earlier year than a lower one.
+    const first = new Map<string, number>();
+    for (const m of map.filter((x) => x.ploId === plo.id)) {
+      const lv = m.topDown ?? m.highest; const yr = cps.find((r) => r.c.id === m.courseId)?.cp.year;
+      if (lv && yr) first.set(lv, Math.min(first.get(lv) ?? yr, yr));
+    }
+    const seen = levels.filter((l) => first.has(l.code));
+    const late = seen.find((lo, i) => seen.slice(i + 1).some((hi) => first.get(hi.code)! < first.get(lo.code)!));
+    if (late) {
+      const early = seen.slice(seen.indexOf(late) + 1).find((hi) => first.get(hi.code)! < first.get(late.code)!)!;
+      coverage.push({ kind: 'level_order', refId: plo.id, label: plo.code, message: `${plo.code} is ${early.name} in year ${first.get(early.code)} before it is ${late.name} (year ${first.get(late.code)})` });
+    }
     if (ilos.length && !links.some((l) => l.fromId === plo.id && ilos.some((i) => i.id === l.toId))) coverage.push({ kind: 'plo_no_ilo', refId: plo.id, label: plo.code, message: `${plo.code} is not linked to an institutional learning outcome` });
   }
   // Courses (DEC-039): mapped either way counts; the syllabus rules' minimum and maximum PLOs and CLOs per course are flagged, never enforced.
