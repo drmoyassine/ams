@@ -78,7 +78,7 @@ describe('Organization: tabs, deep-linkable', () => {
     current = 'admin';
     const router = await openRouter('/settings/organization');
     const tabs = await screen.findByRole('tablist', { name: 'Organization' });
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'Programs', 'Courses', 'Learning outcomes', 'Syllabus rules']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'Programs', 'Courses', 'Curriculum map', 'Learning outcomes', 'Syllabus rules']);
     expect(within(tabs).getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true');
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });

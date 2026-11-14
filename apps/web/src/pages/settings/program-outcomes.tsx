@@ -58,8 +58,7 @@ export function ProgramOutcomesPanel({ program, canWrite, onBack, onAddOutcomes,
             onAdd={(d) => run.mutate(() => api.createOutcome({ kind: 'plo', programId: program.id, ...patchOf(d), code: d.code, textEn: d.textEn }))}
             onSave={(id, d) => run.mutate(() => api.updateOutcome(id, patchOf(d)))} onDelete={del}
             extra={(plo) => <PloExtras plo={plo} v={v} canWrite={canWrite} linked={linked} toggle={toggle} run={(fn) => run.mutate(fn)} api={api} onDelete={del} />} /></Card>
-          <Card><CurriculumMap v={v} canWrite={canWrite} api={api} run={(fn) => run.mutate(fn)} /></Card>
-          <Card><Coverage v={v} /></Card>
+          <Card><p className="text-sm text-muted-foreground">The program's curriculum map and coverage checks are on the <span className="font-medium text-foreground">Curriculum map</span> tab.</p></Card>
           <ProgramAssessmentCard programId={program.id} outcomes={v} canWrite={canWrite} {...(assessment ? { api: assessment } : {})} />
           <ProgramReviewCard programId={program.id} canWrite={canWrite} {...(override ? { api: override } : {})} />
         </>
@@ -99,7 +98,7 @@ function PloExtras({ plo, v, canWrite, linked, toggle, run, api, onDelete }: {
 }
 
 /** PLO x course: the highest level the course's CLOs reach; a cell opens the CLO links of that course to that PLO. */
-function CurriculumMap({ v, canWrite, api, run }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: (fn: () => Promise<unknown>) => void }) {
+export function CurriculumMap({ v, canWrite, api, run }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: (fn: () => Promise<unknown>) => void }) {
   const [cell, setCell] = useState<{ ploId: string; courseId: string } | null>(null);
   const [adding, setAdding] = useState('');
   const all = useQuery({ queryKey: ['courses'], queryFn: () => api.courses(), enabled: canWrite });
@@ -179,7 +178,7 @@ function CurriculumMap({ v, canWrite, api, run }: { v: ProgramOutcomes; canWrite
   );
 }
 
-function Coverage({ v }: { v: ProgramOutcomes }) {
+export function Coverage({ v }: { v: ProgramOutcomes }) {
   return (
     <section aria-label="Coverage" className="space-y-2">
       <h4 className="font-semibold">Coverage</h4>

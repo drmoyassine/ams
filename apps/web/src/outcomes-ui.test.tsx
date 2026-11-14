@@ -88,6 +88,12 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Solve complex engineering problems');
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // The map and the coverage are on their own tab, not on the program's Outcomes page.
+    expect(screen.queryByRole('region', { name: 'Curriculum map' })).toBeNull();
+    cleanup();
+    page('admin', 'map');
+    const pick = await screen.findByLabelText('Program') as HTMLSelectElement;
+    await waitFor(() => expect(pick.selectedOptions[0]!.textContent).toMatch(/BS Electrical and Computer Engineering/));
     const coverage = await screen.findByRole('region', { name: 'Coverage' });
     await within(coverage).findByText('SO1 has no course outcome mapped to it');
     await user.click(await screen.findByRole('button', { name: 'ECE 420 SO1: not mapped' }));
@@ -145,6 +151,10 @@ describe('courses, outcomes and the curriculum map', () => {
     await screen.findByText('Solve complex engineering problems');
     expect(screen.queryByRole('button', { name: 'Add PLO' })).toBeNull();
     expect((await screen.findByRole('button', { name: 'Unlink SO1 to ILO1' })).hasAttribute('disabled')).toBe(true);
+    cleanup();
+    page('viewer', 'map');
+    expect((await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' })).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByRole('form', { name: 'Add a course to the program' })).toBeNull();
     await waitFor(() => expect(screen.getByRole('button', { name: 'ECE 420 SO1: Mastered' })).toBeTruthy());
   });
 

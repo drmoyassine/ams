@@ -467,6 +467,7 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'org.tab.institution': 'Institution',
   'org.tab.programs': 'Programs',
   'org.tab.courses': 'Courses',
+  'org.tab.map': 'Curriculum map',
   'org.tab.outcomes': 'Learning outcomes',
   'org.tab.syllabus': 'Syllabus rules',
 
