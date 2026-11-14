@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { LearningOutcome } from '@ams/shared';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,8 +11,10 @@ export interface OutcomeRow { code: string; textEn: string; textAr: string }
  * A repeatable group of outcome rows ("Add another"), for typing several PEOs or PLOs at once. A new row starts with the next code
  * after the last one typed or already recorded. Rows with no statement are ignored when the form is saved.
  */
-export function OutcomeRows({ label, title, codeHint, rows, existing, onChange }: {
-  label: string; title: string; codeHint: string; rows: OutcomeRow[]; existing: LearningOutcome[]; onChange: (rows: OutcomeRow[]) => void;
+export function OutcomeRows({ label, title, codeHint, rows, existing, recorded, onChange }: {
+  label: string; title: string; codeHint: string; rows: OutcomeRow[]; existing: LearningOutcome[];
+  /** The outcomes already recorded, edited in place (shown above the new rows); without it their codes are listed. */ recorded?: ReactNode;
+  onChange: (rows: OutcomeRow[]) => void;
 }) {
   const last = rows.length ? rows[rows.length - 1]!.code : (existing[existing.length - 1]?.code ?? '');
   const set = (i: number, patch: Partial<OutcomeRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -19,10 +22,8 @@ export function OutcomeRows({ label, title, codeHint, rows, existing, onChange }
   return (
     <fieldset className="min-w-0 space-y-3 rounded-lg border border-border p-3" aria-label={title}>
       <legend className="px-1 text-sm font-semibold">{title}</legend>
-      {existing.length > 0 && (
-        <p className="text-xs text-muted-foreground">Already recorded: {existing.map((o) => o.code).join(', ')}. Edit or delete them from the program's Outcomes page.</p>
-      )}
-      {rows.length === 0 && <p className="text-sm text-muted-foreground">None added here.</p>}
+      {recorded ?? (existing.length > 0 && <p className="text-xs text-muted-foreground">Already recorded: {existing.map((o) => o.code).join(', ')}.</p>)}
+      {rows.length === 0 && existing.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
       {rows.map((r, i) => (
         <div key={i} className="grid min-w-0 gap-2 rounded-md border border-border/60 p-2 sm:grid-cols-6" data-testid={`${label}-row`}>
           <label className={`${field} sm:col-span-1`}>Code<Input aria-label={`${label} ${i + 1} code`} value={r.code} placeholder={codeHint} onChange={(e) => set(i, { code: e.target.value })} /></label>

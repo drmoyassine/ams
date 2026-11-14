@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEGREE_LEVELS, PROGRAM_MODES, type CreateProgram, type LearningOutcome, type Program } from '@ams/shared';
 import { DocsTab } from '../../components/docs';
@@ -13,11 +13,9 @@ import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
 import { can, useMe } from '../../lib/me';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
-import { ProgramOutcomesPanel } from './program-outcomes';
+import { RecordedOutcomes } from './program-outcomes';
 import { WorkbookLoader } from './workbook-loader';
-import { ReviewHeatmap } from './program-review';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
-import type { AssessmentApi } from '../../lib/assessment-api';
 
 const select = 'w-full min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
 const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
@@ -32,8 +30,8 @@ interface OutcomeContext { peos: LearningOutcome[]; plos: LearningOutcome[] }
 const NO_ROWS: { peos: OutcomeRow[]; plos: OutcomeRow[] } = { peos: [], plos: [] };
 const n = (s: string) => (s.trim() === '' ? null : Number(s));
 
-function ProgramForm({ initial, units, existing, rows, submitLabel, error, busy, onSubmit, onCancel }: {
-  initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; submitLabel: string; error?: string | null; busy?: boolean; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
+function ProgramForm({ initial, units, existing, rows, recorded, submitLabel, error, busy, onSubmit, onCancel }: {
+  initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; recorded?: { peos: ReactNode; plos: ReactNode }; submitLabel: string; error?: string | null; busy?: boolean; onSubmit: (v: ProgramValues) => void; onCancel?: () => void;
 }) {
   const [f, setF] = useState({
     code: initial?.code ?? '', externalId: initial?.externalId ?? '', mode: initial?.mode ?? '', credits: initial?.credits?.toString() ?? '',
@@ -57,8 +55,12 @@ function ProgramForm({ initial, units, existing, rows, submitLabel, error, busy,
   const box = 'grid min-w-0 gap-3 rounded-lg border border-border p-3 sm:grid-cols-2';
   const text = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
   const ok = !!orgUnitId && !!nameEn.trim();
+  const formId = useId();
+  // The program's fields are the form; the outcome sections sit after it (an outcome edited in place has a form of its own, and
+  // forms do not nest), and the Save button submits the form through its id.
   return (
-    <form className="space-y-4" aria-label={submitLabel} onSubmit={(e) => { e.preventDefault(); if (ok) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts, peos, plos }); }}>
+    <div className="space-y-4">
+    <form id={formId} className="space-y-4" aria-label={submitLabel} onSubmit={(e) => { e.preventDefault(); if (ok) onSubmit({ orgUnitId, nameEn, nameAr, degreeLevel, discipline, tags: tagsOf(tags), facts, peos, plos }); }}>
       <fieldset className={box}>
         <legend className={legend}>The program</legend>
         <label className={field}>Name (English)<Input aria-label="Program name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} required autoFocus /></label>
@@ -100,26 +102,30 @@ function ProgramForm({ initial, units, existing, rows, submitLabel, error, busy,
         <label className={field}>Mission<textarea aria-label="Program mission" dir="auto" rows={3} className={text} value={f.mission} onChange={setFact('mission')} /></label>
         <label className={field}>Vision<textarea aria-label="Program vision" dir="auto" rows={2} className={text} value={f.vision} onChange={setFact('vision')} /></label>
       </fieldset>
-      <OutcomeRows label="PEO" title="Program educational objectives (PEOs)" codeHint="PEO1" rows={peos} existing={existing.peos} onChange={setPeos} />
-      <OutcomeRows label="PLO" title="Program learning outcomes (PLOs)" codeHint="PLO1" rows={plos} existing={existing.plos} onChange={setPlos} />
+    </form>
+      <OutcomeRows label="PEO" title="Program educational objectives (PEOs)" codeHint="PEO1" rows={peos} existing={existing.peos} onChange={setPeos} {...(recorded ? { recorded: recorded.peos } : {})} />
+      <OutcomeRows label="PLO" title="Program learning outcomes (PLOs)" codeHint="PLO1" rows={plos} existing={existing.plos} onChange={setPlos} {...(recorded ? { recorded: recorded.plos } : {})} />
+      {plos.length > 0 && <p className="text-xs text-muted-foreground">Links to ILOs and PEOs, and performance indicators, are added under a PLO once it is saved.</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-        <Button type="submit" disabled={!ok || busy}>{busy ? 'Saving…' : submitLabel}</Button>
+        <Button type="submit" form={formId} disabled={!ok || busy}>{busy ? 'Saving…' : submitLabel}</Button>
       </div>
-    </form>
+    </div>
   );
 }
 
 /** Adding or editing a program, in a dialog over the list (not in line with it). */
-function ProgramDialog({ initial, units, existing, rows, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
+function ProgramDialog({ initial, units, existing, rows, outcomes, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; outcomes?: OutcomesApi; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
   return (
     <Dialog labelledBy="program-dialog-title" onClose={onClose} size="lg">
       <div className="mb-4 flex items-start justify-between gap-2">
         <h2 id="program-dialog-title" className="min-w-0 pt-1 text-lg font-semibold break-words sm:text-xl">{initial ? `Edit ${initial.nameEn}` : 'Add a program'}</h2>
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
-      <ProgramForm initial={initial} units={units} existing={existing} rows={rows} submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
+      <ProgramForm initial={initial} units={units} existing={existing} rows={rows}
+        {...(initial ? { recorded: { peos: <RecordedOutcomes programId={initial.id} kind="peo" canWrite {...(outcomes ? { api: outcomes } : {})} />, plos: <RecordedOutcomes programId={initial.id} kind="plo" canWrite {...(outcomes ? { api: outcomes } : {})} /> } } : {})}
+        submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
     </Dialog>
   );
 }
@@ -128,15 +134,14 @@ function ProgramDialog({ initial, units, existing, rows, error, busy, onSubmit, 
  * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
  * the AI import proposes programs for review (TASK-076). `docs` is for tests; the app's own client is the default.
  */
-export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes, assessment }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi }) {
+export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
-  const [section, setSection] = useState<'list' | 'review' | 'docs'>('list');
-  const [open, setOpen] = useState<string | null>(null);
+  const [section, setSection] = useState<'list' | 'docs'>('list');
   const me0 = useMe(api);
   const writer = can(me0.data, 'program:write');
   const targets = useQuery({ queryKey: ['import-targets', 'programs'], queryFn: () => docs.targets({ kind: 'programs', id: null }), enabled: section === 'docs' });
-  const sections = [{ id: 'list', label: 'List' }, { id: 'review', label: 'Review' }, { id: 'docs', label: 'Docs' }] as const;
+  const sections = [{ id: 'list', label: 'List' }, { id: 'docs', label: 'Docs' }] as const;
   return (
     <div className="space-y-4">
       <div role="tablist" aria-label="Programs sections" className="flex flex-wrap gap-1">
@@ -147,15 +152,14 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcom
       </div>
       <div role="tabpanel" id="programs-section-panel" aria-labelledby={`programs-section-${section}`}>
         {section === 'list'
-          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} {...(assessment ? { assessment } : {})} opened={open} onOpened={setOpen} />
-          : section === 'review' ? <ReviewHeatmap {...(outcomes ? { api: outcomes } : {})} onOpen={(id) => { setOpen(id); setSection('list'); }} />
+          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} />
           : <DocsTab scopeKind="programs" scopeId={null} targets={targets.data ?? []} canWrite={writer} api={docs} />}
       </div>
     </div>
   );
 }
 
-function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }: { api: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; opened: string | null; onOpened: (id: string | null) => void }) {
+function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: OutcomesApi }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -166,7 +170,6 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
   const existing = useQuery({ queryKey: ['program-outcomes', dialog?.program?.id], queryFn: () => oapi.programOutcomes(dialog!.program!.id), enabled: !!dialog?.program });
   const [saving, setSaving] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
-  const outcomesOf = openedId; const setOutcomesOf = onOpened;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
@@ -204,12 +207,10 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
     setDialog(null); setSaving(false);
   };
   const dialogEl = dialog && canWrite && (
-    <ProgramDialog key={`${dialog.program?.id ?? 'new'}-${dialog.rows ? 'again' : 'first'}`} initial={dialog.program ?? undefined} units={units.data ?? []}
+    <ProgramDialog key={`${dialog.program?.id ?? 'new'}-${dialog.rows ? 'again' : 'first'}`} initial={dialog.program ?? undefined} units={units.data ?? []} {...(outcomes ? { outcomes } : {})}
       existing={dialog.program && existing.data ? existing.data : { peos: [], plos: [] }} rows={dialog.rows ?? NO_ROWS}
       error={error} busy={saving} onClose={() => { setDialog(null); setError(null); }} onSubmit={(v) => { void save(v); }} />
   );
-  const opened = outcomesOf ? programs.data?.find((p) => p.id === outcomesOf) : undefined;
-  if (opened) return <><ProgramOutcomesPanel program={opened} canWrite={canWrite} onBack={() => setOutcomesOf(null)} onAddOutcomes={() => setDialog({ program: opened })} {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} />{dialogEl}</>;
 
   return (
     <div className="space-y-4">
@@ -238,7 +239,6 @@ function ProgramsList({ api, outcomes, assessment, opened: openedId, onOpened }:
                 <p className="text-xs text-muted-foreground">{p.code ? `${p.code} · ` : ''}{LEVEL[p.degreeLevel]} · {unitName.get(p.orgUnitId) ?? 'Unknown unit'}{p.discipline ? ` · ${p.discipline}` : ''}{p.tags.length > 0 && ` · tags: ${p.tags.join(', ')}`}</p>
               </div>
               {!p.active && <span className="rounded border border-border px-2 py-0.5 text-xs">Inactive</span>}
-              <Button type="button" variant="outline" className="px-2 py-1" aria-label={`Outcomes of ${p.nameEn}`} onClick={() => setOutcomesOf(p.id)}>Outcomes</Button>
               {canWrite && (
                 <>
                   <Button type="button" variant="ghost" className="px-2 py-1" aria-label={`Edit ${p.nameEn}`} onClick={() => setDialog({ program: p })}>Edit</Button>

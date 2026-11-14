@@ -651,6 +651,8 @@ function pagesFor(ids) {
     { name: 'my-requests', path: '/requests' },
     // The course syllabus (DEC-038): the Syllabi list with the import, the editor with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
+    { name: 'qm-programs', path: '/quality-management?tab=programs', action: async (page) => { await page.getByRole('region', { name: 'Assessment' }).waitFor(); } },
+    { name: 'program-edit-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: /^Edit / }).first().click(); await page.getByRole('dialog').waitFor(); } },
     ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
     { name: 'program-add-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: 'Add program' }).click(); await page.getByRole('dialog', { name: 'Add a program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },

@@ -181,7 +181,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, tab: tab
             <ScopeLevelsSection api={api} canEdit={can(me.data, 'org:write')} />
             <AcademicCalendarSection api={api} canEdit={can(me.data, 'org:write')} />
           </>
-        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} {...(assessment ? { assessment } : {})} />
+        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'map' ? <CurriculumMapPage api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'syllabus' ? <SyllabusSettingsPage api={api} />

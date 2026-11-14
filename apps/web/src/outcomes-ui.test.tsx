@@ -16,6 +16,9 @@ import { outcomesApi } from './lib/outcomes-api';
 import { assessmentApi } from './lib/assessment-api';
 import { settingsApi } from './lib/settings-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
+import { ProgramQualityTab } from './pages/program-quality';
+import { useMe } from './lib/me';
+import type { SettingsApi } from './lib/settings-api';
 
 configure({ asyncUtilTimeout: 30000 });
 vi.setConfig({ testTimeout: 120000, hookTimeout: 120000 });
@@ -34,6 +37,18 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
 function page(who: string, tab: OrganizationTab) {
   const f = fetchAs(who);
   const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} tab={tab} />;
+  const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
+}
+
+/** Quality Management -> Programs: each program's assessment of learning and review. */
+function QmPrograms({ settings, f }: { settings: SettingsApi; f: typeof fetch }) {
+  const me = useMe(settings);
+  return <ProgramQualityTab me={me.data} settings={settings} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} />;
+}
+function qmPage(who: string) {
+  const f = fetchAs(who);
+  const ui = <QmPrograms settings={settingsApi(createApi(f), f)} f={f} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -74,8 +89,9 @@ describe('courses, outcomes and the curriculum map', () => {
   });
 
   const openOutcomesDialog = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
-    await user.click(await screen.findByRole('button', { name: 'Add PEOs and PLOs' }));
+    // There is no Outcomes page: a program's PEOs and PLOs are added and edited in its dialog.
+    expect(screen.queryByRole('button', { name: /^Outcomes of / })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Edit BS Electrical and Computer Engineering' }));
     return screen.findByRole('dialog', { name: 'Edit BS Electrical and Computer Engineering' });
   };
 
@@ -88,8 +104,6 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Solve complex engineering problems');
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    // The map and the coverage are on their own tab, not on the program's Outcomes page.
-    expect(screen.queryByRole('region', { name: 'Curriculum map' })).toBeNull();
     cleanup();
     page('admin', 'map');
     const pick = await screen.findByLabelText('Program') as HTMLSelectElement;
@@ -104,15 +118,12 @@ describe('courses, outcomes and the curriculum map', () => {
     within(coverage).getByText('ECE 420 has 1 CLO; the syllabus rules ask for at least 3');
   });
 
-  it('adds PEOs and several PLOs in one dialog: Add another brings the next code, and the panel has no add buttons of its own', async () => {
+  it('adds PEOs and several PLOs in one dialog (Add another brings the next code), and edits the recorded ones in the same dialog', async () => {
     const user = userEvent.setup();
     page('admin', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
-    await screen.findByRole('region', { name: 'Program learning outcomes' });
-    expect(screen.queryByRole('button', { name: 'Add PLO' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add PEO' })).toBeNull();
-    await user.click(await screen.findByRole('button', { name: 'Add PEOs and PLOs' }));
-    const dlg = await screen.findByRole('dialog', { name: 'Edit BS Electrical and Computer Engineering' });
+    const dlg = await openOutcomesDialog(user);
+    // The recorded PLO is listed in the dialog, editable in place.
+    await within(dlg).findByText('Solve complex engineering problems');
     await user.click(within(dlg).getByRole('button', { name: 'Add PEO' }));
     await user.type(within(dlg).getByLabelText('PEO 1 code'), 'PEO1');
     await user.type(within(dlg).getByLabelText('PEO 1 statement'), 'Graduates lead engineering projects');
@@ -127,10 +138,27 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.type(within(plosGroup).getByLabelText('PLO 2 statement'), 'Work in teams');
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const plos = await screen.findByRole('region', { name: 'Program learning outcomes' });
+    // Opened again, the dialog lists them all as recorded; one is edited in place and saved on its own.
+    const again = await openOutcomesDialog(user);
+    const plos = within(again).getByRole('group', { name: 'Program learning outcomes (PLOs)' });
     await within(plos).findByText('Work in teams');
     expect(within(plos).getByText('Communicate effectively')).toBeTruthy();
-    expect(within(await screen.findByRole('region', { name: 'Program educational objectives' })).getByText('Graduates lead engineering projects')).toBeTruthy();
+    within(within(again).getByRole('group', { name: 'Program educational objectives (PEOs)' })).getByText('Graduates lead engineering projects');
+    await user.click(within(plos).getByRole('button', { name: 'Edit PLO8' }));
+    const statement = within(plos).getByLabelText('PLO statement') as HTMLInputElement;
+    await user.clear(statement);
+    await user.type(statement, 'Work effectively in teams');
+    await user.click(within(plos).getByRole('button', { name: 'Save' }));
+    await within(plos).findByText('Work effectively in teams');
+    // A PLO's performance indicators are added under it, in the dialog.
+    const so1 = within(plos).getAllByTestId('outcome').find((li) => li.textContent?.includes('SO1'))!;
+    await user.click(within(so1).getByRole('button', { name: '0 performance indicators' }));
+    await user.click(within(so1).getByRole('button', { name: 'Add indicator' }));
+    await user.type(within(so1).getByLabelText('indicator code'), 'SO1.1');
+    await user.type(within(so1).getByLabelText('indicator statement'), 'Identify the problem');
+    await user.click(within(so1).getByRole('button', { name: 'Add indicator' }));
+    await within(so1).findByText('Identify the problem');
+    await user.click(within(again).getByRole('button', { name: 'Close' }));
   });
 
   it('maps a course to a PLO top-down from the PLO view, flags it until a CLO backs it, and flags levels that differ', async () => {
@@ -179,26 +207,29 @@ describe('courses, outcomes and the curriculum map', () => {
     expect(screen.getByLabelText('Level 2 name')).toHaveProperty('value', 'Reinforced');
     first.unmount();
     page('admin', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
-    await user.click(await screen.findByRole('button', { name: 'Link SO1 to ILO1' }));
-    await screen.findByRole('button', { name: 'Unlink SO1 to ILO1' });
+    // The PLO's links to ILOs and PEOs are chips under it in the program's dialog.
+    const dlg = await openOutcomesDialog(user);
+    await user.click(await within(dlg).findByRole('button', { name: 'Link SO1 to ILO1' }));
+    await within(dlg).findByRole('button', { name: 'Unlink SO1 to ILO1' });
     cleanup();
+    // A viewer has no Edit and no Outcomes button; the PLOs are read on the Curriculum map, by PLO.
     page('viewer', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
-    await screen.findByText('Solve complex engineering problems');
-    expect(screen.queryByRole('button', { name: 'Add PLO' })).toBeNull();
-    expect((await screen.findByRole('button', { name: 'Unlink SO1 to ILO1' })).hasAttribute('disabled')).toBe(true);
+    await screen.findByText('BS Electrical and Computer Engineering');
+    expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Outcomes of / })).toBeNull();
     cleanup();
     page('viewer', 'map');
     expect((await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' })).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('form', { name: 'Add a course to the program' })).toBeNull();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ECE 420 SO1: Mastered' })).toBeTruthy());
+    const user2 = userEvent.setup();
+    await user2.click(screen.getByRole('tab', { name: 'By PLO' }));
+    await screen.findByText('Solve complex engineering problems');
   });
 
   it('adds a review finding on a criterion and shows it in the Review heatmap', async () => {
     const user = userEvent.setup();
-    page('admin', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    // A program's review is in Quality Management -> Programs, under the review of every program.
+    qmPage('admin');
     const criterion = await screen.findByRole('listitem', { name: '4. PLO-to-CLO mapping' });
     expect(within(criterion).getByText('Not reviewed')).toBeTruthy();
     await user.click(within(criterion).getByRole('button', { name: 'Add finding' }));
@@ -206,16 +237,13 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.type(within(criterion).getByLabelText('Finding'), 'Map with levels for one course; others missing.');
     await user.click(within(criterion).getByRole('button', { name: 'Add finding' }));
     await within(criterion).findByText('Map with levels for one course; others missing.');
-    await user.click(screen.getByRole('button', { name: '← Programs' }));
-    await user.click(screen.getByRole('tab', { name: 'Review' }));
     await screen.findByLabelText('BS Electrical and Computer Engineering, PLO-to-CLO mapping: Developing');
   });
 
   it('plans, computes attainment, records results against the target, and starts a corrective action', async () => {
     const user = userEvent.setup();
     await db.su.query(`update institution set assessment_benchmarks = '{"ploScore": 85, "cloScore": 70}'`);
-    page('admin', 'programs');
-    await user.click(await screen.findByRole('button', { name: 'Outcomes of BS Electrical and Computer Engineering' }));
+    qmPage('admin');
     const card = await screen.findByRole('region', { name: 'Assessment' });
     await user.clear(await within(card).findByLabelText('Academic year'));
     await user.type(within(card).getByLabelText('Academic year'), '2026-27');
