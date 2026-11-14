@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { OutcomeRoutes } from '@ams/api';
 import type {
-  Course, CourseProgramInput, CreateCourse, CreateOutcome, LearningOutcome, OutcomeLevel, OutcomeLink, OutcomeLinkInput, OutcomesWorkbook, OutcomesWorkbookResult,
+  Course, CourseMap, CourseMapInput, CourseProgramInput, CreateCourse, CreateOutcome, LearningOutcome, OutcomeLevel, OutcomeLink, OutcomeLinkInput, OutcomesWorkbook, OutcomesWorkbookResult,
   AddReviewFinding, ProgramOutcomes, ProgramReview, ReviewFinding, ReviewRubric, ReviewSummary, UpdateCourse, UpdateOutcome,
 } from '@ams/shared';
 import { noteResponse } from './undo';
@@ -30,6 +30,8 @@ export function outcomesApi(fetcher: typeof fetch = fetch) {
     deleteOutcome: (id: string) => a.outcomes[':id'].$delete({ param: { id } }).then((r) => unwrap<{ deleted: true }>(r)),
     setLink: (json: OutcomeLinkInput) => a['outcome-links'].$put({ json }).then((r) => unwrap<OutcomeLink>(r)),
     removeLink: (fromId: string, toId: string) => a['outcome-links'].remove.$post({ json: { fromId, toId } }).then((r) => unwrap<{ removed: boolean }>(r)),
+    /** Maps a course to a PLO top-down at a level, or takes it away with a null level (DEC-039). */
+    setCourseMap: (json: CourseMapInput) => a['course-map'].$put({ json }).then((r) => unwrap<CourseMap>(r)),
     loadWorkbook: (json: OutcomesWorkbook) => a.outcomes.workbook.$post({ json }).then((r) => unwrap<OutcomesWorkbookResult>(r)),
     reviewSummary: () => a['program-reviews'].$get().then((r) => unwrap<ReviewSummary>(r)),
     programReview: (id: string) => a.programs[':id'].review.$get({ param: { id } }).then((r) => unwrap<ProgramReview>(r)),

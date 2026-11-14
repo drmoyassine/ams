@@ -95,11 +95,13 @@ describe('courses, outcomes and the curriculum map', () => {
     const pick = await screen.findByLabelText('Program') as HTMLSelectElement;
     await waitFor(() => expect(pick.selectedOptions[0]!.textContent).toMatch(/BS Electrical and Computer Engineering/));
     const coverage = await screen.findByRole('region', { name: 'Coverage' });
-    await within(coverage).findByText('SO1 has no course outcome mapped to it');
+    await within(coverage).findByText('SO1 has no course mapped to it');
     await user.click(await screen.findByRole('button', { name: 'ECE 420 SO1: not mapped' }));
     await user.selectOptions(await screen.findByLabelText('CLO1 level for SO1'), 'M');
     await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' });
-    await within(coverage).findByText(/Every PLO is mapped and reaches mastery/);
+    await waitFor(() => expect(within(coverage).queryByText(/SO1/)).toBeNull());
+    // The syllabus rules' minimum CLOs per course is flagged here too (ECE 420 has one CLO; the default minimum is three).
+    within(coverage).getByText('ECE 420 has 1 CLO; the syllabus rules ask for at least 3');
   });
 
   it('adds PEOs and several PLOs in one dialog: Add another brings the next code, and the panel has no add buttons of its own', async () => {
@@ -129,6 +131,41 @@ describe('courses, outcomes and the curriculum map', () => {
     await within(plos).findByText('Work in teams');
     expect(within(plos).getByText('Communicate effectively')).toBeTruthy();
     expect(within(await screen.findByRole('region', { name: 'Program educational objectives' })).getByText('Graduates lead engineering projects')).toBeTruthy();
+  });
+
+  it('maps a course to a PLO top-down from the PLO view, flags it until a CLO backs it, and flags levels that differ', async () => {
+    const user = userEvent.setup();
+    page('admin', 'map');
+    await user.click(await screen.findByRole('tab', { name: 'By PLO' }));
+    const plo7 = await screen.findByRole('group', { name: 'PLO7 courses' });
+    within(plo7).getByText('No course mapped yet.');
+    await user.selectOptions(within(plo7).getByLabelText('Course for PLO7'), 'ECE 420 Digital Signal Processing');
+    await user.selectOptions(within(plo7).getByLabelText('Level for PLO7'), 'M');
+    await user.click(within(plo7).getByRole('button', { name: 'Map' }));
+    await within(plo7).findByText('Mastered (course), no CLO');
+    const coverage = screen.getByRole('region', { name: 'Coverage' });
+    await within(coverage).findByText('ECE 420 is mapped to PLO7 (Mastered) but none of its CLOs is linked to PLO7');
+    // In the grid the cell needs attention; its panel links a CLO bottom-up at a lower level, and the flag becomes "levels differ".
+    await user.click(screen.getByRole('tab', { name: 'By course' }));
+    await user.click(await screen.findByRole('button', { name: 'ECE 420 PLO7: Mastered (course), no CLO' }));
+    await user.selectOptions(await screen.findByLabelText('CLO1 level for PLO7'), 'R');
+    await screen.findByRole('button', { name: 'ECE 420 PLO7: Mastered (course), CLOs reach Reinforced' });
+    await within(coverage).findByText('ECE 420 is mapped to PLO7 as Mastered, but its CLOs reach Reinforced');
+    // Bottom-up only is not flagged: a CLO linked to PLO8, which the course was not mapped to.
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'ECE 420 PLO8: not mapped' }));
+    await user.selectOptions(await screen.findByLabelText('CLO1 level for PLO8'), 'I');
+    await screen.findByRole('button', { name: 'ECE 420 PLO8: Introduced' });
+    expect(within(coverage).queryByText(/ECE 420.*PLO8/)).toBeNull();
+    // The course's own level matches its CLOs once set to Reinforced: no flag for PLO7.
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'ECE 420 PLO7: Mastered (course), CLOs reach Reinforced' }));
+    await user.selectOptions(await screen.findByLabelText('ECE 420 level for PLO7'), 'R');
+    await screen.findByRole('button', { name: 'ECE 420 PLO7: Reinforced' });
+    await waitFor(() => expect(within(coverage).queryByText(/ECE 420.*PLO7/)).toBeNull());
+    // Leave CLO1 linked to SO1 only, as the later tests expect.
+    await db.su.query(`delete from outcome_link where to_id in (select id from learning_outcome where code in ('PLO7', 'PLO8'))`);
+    await db.su.query(`delete from course_outcome_map`);
   });
 
   it('adds an ILO, links a PLO to it, and shows a viewer everything without the buttons', async () => {

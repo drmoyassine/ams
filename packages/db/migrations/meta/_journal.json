@@ -540,6 +540,13 @@
       "when": 1792944000000,
       "tag": "0078_syllabus",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793030400000,
+      "tag": "0079_course_outcome_map",
+      "breakpoints": true
     }
   ]
 }

@@ -4,10 +4,10 @@
 // the kinds and that the course is in the PLO's program; the level is checked here against the institution's levels.
 // An approved outcome is never deleted: it is retired. A draft may be deleted, with its links.
 import { and, eq, inArray, or } from 'drizzle-orm';
-import { course, courseProgram, institution, learningOutcome, outcomeLink, program } from '@ams/db';
+import { course, courseOutcomeMap, courseProgram, institution, learningOutcome, outcomeLink, program } from '@ams/db';
 import {
   OutcomeLevelsSchema, resolveOutcomeLevel, type CoverageIssue, type CreateOutcome, type LearningOutcome, type OutcomeLevel, type OutcomeLinkInput,
-  type ProgramOutcomes, type UpdateOutcome,
+  type ProgramOutcomes, type UpdateOutcome, type CourseMap, type CourseMapInput,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
@@ -15,6 +15,7 @@ import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
 import { courseScope, loadCourse } from './courses.js';
+import { getSyllabusSettings } from '../syllabus/syllabus.js';
 
 type Row = typeof learningOutcome.$inferSelect;
 const nfc = (s: string) => s.normalize('NFC').trim();
@@ -47,9 +48,9 @@ export async function setOutcomeLevels(ctx: Ctx, input: OutcomeLevel[]): Promise
   assertHuman(ctx);
   await assertPermitted(ctx, 'org:write', { type: 'institution' });
   const levels = OutcomeLevelsSchema.parse(input);
-  const used = await ctx.tx.selectDistinct({ level: outcomeLink.level }).from(outcomeLink);
-  const gone = used.map((u) => u.level).filter((l): l is string => !!l && !levels.some((x) => x.code === l));
-  if (gone.length) throw new ConflictError(`links use the level ${gone.join(', ')}; keep it (you may rename it)`);
+  const used = [...await ctx.tx.selectDistinct({ level: outcomeLink.level }).from(outcomeLink), ...await ctx.tx.selectDistinct({ level: courseOutcomeMap.level }).from(courseOutcomeMap)];
+  const gone = [...new Set(used.map((u) => u.level))].filter((l): l is string => !!l && !levels.some((x) => x.code === l));
+  if (gone.length) throw new ConflictError(`links or the curriculum map use the level ${gone.join(', ')}; keep it (you may rename it)`);
   await ctx.tx.update(institution).set({ outcomeLevels: levels }).where(eq(institution.id, ctx.caller.institutionId));
   return levels;
 }
@@ -163,6 +164,30 @@ export async function removeOutcomeLink(ctx: Ctx, fromId: string, toId: string):
   return { removed: gone.length > 0 };
 }
 
+// ---- The curriculum map built top-down (DEC-039) ------------------------------------------------------------------------------
+
+/**
+ * Maps a course to a PLO of one of its programs at one level, without needing CLOs (top-down); a null level takes the mapping away.
+ * The CLOs that deliver it are linked as before (bottom-up). program:write on the PLO's program.
+ */
+export async function setCourseMap(ctx: Ctx, input: CourseMapInput): Promise<CourseMap> {
+  assertHuman(ctx);
+  const target = await loadOutcome(ctx, input.outcomeId);
+  if (target.kind !== 'plo') throw new ValidationError('a course is mapped top-down to a PLO');
+  await assertPermitted(ctx, 'program:write', { type: 'program', id: target.programId! });
+  await loadCourse(ctx, input.courseId);
+  const where = and(eq(courseOutcomeMap.courseId, input.courseId), eq(courseOutcomeMap.outcomeId, target.id));
+  if (!input.level) {
+    await ctx.tx.delete(courseOutcomeMap).where(where);
+    return { courseId: input.courseId, outcomeId: target.id, level: null };
+  }
+  const level = resolveOutcomeLevel(await getOutcomeLevels(ctx), input.level);
+  if (!level) throw new ValidationError(`"${input.level}" is not one of the mapping levels`);
+  await guardIntegrity(() => ctx.tx.insert(courseOutcomeMap).values({ institutionId: ctx.caller.institutionId, courseId: input.courseId, outcomeId: target.id, level })
+    .onConflictDoUpdate({ target: [courseOutcomeMap.courseId, courseOutcomeMap.outcomeId], set: { level } }));
+  return { courseId: input.courseId, outcomeId: target.id, level };
+}
+
 // ---- A program's outcomes, map and coverage --------------------------------------------------------------------------------
 
 /** Everything the program's Outcomes screen shows: PEOs, PLOs and indicators, ILOs, its courses with CLOs, links, the map, coverage. */
@@ -185,13 +210,18 @@ export async function getProgramOutcomes(ctx: Ctx, programId: string): Promise<P
   const order = new Map(levels.map((l, i) => [l.code, i]));
   const mastery = levels.find((l) => l.mastery)?.code ?? null;
   const cloCourse = new Map(clos.map((c) => [c.id, c.courseId!]));
+  const topDown = ploIds.length && courseIds.length
+    ? await ctx.tx.select({ courseId: courseOutcomeMap.courseId, ploId: courseOutcomeMap.outcomeId, level: courseOutcomeMap.level }).from(courseOutcomeMap)
+      .where(and(inArray(courseOutcomeMap.outcomeId, ploIds), inArray(courseOutcomeMap.courseId, courseIds)))
+    : [];
   const map: ProgramOutcomes['map'] = [];
   for (const plo of plos) {
     for (const { c } of cps) {
       const ls = links.filter((l) => l.toId === plo.id && cloCourse.get(l.fromId) === c.id);
-      if (!ls.length) continue;
+      const td = topDown.find((m) => m.ploId === plo.id && m.courseId === c.id)?.level ?? null;
+      if (!ls.length && !td) continue;
       const codes = [...new Set(ls.map((l) => l.level).filter((l): l is string => !!l))].sort((a, b) => (order.get(a) ?? 99) - (order.get(b) ?? 99));
-      map.push({ ploId: plo.id, courseId: c.id, levels: codes, highest: codes.at(-1) ?? null });
+      map.push({ ploId: plo.id, courseId: c.id, topDown: td, levels: codes, highest: codes.at(-1) ?? null });
     }
   }
 
@@ -199,14 +229,34 @@ export async function getProgramOutcomes(ctx: Ctx, programId: string): Promise<P
   const cloToPlo = links.filter((l) => cloCourse.has(l.fromId));
   for (const plo of plos.filter((o) => o.status !== 'retired')) {
     const mine = cloToPlo.filter((l) => l.toId === plo.id);
-    if (!mine.length) coverage.push({ kind: 'plo_unmapped', refId: plo.id, label: plo.code, message: `${plo.code} has no course outcome mapped to it` });
-    else if (mastery && !mine.some((l) => l.level === mastery)) coverage.push({ kind: 'plo_no_mastery', refId: plo.id, label: plo.code, message: `${plo.code} is never reached at the mastery level (${mastery})` });
+    const direct = topDown.filter((m) => m.ploId === plo.id);
+    if (!mine.length && !direct.length) coverage.push({ kind: 'plo_unmapped', refId: plo.id, label: plo.code, message: `${plo.code} has no course mapped to it` });
+    else if (mastery && !mine.some((l) => l.level === mastery) && !direct.some((m) => m.level === mastery)) coverage.push({ kind: 'plo_no_mastery', refId: plo.id, label: plo.code, message: `${plo.code} is never reached at the mastery level (${mastery})` });
     if (ilos.length && !links.some((l) => l.fromId === plo.id && ilos.some((i) => i.id === l.toId))) coverage.push({ kind: 'plo_no_ilo', refId: plo.id, label: plo.code, message: `${plo.code} is not linked to an institutional learning outcome` });
   }
+  // Courses (DEC-039): mapped either way counts; the syllabus rules' minimum and maximum PLOs and CLOs per course are flagged, never enforced.
+  const limits = await getSyllabusSettings(ctx);
+  const ploName = new Map(plos.map((o) => [o.id, o.code]));
+  const levelName = new Map(levels.map((l) => [l.code, l.name]));
   for (const { c, cp } of cps) {
-    if (!c.active || cp.role === 'elective') continue;
-    const mine = clos.filter((o) => o.courseId === c.id);
-    if (!mine.some((o) => cloToPlo.some((l) => l.fromId === o.id))) coverage.push({ kind: 'course_unmapped', refId: c.id, label: c.code, message: `${c.code} (${cp.role}) maps to no PLO of this program` });
+    if (!c.active) continue;
+    const cells = map.filter((m) => m.courseId === c.id && ploName.has(m.ploId) && plos.find((o) => o.id === m.ploId)!.status !== 'retired');
+    const role = cp.role === 'core' ? '' : ` (${cp.role})`;
+    if (!cells.length) coverage.push({ kind: 'course_unmapped', refId: c.id, label: c.code, message: `${c.code}${role} maps to no PLO of this program` });
+    else if (cells.length < limits.minPlos) coverage.push({ kind: 'course_plo_count', refId: c.id, label: c.code, message: `${c.code} maps to ${cells.length} PLO${cells.length === 1 ? '' : 's'}; the syllabus rules ask for at least ${limits.minPlos}` });
+    else if (cells.length > limits.maxPlos) coverage.push({ kind: 'course_plo_count', refId: c.id, label: c.code, message: `${c.code} maps to ${cells.length} PLOs; the syllabus rules allow at most ${limits.maxPlos}` });
+    const n = clos.filter((o) => o.courseId === c.id && o.status !== 'retired').length;
+    if (n < limits.minClos) coverage.push({ kind: 'course_clo_count', refId: c.id, label: c.code, message: `${c.code} has ${n} CLO${n === 1 ? '' : 's'}; the syllabus rules ask for at least ${limits.minClos}` });
+    else if (n > limits.maxClos) coverage.push({ kind: 'course_clo_count', refId: c.id, label: c.code, message: `${c.code} has ${n} CLOs; the syllabus rules allow at most ${limits.maxClos}` });
+    for (const m of cells.filter((x) => x.topDown)) {
+      const plo = ploName.get(m.ploId)!;
+      const name = (code: string) => `${levelName.get(code) ?? code}`;
+      if (!links.some((l) => l.toId === m.ploId && cloCourse.get(l.fromId) === c.id)) {
+        coverage.push({ kind: 'course_map_no_clo', refId: c.id, label: `${c.code} ${plo}`, message: `${c.code} is mapped to ${plo} (${name(m.topDown!)}) but none of its CLOs is linked to ${plo}` });
+      } else if (m.highest && m.highest !== m.topDown) {
+        coverage.push({ kind: 'level_mismatch', refId: c.id, label: `${c.code} ${plo}`, message: `${c.code} is mapped to ${plo} as ${name(m.topDown!)}, but its CLOs reach ${name(m.highest)}` });
+      }
+    }
   }
   for (const l of cloToPlo.filter((x) => !x.level)) {
     const clo = clos.find((o) => o.id === l.fromId)!; const plo = plos.find((o) => o.id === l.toId)!;

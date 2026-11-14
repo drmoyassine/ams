@@ -127,7 +127,12 @@ export type OutcomeLink = z.infer<typeof OutcomeLinkSchema>;
 
 // ---- A program's outcomes, curriculum map and coverage -------------------------------------------------------------------
 
-export const COVERAGE_ISSUES = ['plo_unmapped', 'plo_no_mastery', 'course_unmapped', 'clo_unmapped', 'plo_no_ilo', 'link_no_level'] as const;
+export const COVERAGE_ISSUES = [
+  'plo_unmapped', 'plo_no_mastery', 'course_unmapped', 'clo_unmapped', 'plo_no_ilo', 'link_no_level',
+  // The curriculum map built both ways (DEC-039): a course mapped top-down with no CLO behind it, top-down and CLO levels that differ,
+  // and the syllabus rules' minimum and maximum PLOs and CLOs per course. Flags only: nothing is blocked.
+  'course_map_no_clo', 'level_mismatch', 'course_plo_count', 'course_clo_count',
+] as const;
 export const CoverageIssueSchema = z.object({
   kind: z.enum(COVERAGE_ISSUES),
   /** The outcome or course it is about. */
@@ -156,11 +161,20 @@ export const ProgramOutcomesSchema = z.object({
   courses: z.array(ProgramCourseRowSchema),
   /** Links that touch this program: CLO->PLO (its courses' CLOs to its PLOs), PLO->ILO, PLO->PEO. */
   links: z.array(OutcomeLinkSchema),
-  /** Curriculum map: per PLO and course, the levels its CLOs reach (codes, in level order) and the highest. */
-  map: z.array(z.object({ ploId: z.uuid(), courseId: z.uuid(), levels: z.array(z.string()), highest: z.string().nullable() })),
+  /**
+   * Curriculum map (DEC-039), per PLO and course: `topDown` is the level the course is mapped at directly (null when it is not), `levels`
+   * the levels its CLOs reach (codes, in level order) and `highest` the highest of them. A cell is listed when either side has it.
+   */
+  map: z.array(z.object({ ploId: z.uuid(), courseId: z.uuid(), topDown: z.string().nullable(), levels: z.array(z.string()), highest: z.string().nullable() })),
   coverage: z.array(CoverageIssueSchema),
 });
 export type ProgramOutcomes = z.infer<typeof ProgramOutcomesSchema>;
+
+/** Maps a course to a PLO top-down at one level (a code or alias of the institution's levels); null takes the mapping away. */
+export const CourseMapInputSchema = z.object({ courseId: z.uuid(), outcomeId: z.uuid(), level: z.string().trim().min(1).max(20).nullable() });
+export type CourseMapInput = z.infer<typeof CourseMapInputSchema>;
+export const CourseMapSchema = z.object({ courseId: z.uuid(), outcomeId: z.uuid(), level: z.string().nullable() });
+export type CourseMap = z.infer<typeof CourseMapSchema>;
 
 // ---- Loading programs and outcomes from a workbook (the Integrated Assessment Plan) ----------------------------------------
 

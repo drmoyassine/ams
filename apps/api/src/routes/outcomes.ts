@@ -1,10 +1,10 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   createCourse, createOutcome, deleteOutcome, getCourse, getOutcomeLevels, getProgramOutcomes, listCourseOutcomes, listCourses, listIlos,
-  evidenceItemsForInternal, importedItemsByDocument, addReviewFinding, getProgramReview, getReviewRubric, getReviewSummary, loadOutcomesWorkbook, setReviewRubric, removeCourseProgram, removeOutcomeLink, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
+  evidenceItemsForInternal, importedItemsByDocument, addReviewFinding, getProgramReview, getReviewRubric, getReviewSummary, loadOutcomesWorkbook, setReviewRubric, removeCourseProgram, removeOutcomeLink, setCourseMap, setCourseProgram, setOutcomeLevels, setOutcomeLink, updateCourse, updateOutcome,
 } from '@ams/core';
 import {
-  CourseProgramInputSchema, CourseSchema, CreateCourseSchema, CreateOutcomeSchema, LearningOutcomeSchema, OutcomeLevelSchema, OutcomeLinkInputSchema,
+  CourseMapInputSchema, CourseMapSchema, CourseProgramInputSchema, CourseSchema, CreateCourseSchema, CreateOutcomeSchema, LearningOutcomeSchema, OutcomeLevelSchema, OutcomeLinkInputSchema,
   AddReviewFindingSchema, ProgramReviewSchema, ReviewFindingSchema, ReviewRubricSchema, ReviewSummarySchema, OutcomeLinkSchema, OutcomesWorkbookResultSchema, OutcomesWorkbookSchema, ProgramOutcomesSchema, UpdateCourseSchema, UpdateOutcomeSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -103,6 +103,13 @@ export function outcomeRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { body: { required: true, ...json(z.object({ fromId: z.uuid(), toId: z.uuid() })) } },
       responses: { 200: { description: 'Removed', ...json(z.object({ removed: z.boolean() })) }, ...errors },
     }), async (c) => { const b = c.req.valid('json'); return c.json(await removeOutcomeLink(c.get('ctx'), b.fromId, b.toId), 200); })
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/course-map', access: requires('program:write'), tags: tag,
+      description: 'Maps a course to a PLO top-down at one level (a code or alias), without needing CLOs; a null level takes the mapping away (DEC-039).',
+      request: { body: { required: true, ...json(CourseMapInputSchema) } },
+      responses: { 200: { description: 'The mapping', ...json(CourseMapSchema) }, ...errors },
+    }), async (c) => c.json(toDto(CourseMapSchema, await setCourseMap(c.get('ctx'), c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/outcomes/workbook', access: requires('org:write'), tags: tag,

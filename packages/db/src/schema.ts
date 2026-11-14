@@ -412,6 +412,14 @@ export const outcomeLink = pgTable('outcome_link', {
   level: text('level'),
 }, (t) => [uniqueIndex('outcome_link_idx').on(t.fromId, t.toId), index('outcome_link_to_idx').on(t.toId)]);
 
+/** The curriculum map built top-down (DEC-039): a course mapped to a PLO (or, later, an ILO) at one level, without needing CLOs. */
+export const courseOutcomeMap = pgTable('course_outcome_map', {
+  ...base(), ...tenant(),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  outcomeId: uuid('outcome_id').notNull().references(() => learningOutcome.id, { onDelete: 'cascade' }),
+  level: text('level').notNull(),
+}, (t) => [uniqueIndex('course_outcome_map_idx').on(t.courseId, t.outcomeId), index('course_outcome_map_outcome_idx').on(t.outcomeId)]);
+
 export const appUser = pgTable('app_user', {
   ...base(), ...tenant(),
   authUserId: text('auth_user_id'),
