@@ -18,6 +18,7 @@ import { settingsApi } from './lib/settings-api';
 import { syllabusApi } from './lib/syllabus-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
 import { ProgramQualityTab } from './pages/program-quality';
+import { ProgramPage } from './pages/settings/program-page';
 import { useMe } from './lib/me';
 import type { SettingsApi } from './lib/settings-api';
 
@@ -38,6 +39,14 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
 function page(who: string, tab: OrganizationTab) {
   const f = fetchAs(who);
   const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} syllabus={syllabusApi(f)} tab={tab} />;
+  const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
+}
+
+/** The program's own page (Settings -> Organization -> Programs -> the program). */
+function programPage(who: string) {
+  const f = fetchAs(who);
+  const ui = <ProgramPage programId={ids.prog!} api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} onSaved={() => undefined} onCancel={() => undefined} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -63,6 +72,9 @@ beforeAll(async () => {
   await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, 'admin', 'institution', $1), ($1, $3, 'viewer', 'institution', $1)`, [ids.inst, ids.admin, ids.viewer]);
   const unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
   ids.prog = await one(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'BS Electrical and Computer Engineering', 'bachelor') returning id`, [ids.inst, unit]);
+  // A complete record (the program's page refuses to save without one) with one PEO already.
+  await db.su.query(`update program set name_ar = 'بكالوريوس الهندسة الكهربائية', code = 'BS-ECE', mode = 'on_campus', credits = 130, duration_years = 4, contact_hours = 2000, language_of_instruction = 'English', mission = 'To educate engineers.' where id = $1`, [ids.prog]);
+  await db.su.query(`insert into learning_outcome (institution_id, kind, program_id, code, text_en) values ($1, 'peo', $2, 'PEO0', 'Graduates keep learning')`, [ids.inst, ids.prog]);
 }, 120000);
 afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
@@ -89,11 +101,13 @@ describe('courses, outcomes and the curriculum map', () => {
     await screen.findByText('Analyse discrete-time signals');
   });
 
-  const openOutcomesDialog = async (user: ReturnType<typeof userEvent.setup>) => {
-    // There is no Outcomes page: a program's PEOs and PLOs are added and edited in its dialog.
+  // A program's PEOs and PLOs are added and edited on its own page (there is no Outcomes page and no dialog).
+  const openOutcomesDialog = async (_user?: unknown) => {
     expect(screen.queryByRole('button', { name: /^Outcomes of / })).toBeNull();
-    await user.click(await screen.findByRole('button', { name: 'Edit BS Electrical and Computer Engineering' }));
-    return screen.findByRole('dialog', { name: 'Edit BS Electrical and Computer Engineering' });
+    cleanup();
+    programPage('admin');
+    await screen.findByRole('heading', { name: 'BS Electrical and Computer Engineering' });
+    return document.body;
   };
 
   it('adds a PLO in the program dialog, maps the CLO at a level and shows the map and the coverage', async () => {
@@ -101,10 +115,11 @@ describe('courses, outcomes and the curriculum map', () => {
     page('admin', 'programs');
     const dlg = await openOutcomesDialog(user);
     await user.click(within(dlg).getByRole('button', { name: 'Add PLO' }));
+    await user.clear(within(dlg).getByLabelText('PLO 1 code')); // it starts as PLO1
     await user.type(within(dlg).getByLabelText('PLO 1 code'), 'SO1');
     await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Solve complex engineering problems');
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByRole('status');
     cleanup();
     page('admin', 'map');
     const pick = await screen.findByLabelText('Program') as HTMLSelectElement;
@@ -144,25 +159,25 @@ describe('courses, outcomes and the curriculum map', () => {
     // The recorded PLO is listed in the dialog, editable in place.
     await within(dlg).findByText('Solve complex engineering problems');
     await user.click(within(dlg).getByRole('button', { name: 'Add PEO' }));
-    await user.type(within(dlg).getByLabelText('PEO 1 code'), 'PEO1');
+    expect((within(dlg).getByLabelText('PEO 1 code') as HTMLInputElement).value).toBe('PEO1'); // the next code after PEO0
     await user.type(within(dlg).getByLabelText('PEO 1 statement'), 'Graduates lead engineering projects');
     await user.click(within(dlg).getByRole('button', { name: 'Add PLO' }));
     // The first row already holds the next code after the PLOs the program has; replace it.
     await user.clear(within(dlg).getByLabelText('PLO 1 code'));
     await user.type(within(dlg).getByLabelText('PLO 1 code'), 'PLO7');
     await user.type(within(dlg).getByLabelText('PLO 1 statement'), 'Communicate effectively');
-    const plosGroup = within(dlg).getByRole('group', { name: 'Program learning outcomes (PLOs)' });
+    const plosGroup = within(dlg).getByRole('group', { name: 'Program learning outcomes (PLOs) *' });
     await user.click(within(plosGroup).getByRole('button', { name: 'Add another' }));
     expect((within(plosGroup).getByLabelText('PLO 2 code') as HTMLInputElement).value).toBe('PLO8');
     await user.type(within(plosGroup).getByLabelText('PLO 2 statement'), 'Work in teams');
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByRole('status');
     // Opened again, the dialog lists them all as recorded; one is edited in place and saved on its own.
     const again = await openOutcomesDialog(user);
-    const plos = within(again).getByRole('group', { name: 'Program learning outcomes (PLOs)' });
+    const plos = within(again).getByRole('group', { name: 'Program learning outcomes (PLOs) *' });
     await within(plos).findByText('Work in teams');
     expect(within(plos).getByText('Communicate effectively')).toBeTruthy();
-    within(within(again).getByRole('group', { name: 'Program educational objectives (PEOs)' })).getByText('Graduates lead engineering projects');
+    within(within(again).getByRole('group', { name: 'Program educational objectives (PEOs) *' })).getByText('Graduates lead engineering projects');
     await user.click(within(plos).getByRole('button', { name: 'Edit PLO8' }));
     const statement = within(plos).getByLabelText('PLO statement') as HTMLInputElement;
     await user.clear(statement);
@@ -182,7 +197,6 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.click(courses);
     within(so1).getByText('CLOs: CLO1');
     expect(within(so1).getByLabelText('ECE 420 level for SO1 (by PLO)')).toBeTruthy();
-    await user.click(within(again).getByRole('button', { name: 'Close' }));
   });
 
   it('maps a course to a PLO top-down from the PLO view as a draft change, and asks before moving a CLO to another PLO', async () => {

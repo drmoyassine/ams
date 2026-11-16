@@ -903,3 +903,10 @@ The AIU Course Syllabus Template is now the course schema. One document per cour
 - New syllabus warnings: the course covers a PLO at a level its CLOs do not reach, or covers a PLO no CLO maps to. The map: a hint ("Click a cell…"), empty cells drawn as dashed "+" buttons.
 - **Learning.** A syllabus document's CLOs keep their own ids (approval matches them to the course's CLOs by id or code), so anything naming a live CLO must also match by code.
 - **Consequence to watch.** A mapping change waits until the course's whole syllabus can be approved; a course with an incomplete syllabus keeps it waiting.
+
+## 2026-11-16 (later) — Programs on their own page, API keys, programs template (DEC-040, DEC-041, migrations 0080-0081)
+- **Program page** (`/settings/organization/programs/<id>`, `/new`, breadcrumb): the owner's fields and order; the unit is picked from the org chart as a tree; modes are On-campus, Online, Blended (0080 turned full-time and part-time into On-campus) and total contact hours are new; Language is English, the secondary language or Bilingual. Everything but the vision and the SIS code is required on the page, with at least one PEO and one PLO; imports and the API save and flag (`missing`, a chip on the list). Tags and discipline left the form but stay in the data (tags drive requirement applicability). Save sits beside the title and at the end (a sticky bar hid under the Assistant button).
+- **API keys** (0081): Settings -> API keys; a key acts as its own service user with one role; shown once, hashed, revocable, expiring; 401 with no session fallback. Programs over the API gain GET one, DELETE (deactivates), `GET /api/programs/export` and `POST /api/programs/upsert`.
+- **Template import/export** (Programs, PEOs, PLOs; .xlsx or CSV): matched by Program code, previewed, never removes, empty cells leave fields alone; replaces the old workbook loader.
+- **Deep links:** the curriculum map's `program` and `view`, and Quality Management's `program`, are in the address.
+- **Open:** a sweep of the rest of the app for deep links; scoping API keys to a unit or program; rate limits.

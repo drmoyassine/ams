@@ -1,7 +1,7 @@
 // Programs, courses and learning outcomes (TASK-104, TASK-105, TASK-112; docs/assessment-of-learning-plan.md, DEC-036).
 import { z } from 'zod';
 
-export const PROGRAM_MODES = ['full_time', 'part_time', 'online', 'blended'] as const;
+export const PROGRAM_MODES = ['on_campus', 'online', 'blended'] as const;
 export const COURSE_ROLES = ['core', 'elective', 'service'] as const;
 /** ilo: institution; peo, plo: program; pi: performance indicator under a PLO; clo: course. */
 export const OUTCOME_KINDS = ['ilo', 'peo', 'plo', 'pi', 'clo'] as const;

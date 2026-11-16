@@ -9,6 +9,8 @@ import { outcomeRoutes } from './routes/outcomes.js';
 import { assessmentRoutes } from './routes/assessment.js';
 import { syllabusRoutes } from './routes/syllabus.js';
 import { evidenceOpsRoutes } from './routes/evidence-ops.js';
+import { programRoutes } from './routes/programs-api.js';
+import { apiKeyRoutes } from './routes/api-keys.js';
 import type pg from 'pg';
 
 export interface AppOptions {
@@ -43,6 +45,8 @@ export function createApp(opts: AppOptions) {
   app.route('/', assessmentRoutes(registry, deps, options));
   app.route('/', syllabusRoutes(registry, deps, options));
   app.route('/', evidenceOpsRoutes(registry, deps, options));
+  app.route('/', programRoutes(registry, deps, options));
+  app.route('/', apiKeyRoutes(registry, deps, options));
   if (opts.authHandler) {
     const authHandler = opts.authHandler;
     rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);

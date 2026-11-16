@@ -247,6 +247,8 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'settings.memory': 'Assistant memory',
   'settings.memory.hint': "What the assistant remembers: yours and the team's",
   'settings.ai': 'AI',
+  'settings.apiKeys': 'API keys',
+  'settings.apiKeys.hint': 'Keys other systems call the API with (administrators only)',
   'settings.ai.hint': 'Model, key and spend limits for document analysis (administrators only)',
 
   'settings.qm': 'Quality Management',

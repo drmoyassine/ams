@@ -67,9 +67,12 @@ export const ProgramSchema = z.object({
   mode: z.enum(PROGRAM_MODES).nullable(),
   durationYears: z.number().nullable(),
   credits: z.number().int().nullable(),
+  contactHours: z.number().int().nullable(),
   languageOfInstruction: z.string().nullable(),
   campus: z.string().nullable(),
   startYear: z.number().int().nullable(),
+  /** What the program record still lacks (see `programMissing`): flagged, not refused, on import and the API. */
+  missing: z.array(z.string()),
 });
 export type Program = z.infer<typeof ProgramSchema>;
 
@@ -83,6 +86,7 @@ const programFacts = {
   mode: z.enum(PROGRAM_MODES).nullable().optional(),
   durationYears: z.coerce.number().min(0.5).max(12).nullable().optional(),
   credits: z.coerce.number().int().min(1).max(400).nullable().optional(),
+  contactHours: z.coerce.number().int().min(1).max(20000).nullable().optional(),
   languageOfInstruction: z.string().trim().nullable().optional(),
   campus: z.string().trim().nullable().optional(),
   startYear: z.coerce.number().int().min(1900).max(2200).nullable().optional(),
@@ -110,6 +114,25 @@ export const UpdateProgramSchema = z.object({
   ...programFacts,
 }).strict();
 export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
+
+/**
+ * What a program record must have (the owner, 2026-11-16): everything except the vision, the SIS code and (off the form) tags and
+ * discipline; and at least one PEO and one PLO. The form refuses to save without them; an import or the API saves and flags them.
+ */
+export const PROGRAM_REQUIRED = {
+  nameAr: 'Arabic name', code: 'Program code', mode: 'Mode', credits: 'Credits', durationYears: 'Years', contactHours: 'Contact hours',
+  languageOfInstruction: 'Language', mission: 'Mission',
+} as const;
+export function programMissing(p: Pick<Program, keyof typeof PROGRAM_REQUIRED>, counts: { peos: number; plos: number }): string[] {
+  const out: string[] = [];
+  for (const [k, label] of Object.entries(PROGRAM_REQUIRED)) {
+    const v = p[k as keyof typeof PROGRAM_REQUIRED];
+    if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) out.push(label);
+  }
+  if (!counts.peos) out.push('PEOs');
+  if (!counts.plos) out.push('PLOs');
+  return out;
+}
 
 /**
  * `analyse`: one stage of a framework analysis run (the stage is in the payload; each stage queues the next).

@@ -18,8 +18,10 @@ afterAll(() => w.close());
 
 describe('the program record', () => {
   it('keeps code, SIS id, mission, vision and facts; codes are unique', async () => {
-    const p = await w.as('alo', (c) => updateProgram(c, w.ids.mech!, { code: 'BS-MCE', externalId: 'MCE01', mission: '  To educate engineers.  ', durationYears: 4, credits: 132, mode: 'full_time' }));
-    expect(p).toMatchObject({ code: 'BS-MCE', externalId: 'MCE01', mission: 'To educate engineers.', durationYears: 4, credits: 132, mode: 'full_time' });
+    const p = await w.as('alo', (c) => updateProgram(c, w.ids.mech!, { code: 'BS-MCE', externalId: 'MCE01', mission: '  To educate engineers.  ', durationYears: 4, credits: 132, mode: 'on_campus', contactHours: 2100 }));
+    expect(p).toMatchObject({ code: 'BS-MCE', externalId: 'MCE01', mission: 'To educate engineers.', durationYears: 4, credits: 132, mode: 'on_campus', contactHours: 2100 });
+    // What the record still lacks is listed (flagged, not refused): the Arabic name, the language, PEOs and PLOs.
+    expect(p.missing).toEqual(['Arabic name', 'Language', 'PEOs', 'PLOs']);
     expect((await w.as('alo', (c) => updateProgram(c, w.ids.mech!, { mission: '' }))).mission).toBeNull();
     expect((await w.as('contrib', (c) => listPrograms(c)))[0]).toMatchObject({ code: 'BS-MCE' });
   });

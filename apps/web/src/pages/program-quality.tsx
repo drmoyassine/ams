@@ -13,13 +13,18 @@ import { ProgramReviewCard, ReviewHeatmap } from './settings/program-review';
  * the rubric, with the review across every program on top. This is the year's quality work; the program and its outcomes are set up
  * in Settings -> Organization -> Programs.
  */
-export function ProgramQualityTab({ me, settings, outcomes, assessment }: { me: Me | undefined; settings?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi }) {
+export function ProgramQualityTab({ me, settings, outcomes, assessment, program: programProp, onProgram }: {
+  me: Me | undefined; settings?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi;
+  /** From the address (deep link); `onProgram` writes a pick back. */ program?: string | undefined; onProgram?: (id: string) => void;
+}) {
   const api = useSettingsApi(settings);
   const oapi = useOutcomesApi(outcomes);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
   const active = (programs.data ?? []).filter((p) => p.active).sort((a, b) => a.nameEn.localeCompare(b.nameEn));
-  const [picked, setPicked] = useState('');
-  const programId = picked || active[0]?.id || '';
+  const [own, setOwn] = useState('');
+  const picked = programProp ?? own;
+  const programId = (picked && active.some((p) => p.id === picked) ? picked : '') || active[0]?.id || '';
+  const setPicked = (id: string) => { setOwn(id); onProgram?.(id); };
   const v = useQuery({ queryKey: ['program-outcomes', programId], queryFn: () => oapi.programOutcomes(programId), enabled: !!programId });
   const canWrite = can(me, 'program:write');
   return (

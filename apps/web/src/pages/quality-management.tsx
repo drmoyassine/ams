@@ -69,9 +69,10 @@ function StandardsTab({ api, evidence, apis }: { api: FrameworkApi; evidence?: E
  * Operations live here (assign scope and champions, link evidence, create cycles); the framework itself is written, versioned and
  * published in Settings -> Internal Quality Framework.
  */
-export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabProp, onTab, programApis }: {
+export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabProp, onTab, programApis, program, onProgram }: {
   api?: FrameworkApi; evidence?: EvidenceApi; apis?: OpsApis; tab?: QmTab; onTab?: (tab: QmTab) => void;
   /** For tests: the clients of the Programs tab (the app's own by default). */ programApis?: { settings?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi };
+  /** The program open on the Programs tab, from the address. */ program?: string | undefined; onProgram?: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const api = useApi(apiProp);
@@ -94,7 +95,7 @@ export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabPr
         {tab === 'standards' && <StandardsTab api={api} {...(evidence ? { evidence } : {})} {...(apis ? { apis } : {})} />}
         {tab === 'cycles' && <CyclesTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} onOpen={(id) => { void navigate({ to: '/quality-management/cycles/$id', params: { id } }); }} />}
         {tab === 'plans' && <PlansTab me={me.data} meLoaded={me.isSuccess} {...(apis ? { apis } : {})} />}
-        {tab === 'programs' && <ProgramQualityTab me={me.data} {...programApis} />}
+        {tab === 'programs' && <ProgramQualityTab me={me.data} {...programApis} program={program} {...(onProgram ? { onProgram } : {})} />}
         {tab === 'syllabi' && <SyllabiList />}
         {tab === 'my-work' && <MyWorkTab {...(apis ? { apis } : {})} />}
       </div>

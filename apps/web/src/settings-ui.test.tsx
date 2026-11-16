@@ -11,9 +11,15 @@ import { createTestDb, type TestDb } from '@ams/db/test-db';
 import './i18n';
 import { createApi } from './lib/api';
 import { settingsApi, type SettingsApi } from './lib/settings-api';
+import { outcomesApi } from './lib/outcomes-api';
+import { syllabusApi } from './lib/syllabus-api';
 import { AppLayout } from './pages/layout';
 import { OrganizationPage } from './pages/settings/organization';
 import { ProgramsSettingsPage } from './pages/settings/programs';
+import { ProgramPage } from './pages/settings/program-page';
+import { ApiKeysPage } from './pages/settings/api-keys';
+import { apiKeysApi } from './lib/api-keys-api';
+import { programsApi } from './lib/programs-api';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -23,11 +29,12 @@ let pool: pg.Pool;
 let app: ReturnType<typeof createApp>['app'];
 const ids = {} as Record<string, string>;
 const one = async (sql: string, p: unknown[] = []) => (await db.su.query(sql, p)).rows[0].id as string;
-const apiFor = (who: string): SettingsApi => { const f = ((input: RequestInfo | URL, init?: RequestInit) => {
+const fetchFor = (who: string) => ((input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers);
   headers.set('x-test-user', `${ids[who]}:${ids.inst}`);
   return app.request(input as string, { ...init, headers });
-}) as typeof fetch; return settingsApi(createApi(f), f); };
+}) as typeof fetch;
+const apiFor = (who: string): SettingsApi => { const f = fetchFor(who); return settingsApi(createApi(f), f); };
 function wrap(ui: React.ReactElement) {
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>;
@@ -164,59 +171,123 @@ describe('organization settings', () => {
 });
 
 describe('programs settings', () => {
-  it('adds a program with Arabic name and tags, edits it, and deactivates it', async () => {
+  it('adds a program on its own page: breadcrumb, the unit as an org-chart tree, every field required but the vision, PEOs and PLOs on the page', async () => {
     const user = userEvent.setup();
-    render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
+    ids.dept = await one(`insert into org_unit (institution_id, parent_id, type, name_en) values ($1, $2, 'department', 'Department of Mechanical Engineering') returning id`, [ids.inst, ids.col]);
+    let savedId = '';
+    render(wrap(<ProgramPage programId="new" api={apiFor('lead')} outcomes={outcomesApi(fetchFor('lead'))} onSaved={(id) => { savedId = id; }} onCancel={() => undefined} />));
+    const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(crumbs).getAllByRole('listitem').map((li) => li.textContent?.replace('›', '').trim())).toEqual(['Settings', 'Organization', 'Programs', 'New program']);
+    expect(within(crumbs).getByRole('link', { name: 'Programs' }).getAttribute('href')).toBe('/settings/organization?tab=programs');
+    // The unit picker is the org chart: the department sits under its college.
+    const unit = screen.getByLabelText('Unit') as HTMLSelectElement;
+    await waitFor(() => expect([...unit.options].map((o) => o.text)).toContain('College of Engineering (College)'));
+    const names = [...unit.options].map((o) => o.text);
+    expect(names.indexOf('   └ Department of Mechanical Engineering (Department)')).toBe(names.indexOf('College of Engineering (College)') + 1);
+    expect([...(screen.getByLabelText('Mode') as HTMLSelectElement).options].map((o) => o.text)).toEqual(['Choose', 'On-campus', 'Online', 'Blended']);
+    expect(screen.queryByLabelText('Tags')).toBeNull();
+    expect(screen.queryByLabelText('Discipline')).toBeNull();
+    // Saving with nothing filled in says what is missing (the vision and the SIS code are optional).
     await user.click(await screen.findByRole('button', { name: 'Add program' }));
-    // Adding opens a dialog over the list, not a form in line with it.
-    const add = await screen.findByRole('dialog', { name: 'Add a program' });
-    expect(screen.queryByRole('form', { name: 'Add program' })?.closest('[role="dialog"]')).toBe(add);
-    await waitFor(() => expect(within(within(add).getByLabelText('Program org unit')).getAllByRole('option').length).toBeGreaterThan(1));
-    await user.type(within(add).getByLabelText('Program name (English)'), 'BS Mechanical Engineering');
-    await user.type(within(add).getByLabelText('Program name (Arabic)'), 'بكالوريوس الهندسة الميكانيكية');
-    await user.selectOptions(within(add).getByLabelText('Program org unit'), ids.col!);
-    await user.type(within(add).getByLabelText('Tags'), 'mechanical, engineering, mechanical');
-    await user.click(within(add).getByRole('button', { name: 'Add program' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull()); // closed once saved
-    const row = (await screen.findByText('بكالوريوس الهندسة الميكانيكية')).closest('[data-testid="program"]') as HTMLElement;
-    expect(row.textContent).toMatch(/tags: mechanical, engineering/);
-    expect(within(row).getByTestId('program-name').getAttribute('dir')).toBe('auto');
-
-    // Editing opens the same dialog, filled in.
-    await user.click(within(row).getByRole('button', { name: 'Edit BS Mechanical Engineering' }));
-    const edit = await screen.findByRole('dialog', { name: 'Edit BS Mechanical Engineering' });
-    const tags = within(edit).getByLabelText('Tags') as HTMLInputElement;
-    expect(within(edit).getByLabelText('Program name (English)')).toHaveProperty('value', 'BS Mechanical Engineering');
-    await user.clear(tags);
-    await user.type(tags, 'mechanical');
-    await user.click(within(edit).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(row.textContent).toMatch(/tags: mechanical(?!, engineering)/));
-
-    await user.click(within(row).getByRole('button', { name: 'Deactivate' }));
-    await waitFor(() => expect(screen.queryByText('بكالوريوس الهندسة الميكانيكية')).toBeNull());
-    await user.click(screen.getByLabelText('Show inactive'));
-    const back = (await screen.findByText('بكالوريوس الهندسة الميكانيكية')).closest('[data-testid="program"]') as HTMLElement;
-    expect(back.textContent).toMatch(/Inactive/);
+    expect((await screen.findByRole('alert')).textContent).toBe('Fill in: Name (English), Name (Arabic), Unit, Program code, Mode, Credits, Years, Contact hours, Language, Mission, at least one PEO, at least one PLO.');
+    expect(savedId).toBe('');
+    await user.type(screen.getByLabelText('Name (English)'), 'BS Mechanical Engineering');
+    await user.type(screen.getByLabelText('Name (Arabic)'), 'بكالوريوس الهندسة الميكانيكية');
+    await user.selectOptions(unit, ids.dept!);
+    await user.type(screen.getByLabelText('Program code'), 'BS-ME');
+    await user.selectOptions(screen.getByLabelText('Mode'), 'on_campus');
+    await user.type(screen.getByLabelText('Credits'), '132');
+    await user.type(screen.getByLabelText('Years'), '4');
+    await user.type(screen.getByLabelText('Contact hours'), '2200');
+    await user.selectOptions(screen.getByLabelText('Language'), 'English');
+    await user.type(screen.getByLabelText('Mission'), 'To educate mechanical engineers.');
+    await user.click(screen.getByRole('button', { name: 'Add PEO' }));
+    await user.type(screen.getByLabelText('PEO 1 statement'), 'Graduates lead engineering work');
+    await user.click(screen.getByRole('button', { name: 'Add PLO' }));
+    await user.type(screen.getByLabelText('PLO 1 statement'), 'Solve engineering problems');
+    await user.click(screen.getByRole('button', { name: 'Add program' }));
+    await waitFor(() => expect(savedId).not.toBe(''));
+    const saved = (await apiFor('lead').programs()).find((p) => p.id === savedId)!;
+    expect(saved).toMatchObject({ code: 'BS-ME', orgUnitId: ids.dept, mode: 'on_campus', credits: 132, durationYears: 4, contactHours: 2200, languageOfInstruction: 'English', vision: null, missing: [] });
+    cleanup();
+    // Opened again (its own address), the record is filled in and its PEO and PLO are listed to edit in place.
+    render(wrap(<ProgramPage programId={savedId} api={apiFor('lead')} outcomes={outcomesApi(fetchFor('lead'))} syllabus={syllabusApi(fetchFor('lead'))} onSaved={() => undefined} onCancel={() => undefined} />));
+    expect(await screen.findByRole('heading', { name: 'BS Mechanical Engineering' })).toBeTruthy();
+    expect((screen.getByLabelText('Program code') as HTMLInputElement).value).toBe('BS-ME');
+    await screen.findByText('Solve engineering problems');
+    await user.clear(screen.getByLabelText('Credits')); await user.type(screen.getByLabelText('Credits'), '130');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('status');
+    expect((await apiFor('lead').programs()).find((p) => p.id === savedId)!.credits).toBe(130);
   });
 
-  it('cancels the dialog with Cancel or Escape, keeping the list as it was', async () => {
+  it('lists programs with links to their pages, flags what a record lacks, and deactivates one', async () => {
     const user = userEvent.setup();
+    await db.su.query(`insert into program (institution_id, org_unit_id, name_en, degree_level, code) values ($1, $2, 'BS Industrial Engineering', 'bachelor', 'BS-IE')`, [ids.inst, ids.col]);
     render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
-    await user.click(await screen.findByRole('button', { name: 'Add program' }));
-    await user.click(within(await screen.findByRole('dialog', { name: 'Add a program' })).getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Add program' }));
-    await screen.findByRole('dialog', { name: 'Add a program' });
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect((await screen.findByRole('link', { name: 'Add program' })).getAttribute('href')).toBe('/settings/organization/programs/new');
+    const ie = (await screen.findByText('BS Industrial Engineering')).closest('[data-testid="program"]') as HTMLElement;
+    expect(within(ie).getByText(/^Missing: Arabic name, Mode, Credits, Years, Contact hours, Language, Mission, PEOs, PLOs$/)).toBeTruthy();
+    const me = (await screen.findByText('BS Mechanical Engineering')).closest('[data-testid="program"]') as HTMLElement;
+    expect(within(me).queryByText(/^Missing/)).toBeNull();
+    expect(within(me).getByRole('link', { name: 'Edit BS Mechanical Engineering' }).getAttribute('href')).toMatch(/^\/settings\/organization\/programs\/[0-9a-f-]{36}$/);
+    await user.click(within(ie).getByRole('button', { name: 'Deactivate' }));
+    await waitFor(() => expect(screen.queryByText('BS Industrial Engineering')).toBeNull());
+    await user.click(screen.getByLabelText('Show inactive'));
+    expect(((await screen.findByText('BS Industrial Engineering')).closest('[data-testid="program"]') as HTMLElement).textContent).toMatch(/Inactive/);
   });
 
   it('is read-only for someone who cannot write programs', async () => {
     await db.su.query(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'LLB Law', 'bachelor')`, [ids.inst, ids.other]);
     render(wrap(<ProgramsSettingsPage api={apiFor('viewer')} />));
     await screen.findAllByTestId('program');
-    expect(screen.queryByRole('button', { name: 'Add program' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Add program' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Edit / })).toBeNull();
+    expect(screen.getAllByRole('link', { name: /^Open / }).length).toBeGreaterThan(0);
   });
 });
+
+describe('programs import and export', () => {
+  it('previews a CSV row by row, then applies it: adds by Program code, skips what cannot be placed', async () => {
+    const user = userEvent.setup();
+    render(wrap(<ProgramsSettingsPage api={apiFor('admin')} programs={programsApi(fetchFor('admin'))} />));
+    await user.click(await screen.findByRole('button', { name: 'Import and export' }));
+    const panel = await screen.findByRole('region', { name: 'Import and export programs' });
+    const csv = 'Program code,Name (English),Unit,Program level,Mode\nBS-CHE,BS Chemical Engineering,College of Engineering,Bachelor,On-campus\nBS-Q,BS Quantum,Nowhere,Bachelor,Online\n';
+    await user.upload(await within(panel).findByLabelText('Programs file'), new File([csv], 'programs.csv', { type: 'text/csv' }));
+    const preview = await within(panel).findByRole('region', { name: 'Import preview' });
+    expect(within(preview).getByText(/1 to add, 0 to update, 0 unchanged, 1 skipped/)).toBeTruthy();
+    expect(within(preview).getByText('no unit "Nowhere" in the org chart')).toBeTruthy();
+    expect(within(preview).getByText(/Missing: Arabic name, Credits/)).toBeTruthy();
+    expect(screen.queryByText('BS Chemical Engineering')).toBeNull(); // nothing written yet
+    await user.click(within(preview).getByRole('button', { name: 'Apply' }));
+    await within(panel).findByRole('region', { name: 'Import result' });
+    const row = (await screen.findByText('BS Chemical Engineering')).closest('[data-testid="program"]') as HTMLElement;
+    expect(within(row).getByText(/^Missing:/)).toBeTruthy();
+  });
+});
+
+describe('API keys', () => {
+  it('lets an admin issue a key, shows it once, lists it without its secret, and revokes it', async () => {
+    const user = userEvent.setup();
+    render(wrap(<ApiKeysPage api={apiKeysApi(fetchFor('admin'))} />));
+    await user.type(await screen.findByLabelText('Key name'), 'Student system');
+    await user.selectOptions(screen.getByLabelText('Key role'), 'lead');
+    await user.click(screen.getByRole('button', { name: 'Issue key' }));
+    const shown = await screen.findByTestId('new-key');
+    const token = shown.textContent!;
+    expect(token).toMatch(/^ams_[0-9a-f-]{36}_/);
+    const list = await screen.findByRole('list', { name: 'API keys' });
+    await within(list).findByText('Student system');
+    expect(list.textContent).not.toContain(token);
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByTestId('new-key')).toBeNull();
+    // The key works until it is revoked.
+    expect((await app.request('/api/programs', { headers: { authorization: `Bearer ${token}` } })).status).toBe(200);
+    await user.click(within(list).getByRole('button', { name: 'Revoke Student system' }));
+    await user.click(within(await screen.findByRole('dialog', { name: 'Revoke Student system?' })).getByRole('button', { name: 'Revoke' }));
+    await within(list).findByText(/^Revoked/);
+    expect((await app.request('/api/programs', { headers: { authorization: `Bearer ${token}` } })).status).toBe(401);
+  });
+});
+

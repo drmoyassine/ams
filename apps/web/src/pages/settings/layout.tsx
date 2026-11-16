@@ -38,6 +38,7 @@ export function SettingsLayout({ api = defaultSettingsApi, trashApi = defaultTra
     ...(canTrash ? [{ to: '/settings/trash', label: t('settings.trash'), hint: t('settings.trash.hint') }] : []),
     ...(can(me.data, 'org:read') ? [{ to: '/settings/assistant-memory', label: t('settings.memory'), hint: t('settings.memory.hint') }] : []),
     ...(can(me.data, 'ai:manage') ? [{ to: '/settings/ai', label: t('settings.ai'), hint: t('settings.ai.hint') }] : []),
+    ...(can(me.data, 'institution:write') ? [{ to: '/settings/api-keys', label: t('settings.apiKeys'), hint: t('settings.apiKeys.hint') }] : []),
   ] as const;
   const trashCount = trash.data?.count ?? 0;
   // In the sideways-scrolling row, bring the current item into view.

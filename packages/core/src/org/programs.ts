@@ -1,21 +1,40 @@
-import { asc, eq } from 'drizzle-orm';
-import { orgUnit, program } from '@ams/db';
-import type { CreateProgram, Program, UpdateProgram } from '@ams/shared';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { learningOutcome, orgUnit, program } from '@ams/db';
+import { programMissing, type CreateProgram, type Program, type UpdateProgram } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
 
-export const toProgram = (r: typeof program.$inferSelect): Program => ({
+type Counts = Map<string, { peos: number; plos: number }>;
+/** How many PEOs and PLOs (not retired) each program has, for what the record still lacks. */
+async function outcomeCounts(ctx: Ctx, ids: string[]): Promise<Counts> {
+  const out: Counts = new Map(ids.map((id) => [id, { peos: 0, plos: 0 }]));
+  if (!ids.length) return out;
+  const rows = await ctx.tx.select({ programId: learningOutcome.programId, kind: learningOutcome.kind, n: sql<number>`count(*)::int` }).from(learningOutcome)
+    .where(and(inArray(learningOutcome.programId, ids), inArray(learningOutcome.kind, ['peo', 'plo']), sql`${learningOutcome.status} <> 'retired'`))
+    .groupBy(learningOutcome.programId, learningOutcome.kind);
+  for (const r of rows) { const c = out.get(r.programId!)!; if (r.kind === 'peo') c.peos = r.n; else c.plos = r.n; }
+  return out;
+}
+async function withMissing(ctx: Ctx, rows: (typeof program.$inferSelect)[]): Promise<Program[]> {
+  const counts = await outcomeCounts(ctx, rows.map((r) => r.id));
+  return rows.map((r) => toProgram(r, counts.get(r.id)));
+}
+
+export const toProgram = (r: typeof program.$inferSelect, counts?: { peos: number; plos: number }): Program => {
+  const p = {
   id: r.id, orgUnitId: r.orgUnitId, nameEn: r.nameEn, nameAr: r.nameAr, degreeLevel: r.degreeLevel,
   discipline: r.discipline, tags: r.tags, active: r.active,
   code: r.code, externalId: r.externalId, mission: r.mission, vision: r.vision, description: r.description, mode: r.mode,
   durationYears: r.durationYears === null ? null : Number(r.durationYears), credits: r.credits, languageOfInstruction: r.languageOfInstruction,
-  campus: r.campus, startYear: r.startYear,
-});
+  campus: r.campus, startYear: r.startYear, contactHours: r.contactHours,
+  };
+  return { ...p, missing: counts ? programMissing(p, counts) : [] };
+};
 
-const FACTS = ['code', 'externalId', 'mission', 'vision', 'description', 'mode', 'durationYears', 'credits', 'languageOfInstruction', 'campus', 'startYear'] as const;
+const FACTS = ['code', 'externalId', 'mission', 'vision', 'description', 'mode', 'durationYears', 'credits', 'contactHours', 'languageOfInstruction', 'campus', 'startYear'] as const;
 /** The program-record fields of an input, NFC and trimmed; an empty string or null clears one. Only the keys present are returned. */
 function factsOf(input: Partial<Record<(typeof FACTS)[number], unknown>>): Partial<typeof program.$inferInsert> {
   const set: Record<string, unknown> = {};
@@ -33,7 +52,22 @@ function factsOf(input: Partial<Record<(typeof FACTS)[number], unknown>>): Parti
 /** Row-level security returns only the programs the caller's roles cover. */
 export async function listPrograms(ctx: Ctx): Promise<Program[]> {
   const rows = await ctx.tx.select().from(program).orderBy(asc(program.nameEn));
-  return rows.map(toProgram);
+  return withMissing(ctx, rows);
+}
+
+/** One program (row-level security decides whether the caller sees it). */
+export async function getProgram(ctx: Ctx, id: string): Promise<Program> {
+  const [row] = await ctx.tx.select().from(program).where(eq(program.id, id));
+  if (!row) throw new NotFoundError(`program ${id}`);
+  return (await withMissing(ctx, [row]))[0]!;
+}
+
+/**
+ * Deleting a program deactivates it: engagements, assessment results and the audit trail refer to it, so the record stays and can be
+ * reactivated (the API's DELETE).
+ */
+export async function deleteProgram(ctx: Ctx, id: string): Promise<Program> {
+  return updateProgram(ctx, id, { active: false });
 }
 
 export async function createProgram(ctx: Ctx, input: CreateProgram): Promise<Program> {
@@ -48,7 +82,7 @@ export async function createProgram(ctx: Ctx, input: CreateProgram): Promise<Pro
     tags: input.tags,
     ...factsOf(input),
   }).returning());
-  return toProgram(row!);
+  return (await withMissing(ctx, [row!]))[0]!;
 }
 
 /**
@@ -76,7 +110,7 @@ export async function updateProgram(ctx: Ctx, id: string, patch: UpdateProgram):
   if (patch.tags !== undefined) set.tags = [...new Set(patch.tags)];
   if (patch.active !== undefined) set.active = patch.active;
   Object.assign(set, factsOf(patch));
-  if (Object.keys(set).length === 0) return toProgram(current);
+  if (Object.keys(set).length === 0) return (await withMissing(ctx, [current]))[0]!;
   const [row] = await guardIntegrity(() => ctx.tx.update(program).set(set).where(eq(program.id, id)).returning());
-  return toProgram(row!);
+  return (await withMissing(ctx, [row!]))[0]!;
 }

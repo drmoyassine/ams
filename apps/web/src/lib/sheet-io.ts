@@ -168,3 +168,33 @@ export function download(blob: Blob, name: string) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Reads a .csv (comma, semicolon, tab or bar) as rows keyed by their header text, and the headers. */
+export async function readCsvRows(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
+  const { default: Papa } = await import('papaparse');
+  const text = new TextDecoder('utf-8').decode(await readBytes(file)).replace(/^\uFEFF/, '');
+  const parsed = Papa.parse<string[]>(text, { skipEmptyLines: 'greedy', delimitersToGuess: [',', ';', '\t', '|'] });
+  const [headers = [], ...body] = parsed.data as string[][];
+  const rows = body.map((cells) => Object.fromEntries(headers.map((h, i) => [h.trim(), (cells[i] ?? '').trim()]))).filter((r) => Object.values(r).some(Boolean));
+  return { headers: headers.map((h) => h.trim()), rows };
+}
+
+/** A workbook of named sheets, each with its headers (bold, frozen) and rows keyed by header. */
+export async function sheetsToXlsx(sheets: { name: string; headers: readonly string[]; rows: Record<string, unknown>[] }[]): Promise<Blob> {
+  const { default: ExcelJS } = await import('exceljs');
+  const book = new ExcelJS.Workbook();
+  for (const s of sheets) {
+    const ws = book.addWorksheet(s.name, { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = s.headers.map((h) => ({ header: h, key: h, width: Math.min(60, Math.max(14, h.length + 4)) }));
+    ws.getRow(1).font = { bold: true };
+    for (const r of s.rows) ws.addRow(r);
+  }
+  return new Blob([await book.xlsx.writeBuffer()], { type: XLSX_MIME });
+}
+
+/** One sheet as a .csv (UTF-8 with a byte-order mark, so spreadsheet programs read Arabic correctly). */
+export async function rowsToCsv(headers: readonly string[], rows: Record<string, unknown>[]): Promise<Blob> {
+  const { default: Papa } = await import('papaparse');
+  const text = Papa.unparse({ fields: [...headers], data: rows.map((r) => headers.map((h) => (r[h] === null || r[h] === undefined ? '' : String(r[h])))) });
+  return new Blob(['\uFEFF', text], { type: 'text/csv;charset=utf-8' });
+}

@@ -31,3 +31,5 @@ export * from './i18n-keys.js';
 export { EN_CATALOGUE, UNTRANSLATED_KEYS, PUBLIC_UI_KEYS } from './locales/en.js';
 export * from './tree-move.js';
 export * from './org-layout.js';
+export * from './api-keys.js';
+export * from './programs-sheets.js';

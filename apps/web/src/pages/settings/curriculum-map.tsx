@@ -29,7 +29,11 @@ type Cell = ProgramOutcomes['map'][number];
  * PLO at one level (no CLOs needed); bottom-up, a course's CLOs are linked to the PLO at a level and fill the cell. Coverage flags a course
  * mapped top-down with no CLO behind it, levels that differ, a course mapped to no PLO and the syllabus rules' limits. Nothing is blocked.
  */
-export function CurriculumMapPage({ api: override, outcomes, syllabus }: { api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi }) {
+export function CurriculumMapPage({ api: override, outcomes, syllabus, program: programProp, view: viewProp, onPick }: {
+  api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi;
+  /** From the address (deep link): the program and the view; `onPick` writes them back. Without them the page keeps its own. */
+  program?: string | undefined; view?: 'course' | 'plo' | undefined; onPick?: (p: { program?: string; view?: 'course' | 'plo' }) => void;
+}) {
   const api = useSettingsApi(override);
   const oapi = useOutcomesApi(outcomes);
   const qc = useQueryClient();
@@ -37,8 +41,10 @@ export function CurriculumMapPage({ api: override, outcomes, syllabus }: { api?:
   const canWrite = can(me.data, 'program:write');
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
   const active = (programs.data ?? []).filter((p) => p.active).sort((a, b) => a.nameEn.localeCompare(b.nameEn));
-  const [picked, setPicked] = useState('');
-  const programId = picked || active[0]?.id || '';
+  const [own, setOwn] = useState('');
+  const picked = programProp ?? own;
+  const programId = (picked && active.some((p) => p.id === picked) ? picked : '') || active[0]?.id || '';
+  const setPicked = (id: string) => { setOwn(id); onPick?.({ program: id, view }); };
   const key = ['program-outcomes', programId];
   const data = useQuery({ queryKey: key, queryFn: () => oapi.programOutcomes(programId), enabled: !!programId });
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +54,9 @@ export function CurriculumMapPage({ api: override, outcomes, syllabus }: { api?:
     onSuccess: () => { void qc.invalidateQueries({ queryKey: key }); void qc.invalidateQueries({ queryKey: ['courses'] }); },
   });
   const run: Run = (fn) => mutation.mutate(fn);
-  const [view, setView] = useState<'course' | 'plo'>('course');
+  const [ownView, setOwnView] = useState<'course' | 'plo'>('course');
+  const view = viewProp ?? ownView;
+  const setView = (v: 'course' | 'plo') => { setOwnView(v); onPick?.({ ...(programId ? { program: programId } : {}), view: v }); };
   const mapping = useMapping(programId, syllabus);
   const v = data.data;
   return (

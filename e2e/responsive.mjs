@@ -652,9 +652,10 @@ function pagesFor(ids) {
     // The course syllabus (DEC-038): the Syllabi list with the import, the editor with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
     { name: 'qm-programs', path: '/quality-management?tab=programs', action: async (page) => { await page.getByRole('region', { name: 'Assessment' }).waitFor(); } },
-    { name: 'program-edit-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: /^Edit / }).first().click(); await page.getByRole('dialog').waitFor(); } },
+    { name: 'program-edit', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
+    { name: 'settings-api-keys', path: '/settings/api-keys', action: async (page) => { await page.getByRole('form', { name: 'Issue a key' }).waitFor(); } },
     ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
-    { name: 'program-add-dialog', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('button', { name: 'Add program' }).click(); await page.getByRole('dialog', { name: 'Add a program' }).waitFor(); } },
+    { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
     { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
       await clickTab('Curriculum map')(page);

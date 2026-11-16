@@ -234,6 +234,7 @@ export const program = pgTable('program', {
   mode: text('mode', { enum: PROGRAM_MODES }),
   durationYears: numeric('duration_years', { precision: 3, scale: 1 }),
   credits: integer('credits'),
+  contactHours: integer('contact_hours'),
   languageOfInstruction: text('language_of_instruction'),
   campus: text('campus'),
   startYear: integer('start_year'),
@@ -433,6 +434,19 @@ export const appUser = pgTable('app_user', {
   uniqueIndex('app_user_email_idx').on(t.institutionId, sql`lower(${t.email})`),
   uniqueIndex('app_user_auth_user_idx').on(t.authUserId),
 ]);
+
+/** An API key (DEC-040): a named credential for another system, acting as its own service user with one role. Only the secret's hash is kept. */
+export const apiKey = pgTable('api_key', {
+  ...base(), ...tenant(),
+  name: text('name').notNull(),
+  userId: uuid('user_id').notNull().references(() => appUser.id),
+  role: text('role').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  hint: text('hint').notNull(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+}, (t) => [uniqueIndex('api_key_user_idx').on(t.userId)]);
 
 export const SCOPE_TYPES = ['institution', 'org_unit', 'program', 'engagement'] as const;
 

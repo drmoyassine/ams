@@ -34,7 +34,7 @@ export function OutcomeRows({ label, title, codeHint, rows, existing, recorded, 
           </div>
         </div>
       ))}
-      <Button type="button" variant="outline" className="px-3 py-1" onClick={() => onChange([...rows, { code: nextCode(last) || '', textEn: '', textAr: '' }])}>
+      <Button type="button" variant="outline" className="px-3 py-1" onClick={() => onChange([...rows, { code: (last ? nextCode(last) : codeHint) || '', textEn: '', textAr: '' }])}>
         {rows.length ? 'Add another' : `Add ${label}`}
       </Button>
     </fieldset>

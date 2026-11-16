@@ -133,6 +133,21 @@ describe('Organization: tabs, deep-linkable', () => {
     await act(async () => { await router.navigate({ to: '/settings/organization', search: { tab: 'nonsense' } as never }); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
   });
+
+  it('opens a program on its own address with a breadcrumb, and keeps the curriculum map\'s view in the address', async () => {
+    current = 'admin';
+    const router = await openRouter('/settings/organization/programs/new');
+    const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(crumbs.textContent).toMatch(/Settings.*Organization.*Programs.*New program/);
+    expect(await screen.findByRole('heading', { name: 'New program' })).toBeTruthy();
+    await act(async () => { await router.navigate({ href: '/settings/organization?tab=map&view=plo', replace: true }); });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Curriculum map' }).getAttribute('aria-selected')).toBe('true'));
+    const user = userEvent.setup();
+    const byCourse = await screen.findByRole('tab', { name: 'By course' });
+    expect(screen.getByRole('tab', { name: 'By PLO' }).getAttribute('aria-selected')).toBe('true');
+    await user.click(byCourse);
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ tab: 'map', view: 'course' }));
+  });
 });
 
 describe('institution logo', () => {
@@ -256,7 +271,7 @@ describe('Settings for every role', () => {
     const base = ['Organization', 'Internal Quality Framework', 'External Standards', 'Quality Management', 'Documents'];
     expect(await settingsLinks('viewer')).toEqual([...base, 'Assistant memory']);
     expect(await settingsLinks('lead')).toEqual([...base, 'Trash', 'Assistant memory']);
-    expect(await settingsLinks('admin')).toEqual([...base, 'Trash', 'Assistant memory', 'AI']);
+    expect(await settingsLinks('admin')).toEqual([...base, 'Trash', 'Assistant memory', 'AI', 'API keys']);
   });
 
   it('shows the Organization tabs read-only to a viewer, with the one-line note', async () => {
@@ -285,7 +300,7 @@ describe('Settings for every role', () => {
     expect(await screen.findByLabelText('Add a unit under College of Engineering')).toBeTruthy();
     await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(3)); // details, logo, languages
     await user.click(screen.getByRole('tab', { name: 'Programs' }));
-    expect(await screen.findByRole('button', { name: 'Add program' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Add program' })).toBeTruthy();
     expect(screen.queryByText('You can view this; ask an administrator to change it.')).toBeNull();
   });
 

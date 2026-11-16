@@ -102,6 +102,15 @@ export const resolveCollectionCallback = (pool: pg.Pool, runId: string) =>
     institutionId: r.institution_id!, tokenHash: r.token_hash!, expiresAt: new Date(r.expires_at!), status: r.status!,
   }));
 
+/**
+ * An API key by its id (DEC-040), before any institution is known: its institution, its service user and the hash of its secret; null when
+ * the key is revoked, expired, unknown or its user inactive. The caller compares the hash in constant time.
+ */
+export const resolveApiKey = (pool: pg.Pool, keyId: string) =>
+  resolveLink(pool, 'select * from app_resolve_api_key($1)', keyId, (r) => ({ institutionId: r.institution_id!, userId: r.user_id!, tokenHash: r.token_hash! }));
+/** Notes that a key was used (at most once an hour). */
+export const touchApiKey = (pool: pg.Pool, keyId: string) => resolveLink(pool, 'select app_touch_api_key($1)', keyId, () => true);
+
 /** Finds the data item whose open form a public link answers (DEC-020); null when the form is closed or the link off. */
 export const resolveFormLink = (pool: pg.Pool, token: string) =>
   resolveLink(pool, 'select * from app_resolve_form_link($1)', token, (r) => ({ itemId: r.evidence_item_id!, institutionId: r.institution_id! }));

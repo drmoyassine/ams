@@ -1,8 +1,8 @@
 import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import type pg from 'pg';
-import { resolveCollectionCallback, resolveFormLink, resolveRequestLink, withIdentity, type Identity } from '@ams/db';
-import { callbackTokenValid, hashLinkToken, isPermitted, type BiRuntime, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
+import { resolveApiKey, resolveCollectionCallback, resolveFormLink, resolveRequestLink, touchApiKey, withIdentity, type Identity } from '@ams/db';
+import { apiKeyId, apiKeyValid, callbackTokenValid, hashLinkToken, isPermitted, type BiRuntime, type Ctx, type JobQueue, type ObjectStore } from '@ams/core';
 import { REPLAY_HEADER, UNDO_HEADER, type Permission, type Scope, type UndoDescriptor } from '@ams/shared';
 
 /** Resolves a request to a user and institution (Better Auth in production; injectable in tests). */
@@ -66,8 +66,24 @@ export interface ChainDeps {
   bi?: BiRuntime;
 }
 
+/**
+ * An API key (DEC-040) in `Authorization: Bearer ams_<id>_<secret>`: the key's service user, or null. A header that names a key but does
+ * not match answers 401 (no fallback to the session), and says nothing about why.
+ */
+async function apiKeyCaller(deps: ChainDeps, header: string | undefined): Promise<{ userId: string; institutionId: string } | null | 'bad'> {
+  const token = /^Bearer\s+(\S+)$/i.exec(header ?? '')?.[1] ?? '';
+  const id = token ? apiKeyId(token) : null;
+  if (!id) return null;
+  const found = await resolveApiKey(deps.pool, id);
+  if (!found || !apiKeyValid(token, found.tokenHash)) return 'bad';
+  await touchApiKey(deps.pool, id);
+  return { userId: found.userId, institutionId: found.institutionId };
+}
+
 const authenticateStep = (deps: ChainDeps): MiddlewareHandler<AppEnv> => async (c, next) => {
-  const who = await deps.authenticate(c.req.raw);
+  const key = await apiKeyCaller(deps, c.req.header('authorization'));
+  if (key === 'bad') return c.json({ error: 'unauthenticated', message: 'this API key is not valid, has expired or was revoked' }, 401);
+  const who = key ?? await deps.authenticate(c.req.raw);
   if (!who) return c.json({ error: 'unauthenticated' }, 401);
   c.set('caller', { userId: who.userId, institutionId: who.institutionId, requestId: crypto.randomUUID() });
   await next();
