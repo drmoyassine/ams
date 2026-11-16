@@ -13,7 +13,7 @@ function sample(): SyllabusContent {
   c.info = { titleEn: 'Heat Transfer', titleAr: 'انتقال الحرارة', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: ['c2'], corequisiteIds: [] };
   c.description = { en: 'Conduction, convection and radiation.', ar: '' }; c.methodology = 'Lectures.'; c.assessmentNotes = { passPercentage: 'Pass at 60%', howItWorks: '' };
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals', isbn: '978-1', year: 2017 }];
-  c.clos = [{ id: 'a', code: 'CLO1', textEn: 'Analyse conduction', textAr: '', bloom: 'analyze', ploId: 'plo1', level: 'R' }, { id: 'b', code: 'CLO2', textEn: 'Design an exchanger', textAr: '', bloom: 'create', ploId: 'plo2', level: 'M' }];
+  c.clos = [{ id: 'a', code: 'CLO1', textEn: 'Analyse conduction', textAr: '', bloom: 'analyze', plos: [{ ploId: 'plo1', level: 'R' }] }, { id: 'b', code: 'CLO2', textEn: 'Design an exchanger', textAr: '', bloom: 'create', plos: [{ ploId: 'plo2', level: 'M' }] }];
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }, { name: 'Accuracy', descriptions: ['High', 'Low'] }] }];
   c.assessments = [{ id: 'q', name: 'Quizzes', category: 'quiz', objective: 'Check basics', weight: 40, dueWeek: 6, clos: [{ cloId: 'a', share: 100, rubricId: 'r' }] }, { id: 'f', name: 'Final', category: 'final', objective: '', weight: 60, dueWeek: 15, clos: [{ cloId: 'a', share: 40, rubricId: 'r' }, { cloId: 'b', share: 60, rubricId: 'r' }] }];
   c.outline = [{ week: 1, topic: 'Introduction', reading: 'Ch 1', lab: '', cloIds: ['a'], sdgs: ['7', '9'], assessmentId: '', activity: '' }, { week: 6, topic: 'Quiz week', reading: '', lab: '', cloIds: ['a', 'b'], sdgs: [], assessmentId: 'q', activity: '' }];
@@ -59,7 +59,13 @@ describe('the syllabus workbook', () => {
     wb.clos.push({ 'course code': 'MCE 410', 'clo': 'CLO1', 'outcome (english)': 'x', 'Bloom Level': 'Analyze', 'plo': 'plo2', 'coverage': 'D' }, { 'course code': 'MCE 410', 'clo': 'CLO2', 'outcome (english)': 'y', 'coverage': 'Mastered' });
     const d = workbookToSyllabi(wb, resolver).get('MCE 410')!;
     expect(d.info).toMatchObject({ titleEn: 'Heat', languageOfDelivery: 'bilingual', category: 'program_core', courseType: 'independent_study', courseLevel: '300', sustainability: 'related' });
-    expect(d.clos.map((x) => [x.bloom, x.ploId, x.level])).toEqual([['analyze', 'plo2', 'R'], ['', '', 'M']]);
+    expect(d.clos.map((x) => [x.bloom, x.plos])).toEqual([['analyze', [{ ploId: 'plo2', level: 'R' }]], ['', []]]);
+  });
+
+  it('reads several PLOs of a CLO as "SO1; SO2" with their levels in the same order, and writes them back so', () => {
+    const wb = emptyWorkbook();
+    wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'x', PLO: 'plo1; plo2', Coverage: 'I; Mastered' });
+    expect(workbookToSyllabi(wb, resolver).get('MCE 410')!.clos[0]!.plos).toEqual([{ ploId: 'plo1', level: 'I' }, { ploId: 'plo2', level: 'M' }]);
   });
 
   it('never refuses what it cannot read: unknown words become empty and the rule checker flags them', () => {
@@ -69,7 +75,7 @@ describe('the syllabus workbook', () => {
     wb.assessments.push({ 'Course code': 'MCE 410', Assessment: 'Quiz', 'CLO': 'CLO1', Rubric: 'No such rubric', 'Share of assessment %': 100 });
     const d = workbookToSyllabi(wb, resolver).get('MCE 410')!;
     expect(d.info.languageOfDelivery).toBe(''); expect(d.info.credits).toBeNull();
-    expect(d.clos[0]).toMatchObject({ ploId: '', level: '' }); expect(d.assessments[0]!.clos[0]!.rubricId).toBe('');
+    expect(d.clos[0]!.plos).toEqual([{ ploId: '', level: '' }]); expect(d.assessments[0]!.clos[0]!.rubricId).toBe('');
     const codes = checkSyllabus(d, { settings: DEFAULT_SYLLABUS_SETTINGS, levels: DEFAULT_OUTCOME_LEVELS }).map((x) => x.code);
     expect(codes).toEqual(expect.arrayContaining(['info.language', 'info.credits', 'clo.plo', 'clo.level', 'assessment.rubric']));
   });

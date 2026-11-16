@@ -47,7 +47,7 @@ function complete(): SyllabusContent {
   c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: [], corequisiteIds: [] };
   c.description.en = 'Conduction, convection and radiation.'; c.methodology = 'Lectures and problem sessions.';
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Heat and Mass Transfer', isbn: '', year: null }];
-  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }));
+  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }] }));
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }] }];
   c.assessments = [
     { id: 'q', name: 'Quizzes', category: 'quiz', objective: '', weight: 50, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
@@ -97,6 +97,19 @@ describe('the editor', () => {
     expect(within(screen.getByRole('region', { name: 'Course learning outcomes (CLOs)' })).getByText(/at least 3 are required/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: '+ CLO' })); await user.click(screen.getByRole('button', { name: '+ CLO' }));
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Course learning outcomes (CLOs)' })).queryByText(/at least 3 are required/)).toBeNull());
+    // One PLO per CLO by default: no "another PLO" once CLO1 has one.
+    await user.selectOptions(screen.getByLabelText('CLO1 PLO'), 'PLO1');
+    expect(screen.queryByRole('button', { name: '+ another PLO for CLO1' })).toBeNull();
+    // Program coverage (DEC-039): the course's own level for a PLO, checked against what its CLOs reach.
+    const cover = screen.getByRole('group', { name: 'Program coverage' });
+    await user.click(within(cover).getByRole('button', { name: '+ PLO the course covers' }));
+    await user.selectOptions(within(cover).getByLabelText('Covered PLO 1'), 'PLO2');
+    await user.selectOptions(within(cover).getByLabelText('Covered PLO 1 level'), 'M');
+    const clos = screen.getByRole('region', { name: 'Course learning outcomes (CLOs)' });
+    await within(clos).findByText(/Warning: The course covers PLO2 \(Mastered\) but none of its CLOs maps to PLO2\./);
+    await user.selectOptions(screen.getByLabelText('CLO2 PLO'), 'PLO2'); await user.selectOptions(screen.getByLabelText('CLO2 coverage'), 'R');
+    await within(clos).findByText(/Warning: The course covers PLO2 as Mastered, but its CLOs reach Reinforced\./);
+    expect(within(cover).getByText('CLOs reach: Reinforced')).toBeTruthy();
   });
 
   it('saves a draft that still has errors (a rule never stops a save), and the Syllabi list flags it to its coordinator', async () => {
@@ -207,7 +220,7 @@ describe('the Excel import', () => {
     expect(result.textContent).toMatch(/GHOST 1: Skipped: no such course/);
     const open = (await apisOf('coordinator').syllabus.overview(ids.course!)).open!;
     expect(open).toMatchObject({ status: 'draft', source: 'excel import' });
-    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', level: 'I', bloom: 'analyze' });
+    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', plos: [{ level: 'I' }], bloom: 'analyze' });
   });
 });
 
@@ -256,6 +269,8 @@ describe('the limits', () => {
   it('shows a viewer the limits read-only', async () => {
     render(wrap(<SyllabusLimits canWrite={false} api={apisOf('instructor').syllabus} />));
     expect((await screen.findByLabelText('Maximum CLOs per course') as HTMLInputElement).disabled).toBe(true);
+    // How many PLOs one CLO may map to is a rule too (one by default, DEC-039).
+    expect((screen.getByLabelText('Maximum PLOs per CLO') as HTMLInputElement).value).toBe('1');
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });

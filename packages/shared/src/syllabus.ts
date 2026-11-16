@@ -42,8 +42,13 @@ export interface SyllabusInfo {
   courseType: string; courseLevel: string; category: string; sustainability: string;
   prerequisiteIds: string[]; corequisiteIds: string[];
 }
-/** One CLO: its text, Bloom level, the ONE PLO it maps to and the coverage level (a code of the institution's levels: Introduced, Reinforced, Mastered). */
-export interface SyllabusClo { id: string; code: string; textEn: string; textAr: string; bloom: string; ploId: string; level: string }
+/** A PLO and the level at which it is covered (a code of the institution's levels: Introduced, Reinforced, Mastered). */
+export interface SyllabusPloLevel { ploId: string; level: string }
+/**
+ * One CLO: its text, Bloom level and the PLOs it maps to, each with its coverage level. How many PLOs a CLO may map to is a syllabus rule
+ * (`maxPlosPerClo`, one by default, DEC-039); more is flagged, never refused.
+ */
+export interface SyllabusClo { id: string; code: string; textEn: string; textAr: string; bloom: string; plos: SyllabusPloLevel[] }
 export interface SyllabusWeek { week: number | null; topic: string; reading: string; lab: string; cloIds: string[]; sdgs: string[]; assessmentId: string; activity: string }
 export interface SyllabusMaterial { kind: string; citation: string; isbn: string; year: number | null }
 /** The share of an assessment that goes to a CLO (percent of the assessment), and the rubric that scores it. */
@@ -52,7 +57,13 @@ export interface SyllabusAssessment { id: string; name: string; category: string
 export interface SyllabusRubric { id: string; title: string; levels: { name: string; min: number | null; max: number | null }[]; criteria: { name: string; descriptions: string[] }[] }
 export interface SyllabusContent {
   info: SyllabusInfo; description: { en: string; ar: string };
-  clos: SyllabusClo[]; outline: SyllabusWeek[]; materials: SyllabusMaterial[];
+  clos: SyllabusClo[];
+  /**
+   * Program coverage (DEC-039): the level at which the course itself covers each PLO, the top-down side of the curriculum map. The CLOs
+   * deliver it; a CLO level that differs, or a covered PLO no CLO maps to, is flagged.
+   */
+  coverage: SyllabusPloLevel[];
+  outline: SyllabusWeek[]; materials: SyllabusMaterial[];
   assessments: SyllabusAssessment[]; rubrics: SyllabusRubric[];
   assessmentNotes: { passPercentage: string; howItWorks: string };
   methodology: string;
@@ -69,7 +80,15 @@ export const SyllabusContentSchema: z.ZodType<SyllabusContent, SyllabusContent> 
     courseType: s, courseLevel: s, category: s, sustainability: s, prerequisiteIds: strs, corequisiteIds: strs,
   }).default({ titleEn: '', titleAr: '', credits: null, languageOfDelivery: '', contactLecture: null, contactLab: null, contactOther: null, courseType: '', courseLevel: '', category: '', sustainability: '', prerequisiteIds: [], corequisiteIds: [] }),
   description: z.object({ en: s, ar: s }).default({ en: '', ar: '' }),
-  clos: z.array(z.object({ id: z.string().min(1), code: s, textEn: s, textAr: s, bloom: s, ploId: s, level: s })).default([]),
+  // A syllabus stored before DEC-039 has one ploId and level per CLO: read it as a list of one.
+  clos: z.array(z.preprocess((v) => {
+    if (v && typeof v === 'object' && !('plos' in v) && 'ploId' in v) {
+      const { ploId, level, ...rest } = v as { ploId?: string; level?: string };
+      return { ...rest, plos: ploId ? [{ ploId, level: level ?? '' }] : [] };
+    }
+    return v;
+  }, z.object({ id: z.string().min(1), code: s, textEn: s, textAr: s, bloom: s, plos: z.array(z.object({ ploId: s, level: s })).default([]) }))).default([]),
+  coverage: z.array(z.object({ ploId: z.string().min(1), level: s })).default([]),
   outline: z.array(z.object({ week: n, topic: s, reading: s, lab: s, cloIds: strs, sdgs: strs, assessmentId: s, activity: s })).default([]),
   materials: z.array(z.object({ kind: s, citation: s, isbn: s, year: n })).default([]),
   assessments: z.array(z.object({
@@ -93,14 +112,16 @@ export const emptySyllabus = (): SyllabusContent => SyllabusContentSchema.parse(
 /** The limits and the escalation of flagged syllabi: an institution setting (DEC-038). The coordinator is told at once; the chair, the Dean and the VPAA after these many days. */
 export interface SyllabusSettings {
   minClos: number; maxClos: number; minPlos: number; maxPlos: number;
+  /** How many PLOs one CLO may map to (DEC-039). */
+  maxPlosPerClo: number;
   /** A CLO carrying less than this share of the course grade is warned about. */
   minCloWeightPct: number;
   escalateDays: { chair: number; dean: number; vpaa: number };
 }
-export const DEFAULT_SYLLABUS_SETTINGS: SyllabusSettings = { minClos: 3, maxClos: 8, minPlos: 1, maxPlos: 5, minCloWeightPct: 5, escalateDays: { chair: 3, dean: 7, vpaa: 14 } };
+export const DEFAULT_SYLLABUS_SETTINGS: SyllabusSettings = { minClos: 3, maxClos: 8, minPlos: 1, maxPlos: 5, maxPlosPerClo: 1, minCloWeightPct: 5, escalateDays: { chair: 3, dean: 7, vpaa: 14 } };
 const count = z.number().int().min(0).max(50);
 export const SyllabusSettingsSchema: z.ZodType<SyllabusSettings, SyllabusSettings> = z.object({
-  minClos: count, maxClos: count, minPlos: count, maxPlos: count, minCloWeightPct: z.number().min(0).max(100),
+  minClos: count, maxClos: count, minPlos: count, maxPlos: count, maxPlosPerClo: z.number().int().min(1).max(10), minCloWeightPct: z.number().min(0).max(100),
   escalateDays: z.object({ chair: z.number().int().min(0).max(365), dean: z.number().int().min(0).max(365), vpaa: z.number().int().min(0).max(365) }),
 }).superRefine((v, ctx) => {
   if (v.minClos > v.maxClos) ctx.addIssue({ code: 'custom', path: ['minClos'], message: 'the minimum number of CLOs is above the maximum' });
@@ -166,6 +187,8 @@ export interface SyllabusCheckContext {
   settings: SyllabusSettings; levels: OutcomeLevel[];
   /** The PLOs of the programs the course serves; when given, a CLO's PLO must be one of them. */
   allowedPloIds?: ReadonlySet<string> | undefined;
+  /** PLO codes by id, for messages about the program coverage. */
+  ploCodes?: ReadonlyMap<string, string> | undefined;
   /** How many programs the course serves (a course needs at least one). */
   programCount?: number | undefined;
   /** Template keys an admin made optional. */
@@ -223,9 +246,10 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
   const n = c.clos.length;
   if (n < st.minClos) add('error', 'clos.min', 'clos', `The course has ${n} CLO${n === 1 ? '' : 's'}; at least ${st.minClos} are required.`);
   if (n > st.maxClos) add('error', 'clos.max', 'clos', `The course has ${n} CLOs; at most ${st.maxClos} are allowed.`);
-  const plos = new Set(c.clos.map((x) => x.ploId).filter(Boolean));
-  if (plos.size < st.minPlos) add('error', 'plos.min', 'clos', `The CLOs map to ${plos.size} PLO${plos.size === 1 ? '' : 's'}; at least ${st.minPlos} are required.`);
-  if (plos.size > st.maxPlos) add('error', 'plos.max', 'clos', `The CLOs map to ${plos.size} PLOs; at most ${st.maxPlos} are allowed.`);
+  // The PLOs the course serves: those its CLOs map to and those in its program coverage.
+  const plos = new Set([...c.clos.flatMap((x) => x.plos.map((p) => p.ploId)), ...c.coverage.map((p) => p.ploId)].filter(Boolean));
+  if (plos.size < st.minPlos) add('error', 'plos.min', 'clos', `The course serves ${plos.size} PLO${plos.size === 1 ? '' : 's'}; at least ${st.minPlos} are required.`);
+  if (plos.size > st.maxPlos) add('error', 'plos.max', 'clos', `The course serves ${plos.size} PLOs; at most ${st.maxPlos} are allowed.`);
   const seen = new Set<string>();
   for (const x of c.clos) {
     const label = x.code || 'A CLO';
@@ -233,10 +257,33 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
     seen.add(x.id);
     if (blank(x.textEn)) add('error', 'clo.text', 'clos', `${label} has no text.`, x.id);
     if (!(BLOOM_LEVELS as readonly string[]).includes(x.bloom)) add('error', 'clo.bloom', 'clos', `${label} has no Bloom level.`, x.id);
-    if (blank(x.ploId)) add('error', 'clo.plo', 'clos', `${label} is not mapped to a PLO.`, x.id);
-    else if (ctx.allowedPloIds && !ctx.allowedPloIds.has(x.ploId)) add('error', 'clo.ploInvalid', 'clos', `${label} is mapped to a PLO of a program this course does not serve.`, x.id);
-    if (blank(x.level)) add('error', 'clo.level', 'clos', `${label} has no coverage level (Introduced, Reinforced or Mastered).`, x.id);
-    else if (!resolveOutcomeLevel(ctx.levels, x.level)) add('error', 'clo.levelInvalid', 'clos', `${label} has an unknown coverage level "${x.level}".`, x.id);
+    const mapped = x.plos.filter((p) => !blank(p.ploId));
+    if (!mapped.length) add('error', 'clo.plo', 'clos', `${label} is not mapped to a PLO.`, x.id);
+    if (mapped.length > st.maxPlosPerClo) add('error', 'clo.plosMax', 'clos', `${label} maps to ${mapped.length} PLOs; the syllabus rules allow ${st.maxPlosPerClo}.`, x.id);
+    if (new Set(mapped.map((p) => p.ploId)).size < mapped.length) add('error', 'clo.ploTwice', 'clos', `${label} maps to the same PLO twice.`, x.id);
+    for (const p of x.plos) {
+      if (!blank(p.ploId) && ctx.allowedPloIds && !ctx.allowedPloIds.has(p.ploId)) add('error', 'clo.ploInvalid', 'clos', `${label} is mapped to a PLO of a program this course does not serve.`, x.id);
+      if (blank(p.level)) add('error', 'clo.level', 'clos', `${label} has no coverage level (Introduced, Reinforced or Mastered).`, x.id);
+      else if (!resolveOutcomeLevel(ctx.levels, p.level)) add('error', 'clo.levelInvalid', 'clos', `${label} has an unknown coverage level "${p.level}".`, x.id);
+    }
+  }
+
+  // -- Program coverage (DEC-039): the course's own level per PLO, delivered by its CLOs. Flags, never blocks submission.
+  const rank = (code: string) => ctx.levels.findIndex((l) => l.code === resolveOutcomeLevel(ctx.levels, code));
+  const coveredTwice = new Set<string>();
+  for (const cv of c.coverage) {
+    const code = ctx.ploCodes?.get(cv.ploId) ?? 'A PLO';
+    if (coveredTwice.has(cv.ploId)) { add('error', 'coverage.twice', 'clos', `${code} is in the program coverage twice.`, cv.ploId); continue; }
+    coveredTwice.add(cv.ploId);
+    if (ctx.allowedPloIds && !ctx.allowedPloIds.has(cv.ploId)) { add('error', 'coverage.ploInvalid', 'clos', `${code} belongs to a program this course does not serve.`, cv.ploId); continue; }
+    if (blank(cv.level) || rank(cv.level) < 0) { add('error', 'coverage.level', 'clos', `${code} has no valid coverage level in the program coverage.`, cv.ploId); continue; }
+    const delivered = c.clos.flatMap((x) => x.plos.filter((p) => p.ploId === cv.ploId && rank(p.level) >= 0).map((p) => ({ clo: x.code, r: rank(p.level) })));
+    const want = ctx.levels[rank(cv.level)]!.name;
+    if (!delivered.length) add('warning', 'coverage.noClo', 'clos', `The course covers ${code} (${want}) but none of its CLOs maps to ${code}.`, cv.ploId);
+    else {
+      const top = Math.max(...delivered.map((d) => d.r));
+      if (top !== rank(cv.level)) add('warning', 'coverage.mismatch', 'clos', `The course covers ${code} as ${want}, but its CLOs reach ${ctx.levels[top]!.name}.`, cv.ploId);
+    }
   }
 
   // -- Outline
@@ -351,3 +398,25 @@ export const ResolveSuggestionSchema = z.object({ decision: z.enum(['accepted', 
 export type ResolveSuggestion = z.infer<typeof ResolveSuggestionSchema>;
 export const SyllabusNoteSchema = z.object({ note: z.string().trim().max(2000).optional() }).strict();
 export const ApproveSyllabusSchema = z.object({ effectiveFrom: z.string().trim().max(40).optional() }).strict();
+
+// ---- Mapping changes from the curriculum map and the program dialog (DEC-039) -----------------------------------------------------
+
+/**
+ * One change to a course's mapping, proposed from the curriculum map or a program's dialog. It goes into the course's syllabus draft:
+ * `coverage` sets the course's own level for a PLO (null takes it away); `clo` sets a CLO's level for a PLO (null unmaps it), and with
+ * `replace` the CLO's other PLOs are dropped (the "move it?" answer when the rules allow one PLO per CLO).
+ */
+export type MappingChange =
+  | { kind: 'coverage'; ploId: string; level: string | null }
+  | { kind: 'clo'; cloId: string; ploId: string; level: string | null; replace?: boolean | undefined };
+export interface ProposeMapping { courseId: string; change: MappingChange }
+export const ProposeMappingSchema: z.ZodType<ProposeMapping, ProposeMapping> = z.object({
+  courseId: z.uuid(),
+  change: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('coverage'), ploId: z.uuid(), level: z.string().trim().min(1).max(20).nullable() }).strict(),
+    z.object({ kind: z.literal('clo'), cloId: z.string().min(1).max(100), ploId: z.uuid(), level: z.string().trim().min(1).max(20).nullable(), replace: z.boolean().optional() }).strict(),
+  ]),
+}).strict() as unknown as z.ZodType<ProposeMapping, ProposeMapping>;
+export interface SubmitManyResult { submitted: SyllabusVersion[]; refused: { versionId: string; courseCode: string; reason: string }[] }
+export const SubmitManySchema = z.object({ versionIds: z.array(z.uuid()).min(1).max(200) }).strict();
+export const SubmitManyResultSchema = lenient<SubmitManyResult>();

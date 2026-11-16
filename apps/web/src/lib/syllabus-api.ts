@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { SyllabusRoutes } from '@ams/api';
 import type {
-  CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusTemplate, SyllabusVersion, UpsertSyllabus,
+  CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusTemplate, SyllabusVersion, UpsertSyllabus, ProposeMapping, SubmitManyResult,
 } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
@@ -27,6 +27,9 @@ export function syllabusApi(fetcher: typeof fetch = fetch) {
     suggest: (versionId: string, json: Suggest) => a['syllabus-versions'][':id'].suggestions.$post({ param: { id: versionId }, json }).then((r) => unwrap<SyllabusSuggestion>(r)),
     resolve: (suggestionId: string, json: ResolveSuggestion) => a['syllabus-suggestions'][':id'].resolve.$post({ param: { id: suggestionId }, json }).then((r) => unwrap<{ id: string; status: 'accepted' | 'declined' }>(r)),
     submit: (versionId: string) => a['syllabus-versions'][':id'].submit.$post({ param: { id: versionId } }).then((r) => unwrap<SyllabusVersion>(r)),
+    /** One change to a course's mapping from the curriculum map or a program's dialog: it goes into the course's syllabus draft (DEC-039). */
+    proposeMapping: (json: ProposeMapping) => a.syllabi['propose-mapping'].$post({ json }).then((r) => unwrap<SyllabusVersion>(r)),
+    submitMany: (versionIds: string[]) => a.syllabi.submit.$post({ json: { versionIds } }).then((r) => unwrap<SubmitManyResult>(r)),
     return: (versionId: string, note?: string) => a['syllabus-versions'][':id'].return.$post({ param: { id: versionId }, json: { ...(note ? { note } : {}) } }).then((r) => unwrap<SyllabusVersion>(r)),
     endorse: (versionId: string) => a['syllabus-versions'][':id'].endorse.$post({ param: { id: versionId } }).then((r) => unwrap<SyllabusVersion>(r)),
     approve: (versionId: string, effectiveFrom?: string) => a['syllabus-versions'][':id'].approve.$post({ param: { id: versionId }, json: { ...(effectiveFrom ? { effectiveFrom } : {}) } }).then((r) => unwrap<SyllabusVersion>(r)),

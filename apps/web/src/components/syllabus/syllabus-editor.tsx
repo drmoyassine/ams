@@ -31,6 +31,44 @@ function Chips({ options, value, onChange, ariaLabel }: { options: { id: string;
   );
 }
 
+/**
+ * Program coverage (DEC-039): the level at which the course itself covers each PLO (the top-down side of the curriculum map), next to
+ * the highest level its CLOs reach. The rule checker flags a level the CLOs do not reach, or a PLO no CLO maps to.
+ */
+function ProgramCoverage({ content: c, plos, programs, levels, onChange }: { content: SyllabusContent; plos: SyllabusPlo[]; programs: string[]; levels: OutcomeLevel[]; onChange: (v: SyllabusContent['coverage']) => void }) {
+  const rank = (code: string) => levels.findIndex((l) => l.code === code);
+  const reach = (ploId: string) => {
+    const r = Math.max(-1, ...c.clos.flatMap((x) => x.plos.filter((m) => m.ploId === ploId).map((m) => rank(m.level))));
+    return r >= 0 ? levels[r]!.name : 'no CLO';
+  };
+  const used = new Set(c.coverage.map((x) => x.ploId));
+  return (
+    <div className="space-y-2 rounded-md border border-border p-3" role="group" aria-label="Program coverage">
+      <p className="text-sm font-medium text-foreground">Program coverage</p>
+      <p className="text-xs text-muted-foreground">The level at which this course covers each PLO, as the curriculum map shows it. Its CLOs deliver it.</p>
+      {c.coverage.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+      {c.coverage.map((cv, k) => (
+        <div key={k} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 sm:grid-cols-[10rem_10rem_1fr_auto]">
+          <label className={field}>PLO
+            <select aria-label={`Covered PLO ${k + 1}`} className={select} value={cv.ploId} onChange={(e) => onChange(replaceAt(c.coverage, k, { ...cv, ploId: e.target.value }))}>
+              <option value="">Choose</option>
+              {programs.map((pn) => <optgroup key={pn} label={pn}>{plos.filter((p) => p.programName === pn && (p.id === cv.ploId || !used.has(p.id))).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}</optgroup>)}
+            </select>
+          </label>
+          <label className={field}>Course level
+            <select aria-label={`Covered PLO ${k + 1} level`} className={select} value={cv.level} onChange={(e) => onChange(replaceAt(c.coverage, k, { ...cv, level: e.target.value }))}>
+              <option value="">Choose</option>{levels.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+            </select>
+          </label>
+          <span className="hidden pb-2 text-xs text-muted-foreground sm:block">{cv.ploId ? `CLOs reach: ${reach(cv.ploId)}` : ''}</span>
+          <Button type="button" variant="ghost" className="px-2 py-1 text-xs" aria-label={`Remove covered PLO ${k + 1}`} onClick={() => onChange(removeAt(c.coverage, k))}>✕</Button>
+        </div>
+      ))}
+      {plos.some((p) => !used.has(p.id)) && <Button type="button" variant="outline" className="px-3 py-1" onClick={() => onChange([...c.coverage, { ploId: '', level: '' }])}>+ PLO the course covers</Button>}
+    </div>
+  );
+}
+
 function Section({ id, title, help, issues, children }: { id: SectionKey; title: string; help: string; issues: SyllabusIssue[]; children: React.ReactNode }) {
   const errors = issues.filter((x) => x.severity === 'error');
   const warnings = issues.filter((x) => x.severity === 'warning');
@@ -137,23 +175,39 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
                     <option value="">Choose</option>{BLOOM_LEVELS.map((v) => <option key={v} value={v}>{label(v)}</option>)}
                   </select>
                 </label>
-                <label className={`${field} sm:col-span-2`}>PLO
-                  <select aria-label={`${x.code} PLO`} className={select} value={x.ploId} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, ploId: e.target.value }) })}>
-                    <option value="">Choose</option>
-                    {programs.map((pn) => <optgroup key={pn} label={pn}>{plos.filter((p) => p.programName === pn).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}</optgroup>)}
-                  </select>
-                </label>
-                <label className={`${field} sm:col-span-3`}>Coverage
-                  <select aria-label={`${x.code} coverage`} className={select} value={x.level} onChange={(e) => set({ clos: replaceAt(c.clos, k, { ...x, level: e.target.value }) })}>
-                    <option value="">Choose</option>{levels.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
-                  </select>
-                </label>
+                <div className="space-y-1 sm:col-span-5">
+                  {/* The PLOs this CLO maps to, each with its level: as many as the syllabus rules allow (DEC-039). */}
+                  {(x.plos.length ? x.plos : [{ ploId: '', level: '' }]).map((m, j) => {
+                    const n = j === 0 ? '' : ` ${j + 1}`;
+                    const put = (patch: Partial<typeof m>) => { const next = [...(x.plos.length ? x.plos : [{ ploId: '', level: '' }])]; next[j] = { ...m, ...patch }; set({ clos: replaceAt(c.clos, k, { ...x, plos: next }) }); };
+                    return (
+                      <div key={j} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                        <label className={field}>{j === 0 ? 'PLO' : `PLO ${j + 1}`}
+                          <select aria-label={`${x.code} PLO${n}`} className={select} value={m.ploId} onChange={(e) => put({ ploId: e.target.value })}>
+                            <option value="">Choose</option>
+                            {programs.map((pn) => <optgroup key={pn} label={pn}>{plos.filter((p) => p.programName === pn).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}</optgroup>)}
+                          </select>
+                        </label>
+                        <label className={field}>Coverage
+                          <select aria-label={`${x.code} coverage${n}`} className={select} value={m.level} onChange={(e) => put({ level: e.target.value })}>
+                            <option value="">Choose</option>{levels.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+                          </select>
+                        </label>
+                        {j > 0 ? <Button type="button" variant="ghost" className="px-2 py-1 text-xs" aria-label={`Remove ${x.code} PLO${n}`} onClick={() => set({ clos: replaceAt(c.clos, k, { ...x, plos: removeAt(x.plos, j) }) })}>✕</Button> : <span />}
+                      </div>
+                    );
+                  })}
+                  {x.plos.length > 0 && x.plos.length < settings.maxPlosPerClo && (
+                    <button type="button" className="text-xs underline" onClick={() => set({ clos: replaceAt(c.clos, k, { ...x, plos: [...x.plos, { ploId: '', level: '' }] }) })}>+ another PLO for {x.code}</button>
+                  )}
+                </div>
               </div>
               <div className="flex items-start justify-between gap-2"><div><Row about={x.id} /></div><Button type="button" variant="ghost" onClick={() => set({ clos: recode(removeAt(c.clos, k)) })} aria-label={`Remove ${x.code}`}>Remove</Button></div>
             </div>
           ))}
         </div>
-        <Button type="button" variant="outline" onClick={() => set({ clos: recode([...c.clos, { id: newId(), code: '', textEn: '', textAr: '', bloom: '', ploId: '', level: '' }]) })}>+ CLO</Button>
+        <Button type="button" variant="outline" onClick={() => set({ clos: recode([...c.clos, { id: newId(), code: '', textEn: '', textAr: '', bloom: '', plos: [] }]) })}>+ CLO</Button>
+        <ProgramCoverage content={c} plos={plos} programs={programs} levels={levels} onChange={(coverage) => set({ coverage })} />
       </Section>
     ),
     outline: (

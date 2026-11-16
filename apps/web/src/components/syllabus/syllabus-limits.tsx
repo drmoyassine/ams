@@ -11,7 +11,7 @@ import { Input } from '../ui/input';
 const n = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
 const toText = (s: SyllabusSettings): Record<string, string> => ({
-  minClos: String(s.minClos), maxClos: String(s.maxClos), minPlos: String(s.minPlos), maxPlos: String(s.maxPlos), minCloWeightPct: String(s.minCloWeightPct),
+  minClos: String(s.minClos), maxClos: String(s.maxClos), minPlos: String(s.minPlos), maxPlos: String(s.maxPlos), maxPlosPerClo: String(s.maxPlosPerClo), minCloWeightPct: String(s.minCloWeightPct),
   chair: String(s.escalateDays.chair), dean: String(s.escalateDays.dean), vpaa: String(s.escalateDays.vpaa),
 });
 
@@ -35,7 +35,7 @@ function LimitsForm({ settings, canWrite, api, onSaved, onEdit }: { settings: Sy
   const [error, setError] = useState('');
   const save = useMutation({
     mutationFn: () => {
-      const body: SyllabusSettings = { minClos: n(v.minClos!), maxClos: n(v.maxClos!), minPlos: n(v.minPlos!), maxPlos: n(v.maxPlos!), minCloWeightPct: n(v.minCloWeightPct!), escalateDays: { chair: n(v.chair!), dean: n(v.dean!), vpaa: n(v.vpaa!) } };
+      const body: SyllabusSettings = { minClos: n(v.minClos!), maxClos: n(v.maxClos!), minPlos: n(v.minPlos!), maxPlos: n(v.maxPlos!), maxPlosPerClo: n(v.maxPlosPerClo!), minCloWeightPct: n(v.minCloWeightPct!), escalateDays: { chair: n(v.chair!), dean: n(v.dean!), vpaa: n(v.vpaa!) } };
       return api.setSettings(body);
     },
     onSuccess: async () => { setError(''); onSaved(); await qc.invalidateQueries({ queryKey: ['syllabus-settings'] }); await qc.invalidateQueries({ queryKey: ['syllabi'] }); },
@@ -52,6 +52,7 @@ function LimitsForm({ settings, canWrite, api, onSaved, onEdit }: { settings: Sy
         <h4 className="font-semibold">How big a syllabus may be</h4>
         <p className={line}>Course learning outcomes (CLOs) in a course: at least {num('minClos', 'Minimum CLOs per course')} and at most {num('maxClos', 'Maximum CLOs per course')}</p>
         <p className={line}>Program learning outcomes (PLOs) a course serves: at least {num('minPlos', 'Minimum PLOs per course')} and at most {num('maxPlos', 'Maximum PLOs per course')}</p>
+        <p className={line}>PLOs one CLO maps to: at most {num('maxPlosPerClo', 'Maximum PLOs per CLO')}</p>
         <p className={line}>Warn when a CLO is worth less than {num('minCloWeightPct', 'Warn below this % of the grade for a CLO')} % of the course grade</p>
       </div>
       <div className="space-y-3">

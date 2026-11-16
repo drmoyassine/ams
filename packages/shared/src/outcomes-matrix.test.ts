@@ -29,7 +29,7 @@ describe('curriculumMatrix', () => {
         { ploId: so1.id, courseId: c2, topDown: 'M', levels: [], highest: null },
         { ploId: so2.id, courseId: c2, topDown: 'R', levels: [], highest: null },
       ],
-      coverage: [],
+      coverage: [], drafts: [],
     } as ProgramOutcomes;
     const m = curriculumMatrix(v);
     expect(m.plos.map((p) => p.code)).toEqual(['SO1', 'SO2']);

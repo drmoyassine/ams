@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_OUTCOME_LEVELS } from './outcomes.js';
 import {
-  DEFAULT_SYLLABUS_TEMPLATE, SyllabusTemplateSchema,
+  DEFAULT_SYLLABUS_TEMPLATE, SyllabusContentSchema, SyllabusTemplateSchema,
   checkSyllabus, cloWeights, DEFAULT_SYLLABUS_SETTINGS, emptySyllabus, errorsOf, SyllabusSettingsSchema, type SyllabusCheckContext, type SyllabusContent,
 } from './syllabus.js';
 
@@ -16,7 +16,7 @@ function good(): SyllabusContent {
   c.description.en = 'An advanced course on discrete-time signals and filters.';
   c.methodology = 'Lectures, demonstrations and hands-on work.';
   c.materials = [{ kind: 'textbook', citation: 'Proakis, Digital Signal Processing', isbn: '', year: null }];
-  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', ploId: k < 2 ? 'plo1' : 'plo2', level: k < 3 ? 'R' : 'M' }));
+  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? 'plo1' : 'plo2', level: k < 3 ? 'R' : 'M' }] }));
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }] }];
   c.assessments = [
     { id: 'q', name: 'Quizzes', category: 'quiz', objective: '', weight: 30, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
@@ -48,15 +48,37 @@ describe('the syllabus rule checker', () => {
 
   it('wants one PLO and a coverage level for each CLO, and refuses an unknown level or a PLO of another program', () => {
     const c = good();
-    c.clos[0]!.ploId = ''; c.clos[1]!.level = ''; c.clos[2]!.level = 'Z'; c.clos[3]!.bloom = '';
+    c.clos[0]!.plos = []; c.clos[1]!.plos[0]!.level = ''; c.clos[2]!.plos[0]!.level = 'Z'; c.clos[3]!.bloom = '';
     const found = checkSyllabus(c, ctx({ allowedPloIds: new Set(['plo2']) }));
     expect(found.filter((x) => x.severity === 'error').map((x) => [x.code, x.ref])).toEqual(expect.arrayContaining([['clo.plo', 'a'], ['clo.level', 'b'], ['clo.levelInvalid', 'c'], ['clo.bloom', 'd']]));
     const other = good();
     expect(checkSyllabus(other, ctx({ allowedPloIds: new Set(['plo2']) })).some((x) => x.code === 'clo.ploInvalid' && x.ref === 'a')).toBe(true);
   });
 
+  it('allows as many PLOs per CLO as the rules say (one by default), and reads a syllabus stored with one ploId per CLO', () => {
+    const c = good(); c.clos[0]!.plos.push({ ploId: 'plo2', level: 'I' });
+    expect(codes(c)).toContain('clo.plosMax');
+    expect(codes(c, { settings: { ...settings, maxPlosPerClo: 2 } })).not.toContain('clo.plosMax');
+    c.clos[1]!.plos.push({ ploId: 'plo1', level: 'M' });
+    expect(codes(c, { settings: { ...settings, maxPlosPerClo: 2 } })).toContain('clo.ploTwice');
+    const old = SyllabusContentSchema.parse({ clos: [{ id: 'x', code: 'CLO1', ploId: 'plo1', level: 'R' }, { id: 'y', code: 'CLO2', ploId: '', level: '' }] });
+    expect(old.clos.map((x) => x.plos)).toEqual([[{ ploId: 'plo1', level: 'R' }], []]);
+  });
+
+  it('checks the program coverage against the CLOs: a level they do not reach, or a PLO no CLO maps to, is a warning', () => {
+    const c = good();
+    c.coverage = [{ ploId: 'plo1', level: 'R' }, { ploId: 'plo2', level: 'R' }];
+    const found = (x: SyllabusContent) => checkSyllabus(x, ctx({ ploCodes: new Map([['plo1', 'SO1'], ['plo2', 'SO2'], ['plo3', 'SO3']]) }));
+    // plo1: CLO1 and CLO2 reach R (as covered); plo2: CLO3 R and CLO4 M reach M, not R.
+    expect(found(c).filter((x) => x.code.startsWith('coverage.')).map((x) => [x.severity, x.message])).toEqual([['warning', 'The course covers SO2 as Reinforced, but its CLOs reach Mastered.']]);
+    c.coverage.push({ ploId: 'plo3', level: 'I' });
+    expect(found(c).find((x) => x.code === 'coverage.noClo')?.message).toBe('The course covers SO3 (Introduced) but none of its CLOs maps to SO3.');
+    // The PLOs a course serves count its coverage too.
+    expect(codes(c, { settings: { ...settings, maxPlos: 2 } })).toContain('plos.max');
+  });
+
   it('reads a configured alias of a coverage level as that level (D is Reinforced)', () => {
-    const c = good(); c.clos[0]!.level = 'D';
+    const c = good(); c.clos[0]!.plos[0]!.level = 'D';
     expect(codes(c)).not.toContain('clo.levelInvalid');
   });
 

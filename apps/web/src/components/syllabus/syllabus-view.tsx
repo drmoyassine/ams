@@ -46,7 +46,13 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
       </Block>
       <Block title="Course learning outcomes (CLOs) and the PLO each serves">
         <Table head={['CLO', 'Outcome', 'Bloom level', 'PLO', 'Coverage']} empty="No CLOs yet."
-          rows={c.clos.map((x) => [x.code, <ContentText key="t">{x.textEn}</ContentText>, label(x.bloom) || '—', plo(x.ploId) ? `${plo(x.ploId)!.code} · ${plo(x.ploId)!.programName}` : '—', x.level ? LEVEL_NAME(levels, x.level) : '—'])} />
+          rows={c.clos.map((x) => [x.code, <ContentText key="t">{x.textEn}</ContentText>, label(x.bloom) || '—',
+            x.plos.map((m) => (plo(m.ploId) ? `${plo(m.ploId)!.code} · ${plo(m.ploId)!.programName}` : '—')).join('; ') || '—',
+            x.plos.map((m) => (m.level ? LEVEL_NAME(levels, m.level) : '—')).join('; ') || '—'])} />
+      </Block>
+      <Block title="Program coverage: the level at which the course covers each PLO">
+        <Table head={['PLO', 'Course level']} empty="No program coverage recorded."
+          rows={c.coverage.map((cv) => [plo(cv.ploId) ? `${plo(cv.ploId)!.code} · ${plo(cv.ploId)!.programName}` : '—', cv.level ? LEVEL_NAME(levels, cv.level) : '—'])} />
       </Block>
       <Block title="Course outline">
         <Table head={['Week', 'Topic (and reading)', 'Lab / other', 'CLOs', 'SDGs', 'Assessment']} empty="No weeks yet."

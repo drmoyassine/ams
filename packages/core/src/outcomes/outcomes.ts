@@ -4,10 +4,10 @@
 // the kinds and that the course is in the PLO's program; the level is checked here against the institution's levels.
 // An approved outcome is never deleted: it is retired. A draft may be deleted, with its links.
 import { and, eq, inArray, or } from 'drizzle-orm';
-import { course, courseOutcomeMap, courseProgram, institution, learningOutcome, outcomeLink, program } from '@ams/db';
+import { course, courseOutcomeMap, courseProgram, institution, learningOutcome, outcomeLink, program, syllabusVersion } from '@ams/db';
 import {
   OutcomeLevelsSchema, resolveOutcomeLevel, type CoverageIssue, type CreateOutcome, type LearningOutcome, type OutcomeLevel, type OutcomeLinkInput,
-  type ProgramOutcomes, type UpdateOutcome, type CourseMap, type CourseMapInput,
+  type ProgramOutcomes, type UpdateOutcome, type CourseMap, type CourseMapInput, SyllabusContentSchema,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
@@ -277,8 +277,18 @@ export async function getProgramOutcomes(ctx: Ctx, programId: string): Promise<P
     coverage.push({ kind: 'link_no_level', refId: clo.id, label: `${cc} ${clo.code}`, message: `${cc} ${clo.code} -> ${plo.code} has no level` });
   }
 
+  const open = courseIds.length ? await ctx.tx.select().from(syllabusVersion)
+    .where(and(inArray(syllabusVersion.courseId, courseIds), inArray(syllabusVersion.status, ['draft', 'in_review', 'endorsed']))) : [];
+  const drafts: ProgramOutcomes['drafts'] = open.map((v) => {
+    const doc = SyllabusContentSchema.parse(v.content);
+    return {
+      courseId: v.courseId, versionId: v.id, versionNo: v.versionNo, status: v.status as 'draft' | 'in_review' | 'endorsed', errorCount: v.errorCount,
+      clos: doc.clos.map((x) => ({ id: x.id, code: x.code, textEn: x.textEn, plos: x.plos })), coverage: doc.coverage,
+    };
+  });
+
   return {
-    programId, levels,
+    programId, levels, drafts,
     peos: own.filter((o) => o.kind === 'peo').map(toOutcome), plos: plos.map(toOutcome), indicators: own.filter((o) => o.kind === 'pi').map(toOutcome),
     ilos: ilos.map(toOutcome),
     courses: cps.sort((a, b) => (a.cp.year ?? 99) - (b.cp.year ?? 99) || (a.cp.term ?? 9) - (b.cp.term ?? 9) || a.c.code.localeCompare(b.c.code, 'en', { numeric: true }))

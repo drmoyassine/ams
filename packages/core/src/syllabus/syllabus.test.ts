@@ -9,8 +9,9 @@ import { createCourse, setCourseProgram } from '../outcomes/courses.js';
 import { createOutcome } from '../outcomes/outcomes.js';
 import {
   approveSyllabus, setCourseStaff, setSyllabusTemplate, getSyllabusTemplate, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
-  saveSyllabusDraft, setSyllabusSettings, submitSyllabus, suggestChange, upsertSyllabus,
+  proposeMapping, saveSyllabusDraft, setSyllabusSettings, submitSyllabi, submitSyllabus, suggestChange, upsertSyllabus,
 } from './syllabus.js';
+import { getProgramOutcomes } from '../outcomes/outcomes.js';
 
 let w: World;
 const ids: Record<string, string> = {};
@@ -22,7 +23,7 @@ function complete(): SyllabusContent {
   c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: [], corequisiteIds: [] };
   c.description.en = 'Conduction, convection and radiation.'; c.methodology = 'Lectures and problem sessions.';
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals of Heat and Mass Transfer', isbn: '', year: null }];
-  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }));
+  c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }] }));
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }] }];
   c.assessments = [
     { id: 'q', name: 'Quizzes', category: 'quiz', objective: '', weight: 50, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
@@ -188,6 +189,51 @@ describe('the workflow', () => {
   });
 });
 
+describe('a mapping change from the curriculum map or a program dialog (DEC-039)', () => {
+  const live = async () => (await w.db.su.query(`select o.code, l.level, p.code as plo from learning_outcome o join outcome_link l on l.from_id = o.id join learning_outcome p on p.id = l.to_id where o.course_id = $1 and o.kind = 'clo' and o.status <> 'retired' order by o.code, p.code`, [ids.course])).rows;
+  const coverage = async () => (await w.db.su.query(`select p.code as plo, m.level from course_outcome_map m join learning_outcome p on p.id = m.outcome_id where m.course_id = $1 order by p.code`, [ids.course])).rows;
+
+  it('goes into a new draft from the approved syllabus, never straight to the live map, and is live once approved', async () => {
+    const before = await live();
+    const cloRec = (await w.db.su.query(`select id from learning_outcome where course_id = $1 and code = 'CLO1' and status = 'approved'`, [ids.course])).rows[0].id as string;
+    // The chair (a writer of the PLO's program) sets the course's own level for PLO1 and moves CLO1 to PLO2 at M (named by the live CLO).
+    const v3 = await w.as('coord', (c) => proposeMapping(c, { courseId: ids.course!, change: { kind: 'coverage', ploId: ids.plo1!, level: 'r' } }));
+    expect(v3).toMatchObject({ status: 'draft', versionNo: 3 });
+    await w.as('coord', (c) => proposeMapping(c, { courseId: ids.course!, change: { kind: 'clo', cloId: cloRec, ploId: ids.plo2!, level: 'M', replace: true } }));
+    const draft = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).open!;
+    expect(draft.id).toBe(v3.id); // the same draft, not a new one
+    expect(draft.content.coverage).toEqual([{ ploId: ids.plo1, level: 'R' }]);
+    expect(draft.content.clos.find((x) => x.code === 'CLO1')!.plos).toEqual([{ ploId: ids.plo2, level: 'M' }]);
+    // The rest of the approved syllabus came with it (its assessments), and the live map has not moved.
+    expect(draft.content.assessments.length).toBeGreaterThan(0);
+    expect(await live()).toEqual(before);
+    expect(await coverage()).toEqual([]);
+    // The program's map shows the change as waiting.
+    const v = await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!));
+    expect(v.drafts).toMatchObject([{ courseId: ids.course, versionId: v3.id, status: 'draft', coverage: [{ ploId: ids.plo1, level: 'R' }] }]);
+    // Who may propose: not an instructor; and a PLO of a program the course is not in is refused.
+    await expect(w.as('outsider', (c) => proposeMapping(c, { courseId: ids.course!, change: { kind: 'coverage', ploId: ids.plo1!, level: 'I' } }))).rejects.toThrow(ForbiddenError);
+    // Submitted from the map (the chair may), endorsed, approved by the Dean: now it is live.
+    const r = await w.as('coord', (c) => submitSyllabi(c, [v3.id]));
+    expect(r.submitted.map((x) => x.status)).toEqual(['in_review']);
+    await expect(w.as('coord', (c) => proposeMapping(c, { courseId: ids.course!, change: { kind: 'coverage', ploId: ids.plo2!, level: 'I' } }))).rejects.toThrow(/in review/);
+    await w.as('coord', (c) => endorseSyllabus(c, v3.id));
+    await withDean((c) => approveSyllabus(c, v3.id));
+    expect(await live()).toEqual([{ code: 'CLO1', level: 'M', plo: 'PLO2' }, { code: 'CLO2', level: 'R', plo: 'PLO1' }, { code: 'CLO3', level: 'R', plo: 'PLO2' }]);
+    expect(await coverage()).toEqual([{ plo: 'PLO1', level: 'R' }]);
+    expect((await w.as('coord', (c) => getProgramOutcomes(c, w.ids.mech!))).drafts).toEqual([]);
+  });
+
+  it('reports a draft that cannot be submitted (it has errors) instead of failing the others', async () => {
+    const bad = await w.as('second', (c) => saveSyllabusDraft(c, ids.course!, { content: emptySyllabus() }));
+    const r = await w.as('coord', (c) => submitSyllabi(c, [bad.id]));
+    expect(r.submitted).toEqual([]);
+    expect(r.refused[0]).toMatchObject({ versionId: bad.id, courseCode: 'MCE 410' });
+    expect(r.refused[0]!.reason).toMatch(/errors? to fix/);
+    await w.as('second', (c) => discardDraft(c, ids.course!));
+  });
+});
+
 describe('tightening a limit flags the syllabi that now break it', () => {
   it('flags the approved syllabus without touching it, and tells the coordinator', async () => {
     const before = (await w.db.su.query(`select content from syllabus_version where course_id = $1 and status = 'approved'`, [ids.course])).rows[0].content;
@@ -231,7 +277,7 @@ describe('the Excel import', () => {
     expect(r.results[0]!.errors).toBeGreaterThan(3);
     expect(r).toMatchObject({ loaded: 1, flagged: 1 });
     const open = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).open!;
-    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', ploId: ids.plo1, level: 'I', bloom: 'analyze' });
+    expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', plos: [{ ploId: ids.plo1, level: 'I' }], bloom: 'analyze' });
     expect(open.source).toBe('excel import');
     // Importing again replaces the draft (the version number stays).
     const again = await w.as('second', (c) => importSyllabi(c, wb));

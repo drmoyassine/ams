@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { curriculumMatrix, type CurriculumMatrix, type ProgramOutcomes } from '@ams/shared';
+import { curriculumMatrix, type CurriculumMatrix, type MappingChange, type ProgramOutcomes } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { Button } from '../../components/ui/button';
@@ -10,6 +10,8 @@ import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import { download, fileNameFor, toXlsx } from '../../lib/sheet-io';
+import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
+import { useConfirm } from '../../components/confirm-dialog';
 
 const select = 'min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
 const COVERAGE_TITLE = {
@@ -27,7 +29,7 @@ type Cell = ProgramOutcomes['map'][number];
  * PLO at one level (no CLOs needed); bottom-up, a course's CLOs are linked to the PLO at a level and fill the cell. Coverage flags a course
  * mapped top-down with no CLO behind it, levels that differ, a course mapped to no PLO and the syllabus rules' limits. Nothing is blocked.
  */
-export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsApi; outcomes?: OutcomesApi }) {
+export function CurriculumMapPage({ api: override, outcomes, syllabus }: { api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi }) {
   const api = useSettingsApi(override);
   const oapi = useOutcomesApi(outcomes);
   const qc = useQueryClient();
@@ -47,6 +49,7 @@ export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsA
   });
   const run: Run = (fn) => mutation.mutate(fn);
   const [view, setView] = useState<'course' | 'plo'>('course');
+  const mapping = useMapping(programId, syllabus);
   const v = data.data;
   return (
     <div className="space-y-4">
@@ -67,6 +70,7 @@ export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsA
       {!programId ? <p className="text-sm text-muted-foreground">{programs.isError ? 'Could not load programs.' : programs.data ? 'Add a program first.' : 'Loading…'}</p>
         : !v ? <p className="text-sm text-muted-foreground">{data.isError ? 'Could not load the map.' : 'Loading…'}</p> : (
           <>
+            <PendingBar v={v} mapping={mapping} canWrite={canWrite} />
             <Card>
               <div role="tablist" aria-label="Map view" className="mb-3 flex gap-1">
                 {([['course', 'By course'], ['plo', 'By PLO']] as const).map(([id, label]) => (
@@ -74,7 +78,7 @@ export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsA
                     className={`rounded-md px-3 py-1 text-sm ${view === id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{label}</button>
                 ))}
               </div>
-              {view === 'course' ? <CurriculumMap v={v} canWrite={canWrite} api={oapi} run={run} programName={active.find((p) => p.id === programId)?.nameEn ?? 'Program'} /> : <ByPlo v={v} canWrite={canWrite} api={oapi} run={run} />}
+              {view === 'course' ? <CurriculumMap v={v} canWrite={canWrite} api={oapi} run={run} mapping={mapping} programName={active.find((p) => p.id === programId)?.nameEn ?? 'Program'} /> : <ByPlo v={v} canWrite={canWrite} mapping={mapping} />}
             </Card>
             <Card><Coverage v={v} /></Card>
           </>
@@ -84,11 +88,14 @@ export function CurriculumMapPage({ api: override, outcomes }: { api?: SettingsA
 }
 
 const levelNames = (v: ProgramOutcomes) => new Map(v.levels.map((l) => [l.code, l.name]));
+const rankOf = (v: ProgramOutcomes, code: string | null | undefined) => (code ? v.levels.findIndex((l) => l.code === code) : -1);
+type Draft = ProgramOutcomes['drafts'][number];
+const draftOf = (v: ProgramOutcomes, courseId: string): Draft | undefined => v.drafts.find((d) => d.courseId === courseId);
 
 /** How a cell reads: the level, how it was set, and whether it needs attention (a top-down level with no CLO, or levels that differ). */
-function describe(v: ProgramOutcomes, m: Cell | undefined, hasLinks: boolean) {
+function describe(v: ProgramOutcomes, m: Pick<Cell, 'topDown' | 'highest'> | undefined, hasLinks: boolean) {
   const name = levelNames(v);
-  if (!m) return { text: '·', label: 'not mapped', warn: false, from: 'none' as const };
+  if (!m || (!m.topDown && !m.highest && !hasLinks)) return { text: '·', label: 'not mapped', warn: false, from: 'none' as const };
   if (m.topDown) {
     if (!hasLinks) return { text: m.topDown, label: `${name.get(m.topDown)} (course), no CLO`, warn: true, from: 'top' as const };
     if (m.highest && m.highest !== m.topDown) return { text: `${m.topDown}/${m.highest}`, label: `${name.get(m.topDown)} (course), CLOs reach ${name.get(m.highest)}`, warn: true, from: 'both' as const };
@@ -98,18 +105,100 @@ function describe(v: ProgramOutcomes, m: Cell | undefined, hasLinks: boolean) {
   return { text: '✓', label: 'linked, no level', warn: false, from: 'clo' as const };
 }
 
+/** What the course's syllabus draft proposes for one PLO: its own level and the highest its CLOs reach (DEC-039). */
+function proposed(v: ProgramOutcomes, d: Draft, ploId: string) {
+  const levels = d.clos.flatMap((x) => x.plos.filter((m) => m.ploId === ploId).map((m) => m.level));
+  const top = levels.reduce<string | null>((a, b) => (rankOf(v, b) > rankOf(v, a) ? b : a), null);
+  return { topDown: d.coverage.find((c) => c.ploId === ploId)?.level || null, highest: top, hasLinks: levels.length > 0 };
+}
+
+/** The cell as approved, and as its course's syllabus draft would make it when that differs (a change waiting for approval). */
+function cellState(v: ProgramOutcomes, courseId: string, ploId: string) {
+  const m = v.map.find((x) => x.ploId === ploId && x.courseId === courseId);
+  const ids = new Set(v.courses.find((c) => c.courseId === courseId)?.clos.map((o) => o.id));
+  const live = describe(v, m, v.links.some((l) => l.toId === ploId && ids.has(l.fromId)));
+  const d = draftOf(v, courseId);
+  if (!d) return { live, shown: live, pending: false, draft: undefined };
+  const p = proposed(v, d, ploId);
+  const next = describe(v, p, p.hasLinks);
+  const pending = (m?.topDown ?? null) !== p.topDown || (m?.highest ?? null) !== p.highest || (live.from === 'none') !== (next.from === 'none');
+  return { live, shown: pending ? next : live, pending, draft: d };
+}
+
+/**
+ * Proposing a mapping change (DEC-039): it goes into the course's syllabus draft, never straight to the live map, and is live once that
+ * syllabus is approved. Giving a CLO a further PLO beyond what the syllabus rules allow asks whether to move it instead.
+ */
+export function useMapping(programId: string, override?: SyllabusApi) {
+  const sapi = useSyllabusApi(override);
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const settings = useQuery({ queryKey: ['syllabus-settings'], queryFn: () => sapi.settings() });
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const act = useAction(setError);
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['program-outcomes', programId] }); void qc.invalidateQueries({ queryKey: ['syllabi'] }); };
+  const send = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); setNotice(null); return act(fn); }, onSuccess: refresh });
+  const propose = (courseId: string, change: MappingChange) => send.mutate(() => sapi.proposeMapping({ courseId, change }));
+  /** A CLO's level for a PLO; when the CLO already serves as many PLOs as the rules allow, asks to move it. */
+  const setCloLevel = async (courseId: string, clo: { id: string; code: string; plos: { ploId: string }[] }, ploId: string, ploCode: string, level: string | null, codeOf: (id: string) => string) => {
+    const others = clo.plos.filter((m) => m.ploId !== ploId);
+    const max = settings.data?.maxPlosPerClo ?? 1;
+    let replace = false;
+    if (level && !clo.plos.some((m) => m.ploId === ploId) && others.length >= max) {
+      const ok = await confirm({ title: `Move ${clo.code} to ${ploCode}?`, message: `${clo.code} is mapped to ${others.map((m) => codeOf(m.ploId)).join(', ')}. The syllabus rules allow ${max} PLO${max === 1 ? '' : 's'} per CLO, so it moves to ${ploCode}.`, confirmLabel: 'Move it' });
+      if (!ok) return;
+      replace = true;
+    }
+    propose(courseId, { kind: 'clo', cloId: clo.id, ploId, level, ...(replace ? { replace } : {}) });
+  };
+  const submitAll = (versionIds: string[]) => send.mutate(async () => {
+    const r = await sapi.submitMany(versionIds);
+    setNotice([
+      r.submitted.length ? `${r.submitted.length} syllabus${r.submitted.length === 1 ? '' : 'es'} submitted for approval.` : '',
+      ...r.refused.map((x) => `${x.courseCode}: ${x.reason}`),
+    ].filter(Boolean).join(' '));
+    return r;
+  });
+  return { propose, setCloLevel, submitAll, error, notice, busy: send.isPending };
+}
+export type Mapping = ReturnType<typeof useMapping>;
+
+/** Courses of the program whose syllabus is in progress: their mapping changes wait for approval; drafts can be submitted at once. */
+export function PendingBar({ v, mapping, canWrite }: { v: ProgramOutcomes; mapping: Mapping; canWrite: boolean }) {
+  if (!v.drafts.length) return null;
+  const code = (id: string) => v.courses.find((c) => c.courseId === id)?.code ?? '';
+  const ready = v.drafts.filter((d) => d.status === 'draft');
+  return (
+    <div role="region" aria-label="Changes waiting for approval" className="space-y-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0">Changes wait in the syllabus of {v.drafts.length} course{v.drafts.length === 1 ? '' : 's'}: they are on the map once approved.</p>
+        {canWrite && ready.length > 0 && <Button type="button" className="px-3 py-1" disabled={mapping.busy} onClick={() => mapping.submitAll(ready.map((d) => d.versionId))}>Submit {ready.length === 1 ? 'it' : `all ${ready.length}`} for approval</Button>}
+      </div>
+      <ul className="flex flex-wrap gap-2">
+        {v.drafts.map((d) => (
+          <li key={d.versionId}>
+            <a className="rounded border border-sky-300 bg-background px-2 py-0.5 text-xs underline-offset-2 hover:underline" href={`/courses/${d.courseId}/syllabus`}>
+              {code(d.courseId)} · v{d.versionNo} {d.status === 'draft' ? 'draft' : d.status === 'in_review' ? 'in review' : 'endorsed'}{d.errorCount ? ` · ${d.errorCount} error${d.errorCount === 1 ? '' : 's'}` : ''}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {mapping.notice && <p role="status" className="text-xs">{mapping.notice}</p>}
+    </div>
+  );
+}
+
 /**
  * The curriculum map (DEC-039): courses by study year down the side, the program's PLOs and then the institution's ILOs across. A PLO
- * cell opens the course's own level for it (top-down) and its CLOs' links (bottom-up); an ILO cell is derived through the PLOs linked
- * to that ILO. A totals row counts the courses at each level; the map downloads as a workbook.
+ * cell opens the course's own level for it (top-down) and its CLOs' links (bottom-up); a change goes into the course's syllabus draft and
+ * shows as waiting until approved. An ILO cell is derived through the PLOs linked to that ILO. A totals row counts the courses at each
+ * level (as approved); the map downloads as a workbook.
  */
-export function CurriculumMap({ v, canWrite, api, run, programName }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: Run; programName?: string }) {
+export function CurriculumMap({ v, canWrite, api, run, mapping, programName }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: Run; mapping: Mapping; programName?: string }) {
   const [cell, setCell] = useState<{ ploId: string; courseId: string } | null>(null);
   const [adding, setAdding] = useState('');
   const all = useQuery({ queryKey: ['courses'], queryFn: () => api.courses(), enabled: canWrite });
-  const at = (ploId: string, courseId: string) => v.map.find((m) => m.ploId === ploId && m.courseId === courseId);
-  const cloIds = (courseId: string) => new Set(v.courses.find((c) => c.courseId === courseId)?.clos.map((o) => o.id));
-  const hasLinks = (ploId: string, courseId: string) => { const ids = cloIds(courseId); return v.links.some((l) => l.toId === ploId && ids.has(l.fromId)); };
   const mx = curriculumMatrix(v);
   const { plos, ilos } = mx;
   const name = levelNames(v);
@@ -124,6 +213,9 @@ export function CurriculumMap({ v, canWrite, api, run, programName }: { v: Progr
           <Button type="button" variant="outline" className="px-3 py-1" onClick={() => { void downloadMatrix(mx, v, programName ?? 'Curriculum map'); }}>Download (Excel)</Button>
         )}
       </div>
+      {plos.length > 0 && v.courses.length > 0 && (
+        <p className="text-xs text-muted-foreground">{canWrite ? 'Click a cell to set the course\'s level for a PLO or to link its CLOs. A change goes into the course\'s syllabus as a draft and is on the map once that syllabus is approved.' : 'Click a cell to see the course\'s level for a PLO and the CLOs that deliver it.'}</p>
+      )}
       {v.courses.length === 0 ? <p className="text-sm text-muted-foreground">No courses in this program yet.</p> : plos.length === 0 ? <p className="text-sm text-muted-foreground">Add PLOs to the program to map its courses to.</p> : (
         <div className="overflow-x-auto">
           <table className="text-sm" aria-label="Courses by PLO and ILO">
@@ -149,13 +241,15 @@ export function CurriculumMap({ v, canWrite, api, run, programName }: { v: Progr
                         <span className="font-mono">{r.code}</span> <span className="text-xs text-muted-foreground">{r.role !== 'core' ? r.role : ''}{r.term ? ` T${r.term}` : ''}</span>
                       </th>
                       {plos.map((p) => {
-                        const d = describe(v, at(p.id, r.courseId), hasLinks(p.id, r.courseId));
+                        const st = cellState(v, r.courseId, p.id);
+                        const d = st.shown;
                         const tone = d.warn ? 'bg-amber-100 font-semibold text-amber-900' : d.from === 'both' || d.from === 'top' ? 'bg-primary/15 font-semibold' : d.from === 'clo' ? 'bg-primary/5 italic' : 'text-muted-foreground';
+                        const label = `${r.code} ${p.code}: ${d.label}${st.pending ? `, waiting for approval (was ${st.live.label})` : ''}`;
                         return (
                           <td key={p.id} className="px-1 py-0.5 text-center">
-                            <button type="button" aria-label={`${r.code} ${p.code}: ${d.label}`} title={d.label}
-                              className={`min-w-8 rounded px-1 ${tone} ${cell?.ploId === p.id && cell.courseId === r.courseId ? 'ring-2 ring-primary' : ''}`}
-                              onClick={() => setCell({ ploId: p.id, courseId: r.courseId })}>{d.text === '·' ? '—' : d.text}{d.warn ? '!' : ''}</button>
+                            <button type="button" aria-label={label} title={label}
+                              className={`min-w-9 cursor-pointer rounded border px-1 transition-colors hover:border-primary hover:bg-primary/10 ${d.from === 'none' ? 'border-dashed border-border' : 'border-transparent'} ${tone} ${st.pending ? 'outline-dashed outline-2 outline-offset-1 outline-sky-500' : ''} ${cell?.ploId === p.id && cell.courseId === r.courseId ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => setCell({ ploId: p.id, courseId: r.courseId })}>{d.text === '·' ? (canWrite ? '+' : '—') : d.text}{d.warn ? '!' : ''}{st.pending ? '•' : ''}</button>
                           </td>
                         );
                       })}
@@ -185,7 +279,7 @@ export function CurriculumMap({ v, canWrite, api, run, programName }: { v: Progr
           </table>
         </div>
       )}
-      {cell && <CellPanel v={v} ploId={cell.ploId} courseId={cell.courseId} canWrite={canWrite} api={api} run={run} onClose={() => setCell(null)} />}
+      {cell && <CellPanel v={v} ploId={cell.ploId} courseId={cell.courseId} canWrite={canWrite} mapping={mapping} onClose={() => setCell(null)} />}
       {canWrite && (
         <form className="flex flex-wrap gap-2" aria-label="Add a course to the program" onSubmit={(e) => { e.preventDefault(); if (adding) { run(() => api.setCourseProgram(adding, v.programId, { role: 'core' })); setAdding(''); } }}>
           <select aria-label="Course to add" className={select} value={adding} onChange={(e) => setAdding(e.target.value)}>
@@ -206,95 +300,128 @@ function Legend({ v }: { v: ProgramOutcomes }) {
       <span><span className="rounded bg-primary/15 px-1 font-semibold text-foreground">M</span> mapped to the course</span>
       <span><span className="rounded bg-primary/5 px-1 italic text-foreground">M</span> from its CLOs only</span>
       <span><span className="rounded bg-amber-100 px-1 font-semibold text-amber-900">M!</span> needs attention</span>
+      <span><span className="rounded px-1 text-foreground outline-dashed outline-2 outline-sky-500">M•</span> waiting for approval</span>
     </div>
   );
 }
 
-/** One course and one PLO: the course's level for it (top-down) and the CLOs that deliver it (bottom-up). */
-function CellPanel({ v, ploId, courseId, canWrite, api, run, onClose }: { v: ProgramOutcomes; ploId: string; courseId: string; canWrite: boolean; api: OutcomesApi; run: Run; onClose: () => void }) {
+/**
+ * One course and one PLO: the course's level for it (top-down) and the CLOs that deliver it (bottom-up). With a syllabus in progress the
+ * values are the draft's; a change goes into that draft (or starts one from the approved syllabus).
+ */
+export function CellPanel({ v, ploId, courseId, canWrite, mapping, onClose }: { v: ProgramOutcomes; ploId: string; courseId: string; canWrite: boolean; mapping: Mapping; onClose: () => void }) {
   const plo = v.plos.find((p) => p.id === ploId);
   const course = v.courses.find((c) => c.courseId === courseId);
   if (!plo || !course) return null;
+  const d = draftOf(v, courseId);
   const m = v.map.find((x) => x.ploId === ploId && x.courseId === courseId);
+  const locked = !!d && d.status !== 'draft';
+  const can = canWrite && !locked;
+  const codeOf = (id: string) => v.plos.find((p) => p.id === id)?.code ?? 'another PLO';
+  // The CLOs as the draft has them when there is one, else as approved (each with the PLOs it serves in this program).
+  const clos = d ? d.clos : course.clos.map((o) => ({ id: o.id, code: o.code, textEn: o.textEn, plos: v.links.filter((l) => l.fromId === o.id).map((l) => ({ ploId: l.toId, level: l.level ?? '' })) }));
+  const top = d ? d.coverage.find((c) => c.ploId === ploId)?.level ?? '' : m?.topDown ?? '';
   return (
     <div className="space-y-3 rounded-lg border border-border p-3" aria-label={`${course.code} to ${plo.code}`} role="group">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 text-sm"><span className="font-mono font-semibold">{course.code}</span> → <span className="font-mono font-semibold">{plo.code}</span> <ContentText className="text-muted-foreground">{plo.textEn}</ContentText></p>
         <Button type="button" variant="ghost" className="px-2 py-1" onClick={onClose}>Close</Button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {d ? (locked ? `${course.code}'s syllabus (v${d.versionNo}) is ${d.status === 'in_review' ? 'in review' : 'endorsed'}: its mapping cannot change until it is returned or approved.`
+          : `Showing ${course.code}'s syllabus draft (v${d.versionNo}). Changes go into it and are on the map once it is approved.`)
+          : canWrite ? `A change starts a draft of ${course.code}'s syllabus from the approved one; it is on the map once approved.` : ''}
+        {' '}<a className="underline" href={`/courses/${courseId}/syllabus`}>Open the syllabus</a>
+      </p>
       <label className="flex flex-wrap items-center gap-2 text-sm">
         <span className="font-medium">Course level (top-down)</span>
-        <select aria-label={`${course.code} level for ${plo.code}`} className={select} value={m?.topDown ?? ''} disabled={!canWrite}
-          onChange={(e) => { const level = e.target.value || null; run(() => api.setCourseMap({ courseId, outcomeId: ploId, level })); }}>
+        <select aria-label={`${course.code} level for ${plo.code}`} className={select} value={top} disabled={!can}
+          onChange={(e) => mapping.propose(courseId, { kind: 'coverage', ploId, level: e.target.value || null })}>
           <option value="">Not mapped</option>
           {v.levels.map((l) => <option key={l.code} value={l.code}>{l.code} {l.name}</option>)}
         </select>
       </label>
       <div className="space-y-1">
         <p className="text-sm font-medium">CLOs that deliver it (bottom-up)</p>
-        {course.clos.length === 0 && <p className="text-sm text-muted-foreground">This course has no CLOs yet (add them on the Courses tab or in its syllabus).</p>}
+        {clos.length === 0 && <p className="text-sm text-muted-foreground">This course has no CLOs yet: add them in its syllabus.</p>}
         <ul className="space-y-1">
-          {course.clos.map((clo) => {
-            const link = v.links.find((l) => l.fromId === clo.id && l.toId === ploId);
-            const value = !link ? '' : (link.level ?? '-');
+          {clos.map((clo) => {
+            const value = clo.plos.find((x) => x.ploId === ploId)?.level ?? '';
+            const elsewhere = clo.plos.filter((x) => x.ploId !== ploId && x.ploId);
             return (
               <li key={clo.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <select aria-label={`${clo.code} level for ${plo.code}`} className={select} value={value} disabled={!canWrite}
-                  onChange={(e) => { const to = e.target.value; run(() => (to === '' ? api.removeLink(clo.id, ploId) : api.setLink({ fromId: clo.id, toId: ploId, level: to === '-' ? null : to }))); }}>
+                <select aria-label={`${clo.code} level for ${plo.code}`} className={select} value={value} disabled={!can}
+                  onChange={(e) => { void mapping.setCloLevel(courseId, clo, ploId, plo.code, e.target.value || null, codeOf); }}>
                   <option value="">Not mapped</option>
-                  <option value="-">Linked, no level</option>
                   {v.levels.map((l) => <option key={l.code} value={l.code}>{l.code} {l.name}</option>)}
                 </select>
                 <span className="font-mono">{clo.code}</span><ContentText className="min-w-0 flex-1">{clo.textEn}</ContentText>
+                {elsewhere.length > 0 && <span className="text-xs text-muted-foreground">also {elsewhere.map((x) => codeOf(x.ploId)).join(', ')}</span>}
               </li>
             );
           })}
         </ul>
       </div>
+      {mapping.error && <p role="alert" className="text-sm text-red-700">{mapping.error}</p>}
     </div>
   );
 }
 
-/** PLO first (top-down): each PLO, the courses mapped to it and their CLOs; a course is added to a PLO at a level here. */
-function ByPlo({ v, canWrite, api, run }: { v: ProgramOutcomes; canWrite: boolean; api: OutcomesApi; run: Run }) {
-  const [open, setOpen] = useState<{ ploId: string; courseId: string } | null>(null);
+/**
+ * One PLO's courses (top-down): each course mapped to it (as approved, or as its syllabus draft proposes), its level, the CLOs that
+ * deliver it, and "Map a course". Used by the map's By PLO view and under each PLO in the program's dialog.
+ */
+export function PloCourses({ v, ploId, canWrite, mapping }: { v: ProgramOutcomes; ploId: string; canWrite: boolean; mapping: Mapping }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const p = v.plos.find((x) => x.id === ploId);
+  if (!p) return null;
+  const shown = v.courses.map((c) => ({ c, st: cellState(v, c.courseId, p.id) })).filter((x) => x.st.shown.from !== 'none' || x.st.pending);
+  const rest = v.courses.filter((c) => !shown.some((x) => x.c.courseId === c.courseId));
+  const levelName = levelNames(v);
+  return (
+    <div className="space-y-2">
+      {shown.length === 0 && <p className="text-sm text-muted-foreground">No course mapped yet.</p>}
+      <ul className="space-y-1">
+        {shown.map(({ c, st }) => {
+          const d = st.draft;
+          const top = d ? d.coverage.find((x) => x.ploId === p.id)?.level ?? '' : v.map.find((x) => x.ploId === p.id && x.courseId === c.courseId)?.topDown ?? '';
+          const delivering = d ? d.clos.filter((x) => x.plos.some((m) => m.ploId === p.id)).map((x) => x.code) : c.clos.filter((o) => v.links.some((l) => l.fromId === o.id && l.toId === p.id)).map((o) => o.code);
+          const fromClos = st.shown.from === 'clo' && st.shown.text !== '✓' ? levelName.get(st.shown.text) : undefined;
+          return (
+            <li key={c.courseId} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="min-w-20 font-mono">{c.code}</span>
+              <select aria-label={`${c.code} level for ${p.code} (by PLO)`} className={select} value={top} disabled={!canWrite || (!!d && d.status !== 'draft')}
+                onChange={(e) => mapping.propose(c.courseId, { kind: 'coverage', ploId: p.id, level: e.target.value || null })}>
+                <option value="">{fromClos ? `From CLOs (${fromClos})` : 'Not mapped'}</option>
+                {v.levels.map((l) => <option key={l.code} value={l.code}>{l.code} {l.name}</option>)}
+              </select>
+              <span className="text-xs text-muted-foreground">CLOs: {delivering.length ? delivering.join(', ') : 'none'}</span>
+              {st.shown.warn && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">{st.shown.label}</span>}
+              {st.pending && <span className="rounded px-1.5 py-0.5 text-xs text-sky-900 outline-dashed outline-1 outline-sky-500">waiting for approval</span>}
+              <Button type="button" variant="ghost" className="px-2 py-1 text-xs" aria-expanded={open === c.courseId} onClick={() => setOpen(open === c.courseId ? null : c.courseId)}>{canWrite ? 'Link CLOs' : 'CLOs'}</Button>
+            </li>
+          );
+        })}
+      </ul>
+      {canWrite && rest.length > 0 && <AddCourseToPlo v={v} ploCode={p.code} courses={rest} onAdd={(courseId, level) => mapping.propose(courseId, { kind: 'coverage', ploId: p.id, level })} />}
+      {open && <CellPanel v={v} ploId={p.id} courseId={open} canWrite={canWrite} mapping={mapping} onClose={() => setOpen(null)} />}
+      {!open && mapping.error && <p role="alert" className="text-sm text-red-700">{mapping.error}</p>}
+    </div>
+  );
+}
+
+/** PLO first (top-down): each PLO and its courses. */
+function ByPlo({ v, canWrite, mapping }: { v: ProgramOutcomes; canWrite: boolean; mapping: Mapping }) {
   const plos = v.plos.filter((p) => p.status !== 'retired');
-  const name = levelNames(v);
   if (!plos.length) return <p className="text-sm text-muted-foreground">Add PLOs to the program to map its courses to.</p>;
   return (
     <section aria-label="Map by PLO" className="space-y-3">
-      {plos.map((p) => {
-        const cells = v.map.filter((m) => m.ploId === p.id);
-        const rest = v.courses.filter((c) => !cells.some((m) => m.courseId === c.courseId));
-        return (
-          <div key={p.id} className="space-y-2 rounded-lg border border-border p-3" role="group" aria-label={`${p.code} courses`}>
-            <p className="text-sm"><span className="font-mono font-semibold">{p.code}</span> <ContentText>{p.textEn}</ContentText></p>
-            {cells.length === 0 && <p className="text-sm text-muted-foreground">No course mapped yet.</p>}
-            <ul className="space-y-1">
-              {cells.map((m) => {
-                const c = v.courses.find((x) => x.courseId === m.courseId)!;
-                const linked = c.clos.filter((o) => v.links.some((l) => l.fromId === o.id && l.toId === p.id));
-                const d = describe(v, m, linked.length > 0);
-                return (
-                  <li key={m.courseId} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="min-w-20 font-mono">{c.code}</span>
-                    <select aria-label={`${c.code} level for ${p.code} (by PLO)`} className={select} value={m.topDown ?? ''} disabled={!canWrite}
-                      onChange={(e) => { const level = e.target.value || null; run(() => api.setCourseMap({ courseId: c.courseId, outcomeId: p.id, level })); }}>
-                      <option value="">{m.highest ? `From CLOs (${name.get(m.highest)})` : 'Not mapped'}</option>
-                      {v.levels.map((l) => <option key={l.code} value={l.code}>{l.code} {l.name}</option>)}
-                    </select>
-                    <span className="text-xs text-muted-foreground">CLOs: {linked.length ? linked.map((o) => o.code).join(', ') : 'none'}</span>
-                    {d.warn && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">{d.label}</span>}
-                    <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setOpen({ ploId: p.id, courseId: c.courseId })}>Link CLOs</Button>
-                  </li>
-                );
-              })}
-            </ul>
-            {canWrite && rest.length > 0 && <AddCourseToPlo v={v} ploCode={p.code} courses={rest} onAdd={(courseId, level) => run(() => api.setCourseMap({ courseId, outcomeId: p.id, level }))} />}
-            {open?.ploId === p.id && <CellPanel v={v} ploId={p.id} courseId={open.courseId} canWrite={canWrite} api={api} run={run} onClose={() => setOpen(null)} />}
-          </div>
-        );
-      })}
+      {plos.map((p) => (
+        <div key={p.id} className="space-y-2 rounded-lg border border-border p-3" role="group" aria-label={`${p.code} courses`}>
+          <p className="text-sm"><span className="font-mono font-semibold">{p.code}</span> <ContentText>{p.textEn}</ContentText></p>
+          <PloCourses v={v} ploId={p.id} canWrite={canWrite} mapping={mapping} />
+        </div>
+      ))}
     </section>
   );
 }

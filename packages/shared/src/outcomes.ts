@@ -169,6 +169,15 @@ export const ProgramOutcomesSchema = z.object({
    */
   map: z.array(z.object({ ploId: z.uuid(), courseId: z.uuid(), topDown: z.string().nullable(), levels: z.array(z.string()), highest: z.string().nullable() })),
   coverage: z.array(CoverageIssueSchema),
+  /**
+   * Changes waiting for approval (DEC-039): per course of the program with a syllabus in progress, the mapping it proposes (its CLOs with
+   * their PLOs and levels, and its own level per PLO). The live map above is what is approved.
+   */
+  drafts: z.array(z.object({
+    courseId: z.uuid(), versionId: z.uuid(), versionNo: z.number().int(), status: z.enum(['draft', 'in_review', 'endorsed']), errorCount: z.number().int(),
+    clos: z.array(z.object({ id: z.string(), code: z.string(), textEn: z.string(), plos: z.array(z.object({ ploId: z.string(), level: z.string() })) })),
+    coverage: z.array(z.object({ ploId: z.string(), level: z.string() })),
+  })),
 });
 export type ProgramOutcomes = z.infer<typeof ProgramOutcomesSchema>;
 

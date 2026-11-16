@@ -15,6 +15,7 @@ import { createApi } from './lib/api';
 import { outcomesApi } from './lib/outcomes-api';
 import { assessmentApi } from './lib/assessment-api';
 import { settingsApi } from './lib/settings-api';
+import { syllabusApi } from './lib/syllabus-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
 import { ProgramQualityTab } from './pages/program-quality';
 import { useMe } from './lib/me';
@@ -36,7 +37,7 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
 }) as typeof fetch;
 function page(who: string, tab: OrganizationTab) {
   const f = fetchAs(who);
-  const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} tab={tab} />;
+  const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} syllabus={syllabusApi(f)} tab={tab} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -110,12 +111,30 @@ describe('courses, outcomes and the curriculum map', () => {
     await waitFor(() => expect(pick.selectedOptions[0]!.textContent).toMatch(/BS Electrical and Computer Engineering/));
     const coverage = await screen.findByRole('region', { name: 'Coverage' });
     await within(coverage).findByText('SO1 has no course mapped to it');
+    // The hint says what a click does; an empty cell is a button.
+    screen.getByText(/Click a cell to set the course's level for a PLO or to link its CLOs/);
     await user.click(await screen.findByRole('button', { name: 'ECE 420 SO1: not mapped' }));
+    // A change goes into the course's syllabus draft (DEC-039): the cell shows it waiting, the live map and coverage do not move yet.
     await user.selectOptions(await screen.findByLabelText('CLO1 level for SO1'), 'M');
+    await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered, waiting for approval (was not mapped)' });
+    const pending = screen.getByRole('region', { name: 'Changes waiting for approval' });
+    within(pending).getByText(/ECE 420 · v1 draft/);
+    within(coverage).getByText('SO1 has no course mapped to it');
+    // Submitting it is refused while the syllabus has errors (it is far from complete), and says so.
+    await user.click(within(pending).getByRole('button', { name: 'Submit it for approval' }));
+    expect((await within(pending).findByRole('status')).textContent).toMatch(/ECE 420: the syllabus has \d+ errors to fix/);
+    // For the tests that follow, the mapping is as if approved: CLO1 -> SO1 at M, and no draft.
+    await db.su.query(`delete from syllabus_version`);
+    const so1 = (await db.su.query(`select id from learning_outcome where code = 'SO1'`)).rows[0].id;
+    const clo1 = (await db.su.query(`select id from learning_outcome where code = 'CLO1' and kind = 'clo'`)).rows[0].id;
+    await db.su.query(`insert into outcome_link (institution_id, from_id, to_id, level) values ($1, $2, $3, 'M')`, [ids.inst, clo1, so1]);
+    cleanup();
+    page('admin', 'map');
+    const coverage2 = await screen.findByRole('region', { name: 'Coverage' });
     await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' });
-    await waitFor(() => expect(within(coverage).queryByText(/SO1/)).toBeNull());
+    await waitFor(() => expect(within(coverage2).queryByText(/SO1/)).toBeNull());
     // The syllabus rules' minimum CLOs per course is flagged here too (ECE 420 has one CLO; the default minimum is three).
-    within(coverage).getByText('ECE 420 has 1 CLO; the syllabus rules ask for at least 3');
+    within(coverage2).getByText('ECE 420 has 1 CLO; the syllabus rules ask for at least 3');
   });
 
   it('adds PEOs and several PLOs in one dialog (Add another brings the next code), and edits the recorded ones in the same dialog', async () => {
@@ -158,10 +177,15 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.type(within(so1).getByLabelText('indicator statement'), 'Identify the problem');
     await user.click(within(so1).getByRole('button', { name: 'Add indicator' }));
     await within(so1).findByText('Identify the problem');
+    // Under the PLO: its courses and CLOs at a glance, opening into the same block as the map's By PLO view (DEC-039).
+    const courses = within(so1).getByRole('button', { name: 'SO1 courses and CLOs: 1 course · I 0 · R 0 · M 1 · 1 CLO' });
+    await user.click(courses);
+    within(so1).getByText('CLOs: CLO1');
+    expect(within(so1).getByLabelText('ECE 420 level for SO1 (by PLO)')).toBeTruthy();
     await user.click(within(again).getByRole('button', { name: 'Close' }));
   });
 
-  it('maps a course to a PLO top-down from the PLO view, flags it until a CLO backs it, and flags levels that differ', async () => {
+  it('maps a course to a PLO top-down from the PLO view as a draft change, and asks before moving a CLO to another PLO', async () => {
     const user = userEvent.setup();
     page('admin', 'map');
     await user.click(await screen.findByRole('tab', { name: 'By PLO' }));
@@ -170,30 +194,26 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.selectOptions(within(plo7).getByLabelText('Course for PLO7'), 'ECE 420 Digital Signal Processing');
     await user.selectOptions(within(plo7).getByLabelText('Level for PLO7'), 'M');
     await user.click(within(plo7).getByRole('button', { name: 'Map' }));
-    await within(plo7).findByText('Mastered (course), no CLO');
-    const coverage = screen.getByRole('region', { name: 'Coverage' });
-    await within(coverage).findByText('ECE 420 is mapped to PLO7 (Mastered) but none of its CLOs is linked to PLO7');
-    // In the grid the cell needs attention; its panel links a CLO bottom-up at a lower level, and the flag becomes "levels differ".
+    // Waiting for approval, and flagged: the course would cover PLO7 at M with no CLO behind it.
+    await within(plo7).findByText('waiting for approval');
+    within(plo7).getByText('Mastered (course), no CLO');
+    within(screen.getByRole('region', { name: 'Changes waiting for approval' })).getByText(/ECE 420 · v1 draft/);
+    // CLO1 already serves SO1 and the rules allow one PLO per CLO: linking it to PLO7 asks to move it.
+    await user.click(within(plo7).getByRole('button', { name: 'Link CLOs' }));
+    within(plo7).getByText(/Showing ECE 420's syllabus draft \(v1\)/);
+    await user.selectOptions(within(plo7).getByLabelText('CLO1 level for PLO7'), 'R');
+    const ask = await screen.findByRole('dialog', { name: 'Move CLO1 to PLO7?' });
+    await user.click(within(ask).getByRole('button', { name: 'Move it' }));
+    await within(plo7).findByText('Mastered (course), CLOs reach Reinforced');
+    const draft = (await db.su.query(`select content from syllabus_version`)).rows[0].content;
+    expect(draft.clos[0].plos).toEqual([{ ploId: (await db.su.query(`select id from learning_outcome where code = 'PLO7'`)).rows[0].id, level: 'R' }]);
+    // The grid shows the same cell waiting; the live map still has CLO1 on SO1.
     await user.click(screen.getByRole('tab', { name: 'By course' }));
-    await user.click(await screen.findByRole('button', { name: 'ECE 420 PLO7: Mastered (course), no CLO' }));
-    await user.selectOptions(await screen.findByLabelText('CLO1 level for PLO7'), 'R');
-    await screen.findByRole('button', { name: 'ECE 420 PLO7: Mastered (course), CLOs reach Reinforced' });
-    await within(coverage).findByText('ECE 420 is mapped to PLO7 as Mastered, but its CLOs reach Reinforced');
-    // Bottom-up only is not flagged: a CLO linked to PLO8, which the course was not mapped to.
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-    await user.click(screen.getByRole('button', { name: 'ECE 420 PLO8: not mapped' }));
-    await user.selectOptions(await screen.findByLabelText('CLO1 level for PLO8'), 'I');
-    await screen.findByRole('button', { name: 'ECE 420 PLO8: Introduced' });
-    expect(within(coverage).queryByText(/ECE 420.*PLO8/)).toBeNull();
-    // The course's own level matches its CLOs once set to Reinforced: no flag for PLO7.
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-    await user.click(screen.getByRole('button', { name: 'ECE 420 PLO7: Mastered (course), CLOs reach Reinforced' }));
-    await user.selectOptions(await screen.findByLabelText('ECE 420 level for PLO7'), 'R');
-    await screen.findByRole('button', { name: 'ECE 420 PLO7: Reinforced' });
-    await waitFor(() => expect(within(coverage).queryByText(/ECE 420.*PLO7/)).toBeNull());
-    // Leave CLO1 linked to SO1 only, as the later tests expect.
-    await db.su.query(`delete from outcome_link where to_id in (select id from learning_outcome where code in ('PLO7', 'PLO8'))`);
-    await db.su.query(`delete from course_outcome_map`);
+    await screen.findByRole('button', { name: 'ECE 420 PLO7: Mastered (course), CLOs reach Reinforced, waiting for approval (was not mapped)' });
+    // CLO1 moved to PLO7 in the draft: its SO1 cell would empty (the live map keeps it until approval).
+    screen.getByRole('button', { name: 'ECE 420 SO1: not mapped, waiting for approval (was Mastered)' });
+    // Leave things as approved for the later tests.
+    await db.su.query(`delete from syllabus_version`);
   });
 
   it('adds an ILO, links a PLO to it, and shows a viewer everything without the buttons', async () => {

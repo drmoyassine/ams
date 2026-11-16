@@ -80,6 +80,7 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     d.methodology = cell(r, 'Teaching methodology');
     d.assessmentNotes = { passPercentage: cell(r, 'Pass percentage and submission details'), howItWorks: cell(r, 'How assessments work') };
   }
+  const split = (t: string) => t.split(/[;\n]/).map((x) => x.trim()).filter(Boolean);
   const cloOf = (cc: string, text: string) => doc(cc).clos.find((x) => norm(x.code) === norm(text));
   for (const r of wb.clos) {
     const cc = cell(r, 'Course code'); const text = cell(r, 'Outcome (English)');
@@ -88,8 +89,12 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     const cloCode = cell(r, 'CLO') || `CLO${d.clos.length + 1}`;
     d.clos.push({
       id: rs.cloId?.(code(cc), cloCode) ?? newId(), code: cloCode, textEn: text, textAr: cell(r, 'Outcome (Arabic)'), bloom: vocab(cell(r, 'Bloom level'), BLOOM),
-      ploId: cell(r, 'PLO') ? rs.plo(code(cc), cell(r, 'PLO')) : '',
-      level: (() => { const t = cell(r, 'Coverage'); return resolveOutcomeLevel(rs.levels, t) ?? rs.levels.find((l) => norm(l.name) === norm(t))?.code ?? ''; })(),
+      // Several PLOs (when the rules allow) are listed "SO1; SO2", with their levels in the same order "I; M".
+      plos: (() => {
+        const codes = split(cell(r, 'PLO')); const lv = split(cell(r, 'Coverage'));
+        const levelOf = (t: string) => resolveOutcomeLevel(rs.levels, t) ?? rs.levels.find((l) => norm(l.name) === norm(t))?.code ?? '';
+        return codes.map((p, k) => ({ ploId: rs.plo(code(cc), p), level: levelOf(lv[k] ?? lv[0] ?? '') }));
+      })(),
     });
   }
   const assessmentByName = new Map<string, string>();
@@ -155,7 +160,7 @@ export function syllabusToWorkbook(c: SyllabusContent, ex: ExportContext): Sylla
   const wb = emptyWorkbook();
   wb.courses.push(put(S.courses.headers, [ex.code, i.titleEn, i.titleAr, i.credits, i.contactLecture, i.contactLab, i.contactOther, lbl(i.languageOfDelivery), lbl(i.courseType), i.courseLevel, lbl(i.category), lbl(i.sustainability),
     i.prerequisiteIds.map(codeOf).join(', '), i.corequisiteIds.map(codeOf).join(', '), c.description.en, c.description.ar, c.methodology, c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks]));
-  for (const x of c.clos) wb.clos.push(put(S.clos.headers, [ex.code, x.code, x.textEn, x.textAr, lbl(x.bloom), ex.plos.find((p) => p.id === x.ploId)?.code ?? '', ex.levels.find((l) => l.code === x.level)?.name ?? x.level]));
+  for (const x of c.clos) wb.clos.push(put(S.clos.headers, [ex.code, x.code, x.textEn, x.textAr, lbl(x.bloom), x.plos.map((m) => ex.plos.find((p) => p.id === m.ploId)?.code ?? '').join('; '), x.plos.map((m) => ex.levels.find((l) => l.code === m.level)?.name ?? m.level).join('; ')]));
   for (const w of c.outline) wb.outline.push(put(S.outline.headers, [ex.code, w.week, w.topic, w.reading, w.lab, w.cloIds.map(cloCode).join(', '), w.sdgs.join(', '), c.assessments.find((a) => a.id === w.assessmentId)?.name ?? '']));
   for (const m of c.materials) wb.materials.push(put(S.materials.headers, [ex.code, lbl(m.kind), m.citation, m.isbn, m.year]));
   for (const a of c.assessments) {

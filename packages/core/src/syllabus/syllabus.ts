@@ -5,14 +5,14 @@
 // coordinator at once and goes up the line (chair, Dean, VPAA) after the days in the settings, until it is fixed.
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
-  appUser, course, courseInstructor, courseProgram, courseRequisite, institution, learningOutcome, orgUnit, outcomeLink, program, syllabusSuggestion, syllabusVersion,
+  appUser, course, courseInstructor, courseOutcomeMap, courseProgram, courseRequisite, institution, learningOutcome, orgUnit, outcomeLink, program, syllabusSuggestion, syllabusVersion,
 } from '@ams/db';
 import {
   checkSyllabus, DEFAULT_OUTCOME_LEVELS, DEFAULT_SYLLABUS_SETTINGS, DEFAULT_SYLLABUS_TEMPLATE, emptySyllabus, errorsOf, OutcomeLevelsSchema, resolveOutcomeLevel,
   CourseStaffSchema, ROLE_PERMISSIONS, ROLES, SaveSyllabusSchema, SuggestSchema, ResolveSuggestionSchema, SyllabusContentSchema, SyllabusSettingsSchema, SyllabusTemplateSchema, UpsertSyllabusSchema,
   type CourseStaff, type OutcomeLevel, type ResolveSuggestion, type SaveSyllabus, type Suggest, type SyllabusCheckContext, type SyllabusContent, type SyllabusIssue,
   type SyllabusListRow, type SyllabusOverview, type SyllabusPlo, type SyllabusSettings, type SyllabusStatus, type SyllabusSuggestion, type SyllabusTemplate,
-  type SyllabusVersion, type UpsertSyllabus,
+  type SyllabusVersion, type UpsertSyllabus, type SyllabusPloLevel, type ProposeMapping, type SubmitManyResult, ProposeMappingSchema,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
@@ -128,9 +128,9 @@ async function powersOf(ctx: Ctx, c: CourseRow): Promise<Powers> {
 async function checkContext(ctx: Ctx, c: CourseRow): Promise<SyllabusCheckContext> {
   const [settings, levels, template] = await Promise.all([getSyllabusSettings(ctx), levelsOf(ctx), getSyllabusTemplate(ctx)]);
   const progs = await programIdsOf(ctx, c.id);
-  const plos = progs.length ? await ctx.tx.select({ id: learningOutcome.id }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, progs))) : [];
+  const plos = progs.length ? await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, progs))) : [];
   const known = await ctx.tx.select({ id: course.id }).from(course);
-  return { settings, levels, allowedPloIds: new Set(plos.map((p) => p.id)), programCount: progs.length, optional: new Set(template.optional), knownCourseIds: new Set(known.map((k) => k.id)) };
+  return { settings, levels, allowedPloIds: new Set(plos.map((p) => p.id)), ploCodes: new Map(plos.map((p) => [p.id, p.code])), programCount: progs.length, optional: new Set(template.optional), knownCourseIds: new Set(known.map((k) => k.id)) };
 }
 
 /** The computed columns of a version: its issues, the counts, and when it was first flagged (kept while it stays flagged). */
@@ -177,6 +177,23 @@ async function loadVersion(ctx: Ctx, id: string): Promise<VersionRow> {
   return row;
 }
 
+/**
+ * The course's mapping as it stands (approved): its CLOs, each with every PLO it is linked to and the level, and its program coverage
+ * (the course's own level per PLO, the top-down side of the curriculum map, DEC-039).
+ */
+async function liveMapping(ctx: Ctx, courseId: string): Promise<{ clos: SyllabusContent['clos']; coverage: SyllabusPloLevel[] }> {
+  const clos = (await ctx.tx.select().from(learningOutcome).where(and(eq(learningOutcome.courseId, courseId), eq(learningOutcome.kind, 'clo'), ne(learningOutcome.status, 'retired'))))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code, 'en', { numeric: true }));
+  const links = clos.length ? await ctx.tx.select({ fromId: outcomeLink.fromId, toId: outcomeLink.toId, level: outcomeLink.level }).from(outcomeLink)
+    .innerJoin(learningOutcome, eq(learningOutcome.id, outcomeLink.toId)).where(and(inArray(outcomeLink.fromId, clos.map((x) => x.id)), eq(learningOutcome.kind, 'plo'))) : [];
+  const coverage = await ctx.tx.select({ ploId: courseOutcomeMap.outcomeId, level: courseOutcomeMap.level }).from(courseOutcomeMap)
+    .innerJoin(learningOutcome, eq(learningOutcome.id, courseOutcomeMap.outcomeId)).where(and(eq(courseOutcomeMap.courseId, courseId), eq(learningOutcome.kind, 'plo')));
+  return {
+    clos: clos.map((x) => ({ id: x.id, code: x.code, textEn: x.textEn, textAr: x.textAr ?? '', bloom: x.bloomLevel ?? '', plos: links.filter((l) => l.fromId === x.id).map((l) => ({ ploId: l.toId, level: l.level ?? '' })) })),
+    coverage: coverage.map((m) => ({ ploId: m.ploId, level: m.level })),
+  };
+}
+
 /** A starting document from what the course already holds: its facts, and its CLOs with their PLO and coverage level. */
 export async function startingContent(ctx: Ctx, c: CourseRow): Promise<SyllabusContent> {
   const doc = emptySyllabus();
@@ -191,12 +208,9 @@ export async function startingContent(ctx: Ctx, c: CourseRow): Promise<SyllabusC
   doc.info.prerequisiteIds = reqs.filter((r) => r.kind === 'prerequisite').map((r) => r.requisiteId);
   doc.info.corequisiteIds = reqs.filter((r) => r.kind === 'corequisite').map((r) => r.requisiteId);
   doc.description.en = c.description ?? '';
-  const clos = (await ctx.tx.select().from(learningOutcome).where(and(eq(learningOutcome.courseId, c.id), eq(learningOutcome.kind, 'clo'), ne(learningOutcome.status, 'retired')))).sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code, 'en', { numeric: true }));
-  const links = clos.length ? await ctx.tx.select().from(outcomeLink).where(inArray(outcomeLink.fromId, clos.map((x) => x.id))) : [];
-  doc.clos = clos.map((x) => {
-    const link = links.find((l) => l.fromId === x.id);
-    return { id: x.id, code: x.code, textEn: x.textEn, textAr: x.textAr ?? '', bloom: x.bloomLevel ?? '', ploId: link?.toId ?? '', level: link?.level ?? '' };
-  });
+  const live = await liveMapping(ctx, c.id);
+  doc.clos = live.clos;
+  doc.coverage = live.coverage;
   return doc;
 }
 
@@ -265,6 +279,12 @@ export async function saveSyllabusDraft(ctx: Ctx, courseId: string, input: SaveS
   const c = await loadCourse(ctx, courseId);
   if (!(await powersOf(ctx, c)).edit) throw new ForbiddenError('only the course coordinator (or someone who may write the course) edits its syllabus');
   const { content, source } = SaveSyllabusSchema.parse(input);
+  return writeDraft(ctx, c, content, source);
+}
+
+/** Stores the content as the course's draft (the one in progress, or a new version). Who may is checked by the caller. */
+async function writeDraft(ctx: Ctx, c: CourseRow, content: SyllabusContent, source: string | null | undefined): Promise<SyllabusVersion> {
+  const courseId = c.id;
   const issues = checkSyllabus(content, await checkContext(ctx, c));
   const open = await openVersion(ctx, courseId);
   if (open && open.status !== 'draft') throw new ConflictError(`the syllabus is ${open.status === 'in_review' ? 'in review' : 'endorsed'}: return it to the coordinator before editing`);
@@ -280,6 +300,77 @@ export async function saveSyllabusDraft(ctx: Ctx, courseId: string, input: SaveS
     if (cols.errorCount > 0) await notifyFlag(ctx, c, row, cols.errorCount, 0);
   }
   return (await toVersions(ctx, [row]))[0]!;
+}
+
+// ---- The curriculum map's way in (DEC-039) -------------------------------------------------------------------------------------
+
+/**
+ * The document a new draft starts from: the approved version (its outline, assessments and rubrics) with the mapping as it stands now,
+ * or, when nothing is approved yet, a starting document from what the course holds.
+ */
+async function draftBase(ctx: Ctx, c: CourseRow): Promise<SyllabusContent> {
+  const [approved] = await ctx.tx.select().from(syllabusVersion).where(and(eq(syllabusVersion.courseId, c.id), eq(syllabusVersion.status, 'approved')));
+  if (!approved) return startingContent(ctx, c);
+  const doc = SyllabusContentSchema.parse(approved.content);
+  const live = await liveMapping(ctx, c.id);
+  // A document's CLOs keep their own ids; approval matches them to the course's CLOs by id or code, and so does this.
+  doc.clos = doc.clos.map((x) => { const l = live.clos.find((y) => y.id === x.id) ?? live.clos.find((y) => y.code === x.code); return l ? { ...x, plos: l.plos } : x; });
+  doc.coverage = live.coverage;
+  return doc;
+}
+
+/**
+ * One change to a course's mapping, made on the curriculum map or in a program's dialog: it goes into the course's syllabus draft (a new
+ * draft from the approved version when there is none) and becomes live only when that syllabus is approved, like a standards version.
+ * The course coordinator, or a writer of the PLO's program, may propose. A syllabus in review or endorsed must be returned first.
+ */
+export async function proposeMapping(ctx: Ctx, input: ProposeMapping): Promise<SyllabusVersion> {
+  assertHuman(ctx);
+  const { courseId, change } = ProposeMappingSchema.parse(input);
+  const c = await loadCourse(ctx, courseId);
+  const [plo] = await ctx.tx.select().from(learningOutcome).where(eq(learningOutcome.id, change.ploId));
+  if (!plo || plo.kind !== 'plo') throw new ValidationError('a course is mapped to a PLO');
+  if (!(await powersOf(ctx, c)).edit && !(await isPermitted(ctx.tx, 'program:write', { type: 'program', id: plo.programId! }))) {
+    throw new ForbiddenError(`only the course coordinator or a writer of ${plo.code}'s program proposes a change to this mapping`);
+  }
+  if (!(await programIdsOf(ctx, c.id)).includes(plo.programId!)) throw new ValidationError(`${c.code} is not part of ${plo.code}'s program`);
+  const open = await openVersion(ctx, courseId);
+  if (open && open.status !== 'draft') throw new ConflictError(`${c.code}'s syllabus is ${open.status === 'in_review' ? 'in review' : 'endorsed'}: return it to the coordinator before changing its mapping`);
+  const content = open ? SyllabusContentSchema.parse(open.content) : await draftBase(ctx, c);
+  let level: string | null = null;
+  if (change.level) {
+    level = resolveOutcomeLevel(await levelsOf(ctx), change.level);
+    if (!level) throw new ValidationError(`"${change.level}" is not one of the mapping levels`);
+  }
+  if (change.kind === 'coverage') {
+    content.coverage = content.coverage.filter((x) => x.ploId !== plo.id);
+    if (level) content.coverage.push({ ploId: plo.id, level });
+  } else {
+    // The map names a CLO by the course's record (or, with a draft open, by the draft's own id): found by id, else by its code.
+    let clo = content.clos.find((x) => x.id === change.cloId);
+    if (!clo && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(change.cloId)) {
+      const [rec] = await ctx.tx.select({ code: learningOutcome.code }).from(learningOutcome).where(and(eq(learningOutcome.id, change.cloId), eq(learningOutcome.courseId, c.id)));
+      clo = rec ? content.clos.find((x) => x.code === rec.code) : undefined;
+    }
+    if (!clo) throw new ValidationError(`that CLO is not in ${c.code}'s syllabus`);
+    clo.plos = change.replace ? [] : clo.plos.filter((x) => x.ploId !== plo.id);
+    if (level) clo.plos.push({ ploId: plo.id, level });
+  }
+  return writeDraft(ctx, c, content, open?.source ?? 'curriculum map');
+}
+
+/** Submits several drafts at once (the map's "Submit all"); each that cannot go (errors, not a draft, not allowed) says why. */
+export async function submitSyllabi(ctx: Ctx, versionIds: string[]): Promise<SubmitManyResult> {
+  const out: SubmitManyResult = { submitted: [], refused: [] };
+  for (const id of [...new Set(versionIds)]) {
+    try { out.submitted.push(await submitSyllabus(ctx, id)); } catch (e) {
+      if (!(e instanceof ValidationError || e instanceof ConflictError || e instanceof ForbiddenError || e instanceof NotFoundError)) throw e;
+      const [v] = await ctx.tx.select({ courseId: syllabusVersion.courseId }).from(syllabusVersion).where(eq(syllabusVersion.id, id));
+      const [cc] = v ? await ctx.tx.select({ code: course.code }).from(course).where(eq(course.id, v.courseId)) : [];
+      out.refused.push({ versionId: id, courseCode: cc?.code ?? '', reason: (e as Error).message });
+    }
+  }
+  return out;
 }
 
 /** The API's and the import's way in: by course code, always a draft; only people approve. The course must exist. */
@@ -335,19 +426,20 @@ export async function resolveSuggestion(ctx: Ctx, id: string, input: ResolveSugg
 
 // ---- The workflow --------------------------------------------------------------------------------------------------------------------
 
-async function stage(ctx: Ctx, versionId: string, from: SyllabusStatus[], who: 'edit' | 'endorse' | 'approve'): Promise<{ v: VersionRow; c: CourseRow }> {
+async function stage(ctx: Ctx, versionId: string, from: SyllabusStatus[], who: 'edit' | 'submit' | 'endorse' | 'approve'): Promise<{ v: VersionRow; c: CourseRow }> {
   assertHuman(ctx);
   const v = await loadVersion(ctx, versionId);
   const c = await loadCourse(ctx, v.courseId);
   const p = await powersOf(ctx, c);
-  if (!p[who]) throw new ForbiddenError(who === 'edit' ? 'only the course coordinator does this' : who === 'endorse' ? 'only the program chair (or above) does this' : 'only the Dean (or above) does this');
+  if (!(who === 'submit' ? p.edit || p.endorse : p[who])) throw new ForbiddenError(who === 'edit' || who === 'submit' ? 'only the course coordinator does this' : who === 'endorse' ? 'only the program chair (or above) does this' : 'only the Dean (or above) does this');
   if (!from.includes(v.status)) throw new ConflictError(`the syllabus is ${v.status.replace('_', ' ')}`);
   return { v, c };
 }
 
 /** The coordinator submits the draft for review. Refused while the draft has errors; warnings do not stop it. */
 export async function submitSyllabus(ctx: Ctx, versionId: string): Promise<SyllabusVersion> {
-  const { v, c } = await stage(ctx, versionId, ['draft'], 'edit');
+  // The coordinator submits; so may a program writer who proposed a mapping change on the map (the Dean still approves, DEC-039).
+  const { v, c } = await stage(ctx, versionId, ['draft'], 'submit');
   const issues = checkSyllabus(SyllabusContentSchema.parse(v.content), await checkContext(ctx, c));
   const errors = errorsOf(issues);
   if (errors.length) throw new ValidationError(`the syllabus has ${errors.length} error${errors.length === 1 ? '' : 's'} to fix before it can be submitted: ${errors.slice(0, 3).map((e) => e.message).join(' ')}`);
@@ -408,7 +500,17 @@ async function writeCourse(ctx: Ctx, c: CourseRow, doc: SyllabusContent, version
     else [{ id }] = await ctx.tx.insert(learningOutcome).values({ institutionId: ctx.caller.institutionId, kind: 'clo', courseId: c.id, ...values }).returning({ id: learningOutcome.id }) as [{ id: string }];
     kept.add(id);
     await ctx.tx.delete(outcomeLink).where(eq(outcomeLink.fromId, id));
-    if (x.ploId) await ctx.tx.insert(outcomeLink).values({ institutionId: ctx.caller.institutionId, fromId: id, toId: x.ploId, level: resolveOutcomeLevel(levels, x.level) });
+    for (const m of new Map(x.plos.filter((p) => p.ploId).map((p) => [p.ploId, p])).values()) {
+      await ctx.tx.insert(outcomeLink).values({ institutionId: ctx.caller.institutionId, fromId: id, toId: m.ploId, level: resolveOutcomeLevel(levels, m.level) });
+    }
+  }
+  // The program coverage replaces the course's top-down levels on the curriculum map (DEC-039).
+  const plosOfCourse = await ctx.tx.select({ id: courseOutcomeMap.id }).from(courseOutcomeMap).innerJoin(learningOutcome, eq(learningOutcome.id, courseOutcomeMap.outcomeId))
+    .where(and(eq(courseOutcomeMap.courseId, c.id), eq(learningOutcome.kind, 'plo')));
+  if (plosOfCourse.length) await ctx.tx.delete(courseOutcomeMap).where(inArray(courseOutcomeMap.id, plosOfCourse.map((r) => r.id)));
+  for (const cv of new Map(doc.coverage.map((x) => [x.ploId, x])).values()) {
+    const level = resolveOutcomeLevel(levels, cv.level);
+    if (level) await ctx.tx.insert(courseOutcomeMap).values({ institutionId: ctx.caller.institutionId, courseId: c.id, outcomeId: cv.ploId, level });
   }
   // A CLO the syllabus no longer has is retired, not deleted: results and assessments may refer to it.
   for (const e of existing) if (!kept.has(e.id) && e.status !== 'retired') await ctx.tx.update(learningOutcome).set({ status: 'retired' }).where(eq(learningOutcome.id, e.id));

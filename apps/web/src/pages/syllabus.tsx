@@ -36,7 +36,7 @@ export function SyllabusPage({ courseId, api: override, apis }: { courseId: stri
     onError: (e) => setError(errorText(e)),
   });
   const ctx = useMemo(() => (ov ? {
-    settings: ov.settings, levels: ov.levels, allowedPloIds: new Set(ov.plos.map((p) => p.id)), programCount: ov.course.programIds.length, optional: new Set(ov.template.optional), knownCourseIds: new Set(ov.courses.map((c) => c.id)),
+    settings: ov.settings, levels: ov.levels, allowedPloIds: new Set(ov.plos.map((p) => p.id)), ploCodes: new Map(ov.plos.map((p) => [p.id, p.code])), programCount: ov.course.programIds.length, optional: new Set(ov.template.optional), knownCourseIds: new Set(ov.courses.map((c) => c.id)),
   } : null), [ov]);
   const live = useMemo(() => (draft && ctx ? checkSyllabus(draft, ctx) : []), [draft, ctx]);
 

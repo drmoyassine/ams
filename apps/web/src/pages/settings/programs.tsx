@@ -16,6 +16,7 @@ import { useAction } from '../../lib/use-action';
 import { RecordedOutcomes } from './program-outcomes';
 import { WorkbookLoader } from './workbook-loader';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
+import type { SyllabusApi } from '../../lib/syllabus-api';
 
 const select = 'w-full min-w-0 max-w-full rounded-md border border-border bg-background px-2 py-1 text-sm';
 const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
@@ -116,7 +117,7 @@ function ProgramForm({ initial, units, existing, rows, recorded, submitLabel, er
 }
 
 /** Adding or editing a program, in a dialog over the list (not in line with it). */
-function ProgramDialog({ initial, units, existing, rows, outcomes, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; outcomes?: OutcomesApi; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
+function ProgramDialog({ initial, units, existing, rows, outcomes, syllabus, error, busy, onSubmit, onClose }: { initial?: Program; units: Unit[]; existing: OutcomeContext; rows: { peos: OutcomeRow[]; plos: OutcomeRow[] }; outcomes?: OutcomesApi; syllabus?: SyllabusApi; error: string | null; busy: boolean; onSubmit: (v: ProgramValues) => void; onClose: () => void }) {
   return (
     <Dialog labelledBy="program-dialog-title" onClose={onClose} size="lg">
       <div className="mb-4 flex items-start justify-between gap-2">
@@ -124,7 +125,7 @@ function ProgramDialog({ initial, units, existing, rows, outcomes, error, busy, 
         <Button type="button" variant="ghost" aria-label="Close" onClick={onClose}>✕</Button>
       </div>
       <ProgramForm initial={initial} units={units} existing={existing} rows={rows}
-        {...(initial ? { recorded: { peos: <RecordedOutcomes programId={initial.id} kind="peo" canWrite {...(outcomes ? { api: outcomes } : {})} />, plos: <RecordedOutcomes programId={initial.id} kind="plo" canWrite {...(outcomes ? { api: outcomes } : {})} /> } } : {})}
+        {...(initial ? { recorded: { peos: <RecordedOutcomes programId={initial.id} kind="peo" canWrite {...(outcomes ? { api: outcomes } : {})} {...(syllabus ? { syllabus } : {})} />, plos: <RecordedOutcomes programId={initial.id} kind="plo" canWrite {...(outcomes ? { api: outcomes } : {})} {...(syllabus ? { syllabus } : {})} /> } } : {})}
         submitLabel={initial ? 'Save' : 'Add program'} error={error} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
     </Dialog>
   );
@@ -134,7 +135,7 @@ function ProgramDialog({ initial, units, existing, rows, outcomes, error, busy, 
  * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
  * the AI import proposes programs for review (TASK-076). `docs` is for tests; the app's own client is the default.
  */
-export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi }) {
+export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcomes, syllabus }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
   const [section, setSection] = useState<'list' | 'docs'>('list');
@@ -152,14 +153,14 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, outcom
       </div>
       <div role="tabpanel" id="programs-section-panel" aria-labelledby={`programs-section-${section}`}>
         {section === 'list'
-          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} />
+          ? <ProgramsList api={api} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} />
           : <DocsTab scopeKind="programs" scopeId={null} targets={targets.data ?? []} canWrite={writer} api={docs} />}
       </div>
     </div>
   );
 }
 
-function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: OutcomesApi }) {
+function ProgramsList({ api, outcomes, syllabus }: { api: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -207,7 +208,7 @@ function ProgramsList({ api, outcomes }: { api: SettingsApi; outcomes?: Outcomes
     setDialog(null); setSaving(false);
   };
   const dialogEl = dialog && canWrite && (
-    <ProgramDialog key={`${dialog.program?.id ?? 'new'}-${dialog.rows ? 'again' : 'first'}`} initial={dialog.program ?? undefined} units={units.data ?? []} {...(outcomes ? { outcomes } : {})}
+    <ProgramDialog key={`${dialog.program?.id ?? 'new'}-${dialog.rows ? 'again' : 'first'}`} initial={dialog.program ?? undefined} units={units.data ?? []} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})}
       existing={dialog.program && existing.data ? existing.data : { peos: [], plos: [] }} rows={dialog.rows ?? NO_ROWS}
       error={error} busy={saving} onClose={() => { setDialog(null); setError(null); }} onSubmit={(v) => { void save(v); }} />
   );

@@ -1,10 +1,10 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, importSyllabi, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
-  getSyllabusTemplate, saveSyllabusDraft, setCourseStaff, setSyllabusSettings, setSyllabusTemplate, submitSyllabus, suggestChange, upsertSyllabus,
+  getSyllabusTemplate, proposeMapping, saveSyllabusDraft, submitSyllabi, setCourseStaff, setSyllabusSettings, setSyllabusTemplate, submitSyllabus, suggestChange, upsertSyllabus,
 } from '@ams/core';
 import {
-  ApproveSyllabusSchema, CourseStaffSchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
+  ApproveSyllabusSchema, CourseStaffSchema, ProposeMappingSchema, SubmitManyResultSchema, SubmitManySchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
   SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusTemplateSchema, SyllabusWorkbookSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -92,6 +92,20 @@ export function syllabusRoutes(registry: RouteRegistry, deps: ChainDeps, options
       request: { params: idParam, body: { required: true, ...json(ResolveSuggestionSchema) } },
       responses: { 200: { description: 'The decision', ...json(z.object({ id: z.uuid(), status: z.enum(['accepted', 'declined']) })) }, ...errors },
     }), async (c) => c.json(await resolveSuggestion(c.get('ctx'), c.req.valid('param').id, c.req.valid('json')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/syllabi/propose-mapping', access: requires('org:read'), tags: tag,
+      description: "One change to a course's mapping from the curriculum map or a program's dialog (DEC-039): it goes into the course's syllabus draft (a new one from the approved version when there is none) and is live once that syllabus is approved. The course coordinator or a writer of the PLO's program.",
+      request: { body: { required: true, ...json(ProposeMappingSchema) } },
+      responses: { 200: { description: 'The draft', ...json(SyllabusVersionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(SyllabusVersionSchema, await proposeMapping(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/syllabi/submit', access: requires('org:read'), tags: tag,
+      description: 'Submits several drafts for review at once (the map\'s "Submit all"); each that cannot go says why.',
+      request: { body: { required: true, ...json(SubmitManySchema) } },
+      responses: { 200: { description: 'What was submitted and what was refused', ...json(SubmitManyResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(SubmitManyResultSchema, await submitSyllabi(c.get('ctx'), c.req.valid('json').versionIds)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/syllabus-versions/{id}/submit', access: requires('org:read'), tags: tag,
