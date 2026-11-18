@@ -453,7 +453,7 @@ export async function submitSyllabus(ctx: Ctx, versionId: string): Promise<Sylla
   const { v, c } = await stage(ctx, versionId, ['draft'], 'submit');
   const issues = checkSyllabus(SyllabusContentSchema.parse(v.content), await checkContext(ctx, c));
   const errors = errorsOf(issues);
-  if (errors.length) throw new ValidationError(`the syllabus has ${errors.length} error${errors.length === 1 ? '' : 's'} to fix before it can be submitted: ${errors.slice(0, 3).map((e) => e.message).join(' ')}`);
+  if (errors.length) throw new ValidationError(`the course content has ${errors.length} error${errors.length === 1 ? '' : 's'} to fix before it can be submitted: ${errors.slice(0, 3).map((e) => e.message).join(' ')}`);
   const [row] = await ctx.tx.update(syllabusVersion).set({ status: 'in_review', submittedBy: ctx.caller.userId, submittedAt: new Date(), returnedNote: null, ...computed(issues, v) }).where(eq(syllabusVersion.id, v.id)).returning();
   return (await toVersions(ctx, [row!]))[0]!;
 }
@@ -476,7 +476,7 @@ export async function approveSyllabus(ctx: Ctx, versionId: string, input: { effe
   const { v, c } = await stage(ctx, versionId, ['endorsed'], 'approve');
   const content = SyllabusContentSchema.parse(v.content);
   const errors = errorsOf(checkSyllabus(content, await checkContext(ctx, c)));
-  if (errors.length) throw new ValidationError(`the syllabus has ${errors.length} error${errors.length === 1 ? '' : 's'} (the settings changed since it was submitted): return it to the coordinator`);
+  if (errors.length) throw new ValidationError(`the course content has ${errors.length} error${errors.length === 1 ? '' : 's'} (the settings changed since it was submitted): return it to the coordinator`);
   await ctx.tx.update(syllabusVersion).set({ status: 'superseded' }).where(and(eq(syllabusVersion.courseId, c.id), eq(syllabusVersion.status, 'approved')));
   const [row] = await ctx.tx.update(syllabusVersion).set({ status: 'approved', approvedBy: ctx.caller.userId, approvedAt: new Date(), effectiveFrom: input.effectiveFrom?.trim() || null }).where(eq(syllabusVersion.id, v.id)).returning();
   await writeCourse(ctx, c, content, v.versionNo);

@@ -12,14 +12,14 @@ export function SyllabusAlertBar({ enabled, api: override }: { enabled: boolean;
   const errors = rows.reduce((n, r) => n + r.errorCount, 0);
   return (
     <div role="alert" data-testid="syllabus-alert-bar" className="sticky top-0 z-30 mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-red-300 bg-red-600 px-4 py-2 text-sm text-white print:hidden">
-      <span className="font-medium">{rows.length === 1 ? '1 syllabus has' : `${rows.length} syllabi have`} {errors} error{errors === 1 ? '' : 's'} and need{rows.length === 1 ? 's' : ''} your attention:</span>
+      <span className="font-medium">{rows.length === 1 ? "1 course's content has" : `${rows.length} courses' content has`} {errors} error{errors === 1 ? '' : 's'} and needs your attention:</span>
       <span className="flex flex-wrap gap-x-3">
         {rows.slice(0, 4).map((r) => (
           <Link key={r.courseId} to="/settings/organization/courses/$courseId" params={{ courseId: r.courseId }} className="underline underline-offset-2">{r.code} ({r.errorCount})</Link>
         ))}
         {rows.length > 4 && <Link to="/quality-management" search={{ tab: 'syllabi' }} className="underline underline-offset-2">and {rows.length - 4} more</Link>}
       </span>
-      <Link to="/quality-management" search={{ tab: 'syllabi' }} className="ms-auto underline underline-offset-2">Open Syllabi</Link>
+      <Link to="/quality-management" search={{ tab: 'syllabi' }} className="ms-auto underline underline-offset-2">Open the list</Link>
     </div>
   );
 }

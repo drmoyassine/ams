@@ -190,7 +190,7 @@ describe('the red bar', () => {
     await a.syllabus.save(ids.course!, { content: emptySyllabus() }).catch(() => undefined);
     render(wrap(<SyllabusAlertBar enabled api={a.syllabus} />));
     const bar = await screen.findByTestId('syllabus-alert-bar');
-    expect(bar.textContent).toMatch(/1 syllabus has \d+ errors? and needs your attention/);
+    expect(bar.textContent).toMatch(/1 course's content has \d+ errors? and needs your attention/);
     expect(within(bar).getByRole('link', { name: /MCE 410 \(\d+\)/ })).toBeTruthy();
     cleanup();
     // The program chair is not reached on the first day.

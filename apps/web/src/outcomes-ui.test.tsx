@@ -139,7 +139,7 @@ describe('courses, outcomes and the curriculum map', () => {
     within(coverage).getByText('SO1 has no course mapped to it');
     // Submitting it is refused while the syllabus has errors (it is far from complete), and says so.
     await user.click(within(pending).getByRole('button', { name: 'Submit it for approval' }));
-    expect((await within(pending).findByRole('status')).textContent).toMatch(/ECE 420: the syllabus has \d+ errors to fix/);
+    expect((await within(pending).findByRole('status')).textContent).toMatch(/ECE 420: the course content has \d+ errors to fix/);
     // For the tests that follow, the mapping is as if approved: CLO1 -> SO1 at M, and no draft.
     await db.su.query(`delete from syllabus_version`);
     const so1 = (await db.su.query(`select id from learning_outcome where code = 'SO1'`)).rows[0].id;

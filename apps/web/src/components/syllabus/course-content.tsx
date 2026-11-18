@@ -42,7 +42,7 @@ export function CourseContent({ courseId, api: override, apis }: { courseId: str
   } : null), [ov]);
   const live = useMemo(() => (draft && ctx ? checkSyllabus(draft, ctx) : []), [draft, ctx]);
 
-  if (q.isError) return <p role="alert" className="text-sm text-red-700">Could not load the syllabus.</p>;
+  if (q.isError) return <p role="alert" className="text-sm text-red-700">Could not load the course content.</p>;
   if (!ov) return <p className="text-sm">Loading…</p>;
   const editing = ov.can.edit && draft !== null;
   const shown = open ?? ov.current;

@@ -23,7 +23,7 @@ export function FlagBanner({ version, errors }: { version: SyllabusVersion | nul
   const level = version?.escalationLevel ?? 0;
   return (
     <div role="alert" data-testid="flag-banner" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-      <p className="font-medium">This syllabus has {errors} error{errors === 1 ? '' : 's'} that need immediate attention.</p>
+      <p className="font-medium">This course's content has {errors} error{errors === 1 ? '' : 's'} that need immediate attention.</p>
       <p className="text-xs">It needs {LINE[0]} first. Flagged since {since}; unfixed, it goes up to {LINE[1]}, {LINE[2]} and {LINE[3]}{level > 0 ? ` (now with ${LINE[level]} and those below)` : ''}. It cannot be submitted for review until the errors are fixed.</p>
     </div>
   );
