@@ -151,6 +151,20 @@ deleted before release. `available(ctx, scope)` lets a target hide itself (`iqf_
 framework). The first target is `iqf_tree` (`framework/iqf-tree-import.ts`): Standard / Sub-standard with code, title, optional Arabic
 title and description; apply creates draft requirements as the person, skips codes already present, Undo puts them in the Trash.
 
+### 2.7 Matching what exists, and updating it (Programs v3, DEC-043)
+
+A target may update existing records as well as create new ones, when a person confirms each match and each change:
+
+- `organise.context` may return `{ text, data }`: the text lists what exists under short references (`P1`, `P2`, …) for the model,
+  and `data` reaches `organise.build` (third argument), which turns the model's reference into the record's id. `build` may also back
+  up the model (the same code or name is matched even when the model missed it, with a flag to check).
+- The item carries the match (`matchProgramId`, null for a new record) and what the person chose to leave as it is (`keep`). The
+  review changes both; an edit runs `validate` again, and the proposal's flags then say what applying it would now do
+  ("Updates ACC: Credits, 1 new PLO.").
+- `apply` writes only what differs and is not kept, never deletes, and returns as its inverse a list of steps ("set these values on
+  this record", with the values before and after). `reverse` sets the before values (Undo) or the after values (Redo), refusing when
+  a record no longer has the values it expects (a person changed it since).
+
 ## 3. What the engine guarantees
 
 `startImport` checks the place can change, AI is on and set up (`aiReadiness`), the documents belong to the place, and no run of the

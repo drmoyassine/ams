@@ -106,7 +106,16 @@ export async function editImportProposal(ctx: Ctx, id: string, payload: unknown)
   if (!parsed.success) {
     throw new ValidationError('these values do not fit', parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })));
   }
-  const [next] = await ctx.tx.update(importProposal).set({ editedPayload: parsed.data as never, status: 'edited' }).where(eq(importProposal.id, id)).returning();
+  // The target's own checks follow the edit: what they said of the values before is replaced by what they say now (the model's flags stay).
+  let flags = row.flags as string[];
+  if (target.validate) {
+    const scope = await scopeFor(ctx, run);
+    const check = async (v: unknown) => { try { return ((await target.validate!(v as never, scope, ctx)) ?? []).map((f) => f.trim()).filter(Boolean); } catch { return []; } };
+    const before = new Set(await check(row.editedPayload ?? row.payload));
+    flags = [...flags.filter((f) => !before.has(f)), ...(await check(parsed.data)).filter((f) => !flags.includes(f) || before.has(f))];
+    flags = [...new Set(flags)];
+  }
+  const [next] = await ctx.tx.update(importProposal).set({ editedPayload: parsed.data as never, status: 'edited', flags }).where(eq(importProposal.id, id)).returning();
   const names = await documentNames(ctx, next!.documentId ? [next!.documentId] : []);
   return toProposalDto(next!, names);
 }

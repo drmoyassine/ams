@@ -9,6 +9,7 @@ import { useAction } from '../../lib/use-action';
 import { useConfirm } from '../confirm-dialog';
 import { Button } from '../ui/button';
 import { humanize, RunChip, spendText } from './parts';
+import { ProgramMatchCell, ProgramProposalDetail } from './programs-review';
 
 const STATUS: Record<ImportProposalStatus, { label: string; cls: string }> = {
   pending: { label: 'Waiting', cls: 'bg-muted text-muted-foreground' },
@@ -76,7 +77,9 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
   const [result, setResult] = useState<{ apply: ImportApplyResult; label: string; undone: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const list = q.data?.proposals ?? [];
-  const cols = useMemo(() => columnsOf(list), [list]);
+  const programs = q.data?.run.targetKind === 'programs';
+  // The programs import (DEC-043) shows what each proposal does (updates which program, or new) and a detail panel per proposal.
+  const cols = useMemo(() => (programs ? ['nameEn', 'degreeLevel', 'code', 'unitName'] : columnsOf(list)), [list, programs]);
   const options = q.data?.fieldOptions ?? {};
   // Fields with suggestions (the org chart's units) offer them, plus what the other rows already say, while a new value can be typed.
   const suggestions = useMemo(() => {
@@ -214,6 +217,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                   <tr>
                     {canWrite && <th className="w-8 p-2"><input type="checkbox" aria-label="Select all" checked={allChecked} onChange={() => setChecked(allChecked ? new Set() : new Set(list.map((p) => p.id)))} /></th>}
                     <th className="p-2 text-start font-medium">Decision</th>
+                    {programs && <th className="p-2 text-start font-medium">Program</th>}
                     {cols.map((k) => <th key={k} className="p-2 text-start font-medium">{humanize(k)}</th>)}
                     <th className="p-2 text-start font-medium">Source</th>
                   </tr>
@@ -238,6 +242,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                             {p.status === 'skipped' && isSkippedByTarget(p) && <span className="max-w-40 text-xs text-muted-foreground">{skipReason(p)}</span>}
                           </div>
                         </td>
+                        {programs && <td className="p-2"><button type="button" className="text-start" aria-label={`Show the details of ${p.label}`} onClick={() => setSelected(p.id)}><ProgramMatchCell api={api} proposal={p} /></button></td>}
                         {cols.map((k) => (
                           <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} {...(options[k] ? { options: options[k] } : {})} {...(listIdOf(k) ? { listId: listIdOf(k)! } : {})} onSave={(v) => void save(p, k, v)} /></td>
                         ))}
@@ -258,6 +263,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                 </tbody>
               </table>
             </div>
+            {programs && current && <ProgramProposalDetail key={current.id} api={api} proposal={current} editable={editable(current)} save={async (next) => { setError(''); try { await api.editProposal(current.id, next); } catch (e) { if (e instanceof ApiError) setError(e.message); else throw e; } await refresh(); }} />}
             <p className="text-xs text-muted-foreground">{list.length} {targetNoun} proposed · {ready.length} accepted · {list.filter((p) => p.status === 'applied').length} applied</p>
           </div>
           <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">

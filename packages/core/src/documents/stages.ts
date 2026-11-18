@@ -268,7 +268,9 @@ async function organise(ctx: Ctx, run: Run, _cursor: number, runtime: AiRuntime)
   }
   const scope = await scopeOf(ctx, run);
   const entries: OutlineEntry<unknown>[] = used.map((r, i) => ({ n: i + 1, documentName: names.get(r.documentId ?? '') ?? 'document', page: r.pageNo ?? 0, item: r.payload }));
-  const context = (await spec.context?.(ctx, scope)) ?? '';
+  const given = (await spec.context?.(ctx, scope)) ?? '';
+  const context = typeof given === 'string' ? given : given.text;
+  const contextData = typeof given === 'string' ? undefined : given.data;
   const input = spec.buildPrompt({ scopeLabel: scope.label, documents: docs.map((d) => ({ name: d.name, language: d.language, role: d.role })), entries, context });
   const { data } = await aiExtract({ task: spec.promptTask, promptVersion: spec.promptVersion, input, schema: spec.answer as z.ZodType<{ items: unknown[] }>, runtime: rt.runtime });
 
@@ -277,7 +279,7 @@ async function organise(ctx: Ctx, run: Run, _cursor: number, runtime: AiRuntime)
   for (const a of data.items) {
     const fromNs = [...new Set(spec.from(a as never))].filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length);
     const sources = fromNs.map((n) => entries[n - 1]!);
-    const built = spec.build(a as never, sources);
+    const built = spec.build(a as never, sources, contextData);
     const parsed = target.schema.safeParse(built.item);
     if (!parsed.success) { dropped++; continue; }
     const main = fromNs.length ? used[fromNs[0]! - 1]! : null;

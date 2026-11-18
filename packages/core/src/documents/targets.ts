@@ -62,15 +62,18 @@ export interface OrganiseSpec<T, H, A> {
   outline: { schema: z.ZodType<H>; promptTask: string; promptVersion: string; buildPrompt(window: PromptWindow): string };
   promptTask: string;
   promptVersion: string;
-  /** What the place already holds that the answer must fit (the framework as it is now), as plain text for the prompt. */
-  context?(ctx: Ctx, scope: TargetScope): Promise<string>;
+  /**
+   * What the place already holds that the answer must fit (the framework as it is now), as plain text for the prompt; or the text and
+   * data `build` needs to resolve what the answer refers to (the programs a proposal matches, by the short references the text gives).
+   */
+  context?(ctx: Ctx, scope: TargetScope): Promise<string | { text: string; data: unknown }>;
   buildPrompt(input: { scopeLabel: string; documents: { name: string; language: string; role: string | null }[]; entries: OutlineEntry<H>[]; context: string }): string;
   /** What the model answers: a list of answer items. */
   answer: z.ZodType<{ items: A[] }>;
   /** The numbers (`n`) of the outline entries an answer item comes from. The first one is its source in the review. */
   from(a: A): number[];
   /** The final item (plain data the target's schema accepts), with the model's confidence and its own flags. */
-  build(a: A, sources: OutlineEntry<H>[]): { item: T; confidence?: number | null; flags?: string[] };
+  build(a: A, sources: OutlineEntry<H>[], data?: unknown): { item: T; confidence?: number | null; flags?: string[] };
 }
 
 export interface ImportTarget<T = unknown> {

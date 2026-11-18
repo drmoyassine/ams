@@ -70,19 +70,33 @@ function pdf(pages: string[]): Uint8Array {
 }
 const filler = 'This page is part of the catalogue of programs of the university and describes each one.';
 
-/** The fake model: one program per "Program: Name | level | unit" line, citing the line. */
+/**
+ * The fake model (DEC-043). Windows: one fact per "Fact: program | field | value" line. Organise: one item per program; a program sharing a
+ * word of 5+ letters with an existing program is matched to it ("ACCOUNTING Bac" is the existing Accounting program).
+ */
 function responder() {
   return (options: unknown): object => {
     const prompt = (options as { prompt?: { role: string; content: unknown }[] }).prompt ?? [];
     const user = prompt.filter((m) => m.role === 'user').map((m) => (Array.isArray(m.content) ? m.content.map((c) => (c as { text?: string }).text ?? '').join('') : String(m.content))).join('\n');
-    const items: object[] = [];
-    const parts = user.split(/=== Page (\d+) ===/);
-    for (let i = 1; i < parts.length; i += 2) {
-      for (const m of parts[i + 1]!.matchAll(/Program: ([^|\n]+?) \| (\w*) \| (.+)$/gm)) {
-        items.push({ item: { nameEn: m[1], degreeLevel: m[2] === 'none' ? null : m[2], unitName: m[3] }, source: { page: Number(parts[i]), quote: m[0] }, confidence: 0.9, flags: [] });
+    if (!user.includes('Facts found in them')) {
+      const items: object[] = [];
+      const parts = user.split(/=== Page (\d+) ===/);
+      for (let i = 1; i < parts.length; i += 2) {
+        for (const m of parts[i + 1]!.matchAll(/Fact: ([^|\n]+?) \| (\w+) \| (.+)$/gm)) items.push({ item: { program: m[1], field: m[2], value: m[3] }, source: { page: Number(parts[i]), quote: m[0] }, confidence: 0.9, flags: [] });
       }
+      return { items };
     }
-    return { items };
+    const facts = [...user.matchAll(/^\[(\d+)\] (.+?) · (\w+): (.+)$/gm)].map((m) => ({ n: Number(m[1]), program: m[2]!, field: m[3]!, value: m[4]! }));
+    const known = [...user.matchAll(/^(P\d+) · code \S+ · \w+ · (.+?) · unit/gm)].map((m) => ({ ref: m[1]!, name: m[2]!.toLowerCase() }));
+    return {
+      items: [...new Set(facts.map((f) => f.program))].map((name) => {
+        const mine = facts.filter((f) => f.program === name);
+        const v = (field: string) => mine.find((f) => f.field === field)?.value ?? null;
+        const words = name.toLowerCase().split(/\W+/).filter((x) => x.length >= 5);
+        const match = known.find((k) => words.some((x) => k.name.includes(x)));
+        return { match: match?.ref ?? null, match_reason: match ? 'Same discipline at the same level.' : null, name_en: v('name_en') ?? name, degree_level: v('degree_level'), unit: v('unit'), credits: v('credits'), from: mine.map((f) => f.n), confidence: 0.9, flags: [] };
+      }),
+    };
   };
 }
 
@@ -99,20 +113,22 @@ beforeAll(async () => {
     ids[who] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $3) returning id`, [ids.inst, name, `${who}@x.org`]);
     await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, $3, 'institution', $1)`, [ids.inst, ids[who], role]);
   }
-  await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
+  ids.unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
+  ids.acc = await one(`insert into program (institution_id, org_unit_id, code, name_en, degree_level) values ($1, $2, 'ACC', 'Accounting', 'bachelor') returning id`, [ids.inst, ids.unit]);
 }, 60000);
 beforeEach(() => { resetUndoForTests(); resetConfirmForTests(); });
 afterEach(() => { cleanup(); setAiModelForTests(null); });
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('Programs -> Docs', () => {
-  it('uploads a catalogue, imports programs, reviews them, applies them as one undoable change and shows them in the list', async () => {
+  it('uploads a catalogue, matches "ACCOUNTING Bac" to the existing Accounting program, reviews field by field, applies as one undoable change', async () => {
     const user = userEvent.setup({ applyAccept: false });
     setAiModelForTests(createFakeAiModel([responder()]).model);
     render(page('lead'));
     await user.click(await screen.findByRole('tab', { name: 'Docs' }));
     const tab = await screen.findByRole('region', { name: 'Docs' });
-    await user.upload(await within(tab).findByLabelText('Files to upload'), new File([pdf([`Program: BSc Nursing | bachelor | College of Health\nProgram: MEng Mechanical | master | Engineering\n${filler}`, `Program: Short Course | none | Engineering\n${filler}`]) as unknown as BlobPart], 'catalogue.pdf', { type: 'application/pdf' }));
+    const page1 = ['Fact: BSc Nursing | degree_level | bachelor', 'Fact: BSc Nursing | unit | College of Health', 'Fact: ACCOUNTING Bac | name_en | Bachelor of Business Administration - Accounting', 'Fact: ACCOUNTING Bac | credits | 132', filler].join('\n');
+    await user.upload(await within(tab).findByLabelText('Files to upload'), new File([pdf([page1, `Fact: Short Course | unit | Engineering\n${filler}`]) as unknown as BlobPart], 'catalogue.pdf', { type: 'application/pdf' }));
     await screen.findByRole('article', { name: 'catalogue.pdf' });
     await work(['extract_text']);
     await waitFor(() => expect(within(screen.getByRole('article', { name: 'catalogue.pdf' })).getByRole('status').textContent).toBe('Read'));
@@ -131,38 +147,37 @@ describe('Programs -> Docs', () => {
     const table = await within(review).findByRole('table', { name: 'Proposals' });
     const rows = within(table).getAllByTestId('proposal');
     expect(rows).toHaveLength(3);
-    // A cell for every field, so the missing degree level can be filled in right there; flags say what is missing.
-    const short = rows.find((r) => within(r).queryByLabelText('Name en of Short Course') ?? within(r).queryByDisplayValue('Short Course'))!;
-    expect(short.textContent).toMatch(/No degree level was found/);
-    // Degree level has a fixed list, so it is a choice: nothing typed can fail to fit. Set it on the selected rows at once.
-    const level = within(short).getByLabelText(/^Degree level of /) as HTMLSelectElement;
-    expect(level.tagName).toBe('SELECT');
-    expect([...level.options].map((o) => o.value)).toEqual(['', 'associate', 'bachelor', 'master', 'doctorate', 'diploma', 'certificate']);
-    // The owning unit is offered from the org chart (a new name can still be typed); the unit type is the institution's list.
-    const unit = within(short).getByLabelText(/^Unit name of /) as HTMLInputElement;
-    const listId = unit.getAttribute('list')!;
-    expect([...document.getElementById(listId)!.querySelectorAll('option')].map((o) => o.getAttribute('value'))).toContain('Engineering');
-    expect((within(short).getByLabelText(/^Unit type of /) as HTMLElement).tagName).toBe('SELECT');
-    await user.click(within(short).getByRole('checkbox', { name: /^Select / }));
-    await user.selectOptions(within(review).getByLabelText('Field to set'), 'degreeLevel');
-    await user.selectOptions(within(review).getByLabelText('Value for Degree level'), 'diploma');
-    await user.click(within(review).getByRole('button', { name: 'Set on 1 selected' }));
+    const acc = rows.find((r) => r.textContent?.includes('Updates ACC'))!;
+    expect(acc).toBeTruthy();
+    expect(acc.textContent).toMatch(/Updates ACC: Name \(English\), Credits\./);
+    expect(rows.filter((r) => r.textContent?.includes('New program'))).toHaveLength(2);
+    // The details: which program it is (changeable), and each field now and in the document, with a tick.
+    await user.click(within(acc).getByRole('button', { name: /^Show the details of / }));
+    const details = await within(review).findByRole('region', { name: /^Details of Bachelor of Business Administration/ });
+    expect((within(details).getByLabelText(/^Program for /) as HTMLSelectElement).value).toBe(ids.acc);
+    const fields = within(details).getByRole('table', { name: /^Fields of / });
+    expect(within(fields).getByText('Accounting')).toBeTruthy(); // now
+    await user.click(within(details).getByRole('checkbox', { name: /^Apply Name \(English\) of / })); // keep the existing name
+    await waitFor(() => expect(acc.textContent).toMatch(/Updates ACC: Credits\./));
+    // A new program without a level: set it on the row (a fixed list), as before.
+    const short = rows.find((r) => within(r).queryByDisplayValue('Short Course'))!;
+    expect(short.textContent).toMatch(/No program level was found/);
+    await user.selectOptions(within(short).getByLabelText(/^Degree level of /), 'diploma');
     await waitFor(() => expect(within(short).getByText('Edited')).toBeTruthy());
-    expect((within(short).getByLabelText(/^Degree level of /) as HTMLSelectElement).value).toBe('diploma');
-    await user.click(within(review).getByRole('button', { name: /^Accept all without a flag/ }));
-    await user.click(await within(review).findByRole('button', { name: /^Apply \d+$/ }));
+    await user.click(within(review).getByRole('checkbox', { name: 'Select all' }));
+    await user.click(within(review).getByRole('button', { name: 'Accept selected' }));
+    await user.click(await within(review).findByRole('button', { name: /^Apply 3$/ }));
     const confirmation = await screen.findByRole('dialog');
-    expect(confirmation.textContent).toMatch(/You can undo it afterwards/);
     await user.click(within(confirmation).getByRole('button', { name: /^Apply \d+$/ }));
     const result = await within(review).findByTestId('apply-result');
     expect(result.textContent).toMatch(/Applied 3 programs/);
-    const programs = (await db.su.query(`select p.name_en, p.degree_level, u.name_en unit, p.created_by from program p join org_unit u on u.id = p.org_unit_id order by p.name_en`)).rows;
-    expect(programs.map((p) => [p.name_en, p.degree_level, p.unit])).toEqual([['BSc Nursing', 'bachelor', 'College of Health'], ['MEng Mechanical', 'master', 'Engineering'], ['Short Course', 'diploma', 'Engineering']]);
-    expect(programs.every((p) => p.created_by === ids.lead)).toBe(true);
+    const programs = (await db.su.query(`select p.name_en, p.degree_level, p.credits, u.name_en unit from program p join org_unit u on u.id = p.org_unit_id order by p.name_en`)).rows;
+    expect(programs.map((p) => [p.name_en, p.degree_level, p.credits, p.unit])).toEqual([
+      ['Accounting', 'bachelor', 132, 'Engineering'], ['BSc Nursing', 'bachelor', null, 'College of Health'], ['Short Course', 'diploma', null, 'Engineering']]);
 
     await user.click(within(result).getByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(screen.getByTestId('apply-result').textContent).toMatch(/^Undone: Applied/));
-    expect((await db.su.query(`select count(*)::int n from program where active`)).rows[0].n).toBe(0);
+    expect((await db.su.query(`select name_en, credits from program where active`)).rows).toEqual([{ name_en: 'Accounting', credits: null }]);
     expect((await db.su.query(`select active from org_unit where name_en = 'College of Health'`)).rows[0].active).toBe(false);
   }, 120000);
 
