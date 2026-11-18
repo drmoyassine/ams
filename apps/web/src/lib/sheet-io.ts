@@ -179,22 +179,87 @@ export async function readCsvRows(file: File): Promise<{ headers: string[]; rows
   return { headers: headers.map((h) => h.trim()), rows };
 }
 
-/** A workbook of named sheets, each with its headers (bold, frozen) and rows keyed by header. */
-export async function sheetsToXlsx(sheets: { name: string; headers: readonly string[]; rows: Record<string, unknown>[] }[]): Promise<Blob> {
-  const { default: ExcelJS } = await import('exceljs');
-  const book = new ExcelJS.Workbook();
-  for (const s of sheets) {
-    const ws = book.addWorksheet(s.name, { views: [{ state: 'frozen', ySplit: 1 }] });
-    ws.columns = s.headers.map((h) => ({ header: h, key: h, width: Math.min(60, Math.max(14, h.length + 4)) }));
-    ws.getRow(1).font = { bold: true };
-    for (const r of s.rows) ws.addRow(r);
-  }
-  return new Blob([await book.xlsx.writeBuffer()], { type: XLSX_MIME });
-}
-
 /** One sheet as a .csv (UTF-8 with a byte-order mark, so spreadsheet programs read Arabic correctly). */
 export async function rowsToCsv(headers: readonly string[], rows: Record<string, unknown>[]): Promise<Blob> {
   const { default: Papa } = await import('papaparse');
   const text = Papa.unparse({ fields: [...headers], data: rows.map((r) => headers.map((h) => (r[h] === null || r[h] === undefined ? '' : String(r[h])))) });
   return new Blob(['\uFEFF', text], { type: 'text/csv;charset=utf-8' });
+}
+
+/** A column of a rich sheet: its header, how wide, how it looks, and what Excel checks as it is typed. */
+export interface RichColumn {
+  header: string;
+  width?: number;
+  /** Marked with * and a tinted header. */ required?: boolean;
+  /** A grey column the person should leave as it is (an ID, a lookup). */ grey?: boolean;
+  /** Long text: wrapped. */ wrap?: boolean;
+  /** Right-to-left text (Arabic). */ rtl?: boolean;
+  /** A dropdown from a range ("Lists!$A$2:$A$9"), or whole/decimal numbers between bounds. */
+  check?: { list: string } | { whole: [number, number] } | { decimal: [number, number] };
+  /** A formula for the given row number (a lookup shown beside the data). */
+  formula?: (row: number) => string;
+}
+export interface RichSheet {
+  name: string;
+  state?: 'visible' | 'hidden';
+  /** Text lines (a README): `#` starts a heading. */
+  lines?: string[];
+  columns?: RichColumn[];
+  rows?: Record<string, unknown>[];
+  /** Rows prepared (checks and formulas) below the data, for new entries. */
+  spare?: number;
+}
+
+/**
+ * A workbook of rich sheets (templates people fill in): headers frozen with the first column, required headers marked, dropdowns and
+ * number checks on every row up to the spare ones, lookup formulas, wrapped and right-to-left text where asked, and README sheets of text.
+ */
+export async function richWorkbookXlsx(sheets: RichSheet[]): Promise<Blob> {
+  const { default: ExcelJS } = await import('exceljs');
+  const book = new ExcelJS.Workbook();
+  for (const s of sheets) {
+    const ws = book.addWorksheet(s.name, { state: s.state ?? 'visible', views: [{ state: 'frozen', ySplit: s.lines ? 0 : 1, xSplit: s.lines ? 0 : 1 }] });
+    if (s.lines) {
+      ws.columns = [{ width: 120 }];
+      for (const line of s.lines) {
+        const r = ws.addRow([line.replace(/^#+\s*/, '')]);
+        r.getCell(1).alignment = { wrapText: true, vertical: 'top' };
+        if (line.startsWith('#')) r.getCell(1).font = { bold: true, size: line.startsWith('##') ? 12 : 14 };
+      }
+      continue;
+    }
+    const cols = s.columns ?? [];
+    ws.columns = cols.map((c) => ({ header: c.required ? `${c.header} *` : c.header, key: c.header, width: c.width ?? Math.min(48, Math.max(12, c.header.length + 4)) }));
+    const head = ws.getRow(1);
+    head.font = { bold: true };
+    cols.forEach((c, i) => {
+      const cell = head.getCell(i + 1);
+      const fill = c.grey ? 'FFE5E7EB' : c.required ? 'FFFDE68A' : 'FFF3F4F6';
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+      cell.alignment = { vertical: 'middle', wrapText: true };
+      if (c.grey) cell.note = 'Filled in by the system: leave it as it is (empty for a new row).';
+    });
+    const rows = s.rows ?? [];
+    for (const r of rows) ws.addRow(Object.fromEntries(cols.map((c) => [c.header, r[c.header] ?? null])));
+    const last = rows.length + 1 + (s.spare ?? 0);
+    cols.forEach((c, i) => {
+      const letter = ws.getColumn(i + 1).letter;
+      const range = `${letter}2:${letter}${last}`;
+      if (c.check) {
+        const v = 'list' in c.check
+          ? { type: 'list', allowBlank: true, formulae: [c.check.list], showErrorMessage: true, errorStyle: 'stop', errorTitle: c.header, error: `Pick ${c.header} from the list.` }
+          : 'whole' in c.check
+            ? { type: 'whole', operator: 'between', allowBlank: true, formulae: c.check.whole, showErrorMessage: true, errorTitle: c.header, error: `A whole number from ${c.check.whole[0]} to ${c.check.whole[1]}.` }
+            : { type: 'decimal', operator: 'between', allowBlank: true, formulae: c.check.decimal, showErrorMessage: true, errorTitle: c.header, error: `A number from ${c.check.decimal[0]} to ${c.check.decimal[1]}.` };
+        (ws as unknown as { dataValidations: { add: (a: string, v: unknown) => void } }).dataValidations.add(range, v);
+      }
+      for (let n = 2; n <= last; n += 1) {
+        const cell = ws.getCell(n, i + 1);
+        if (c.formula) cell.value = { formula: c.formula(n), result: (cell.value as string | null) ?? '' } as never;
+        if (c.wrap || c.rtl) cell.alignment = { wrapText: !!c.wrap, vertical: 'top', ...(c.rtl ? { horizontal: 'right', readingOrder: 'rtl' } : {}) };
+        if (c.grey) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      }
+    });
+  }
+  return new Blob([await book.xlsx.writeBuffer()], { type: XLSX_MIME });
 }

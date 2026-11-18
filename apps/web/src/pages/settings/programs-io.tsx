@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { PROGRAM_SHEETS, sheetOfHeaders, type ProgramSheetKey, type ProgramsWorkbook, type UpsertProgramsResult } from '@ams/shared';
+import { PROGRAM_SHEETS, sheetOfHeaders, type ProgramSheetKey, type ProgramsExport, type ProgramsWorkbook, type UpsertProgramsResult } from '@ams/shared';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { useProgramsApi, type ProgramsApi } from '../../lib/programs-api';
-import { download, readCsvRows, readSheets, rowsToCsv, sheetsToXlsx } from '../../lib/sheet-io';
+import { download, readCsvRows, readSheets, richWorkbookXlsx, rowsToCsv } from '../../lib/sheet-io';
+import { programsWorkbookSheets } from '../../lib/programs-template';
 import { useAction } from '../../lib/use-action';
 
 const KEYS = Object.keys(PROGRAM_SHEETS) as ProgramSheetKey[];
 const empty = (): ProgramsWorkbook => ({ programs: [], peos: [], plos: [] });
+/** A row with its headers as the template names them (without the * that marks a required column). */
+const clean = (r: Record<string, string>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.replace(/\s*\*\s*$/, ''), v]));
 
 /** Reads an .xlsx (sheets Programs, PEOs, PLOs) or one or more .csv files (each sheet's file, told apart by its headers). */
 export async function readProgramFiles(files: File[]): Promise<{ workbook: ProgramsWorkbook; ignored: string[] }> {
@@ -18,18 +21,19 @@ export async function readProgramFiles(files: File[]): Promise<{ workbook: Progr
       const { headers, rows } = await readCsvRows(f);
       const k = sheetOfHeaders(headers);
       if (!k) { ignored.push(f.name); continue; }
-      wb[k].push(...rows);
+      wb[k].push(...rows.map(clean));
     } else {
       const sheets = await readSheets(f, KEYS.map((k) => PROGRAM_SHEETS[k].name));
-      for (const k of KEYS) wb[k].push(...(sheets[PROGRAM_SHEETS[k].name] ?? []));
+      for (const k of KEYS) wb[k].push(...(sheets[PROGRAM_SHEETS[k].name] ?? []).map(clean));
     }
   }
   return { workbook: wb, ignored };
 }
 
-async function save(wb: ProgramsWorkbook, format: 'xlsx' | 'csv', base: string) {
-  if (format === 'xlsx') { download(await sheetsToXlsx(KEYS.map((k) => ({ name: PROGRAM_SHEETS[k].name, headers: PROGRAM_SHEETS[k].headers, rows: wb[k] }))), `${base}.xlsx`); return; }
-  for (const k of KEYS) download(await rowsToCsv(PROGRAM_SHEETS[k].headers, wb[k]), `${base} - ${PROGRAM_SHEETS[k].name}.csv`);
+/** The workbook (README, the three sheets with their dropdowns and checks, the hidden lists) or the three CSV files. */
+async function save(data: ProgramsExport, format: 'xlsx' | 'csv', base: string) {
+  if (format === 'xlsx') { download(await richWorkbookXlsx(programsWorkbookSheets(data)), `${base}.xlsx`); return; }
+  for (const k of KEYS) download(await rowsToCsv(PROGRAM_SHEETS[k].headers, data[k]), `${base} - ${PROGRAM_SHEETS[k].name}.csv`);
 }
 
 const ACTION = { add: 'Add', update: 'Update', unchanged: 'No change', skip: 'Skipped' } as const;
@@ -62,7 +66,7 @@ export function ProgramsImportExport({ canWrite, api: override, onDone }: { canW
               <option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV (one file per sheet)</option>
             </select>
           </label>
-          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(() => save(empty(), format, 'Programs template')); }}>Download the template</Button>
+          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => { const all = await api.exportAll(); return save({ ...empty(), lists: all.lists }, format, 'Programs template'); }); }}>Download the template</Button>
           <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => save(await api.exportAll(), format, 'Programs')); }}>Export all programs</Button>
         </div>
         {canWrite && (

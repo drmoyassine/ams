@@ -1,6 +1,6 @@
 import { hc } from 'hono/client';
 import type { ProgramRoutes } from '@ams/api';
-import type { Program, ProgramsWorkbook, UpsertProgramsResult } from '@ams/shared';
+import type { Program, ProgramsExport, ProgramsWorkbook, UpsertProgramsResult } from '@ams/shared';
 import { noteResponse } from './undo';
 import { unwrap } from './framework-api';
 
@@ -14,7 +14,7 @@ export function programsApi(fetcher: typeof fetch = fetch) {
   const a = hc<ProgramRoutes>('/', { fetch: wrapped }).api.programs;
   return {
     get: (id: string) => a[':id'].$get({ param: { id } }).then((r) => unwrap<Program>(r)),
-    exportAll: () => a.export.$get().then((r) => unwrap<ProgramsWorkbook>(r)),
+    exportAll: () => a.export.$get().then((r) => unwrap<ProgramsExport>(r)),
     upsert: (workbook: ProgramsWorkbook, apply: boolean) => a.upsert.$post({ json: { workbook, apply } }).then((r) => unwrap<UpsertProgramsResult>(r)),
   };
 }

@@ -20,6 +20,9 @@ import { ProgramPage } from './pages/settings/program-page';
 import { ApiKeysPage } from './pages/settings/api-keys';
 import { apiKeysApi } from './lib/api-keys-api';
 import { programsApi } from './lib/programs-api';
+import { richWorkbookXlsx } from './lib/sheet-io';
+import { programsWorkbookSheets } from './lib/programs-template';
+import { readProgramFiles } from './pages/settings/programs-io';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -264,6 +267,20 @@ describe('programs import and export', () => {
     await within(panel).findByRole('region', { name: 'Import result' });
     const row = (await screen.findByText('BS Chemical Engineering')).closest('[data-testid="program"]') as HTMLElement;
     expect(within(row).getByText(/^Missing:/)).toBeTruthy();
+  });
+});
+
+describe('the programs workbook, round trip', () => {
+  it('exports everything with IDs as a workbook that, read back and previewed, changes nothing', async () => {
+    const api = programsApi(fetchFor('admin'));
+    const all = await api.exportAll();
+    expect(all.programs.length).toBeGreaterThan(0);
+    expect(all.programs.every((r) => /^[0-9a-f-]{36}$/.test(String(r.ID)))).toBe(true);
+    const blob = await richWorkbookXlsx(programsWorkbookSheets(all));
+    const { workbook } = await readProgramFiles([new File([await blob.arrayBuffer()], 'Programs.xlsx')]);
+    expect(workbook.programs).toHaveLength(all.programs.length);
+    const preview = await api.upsert(workbook, false);
+    expect(preview.rows.filter((r) => r.action !== 'unchanged').map((r) => `${r.sheet} ${r.code}: ${r.action} ${r.message}`)).toEqual([]);
   });
 });
 

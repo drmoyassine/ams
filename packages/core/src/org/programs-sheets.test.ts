@@ -46,7 +46,7 @@ describe('programs from the template', () => {
     wb.programs = [{ 'Program code': 'BS-CE', Credits: 130, Mission: '' } as never];
     wb.peos = []; wb.plos = [{ 'Program code': 'BS-CE', Code: 'plo1', 'Statement (English)': 'Solve complex problems', 'Bloom level': 'Apply' }];
     const r = await w.as('alo', (c) => upsertPrograms(c, { workbook: wb, apply: true }));
-    expect(r.rows.map((x) => [x.code, x.action, x.message])).toEqual([['BS-CE', 'update', 'Changes: credits.'], ['BS-CE plo1', 'update', '']]);
+    expect(r.rows.map((x) => [x.code, x.action, x.message])).toEqual([['BS-CE', 'update', 'Changes: credits.'], ['BS-CE plo1', 'update', 'Changes: textEn.']]);
     const ce = (await w.as('alo', (c) => listPrograms(c))).find((p) => p.code === 'BS-CE')!;
     expect(ce).toMatchObject({ credits: 130, mission: 'To educate civil engineers.' });
     expect((await w.as('alo', (c) => upsertPrograms(c, { workbook: wb, apply: true }))).rows.map((x) => x.action)).toEqual(['unchanged', 'unchanged']);
@@ -54,11 +54,40 @@ describe('programs from the template', () => {
     await expect(w.as('contrib', (c) => upsertPrograms(c, { workbook: wb, apply: false }))).rejects.toThrow();
   });
 
-  it('exports every program it sees with its PEOs and PLOs, as rows that import back unchanged', async () => {
+  it('exports every program it sees with IDs, unit paths and the dropdowns\' lists, as rows that import back unchanged', async () => {
     const wb = await w.as('alo', (c) => exportPrograms(c));
-    expect(wb.programs.find((r) => r['Program code'] === 'BS-CE')).toMatchObject({ Unit: 'Engineering', 'Program level': 'Bachelor', Mode: 'On-campus', Credits: 130, 'Contact hours': 2200, Active: 'Yes' });
-    expect(wb.plos).toContainEqual({ 'Program code': 'BS-CE', Code: 'PLO1', 'Statement (English)': 'Solve complex problems', 'Statement (Arabic)': '', 'Bloom level': 'apply' });
-    const back = await w.as('alo', (c) => upsertPrograms(c, { workbook: { programs: wb.programs.filter((r) => r['Program code']), peos: wb.peos, plos: wb.plos }, apply: false }));
+    const ce = wb.programs.find((r) => r['Program code'] === 'BS-CE')!;
+    expect(ce).toMatchObject({ Unit: 'Engineering', 'Program level': 'Bachelor', Mode: 'On-campus', Credits: 130, 'Contact hours': 2200, Active: 'Yes' });
+    expect(String(ce.ID)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(wb.plos.find((r) => r.Code === 'PLO1' && r['Program code'] === 'BS-CE')).toMatchObject({ 'Program name': 'BS Civil Engineering', 'Statement (English)': 'Solve complex problems', 'Bloom level': 'Apply', Status: 'Draft' });
+    expect(wb.lists.units).toContain('Engineering');
+    expect(wb.lists.languages[0]).toBe('English');
+    const back = await w.as('alo', (c) => upsertPrograms(c, { workbook: { programs: wb.programs, peos: wb.peos, plos: wb.plos }, apply: false }));
     expect(back.rows.filter((r) => r.action !== 'unchanged')).toEqual([]);
+  });
+
+  it('updates by ID even when the code changes, retires an outcome by its Status, finds a unit by its org-chart path, and refuses a code already taken', async () => {
+    const wb = await w.as('alo', (c) => exportPrograms(c));
+    const ce = wb.programs.find((r) => r['Program code'] === 'BS-CE')!;
+    const plo = wb.plos.find((r) => r['Program code'] === 'BS-CE' && r.Code === 'PLO1')!;
+    const dept = (await w.db.su.query(`insert into org_unit (institution_id, parent_id, type, name_en) select institution_id, id, 'department', 'Civil' from org_unit where name_en = 'Engineering' returning id`)).rows[0].id as string;
+    const r = await w.as('alo', (c) => upsertPrograms(c, { apply: true, workbook: {
+      programs: [{ ...ce, 'Program code': 'BSCE', Unit: 'Engineering › Civil' }],
+      peos: [],
+      plos: [{ ...plo, 'Program code': 'BSCE', Code: 'PLO-A', Status: 'Retired' }],
+    } }));
+    expect(r.rows.map((x) => [x.sheet, x.action, x.message.replace(/ Missing:.*$/, '')])).toEqual([
+      ['Programs', 'update', 'Changes: orgUnitId, code (code was BS-CE).'],
+      ['PLOs', 'update', 'Changes: code, status (code was PLO1).'],
+    ]);
+    const now = (await w.as('alo', (c) => listPrograms(c))).find((p) => p.id === ce.ID)!;
+    expect(now).toMatchObject({ code: 'BSCE', orgUnitId: dept });
+    expect((await w.db.su.query(`select code, status from learning_outcome where id = $1`, [plo.ID])).rows[0]).toEqual({ code: 'PLO-A', status: 'retired' });
+    // A code another program holds is refused (the row is skipped, nothing changes); an unknown ID is refused.
+    const clash = await w.as('alo', (c) => upsertPrograms(c, { apply: true, workbook: { programs: [{ ID: ce.ID as string, 'Program code': 'MS-CE' }, { ID: '00000000-0000-4000-8000-000000000000', 'Program code': 'ZZ' }], peos: [], plos: [] } }));
+    expect(clash.rows.map((x) => [x.action, x.message])).toEqual([
+      ['skip', 'the Program code MS-CE belongs to another program (MS Civil Engineering)'],
+      ['skip', 'no program with the ID 00000000-0000-4000-8000-000000000000 (leave the ID empty to add a program)'],
+    ]);
   });
 });
