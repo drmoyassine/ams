@@ -16,10 +16,8 @@ export interface SyllabusImportResult {
   versionNo?: number; errors?: number; warnings?: number; message?: string;
 }
 
-export async function importSyllabi(ctx: Ctx, input: SyllabusWorkbook, source = 'excel import'): Promise<{ results: SyllabusImportResult[]; loaded: number; flagged: number }> {
-  assertHuman(ctx);
-  await assertPermitted(ctx, 'org:read', { type: 'any' });
-  const wb = SyllabusWorkbookSchema.parse(input);
+/** How a workbook's codes find the institution's courses, CLOs and PLOs (shared by the syllabus and the courses workbooks). */
+export async function sheetResolver(ctx: Ctx) {
   const courses = await ctx.tx.select().from(course);
   const byCode = new Map(courses.map((c) => [c.code.toUpperCase().replace(/\s+/g, ' '), c]));
   const progs = await ctx.tx.select().from(courseProgram);
@@ -38,6 +36,14 @@ export async function importSyllabi(ctx: Ctx, input: SyllabusWorkbook, source = 
       return mine.find((p) => want.includes((p.programId ?? '').toUpperCase())) ?.id ?? mine[0]!.id;
     },
   };
+  return { resolver, byCode, courses };
+}
+
+export async function importSyllabi(ctx: Ctx, input: SyllabusWorkbook, source = 'excel import'): Promise<{ results: SyllabusImportResult[]; loaded: number; flagged: number }> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'org:read', { type: 'any' });
+  const wb = SyllabusWorkbookSchema.parse(input);
+  const { resolver, byCode } = await sheetResolver(ctx);
   const docs = workbookToSyllabi(wb, resolver);
   const results: SyllabusImportResult[] = [];
   for (const [codeKey, content] of docs) {

@@ -137,13 +137,13 @@ export interface SyllabusTemplate { sections: SyllabusSectionDef[]; optional: st
 
 /** The fields a template may mark optional. Everything else the checker asks for is locked: the CLOs, their PLO and coverage, the weights and the rubrics. */
 export const OPTIONAL_FIELDS = [
-  'info.titleAr', 'info.languageOfDelivery', 'info.courseType', 'info.courseLevel', 'info.category', 'info.sustainability', 'info.contact',
+  'info.languageOfDelivery', 'info.courseType', 'info.courseLevel', 'info.category', 'info.sustainability', 'info.contact',
   'description.en', 'methodology', 'materials.textbook',
 ] as const;
 
 /** The fields an admin may make optional, in words. */
 export const OPTIONAL_FIELD_LABEL: Record<(typeof OPTIONAL_FIELDS)[number], string> = {
-  'info.titleAr': 'Arabic course title', 'info.languageOfDelivery': 'Language of delivery', 'info.courseType': 'Course type', 'info.courseLevel': 'Course level', 'info.category': 'Course category',
+  'info.languageOfDelivery': 'Language of delivery', 'info.courseType': 'Course type', 'info.courseLevel': 'Course level', 'info.category': 'Course category',
   'info.sustainability': 'Sustainability indicator', 'info.contact': 'Contact hours', 'description.en': 'Course description', methodology: 'Teaching methodology', 'materials.textbook': 'A required textbook',
 };
 /** The built-in sections the rules depend on: they stay, in any order and under any name. The others are fixed too, but their fields may be optional. */
@@ -166,7 +166,7 @@ export const SyllabusTemplateSchema: z.ZodType<SyllabusTemplate, SyllabusTemplat
 }) as unknown as z.ZodType<SyllabusTemplate, SyllabusTemplate>;
 
 export const DEFAULT_SYLLABUS_TEMPLATE: SyllabusTemplate = {
-  optional: ['info.titleAr'],
+  optional: [],
   sections: [
     { key: 'info', title: 'Basic course information', locked: true, help: 'Course code and title (the English name is mandatory, also for Arabic-taught courses, because accreditors need it), language of delivery, credit and contact hours (lecture, lab, other), prerequisites and co-requisites, type, level, category and the sustainability indicator.' },
     { key: 'description', title: 'Course description', locked: false, help: 'Start with the course role (introductory, intermediate, advanced), state its purpose and scope and the major topics, the target audience, the key skills students gain, and how it connects theory to practice. Keep it concise and objective.' },
@@ -223,7 +223,7 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
 
   // -- Basic information
   need('info.titleEn', blank(i.titleEn), 'info.title', 'info', 'The English course title is required (also for Arabic-taught courses).');
-  need('info.titleAr', blank(i.titleAr), 'info.titleAr', 'info', 'The Arabic course title is missing.');
+  // Courses have no Arabic title (the owner, 2026-11-18): the field stays in stored documents but is neither asked for nor shown.
   if (i.credits === null || i.credits <= 0) add('error', 'info.credits', 'info', 'Credit hours are required.');
   need('info.languageOfDelivery', blank(i.languageOfDelivery), 'info.language', 'info', 'The language of delivery is required.');
   need('info.contact', i.contactLecture === null && i.contactLab === null && i.contactOther === null, 'info.contact', 'info', 'Contact hours (lecture, lab, other) are required.');

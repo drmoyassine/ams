@@ -19,6 +19,7 @@ import { syllabusApi } from './lib/syllabus-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
 import { ProgramQualityTab } from './pages/program-quality';
 import { ProgramPage } from './pages/settings/program-page';
+import { CoursePage } from './pages/settings/course-page';
 import { useMe } from './lib/me';
 import type { SettingsApi } from './lib/settings-api';
 
@@ -70,7 +71,7 @@ beforeAll(async () => {
   ids.inst = await one(`insert into institution (name_en) values ('Gulf University') returning id`);
   for (const n of ['admin', 'viewer']) ids[n] = await one(`insert into app_user (institution_id, full_name, email) values ($1, $2, $2) returning id`, [ids.inst, n]);
   await db.su.query(`insert into role_assignment (institution_id, user_id, role, scope_type, scope_id) values ($1, $2, 'admin', 'institution', $1), ($1, $3, 'viewer', 'institution', $1)`, [ids.inst, ids.admin, ids.viewer]);
-  const unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
+  const unit = ids.unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
   ids.prog = await one(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'BS Electrical and Computer Engineering', 'bachelor') returning id`, [ids.inst, unit]);
   // A complete record (the program's page refuses to save without one) with one PEO already.
   await db.su.query(`update program set name_ar = 'بكالوريوس الهندسة الكهربائية', code = 'BS-ECE', mode = 'on_campus', credits = 130, duration_years = 4, contact_hours = 2000, language_of_instruction = 'English', mission = 'To educate engineers.' where id = $1`, [ids.prog]);
@@ -80,26 +81,27 @@ afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
 
 describe('courses, outcomes and the curriculum map', () => {
-  it('adds a course with a CLO and puts it in a program', async () => {
+  it('adds a course on its own page with the program it serves, and lists it with its CLO', async () => {
     const user = userEvent.setup();
+    const f = fetchAs('admin');
+    let saved = '';
+    const router = createRouter({ routeTree: createRootRoute({ component: () => <CoursePage courseId="new" api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} onSaved={(id) => { saved = id; }} onCancel={() => undefined} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
+    await screen.findByRole('button', { name: 'Add course' });
+    await user.type(screen.getByLabelText('Course code'), 'ECE 420');
+    await user.type(screen.getByLabelText('Course title'), 'Digital Signal Processing');
+    await user.selectOptions(screen.getByLabelText('Owning unit'), ids.unit!);
+    await user.type(screen.getByLabelText('Credit hours'), '3');
+    await waitFor(() => expect(screen.getByRole('option', { name: /BS Electrical and Computer Engineering/ })).toBeTruthy());
+    await user.selectOptions(screen.getByLabelText('Program'), ids.prog!);
+    await user.click(screen.getByRole('button', { name: 'Add course' }));
+    await waitFor(() => expect(saved).not.toBe(''));
+    // Its CLO (a course without approved content takes CLOs directly; afterwards they go through its draft).
+    await outcomesApi(f).createOutcome({ kind: 'clo', courseId: saved, code: 'CLO1', textEn: 'Analyse discrete-time signals', bloomLevel: 'analyze' });
+    cleanup();
     page('admin', 'courses');
-    await user.click(await screen.findByRole('button', { name: 'Add course' }));
-    const form = await screen.findByRole('form', { name: 'Add course' });
-    await user.type(within(form).getByLabelText('Course code'), 'ECE 420');
-    await user.type(within(form).getByLabelText('Course title'), 'Digital Signal Processing');
-    await user.type(within(form).getByLabelText('Credits'), '3');
-    await user.click(within(form).getByRole('button', { name: 'Add course' }));
-    await user.click(await screen.findByRole('button', { name: /ECE 420 Digital Signal Processing/ }));
-    await user.selectOptions(await screen.findByLabelText('Program'), 'BS Electrical and Computer Engineering');
-    await user.click(within(screen.getByRole('form', { name: 'Add to a program' })).getByRole('button', { name: 'Add' }));
-    await screen.findByText(/3 credits · 0 CLOs · BS Electrical and Computer Engineering/);
-    await user.click(screen.getByRole('button', { name: 'Add CLO' }));
-    await user.type(await screen.findByLabelText('CLO code'), 'CLO1');
-    await user.type(screen.getByLabelText('CLO statement'), 'Analyse discrete-time signals');
-    await user.selectOptions(screen.getByLabelText('CLO Bloom level'), 'analyze');
-    await user.click(screen.getByRole('button', { name: 'Add CLO' }));
-    await screen.findByText('Analyse discrete-time signals');
-  });
+    await screen.findByText(/Engineering · 3 credit hours · 1 CLO · BS-ECE/);
+  }, 30000);
 
   // A program's PEOs and PLOs are added and edited on its own page (there is no Outcomes page and no dialog).
   const openOutcomesDialog = async (...args: unknown[]) => { void args;

@@ -142,7 +142,7 @@ describe('the syllabus template', () => {
     expect(SyllabusTemplateSchema.safeParse(t).success).toBe(true);
     expect(SyllabusTemplateSchema.safeParse({ ...t, sections: [...t.sections].reverse() }).success).toBe(true);
     expect(SyllabusTemplateSchema.safeParse({ ...t, sections: [...t.sections, { key: 'custom:policy-links', title: 'Policy links', help: '', locked: false }] }).success).toBe(true);
-    expect(SyllabusTemplateSchema.safeParse({ ...t, optional: ['methodology', 'info.titleAr'] }).success).toBe(true);
+    expect(SyllabusTemplateSchema.safeParse({ ...t, optional: ['methodology', 'info.languageOfDelivery'] }).success).toBe(true);
   });
   it('refuses to remove a section the rules depend on, to make a locked field optional, or to hide a built-in lock', () => {
     const r = SyllabusTemplateSchema.safeParse({ ...t, sections: t.sections.filter((x) => x.key !== 'clos') });

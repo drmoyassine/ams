@@ -5,8 +5,8 @@ import { DEFAULT_SYLLABUS_SETTINGS, DEFAULT_SYLLABUS_TEMPLATE, emptySyllabus, em
 import { importSyllabi } from './import.js';
 import { ConflictError, ForbiddenError, ValidationError } from '../ctx.js';
 import { buildWorld, type World } from '../engagement/test-support.js';
-import { createCourse, setCourseProgram } from '../outcomes/courses.js';
-import { createOutcome } from '../outcomes/outcomes.js';
+import { createCourse, deleteCourse, getCourse, setCourseProgram, updateCourse } from '../outcomes/courses.js';
+import { createOutcome, updateOutcome } from '../outcomes/outcomes.js';
 import {
   approveSyllabus, setCourseStaff, setSyllabusTemplate, getSyllabusTemplate, discardDraft, endorseSyllabus, escalateFlags, getSyllabusOverview, getSyllabusSettings, levelReached, listSyllabi, resolveSuggestion, returnSyllabus,
   proposeMapping, saveSyllabusDraft, setSyllabusSettings, submitSyllabi, submitSyllabus, suggestChange, upsertSyllabus,
@@ -70,8 +70,8 @@ describe('the template', () => {
     const t = DEFAULT_SYLLABUS_TEMPLATE;
     await expect(w.as('second', (c) => setSyllabusTemplate(c, t))).rejects.toThrow(ForbiddenError);
     await expect(w.as('alo', (c) => setSyllabusTemplate(c, { ...t, sections: t.sections.filter((x) => x.key !== 'rubrics') }))).rejects.toThrow(ValidationError);
-    expect((await w.as('second', (c) => getSyllabusTemplate(c))).optional).toEqual(['info.titleAr']);
-    const added = await w.as('alo', (c) => setSyllabusTemplate(c, { optional: ['methodology', 'info.titleAr'], sections: [...t.sections, { key: 'custom:policies-1a2b', title: 'Policy links', help: 'Links to the policies', locked: false }] }));
+    expect((await w.as('second', (c) => getSyllabusTemplate(c))).optional).toEqual([]);
+    const added = await w.as('alo', (c) => setSyllabusTemplate(c, { optional: ['methodology', 'info.languageOfDelivery'], sections: [...t.sections, { key: 'custom:policies-1a2b', title: 'Policy links', help: 'Links to the policies', locked: false }] }));
     expect(added.sections.at(-1)?.title).toBe('Policy links');
     const ov = await w.as('second', (c) => getSyllabusOverview(c, ids.course!));
     expect(ov.template.sections.at(-1)?.key).toBe('custom:policies-1a2b');
@@ -231,6 +231,25 @@ describe('a mapping change from the curriculum map or a program dialog (DEC-039)
     expect(r.refused[0]).toMatchObject({ versionId: bad.id, courseCode: 'MCE 410' });
     expect(r.refused[0]!.reason).toMatch(/errors? to fix/);
     await w.as('second', (c) => discardDraft(c, ids.course!));
+  });
+});
+
+describe('the course is the master record (the owner, 2026-11-18)', () => {
+  it('changes an approved course\'s content only through its draft, its record (code, unit, SIS code, year, active) at once, and lists what the record lacks', async () => {
+    const c0 = await w.as('coord', (c) => getCourse(c, ids.course!));
+    expect(c0).toMatchObject({ approved: true, missing: [] });
+    await expect(w.as('alo', (c) => updateCourse(c, ids.course!, { titleEn: 'Heat Transfer II' }))).rejects.toThrow(/changes through its draft/);
+    await expect(w.as('alo', (c) => updateCourse(c, ids.course!, { credits: 5 }))).rejects.toThrow(/credits of a course with approved content/);
+    const clo = (await w.db.su.query(`select id from learning_outcome where course_id = $1 and kind = 'clo' and status = 'approved' limit 1`, [ids.course])).rows[0].id as string;
+    await expect(w.as('alo', (c) => updateOutcome(c, clo, { textEn: 'x' }))).rejects.toThrow(/The CLOs of a course with approved content/);
+    await expect(w.as('alo', (c) => createOutcome(c, { kind: 'clo', courseId: ids.course!, code: 'CLO9', textEn: 'x' }))).rejects.toThrow(/changes through its draft/);
+    // The same title again is not a change; the record's own fields apply at once.
+    expect((await w.as('alo', (c) => updateCourse(c, ids.course!, { titleEn: c0.titleEn, externalId: 'MCE410-SIS', level: 4 })))).toMatchObject({ externalId: 'MCE410-SIS', level: 4 });
+    // A new course seeds its content directly, and is flagged for what its record lacks.
+    const fresh = await w.as('alo', (c) => createCourse(c, { code: 'MCE 499', titleEn: 'Special Topics' }));
+    expect(fresh).toMatchObject({ approved: false, missing: ['Unit', 'Credit hours', 'Program placement'] });
+    expect(await w.as('alo', (c) => updateCourse(c, fresh.id, { credits: 3 }))).toMatchObject({ credits: 3, missing: ['Unit', 'Program placement'] });
+    expect(await w.as('alo', (c) => deleteCourse(c, fresh.id))).toMatchObject({ active: false });
   });
 });
 

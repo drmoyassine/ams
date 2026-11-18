@@ -649,14 +649,16 @@ function pagesFor(ids) {
     { name: 'evidence-card-open', path: '/evidence', action: expandFirst },
     { name: 'evidence-requests', path: '/evidence', action: clickTab('Requests') },
     { name: 'my-requests', path: '/requests' },
-    // The course syllabus (DEC-038): the Syllabi list with the import, the editor with its flag banner and issues, and the limits and template in Settings.
+    // The course syllabus (DEC-038): the Syllabi list, the course page with its content, the syllabus report with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
     { name: 'qm-programs', path: '/quality-management?tab=programs', action: async (page) => { await page.getByRole('region', { name: 'Assessment' }).waitFor(); } },
     { name: 'program-edit', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'settings-api-keys', path: '/settings/api-keys', action: async (page) => { await page.getByRole('form', { name: 'Issue a key' }).waitFor(); } },
-    ids.courseId && { name: 'syllabus-editor', path: `/courses/${ids.courseId}/syllabus` },
+    ids.courseId && { name: 'syllabus-report', path: `/courses/${ids.courseId}/syllabus` },
+    ids.courseId && { name: 'course-page', path: `/settings/organization/courses/${ids.courseId}`, action: async (page) => { await page.getByRole('region', { name: 'Course content' }).waitFor(); } },
+    { name: 'course-new', path: '/settings/organization/courses/new', action: async (page) => { await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
-    { name: 'settings-courses', path: '/settings/organization', action: clickTab('Courses') },
+    { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export courses' }).waitFor(); } },
     { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
       await clickTab('Curriculum map')(page);
       // The map downloads as a workbook (fails the run if the download does not start).

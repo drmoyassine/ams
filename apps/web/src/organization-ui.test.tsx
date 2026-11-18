@@ -143,14 +143,13 @@ describe('Organization: tabs, deep-linkable', () => {
     await user.click(screen.getByRole('tab', { name: 'List' }));
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'programs' })); // the default leaves the address
     cleanup();
-    // A course opened on the Courses tab is in the address, and a link opens it.
+    // A course opens on its own address (DEC-042), with a breadcrumb back to the list.
     const courseId = (await db.su.query(`insert into course (institution_id, code, title_en) values ($1, 'DEEP 101', 'Deep links') returning id`, [ids.inst])).rows[0].id as string;
     router = await openRouter('/settings/organization?tab=courses');
-    await user.click(await screen.findByRole('button', { name: 'DEEP 101 Deep links' }));
-    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'courses', course: courseId }));
+    expect((await screen.findByRole('link', { name: 'DEEP 101 Deep links' })).getAttribute('href')).toBe(`/settings/organization/courses/${courseId}`);
     cleanup();
-    router = await openRouter(`/settings/organization?tab=courses&course=${courseId}`);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'DEEP 101 Deep links' }).getAttribute('aria-expanded')).toBe('true'));
+    router = await openRouter(`/settings/organization/courses/${courseId}`);
+    expect((await screen.findByRole('navigation', { name: 'Breadcrumb' })).textContent).toMatch(/Settings.*Organization.*Courses.*DEEP 101/);
     cleanup();
     // The org chart's view, on the Institution tab.
     router = await openRouter('/settings/organization?chartView=chart');

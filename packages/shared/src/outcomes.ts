@@ -51,7 +51,13 @@ export const CourseSchema = z.object({
   active: z.boolean(),
   /** The programs it serves (ids), for lists and filters. */
   programIds: z.array(z.uuid()),
+  /** How it serves each program: core, elective or service, in which year and term. */
+  placements: z.array(z.object({ programId: z.uuid(), role: z.enum(COURSE_ROLES), year: z.number().int().nullable(), term: z.number().int().nullable() })),
   cloCount: z.number().int(),
+  /** The course has approved content: its titles, credits, description, language and CLOs then change only through a course draft. */
+  approved: z.boolean(),
+  /** What the course record still lacks (Unit, Credit hours, Program placement): flagged, not refused, on import and the API. */
+  missing: z.array(z.string()),
 });
 export type Course = z.infer<typeof CourseSchema>;
 const opt = <T extends z.ZodType>(t: T) => t.nullable().optional();

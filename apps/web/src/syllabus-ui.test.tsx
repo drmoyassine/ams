@@ -9,19 +9,21 @@ import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, MemoryStore } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
-import { emptySyllabus, emptyWorkbook, type SyllabusContent } from '@ams/shared';
+import { emptyCoursesWorkbook, emptySyllabus, type SyllabusContent } from '@ams/shared';
 import './i18n';
 import { SyllabiList } from './components/syllabus/syllabi-list';
 import { SyllabusAlertBar } from './components/syllabus/syllabus-alert-bar';
-import { SyllabusImport } from './components/syllabus/syllabus-import';
+import { CourseContent } from './components/syllabus/course-content';
 import { SyllabusLimits } from './components/syllabus/syllabus-limits';
 import { SyllabusTemplateEditor } from './components/syllabus/syllabus-template-editor';
-import { writeSyllabusWorkbook } from './lib/syllabus-sheets';
+import { coursesApi } from './lib/courses-api';
+import { coursesWorkbookSheets } from './lib/courses-template';
+import { richWorkbookXlsx } from './lib/sheet-io';
 import { createApi } from './lib/api';
 import { settingsApi } from './lib/settings-api';
 import { scopeApi } from './lib/scope-api';
 import { syllabusApi } from './lib/syllabus-api';
-import { SyllabusPage } from './pages/syllabus';
+import { CoursesImportExport } from './pages/settings/courses-io';
 
 configure({ asyncUtilTimeout: 15000 });
 let db: TestDb;
@@ -39,7 +41,7 @@ const wrap = (node: React.ReactNode) => {
   const router = createRouter({ routeTree: createRootRoute({ component: () => <>{node}</> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>;
 };
-const page = (who: string) => { const a = apisOf(who); return wrap(<SyllabusPage courseId={ids.course!} api={a.syllabus} apis={{ settings: a.settings, scope: a.scope }} />); };
+const page = (who: string) => { const a = apisOf(who); return wrap(<CourseContent courseId={ids.course!} api={a.syllabus} apis={{ settings: a.settings, scope: a.scope }} />); };
 
 /** A complete syllabus: 4 CLOs over two PLOs, two assessments adding to 100, one rubric. */
 function complete(): SyllabusContent {
@@ -82,7 +84,7 @@ describe('the editor', () => {
   it('starts a syllabus from the course, flags what is missing as you type, and clears an error as it is fixed', async () => {
     const user = userEvent.setup();
     render(page('coordinator'));
-    await user.click(await screen.findByRole('button', { name: 'Start the syllabus from the course' }));
+    await user.click(await screen.findByRole('button', { name: 'Start the course content' }));
     const banner = await screen.findByTestId('flag-banner');
     expect(banner.textContent).toMatch(/need immediate attention/);
     expect((screen.getByRole('button', { name: 'Submit for review' }) as HTMLButtonElement).disabled).toBe(true);
@@ -115,7 +117,7 @@ describe('the editor', () => {
   it('saves a draft that still has errors (a rule never stops a save), and the Syllabi list flags it to its coordinator', async () => {
     const user = userEvent.setup();
     render(page('coordinator'));
-    await user.click(await screen.findByRole('button', { name: 'Start the syllabus from the course' }));
+    await user.click(await screen.findByRole('button', { name: 'Start the course content' }));
     await user.type(await screen.findByLabelText('Credit hours'), '3');
     await user.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(async () => expect((await apisOf('coordinator').syllabus.overview(ids.course!)).open?.status).toBe('draft'));
@@ -203,23 +205,26 @@ describe('the red bar', () => {
   });
 });
 
-describe('the Excel import', () => {
-  it('loads a workbook as drafts, flags what breaks a rule without refusing it, and reports each course', async () => {
+describe('the courses workbook', () => {
+  it('previews a workbook row by row, then puts the content into the course\'s draft and skips an unknown course', async () => {
     const user = userEvent.setup();
-    const wb = emptyWorkbook();
-    wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer', 'Credit hours': 3 }, { 'Course code': 'GHOST 1', 'Title (English)': 'Nothing' });
-    wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'Analyse conduction', 'Bloom level': 'Analyze', PLO: 'PLO1', Coverage: 'Introduced' });
-    const blob = await writeSyllabusWorkbook(wb);
-    const file = new File([await blob.arrayBuffer()], 'syllabi.xlsx', { type: blob.type });
-    // A draft in progress is replaced by the import, so start from the state the earlier tests left (an open draft or none).
-    render(wrap(<SyllabusImport api={apisOf('coordinator').syllabus} />));
-    await user.upload(await screen.findByLabelText('Syllabus workbook'), file);
-    const result = await screen.findByTestId('import-result');
-    expect(result.textContent).toMatch(/1 syllabus loaded, 1 flagged/);
-    expect(result.textContent).toMatch(/MCE 410: Loaded as a draft/);
-    expect(result.textContent).toMatch(/GHOST 1: Skipped: no such course/);
+    const api = coursesApi(fetcherOf('admin'));
+    const lists = (await api.exportAll()).lists;
+    const wb = { ...emptyCoursesWorkbook(), lists };
+    wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer', 'Credit hours': 3 });
+    wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'Analyse conduction', 'Bloom level': 'Analyze', PLO: 'PLO1', Coverage: 'Introduced' },
+      { 'Course code': 'GHOST 1', CLO: 'CLO1', 'Outcome (English)': 'Nothing' });
+    const blob = await richWorkbookXlsx(coursesWorkbookSheets(wb));
+    const file = new File([await blob.arrayBuffer()], 'courses.xlsx', { type: blob.type });
+    render(wrap(<CoursesImportExport canWrite api={api} onDone={() => undefined} />));
+    await user.upload(await screen.findByLabelText('Courses file'), file);
+    const preview = await screen.findByRole('region', { name: 'Import preview' });
+    expect(preview.textContent).toMatch(/1 into drafts/);
+    expect(preview.textContent).toMatch(/GHOST 1/);
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect((await screen.findByRole('region', { name: 'Import result' })).textContent).toMatch(/Imported/);
     const open = (await apisOf('coordinator').syllabus.overview(ids.course!)).open!;
-    expect(open).toMatchObject({ status: 'draft', source: 'excel import' });
+    expect(open).toMatchObject({ status: 'draft', source: 'courses workbook' });
     expect(open.content.clos[0]).toMatchObject({ code: 'CLO1', plos: [{ level: 'I' }], bloom: 'analyze' });
   });
 });

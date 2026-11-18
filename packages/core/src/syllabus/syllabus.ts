@@ -320,6 +320,17 @@ async function draftBase(ctx: Ctx, c: CourseRow): Promise<SyllabusContent> {
 }
 
 /**
+ * The course's content as it stands for a change: the draft in progress when there is one (in review or endorsed: `locked`), else what a new
+ * draft would start from (the approved content with the mapping as it is, or the course's own facts).
+ */
+export async function courseContentNow(ctx: Ctx, courseId: string): Promise<{ content: SyllabusContent; locked: string | null; hasDraft: boolean }> {
+  const c = await loadCourse(ctx, courseId);
+  const open = await openVersion(ctx, courseId);
+  if (open) return { content: SyllabusContentSchema.parse(open.content), locked: open.status === 'draft' ? null : open.status, hasDraft: true };
+  return { content: await draftBase(ctx, c), locked: null, hasDraft: false };
+}
+
+/**
  * One change to a course's mapping, made on the curriculum map or in a program's dialog: it goes into the course's syllabus draft (a new
  * draft from the approved version when there is none) and becomes live only when that syllabus is approved, like a standards version.
  * The course coordinator, or a writer of the PLO's program, may propose. A syllabus in review or endorsed must be returned first.

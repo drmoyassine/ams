@@ -2472,4 +2472,51 @@ modified:
   at: '2026-11-16T12:51:03.025Z'
 ---
 
+---
+
+## DEC-042 — The course is the master record; the syllabus is the report generated from its approved content
+
+---
+title: The course is the master record; the syllabus is the report generated from its approved content
+status: accepted
+context: >-
+  The owner (2026-11-18) asked for the treatment programs got (DEC-041) for courses and CLOs, and set: the syllabus is
+  just a report generated from the course; content changes go into a draft; one workbook including the CLOs; no Arabic
+  title for courses; credit hours required; course policies to come from the Policies and Procedures module; at least
+  one program placement required.
+decision: >-
+  A course opens on its own page (/settings/organization/courses/<id>, /new) with a breadcrumb. Its record (Course code,
+  SIS code, Unit from the org chart, Year of study, Active, the programs it serves with role, year and term, and its
+  staff) changes at once. Its content (title, credit hours, contact hours, language, type, level, category, description,
+  methodology, CLOs and their PLO mapping, outline, materials, assessments, rubrics) changes through the course's draft,
+  approved as before (coordinator submits, chair endorses, Dean approves); once a course has approved content, its
+  title, credits and CLOs are refused outside the draft. The syllabus page (/courses/<id>/syllabus) is a read-only
+  report of the approved content (or the draft), printable and downloadable. New courses need a code, title, unit,
+  credit hours and one program placement on the page; the import and the API save what is incomplete and flag it (Unit,
+  Credit hours, Program placement). Courses have no Arabic title. One courses workbook (README; Courses, Placement,
+  CLOs, Outline, Materials, Assessments, Rubrics, Sections; grey IDs, required marks, dropdowns from a hidden Lists
+  sheet, course code dropdowns with the title looked up) imports and exports courses, previewed row by row; record and
+  placement rows apply at once, content goes into drafts, content equal to what the course has makes no draft, a part of
+  the content is replaced only when the file has rows for it, and nothing is deleted. It replaces the syllabus workbook
+  import. The API gains GET/POST /api/courses-workbook and DELETE /api/courses/<id> (deactivates).
+rationale: >-
+  One place to edit a course, with the same approval line for everything the accreditor reads, and a syllabus that
+  cannot drift from the course because it is generated from it.
+consequences: >-
+  Supersedes the part of DEC-038 that made the syllabus the editing surface; its rules, template and workflow stay.
+  Policies show a placeholder until the Policies and Procedures module exists.
+tags:
+  - course
+  - syllabus
+  - outcomes
+id: DEC-042
+last_updated: '2026-11-18'
+generated:
+  by: agent/claude-code
+  at: '2026-11-18T09:02:17.181Z'
+modified:
+  by: agent/claude-code
+  at: '2026-11-18T09:02:17.181Z'
+---
+
 <!-- End VEF generated items. -->

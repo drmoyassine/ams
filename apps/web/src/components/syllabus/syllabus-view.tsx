@@ -34,7 +34,7 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
     <article className="space-y-6" aria-label="Syllabus" data-testid="syllabus-view">
       <Block title="Basic course information">
         <Facts rows={[
-          ['Course code and title', `${code}  ${i.titleEn}${i.titleAr ? `  ·  ${i.titleAr}` : ''}`], ['Language of delivery', label(i.languageOfDelivery) || '—'],
+          ['Course code and title', `${code}  ${i.titleEn}`], ['Language of delivery', label(i.languageOfDelivery) || '—'],
           ['Credit hours', dash(i.credits)], ['Contact hours per week', `${contact}  (lecture ${dash(i.contactLecture)}, lab ${dash(i.contactLab)}, other ${dash(i.contactOther)})`],
           ['Prerequisite(s)', i.prerequisiteIds.map(courseCode).join(', ') || '—'], ['Co-requisite(s)', i.corequisiteIds.map(courseCode).join(', ') || '—'],
           ['Course type', label(i.courseType) || '—'], ['Course level', dash(i.courseLevel)], ['Course category', label(i.category) || '—'], ['Sustainability indicator', label(i.sustainability) || '—'],
@@ -61,6 +61,7 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
       <Block title="Textbooks, materials and software">
         <Table head={['Kind', 'Citation', 'ISBN', 'Year']} empty="None yet." rows={c.materials.map((m) => [label(m.kind), <ContentText key="c">{m.citation}</ContentText>, dash(m.isbn), dash(m.year)])} />
       </Block>
+      <Block title="Policies"><p className="text-sm text-muted-foreground">The course policies will come from the Policies and Procedures module.</p></Block>
       <Block title="Teaching methodology"><p className="whitespace-pre-line text-sm"><ContentText>{c.methodology || '—'}</ContentText></p></Block>
       <Block title="Assessment plan and evaluation methods">
         <Table head={['Assessment', 'Category', 'CLOs assessed (share, rubric)', '% of grade', 'Due']} empty="No assessments yet."

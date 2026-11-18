@@ -1,12 +1,11 @@
 // The Syllabi tab of Quality Management: one card per course with its approved version, the version in progress and the flag.
 // Opening the tab also tells the next level of the line about flags that have gone unfixed past their days.
 import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AccordionCard } from '../accordion';
 import { Input } from '../ui/input';
 import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
-import { SyllabusImport } from './syllabus-import';
 import { LINE, StatusChip } from './syllabus-panels';
 import { useUrlState } from '../../lib/url-state';
 
@@ -24,8 +23,8 @@ export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
   const shown = (list.data ?? []).filter((r) => !text.trim() || `${r.code} ${r.titleEn}`.toLowerCase().includes(text.trim().toLowerCase()));
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Each course has one syllabus, approved by its Dean. A syllabus with errors needs its coordinator at once and goes up the line while it is unfixed.</p>
-      <SyllabusImport api={api} />
+      <p className="text-sm text-muted-foreground">Each course's content is approved by its Dean; the syllabus is the report generated from it. Opening one goes to the course page. A syllabus with errors needs its coordinator at once and goes up the line while it is unfixed.</p>
+      <p className="text-sm text-muted-foreground">To add or update many courses and their content at once, use the courses workbook in <Link to="/settings/organization" search={{ tab: 'courses' }} className="underline underline-offset-2">Settings › Organization › Courses</Link> (Import and export).</p>
       <div className="flex flex-wrap items-center gap-3">
         <Input aria-label="Search syllabi" placeholder="Search by code or title" value={text} onChange={(e) => setText(e.target.value)} className="w-full sm:w-64" />
         <div role="group" aria-label="Show" className="flex flex-wrap gap-1">
@@ -37,7 +36,7 @@ export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
           <li key={r.courseId}>
             <AccordionCard label={`Syllabus: ${r.code}`} title={`${r.code} · ${r.titleEn}`} strong open={false} menuLabel={`Actions for ${r.code}`} menu={[]}
               subtitle={[r.unitName, r.coordinatorName ? `coordinator ${r.coordinatorName}` : 'no coordinator named'].filter(Boolean).join(' · ')}
-              onToggle={() => { void navigate({ to: '/courses/$id/syllabus', params: { id: r.courseId } }); }}
+              onToggle={() => { void navigate({ to: '/settings/organization/courses/$courseId', params: { courseId: r.courseId } }); }}
               meta={(
                 <span className="flex flex-wrap items-center gap-1.5">
                   {r.openStatus && <StatusChip status={r.openStatus} />}

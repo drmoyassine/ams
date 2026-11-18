@@ -25,6 +25,7 @@ import { SettingsLayout } from './pages/settings/layout';
 import { AiSettingsPage } from './pages/settings/ai';
 import { ApiKeysPage } from './pages/settings/api-keys';
 import { ProgramPage } from './pages/settings/program-page';
+import { CoursePage } from './pages/settings/course-page';
 import { AssistantMemoryPage } from './pages/settings/assistant-memory';
 import { TrashPage } from './pages/settings/trash';
 import { DocumentsPage } from './pages/settings/documents';
@@ -73,6 +74,15 @@ function ProgramPageRoute() {
   return <ProgramPage key={programId} programId={programId}
     onSaved={(id) => { if (id !== programId) void navigate({ to: '/settings/organization/programs/$programId', params: { programId: id }, replace: true }); }}
     onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'programs' } }); }} />;
+}
+// One course on a page of its own (DEC-042): /settings/organization/courses/<id>, or /new.
+const coursePageRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization/courses/$courseId', component: () => <CoursePageRoute /> });
+function CoursePageRoute() {
+  const { courseId } = coursePageRoute.useParams();
+  const navigate = coursePageRoute.useNavigate();
+  return <CoursePage key={courseId} courseId={courseId}
+    onSaved={(id) => { if (id !== courseId) void navigate({ to: '/settings/organization/courses/$courseId', params: { courseId: id }, replace: true }); }}
+    onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'courses' } }); }} />;
 }
 function OrganizationRoute() {
   const { tab, program, view } = organizationRoute.useSearch();
@@ -226,7 +236,7 @@ const syllabusRoute = createRoute({ getParentRoute: () => appRoute, path: '/cour
 function SyllabusRoute() { const { id } = syllabusRoute.useParams(); return <SyllabusPage key={id} courseId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, coursePageRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

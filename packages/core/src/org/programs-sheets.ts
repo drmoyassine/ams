@@ -21,9 +21,9 @@ const intOf = (s: string) => (s === '' ? undefined : Number.isFinite(Number(s)) 
 const cap = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1).replace(/_/g, '-') : s);
 const PATH = ' › ';
 
-type UnitRow = { id: string; parentId: string | null; nameEn: string; code: string | null; active: boolean };
+export type UnitRow = { id: string; parentId: string | null; nameEn: string; code: string | null; active: boolean };
 /** Each unit's place in the org chart, as "College › Department". */
-function unitPaths(units: UnitRow[]): Map<string, string> {
+export function unitPaths(units: UnitRow[]): Map<string, string> {
   const byId = new Map(units.map((u) => [u.id, u]));
   const out = new Map<string, string>();
   const path = (u: UnitRow, seen = new Set<string>()): string => {

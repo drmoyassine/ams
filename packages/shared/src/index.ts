@@ -33,3 +33,4 @@ export * from './tree-move.js';
 export * from './org-layout.js';
 export * from './api-keys.js';
 export * from './programs-sheets.js';
+export * from './courses-sheets.js';

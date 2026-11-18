@@ -7,6 +7,7 @@ export type OutcomeRoutes = ReturnType<typeof import('./routes/outcomes.js').out
 /** Deleting evidence and bulk edits: a fourth typed client. */
 export type EvidenceOpsRoutes = ReturnType<typeof import('./routes/evidence-ops.js').evidenceOpsRoutes>;
 export type AssessmentRoutes = ReturnType<typeof import('./routes/assessment.js').assessmentRoutes>;
+export type CourseRoutes = ReturnType<typeof import('./routes/courses-api.js').courseRoutes>;
 export type ApiKeyRoutes = ReturnType<typeof import('./routes/api-keys.js').apiKeyRoutes>;
 export type ProgramRoutes = ReturnType<typeof import('./routes/programs-api.js').programRoutes>;
 export type SyllabusRoutes = ReturnType<typeof import('./routes/syllabus.js').syllabusRoutes>;

@@ -2,7 +2,7 @@
 // course record is institution-wide (everyone with org:read sees the catalogue); writing it needs program:write at its unit (or at
 // the institution when it has none); linking it to a program needs program:write on that program.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { course, courseProgram, learningOutcome, orgUnit, program } from '@ams/db';
+import { course, courseProgram, learningOutcome, orgUnit, program, syllabusVersion } from '@ams/db';
 import type { Course, CourseProgramInput, CreateCourse, Scope, UpdateCourse } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError } from '../ctx.js';
@@ -28,15 +28,32 @@ async function guardCodes<T>(fn: () => Promise<T>, code?: string): Promise<T> {
 async function rowsToCourses(ctx: Ctx, rows: CourseRow[]): Promise<Course[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
-  const links = await ctx.tx.select({ courseId: courseProgram.courseId, programId: courseProgram.programId }).from(courseProgram).where(inArray(courseProgram.courseId, ids));
+  const links = await ctx.tx.select({ courseId: courseProgram.courseId, programId: courseProgram.programId, role: courseProgram.role, year: courseProgram.year, term: courseProgram.term }).from(courseProgram).where(inArray(courseProgram.courseId, ids));
   const clos = await ctx.tx.select({ courseId: learningOutcome.courseId, n: sql<number>`count(*)::int` }).from(learningOutcome)
     .where(and(inArray(learningOutcome.courseId, ids), eq(learningOutcome.kind, 'clo'))).groupBy(learningOutcome.courseId);
   const cloN = new Map(clos.map((c) => [c.courseId, c.n]));
-  return rows.map((r) => ({
+  const approved = new Set((await ctx.tx.select({ courseId: syllabusVersion.courseId }).from(syllabusVersion)
+    .where(and(inArray(syllabusVersion.courseId, ids), eq(syllabusVersion.status, 'approved')))).map((v) => v.courseId));
+  return rows.map((r) => withMissing({
     id: r.id, orgUnitId: r.orgUnitId, code: r.code, externalId: r.externalId, titleEn: r.titleEn, titleAr: r.titleAr, description: r.description,
     credits: r.credits === null ? null : Number(r.credits), level: r.level, languageOfInstruction: r.languageOfInstruction, active: r.active,
-    programIds: links.filter((l) => l.courseId === r.id).map((l) => l.programId), cloCount: cloN.get(r.id) ?? 0,
+    programIds: links.filter((l) => l.courseId === r.id).map((l) => l.programId),
+    placements: links.filter((l) => l.courseId === r.id).map((l) => ({ programId: l.programId, role: l.role, year: l.year, term: l.term })), cloCount: cloN.get(r.id) ?? 0, approved: approved.has(r.id),
   }));
+}
+/** What a course record must have (the owner, 2026-11-18): a unit, its credit hours and at least one program it serves (code and English title always do). */
+const withMissing = (c: Omit<Course, 'missing'>): Course => ({
+  ...c, missing: [...(c.orgUnitId ? [] : ['Unit']), ...(c.credits === null ? ['Credit hours'] : []), ...(c.programIds.length ? [] : ['Program placement'])],
+});
+
+/**
+ * The course's content (titles, credits, description, language, CLOs) is changed through its draft once it has approved content
+ * (the owner, 2026-11-18: the course is the master record, changes are drafted and approved, the syllabus is a report generated from it).
+ * Before that, a new course's content is seeded directly.
+ */
+export async function assertContentEditable(ctx: Ctx, courseId: string, what: string): Promise<void> {
+  const [v] = await ctx.tx.select({ id: syllabusVersion.id }).from(syllabusVersion).where(and(eq(syllabusVersion.courseId, courseId), eq(syllabusVersion.status, 'approved')));
+  if (v) throw new ConflictError(`${what} of a course with approved content changes through its draft (the course page, Course content), and takes effect once approved`);
 }
 
 export async function loadCourse(ctx: Ctx, id: string): Promise<CourseRow> {
@@ -89,6 +106,9 @@ export async function updateCourse(ctx: Ctx, id: string, patch: UpdateCourse): P
     await assertPermitted(ctx, 'program:write', courseScope(patch.orgUnitId));
     await assertUnit(ctx, patch.orgUnitId);
   }
+  const content = (['titleEn', 'titleAr', 'description', 'languageOfInstruction'] as const).filter((k) => patch[k] !== undefined && (clean(patch[k] as string) ?? null) !== (cur[k] ?? null));
+  if (patch.credits !== undefined && (patch.credits === null ? null : Number(patch.credits)) !== (cur.credits === null ? null : Number(cur.credits))) content.push('credits' as never);
+  if (content.length) await assertContentEditable(ctx, id, `The ${content.join(', ')}`);
   const set: Partial<typeof course.$inferInsert> = {};
   if (patch.orgUnitId !== undefined) set.orgUnitId = patch.orgUnitId;
   if (patch.code !== undefined) set.code = nfc(patch.code);
@@ -100,6 +120,11 @@ export async function updateCourse(ctx: Ctx, id: string, patch: UpdateCourse): P
   if (!Object.keys(set).length) return getCourse(ctx, id);
   const [row] = await guardCodes(() => ctx.tx.update(course).set(set).where(eq(course.id, id)).returning(), patch.code);
   return (await rowsToCourses(ctx, [row!]))[0]!;
+}
+
+/** Deleting a course deactivates it: results, syllabi and the audit trail refer to it (the API's DELETE). */
+export async function deleteCourse(ctx: Ctx, id: string): Promise<Course> {
+  return updateCourse(ctx, id, { active: false });
 }
 
 /** Puts a course in a program (or changes its role, year and term there). */

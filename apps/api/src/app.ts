@@ -11,6 +11,7 @@ import { syllabusRoutes } from './routes/syllabus.js';
 import { evidenceOpsRoutes } from './routes/evidence-ops.js';
 import { programRoutes } from './routes/programs-api.js';
 import { apiKeyRoutes } from './routes/api-keys.js';
+import { courseRoutes } from './routes/courses-api.js';
 import type pg from 'pg';
 
 export interface AppOptions {
@@ -47,6 +48,7 @@ export function createApp(opts: AppOptions) {
   app.route('/', evidenceOpsRoutes(registry, deps, options));
   app.route('/', programRoutes(registry, deps, options));
   app.route('/', apiKeyRoutes(registry, deps, options));
+  app.route('/', courseRoutes(registry, deps, options));
   if (opts.authHandler) {
     const authHandler = opts.authHandler;
     rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);

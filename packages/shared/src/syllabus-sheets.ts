@@ -88,7 +88,8 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     const d = doc(cc);
     const cloCode = cell(r, 'CLO') || `CLO${d.clos.length + 1}`;
     d.clos.push({
-      id: rs.cloId?.(code(cc), cloCode) ?? newId(), code: cloCode, textEn: text, textAr: cell(r, 'Outcome (Arabic)'), bloom: vocab(cell(r, 'Bloom level'), BLOOM),
+      // A CLO keeps its identity by its ID (an export's), else by its code within the course.
+      id: cell(r, 'ID') || (rs.cloId?.(code(cc), cloCode) ?? newId()), code: cloCode, textEn: text, textAr: cell(r, 'Outcome (Arabic)'), bloom: vocab(cell(r, 'Bloom level'), BLOOM),
       // Several PLOs (when the rules allow) are listed "SO1; SO2", with their levels in the same order "I; M".
       plos: (() => {
         const codes = split(cell(r, 'PLO')); const lv = split(cell(r, 'Coverage'));

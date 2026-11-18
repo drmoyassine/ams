@@ -120,7 +120,6 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
         <div className="grid gap-3 sm:grid-cols-6">
           <div className={`${field} sm:col-span-1`}>Course code<Input aria-label="Course code" value={code} readOnly disabled /></div>
           <label className={`${field} sm:col-span-3`}>Course title (English)<Input aria-label="Course title (English)" value={c.info.titleEn} onChange={(e) => setInfo({ titleEn: e.target.value })} /></label>
-          <label className={`${field} sm:col-span-2`}>Course title (Arabic)<Input aria-label="Course title (Arabic)" dir="auto" value={c.info.titleAr} onChange={(e) => setInfo({ titleAr: e.target.value })} /></label>
           <label className={field}>Credit hours<Num ariaLabel="Credit hours" value={c.info.credits} onChange={(v) => setInfo({ credits: v })} /></label>
           <label className={field}>Lecture hours<Num ariaLabel="Lecture hours" value={c.info.contactLecture} onChange={(v) => setInfo({ contactLecture: v })} /></label>
           <label className={field}>Lab hours<Num ariaLabel="Lab hours" value={c.info.contactLab} onChange={(v) => setInfo({ contactLab: v })} /></label>

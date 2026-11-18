@@ -14,7 +14,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
 import { guardIntegrity } from '../framework/errors.js';
 import { assertPermitted } from '../permissions.js';
-import { courseScope, loadCourse } from './courses.js';
+import { assertContentEditable, courseScope, loadCourse } from './courses.js';
 import { getSyllabusSettings } from '../syllabus/syllabus.js';
 
 type Row = typeof learningOutcome.$inferSelect;
@@ -66,7 +66,11 @@ async function loadOutcome(ctx: Ctx, id: string): Promise<Row> {
 /** Who may change an outcome of this kind and owner. */
 async function assertCanWrite(ctx: Ctx, o: Pick<Row, 'kind' | 'programId' | 'courseId'>) {
   if (o.kind === 'ilo') return assertPermitted(ctx, 'org:write', { type: 'institution' });
-  if (o.kind === 'clo') return assertPermitted(ctx, 'program:write', courseScope((await loadCourse(ctx, o.courseId!)).orgUnitId));
+  if (o.kind === 'clo') {
+    await assertPermitted(ctx, 'program:write', courseScope((await loadCourse(ctx, o.courseId!)).orgUnitId));
+    // A course with approved content changes its CLOs through its draft (approval writes them).
+    return assertContentEditable(ctx, o.courseId!, 'The CLOs');
+  }
   return assertPermitted(ctx, 'program:write', { type: 'program', id: o.programId! });
 }
 
