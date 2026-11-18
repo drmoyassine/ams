@@ -8,6 +8,7 @@ import { Input } from '../ui/input';
 import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
 import { SyllabusImport } from './syllabus-import';
 import { LINE, StatusChip } from './syllabus-panels';
+import { useUrlState } from '../../lib/url-state';
 
 const FILTERS = [['all', 'All'], ['flagged', 'With errors'], ['mine', 'Needs my attention']] as const;
 type Filter = (typeof FILTERS)[number][0];
@@ -16,7 +17,7 @@ const chip = 'rounded px-1.5 py-0.5 text-xs';
 export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
   const api = useSyllabusApi(override);
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useUrlState<Filter>('filter', 'all', FILTERS.map((f) => f[0]));
   const [text, setText] = useState('');
   useEffect(() => { void api.escalate().catch(() => undefined); }, [api]);
   const list = useQuery({ queryKey: ['syllabi', filter], queryFn: () => api.list({ flagged: filter === 'flagged', mine: filter === 'mine' }) });

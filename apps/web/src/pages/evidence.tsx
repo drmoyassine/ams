@@ -14,6 +14,7 @@ import { useTranslation } from '../i18n';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
 import { type FrameworkApi } from '../lib/framework-api';
 import { can, useApi, useMe } from '../lib/me';
+import { useUrlState } from '../lib/url-state';
 
 const TABS = [['library', 'Library'], ['requests', 'Requests']] as const;
 type Tab = (typeof TABS)[number][0];
@@ -41,7 +42,7 @@ export function EvidencePage({ api: override, framework: frameworkOverride, apis
   const api = useEvidenceApi(override);
   const framework = useApi(frameworkOverride);
   const me = useMe(framework);
-  const [tab, setTab] = useState<Tab>('library');
+  const [tab, setTab] = useUrlState<Tab>('tab', 'library', TABS.map((t) => t[0]));
   const canWrite = can(me.data, 'evidence:write');
   const [adding, setAdding] = useState(false);
   return (
@@ -67,7 +68,7 @@ function Library({ api, framework, canWrite, canReview, adding, setAdding, apis,
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useUrlState<Filter>('filter', 'all', Object.keys(FILTERS) as Filter[]);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [opened, setOpened] = useState<Set<string>>(() => new Set(openItem ? [openItem] : []));
   const [ownDoc, setOwnDoc] = useState<string | null>(null);

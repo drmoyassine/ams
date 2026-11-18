@@ -102,7 +102,7 @@ describe('courses, outcomes and the curriculum map', () => {
   });
 
   // A program's PEOs and PLOs are added and edited on its own page (there is no Outcomes page and no dialog).
-  const openOutcomesDialog = async (_user?: unknown) => {
+  const openOutcomesDialog = async (...args: unknown[]) => { void args;
     expect(screen.queryByRole('button', { name: /^Outcomes of / })).toBeNull();
     cleanup();
     programPage('admin');

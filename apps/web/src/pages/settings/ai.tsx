@@ -11,6 +11,7 @@ import { hint, Switch } from './ai-settings/common';
 import { draftFrom, patchFrom, type Draft } from './ai-settings/draft';
 import { LimitsTab } from './ai-settings/limits-tab';
 import { ModelsTab } from './ai-settings/models-tab';
+import { useUrlState } from '../../lib/url-state';
 
 const TABS = [
   { id: 'accounts', label: 'Accounts' },
@@ -94,7 +95,10 @@ export function AiSettingsPage({ api: override }: { api?: SettingsApi }) {
   const me = useMe(api);
   const allowed = can(me.data, 'ai:manage');
   // Lives here, not in the form: a save re-keys the form, and the person should stay on the tab they were using.
-  const [tab, setTab] = useState<Tab | null>(null);
+  // In the address (?tab=accounts|models|limits); none means the first one that makes sense.
+  const [urlTab, setUrlTab] = useUrlState<'' | Tab>('tab', '', TABS.map((t) => t.id));
+  const tab: Tab | null = urlTab || null;
+  const setTab = (t: Tab) => setUrlTab(t);
   const [saved, setSaved] = useState(false);
   const firstTab = useRef<Tab | null>(null);
   const settings = useQuery({ queryKey: ['ai-settings'], queryFn: () => api.aiSettings(), enabled: allowed });

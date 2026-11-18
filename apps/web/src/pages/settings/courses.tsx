@@ -13,6 +13,7 @@ import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
+import { useUrlId } from '../../lib/url-state';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const ROLE = { core: 'Core', elective: 'Elective', service: 'Service' } as const;
@@ -67,7 +68,9 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes: outcomesO
   const [q, setQ] = useState('');
   const [programFilter, setProgramFilter] = useState('');
   const [adding, setAdding] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [openId, setOpenId] = useUrlId('course');
+  const open: string | null = openId || null;
+  const setOpen = (id: string | null) => setOpenId(id ?? '');
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); return act(fn); }, onSuccess: () => { void qc.invalidateQueries({ queryKey: ['courses'] }); void qc.invalidateQueries({ queryKey: ['program-outcomes'] }); } });

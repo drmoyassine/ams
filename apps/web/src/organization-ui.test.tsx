@@ -134,6 +134,32 @@ describe('Organization: tabs, deep-linkable', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
   });
 
+  it('opens sub-sections and open records from the address, and writes them back as they change', async () => {
+    current = 'admin';
+    // Programs -> Docs, straight from a link.
+    let router = await openRouter('/settings/organization?tab=programs&section=docs');
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Docs' }).getAttribute('aria-selected')).toBe('true'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'List' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'programs' })); // the default leaves the address
+    cleanup();
+    // A course opened on the Courses tab is in the address, and a link opens it.
+    const courseId = (await db.su.query(`insert into course (institution_id, code, title_en) values ($1, 'DEEP 101', 'Deep links') returning id`, [ids.inst])).rows[0].id as string;
+    router = await openRouter('/settings/organization?tab=courses');
+    await user.click(await screen.findByRole('button', { name: 'DEEP 101 Deep links' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'courses', course: courseId }));
+    cleanup();
+    router = await openRouter(`/settings/organization?tab=courses&course=${courseId}`);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'DEEP 101 Deep links' }).getAttribute('aria-expanded')).toBe('true'));
+    cleanup();
+    // The org chart's view, on the Institution tab.
+    router = await openRouter('/settings/organization?chartView=chart');
+    const views = await screen.findByRole('group', { name: 'Org chart view' });
+    await waitFor(() => expect(within(views).getByRole('button', { name: 'Chart' }).getAttribute('aria-pressed')).toBe('true'));
+    await user.click(within(views).getByRole('button', { name: 'Tree' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+  });
+
   it('opens a program on its own address with a breadcrumb, and keeps the curriculum map\'s view in the address', async () => {
     current = 'admin';
     const router = await openRouter('/settings/organization/programs/new');

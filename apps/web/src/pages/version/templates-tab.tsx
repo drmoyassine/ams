@@ -9,6 +9,7 @@ import { ApiError, type FrameworkApi, type Template, type Version } from '../../
 import { can } from '../../lib/me';
 import { FoundBy, foundOf, type FoundRef } from './found-by';
 import type { Me } from '@ams/shared';
+import { useUrlId } from '../../lib/url-state';
 
 const BLANK = { name: 'New template', kind: 'self_study', language: 'en', requires_attestation: false, structure: { sections: [{ key: 'A', title: 'Introduction', block_type: 'narrative' }] } };
 
@@ -24,7 +25,10 @@ function foundFor(version: Version, t: Template): Record<string, FoundRef> {
 
 export function TemplatesTab({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
   const qc = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
+  // The template open is in the address (?template=…), so it can be linked to.
+  const [selectedId, setSelectedId] = useUrlId('template');
+  const selected: string | null = selectedId || null;
+  const setSelected = (id: string | null) => setSelectedId(id ?? '');
   const [newKey, setNewKey] = useState('');
   const [error, setError] = useState('');
   const { data } = useQuery({ queryKey: ['templates', version.id], queryFn: () => api.templates(version.id) });

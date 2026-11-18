@@ -14,6 +14,7 @@ import type { SyllabusApi } from '../../lib/syllabus-api';
 import type { ProgramsApi } from '../../lib/programs-api';
 import { LEVEL } from './program-page';
 import { ProgramsImportExport } from './programs-io';
+import { useUrlState } from '../../lib/url-state';
 
 /**
  * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
@@ -22,7 +23,7 @@ import { ProgramsImportExport } from './programs-io';
 export function ProgramsSettingsPage({ api: override, docs: docsOverride, programs: programsApi }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; programs?: ProgramsApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
-  const [section, setSection] = useState<'list' | 'docs'>('list');
+  const [section, setSection] = useUrlState<'list' | 'docs'>('section', 'list', ['list', 'docs']);
   const me0 = useMe(api);
   const writer = can(me0.data, 'program:write');
   const targets = useQuery({ queryKey: ['import-targets', 'programs'], queryFn: () => docs.targets({ kind: 'programs', id: null }), enabled: section === 'docs' });

@@ -16,6 +16,7 @@ import { OrgChartView, type ChartEditing, type ChartHandle } from './org-chart-v
 import { ORG_CHART_KEY, OrgTreeView, unitItems } from './org-tree-view';
 import { UnitDrawer, type DrawerMode } from './unit-drawer';
 import { UnitTypesManager } from './unit-types-manager';
+import { useUrlState } from '../../../lib/url-state';
 
 export type ChartViewName = 'tree' | 'chart';
 const VIEWS: { id: ChartViewName; label: string }[] = [{ id: 'tree', label: 'Tree' }, { id: 'chart', label: 'Chart' }];
@@ -38,14 +39,14 @@ export function OrgChartSection({ api, canEdit, onOpenPrograms, exporters = defa
 }) {
   const qc = useQueryClient();
   const docs = useDocumentsApi(docsOverride);
-  const [section, setSection] = useState<OrgChartSectionName>(initialSection);
+  const [section, setSection] = useUrlState<OrgChartSectionName>('chart', initialSection, ['chart', 'docs']);
   const targets = useQuery({ queryKey: ['import-targets', 'org_chart'], queryFn: () => docs.targets({ kind: 'org_chart', id: null }), enabled: section === 'docs' });
   // An import applied (or undone) in Docs changes the units: the chart is read again when the person comes back to it.
   const chooseSection = (id: OrgChartSectionName) => { setSection(id); if (id === 'chart') void qc.invalidateQueries({ queryKey: [...ORG_CHART_KEY] }); };
   const { data, isLoading } = useQuery({ queryKey: [...ORG_CHART_KEY], queryFn: () => api.orgChart() });
   const units = useMemo(() => data?.units ?? [], [data]);
   const types = useMemo(() => data?.types ?? [], [data]);
-  const [view, setView] = useState<ChartViewName>(initialView);
+  const [view, setView] = useUrlState<ChartViewName>('chartView', initialView, ['tree', 'chart']);
   const [drawer, setDrawer] = useState<DrawerMode | null>(null);
   const [typesOpen, setTypesOpen] = useState(false);
   const [error, setError] = useState('');

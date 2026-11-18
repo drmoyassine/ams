@@ -910,3 +910,7 @@ The AIU Course Syllabus Template is now the course schema. One document per cour
 - **Template import/export** (Programs, PEOs, PLOs; .xlsx or CSV): matched by Program code, previewed, never removes, empty cells leave fields alone; replaces the old workbook loader.
 - **Deep links:** the curriculum map's `program` and `view`, and Quality Management's `program`, are in the address.
 - **Open:** a sweep of the rest of the app for deep links; scoping API keys to a unit or program; rate limits.
+
+## 2026-11-18 — Deep-linking sweep
+- **Rule:** where you are (tab, sub-tab, filter, open record, picked version) is in the address; short-lived actions (an edit form, a confirmation, a drawer) are not. One helper, `useUrlState` / `useUrlId` (`apps/web/src/lib/url-state.ts`), keeps a value in the address with replace, drops it at its default, ignores unknown values, keeps keys a route does not declare, and falls back to plain state without a router.
+- **Now addressable:** Evidence `tab`, `filter`; Quality Management Standards `version`, Cycles `status` and `due`, Syllabi `filter`, Programs `program` and `aol` (Plan, Attainment, Results, Actions); Settings IQF `tab` and `version`; Programs `section` (List or Docs); Courses `course`; the org chart's `chart` (section) and `chartView`; AI `tab`; Assistant memory `tab`; a framework version's `template` and `mapping`. (Already addressable before: program pages, the curriculum map's `program` and `view`, organization and QM tabs, engagement and version tabs, evidence `item` and `doc`, cycle `stage`.)

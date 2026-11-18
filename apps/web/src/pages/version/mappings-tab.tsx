@@ -11,6 +11,7 @@ import type { FrameworkApi, Mapping, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
 import { Suggestions } from './suggestions';
+import { useUrlId } from '../../lib/url-state';
 
 const RELATION = { covers: 'Covers', partly_covers: 'Partly covers', related: 'Related' } as const;
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
@@ -44,7 +45,10 @@ function Commentary({ m, canWrite, onSave }: { m: Mapping; canWrite: boolean; on
  */
 export function MappingsTab({ api, version, me }: { api: FrameworkApi; version: Version; me: Me | undefined }) {
   const qc = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
+  // The mapping open is in the address (?mapping=…), so it can be linked to.
+  const [selectedId, setSelectedId] = useUrlId('mapping');
+  const selected: string | null = selectedId || null;
+  const setSelected = (id: string | null) => setSelectedId(id ?? '');
   const [error, setError] = useState('');
   const reqs = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const maps = useQuery({ queryKey: ['mappings', version.id], queryFn: () => api.mappings(version.id) });

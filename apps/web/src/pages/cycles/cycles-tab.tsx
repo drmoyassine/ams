@@ -22,6 +22,7 @@ import { useAction } from '../../lib/use-action';
 import { anchorLabels, type T } from '../settings/quality-management/labels';
 import { DueSection } from './due-section';
 import { ReasonDialog } from './dialogs';
+import { useUrlState } from '../../lib/url-state';
 
 const small = 'px-3 py-1';
 
@@ -32,9 +33,9 @@ export function CyclesTab({ me, meLoaded, apis = {}, onOpen }: { me: Me | undefi
   const qc = useQueryClient();
   const confirm = useConfirm();
   const manage = can(me, 'cycle:manage');
-  const [status, setStatus] = useState<'' | CycleStatus>('');
+  const [status, setStatus] = useUrlState<'' | CycleStatus>('status', '', CYCLE_STATUSES);
   const [templateId, setTemplateId] = useState('');
-  const [due, setDue] = useState<'' | CycleDueFilter>('');
+  const [due, setDue] = useUrlState<'' | CycleDueFilter>('due', '', CYCLE_DUE_FILTERS);
   const [mine, setMine] = useState(false);
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');

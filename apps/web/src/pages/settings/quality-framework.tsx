@@ -19,6 +19,7 @@ import { DATE, STATUS_LABEL } from '../frameworks';
 import { IqfRequirements } from './iqf-requirements';
 import { WordingProposals } from './wording-proposals';
 import { VersionDocs } from '../version/docs-tab';
+import { useUrlId, useUrlState } from '../../lib/url-state';
 
 const TABS = [
   { id: 'requirements', label: 'Requirements' },
@@ -40,9 +41,9 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
   const qc = useQueryClient();
   const confirm = useConfirm();
   const [error, setError] = useState('');
-  const [pick, setPick] = useState<string | null>(null);
+  const [pick, setPick] = useUrlId('version');
   // While a document filter is on, the requirements tab is the one it belongs to.
-  const [ownTab, setTab] = useState<(typeof TABS)[number]['id']>('requirements');
+  const [ownTab, setTab] = useUrlState<(typeof TABS)[number]['id']>('tab', 'requirements', TABS.map((t) => t.id));
   const tab = doc ? 'requirements' as const : ownTab;
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
   // Its levels are the glossary's level terms, so the terms below change with it.

@@ -17,6 +17,7 @@ import { ProgramQualityTab } from './program-quality';
 import type { SettingsApi } from '../lib/settings-api';
 import type { OutcomesApi } from '../lib/outcomes-api';
 import type { AssessmentApi } from '../lib/assessment-api';
+import { useUrlId } from '../lib/url-state';
 
 /**
  * The tabs of Quality Management. "Standards" is the institution's own framework in operation (TASK-086): the same tree as
@@ -38,7 +39,8 @@ export type QmTab = (typeof QM_TABS)[number]['id'];
 function StandardsTab({ api, evidence, apis }: { api: FrameworkApi; evidence?: EvidenceApi; apis?: OpsApis }) {
   const { t } = useTranslation();
   const me = useMe(api);
-  const [pick, setPick] = useState<string | null>(null);
+  // The version picked is in the address (?version=<id>); none means the newest published.
+  const [pick, setPick] = useUrlId('version');
   const { data, isError } = useQuery({ queryKey: ['quality-framework'], queryFn: () => api.qualityFramework() });
   const versions = data?.versions ?? [];
   const latestPublished = [...versions].reverse().find((v) => v.status === 'published');

@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { useAssessmentApi, type AssessmentApi } from '../../lib/assessment-api';
 import { readSheets } from '../../lib/sheet-io';
 import { useAction } from '../../lib/use-action';
+import { useUrlState } from '../../lib/url-state';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 const STANDING = { at_or_above: ['At or above target', 'bg-emerald-100 text-emerald-900'], below: ['Below target', 'bg-red-100 text-red-900'], none: ['No target', 'bg-muted text-muted-foreground'] } as const;
@@ -24,7 +25,7 @@ const currentYear = () => { const d = new Date(); const y = d.getMonth() >= 7 ? 
  */
 export function ProgramAssessmentCard({ programId, outcomes, canWrite, api: override }: { programId: string; outcomes: ProgramOutcomes; canWrite: boolean; api?: AssessmentApi }) {
   const api = useAssessmentApi(override);
-  const [tab, setTab] = useState<'plan' | 'attainment' | 'results' | 'actions'>('plan');
+  const [tab, setTab] = useUrlState<'plan' | 'attainment' | 'results' | 'actions'>('aol', 'plan', ['plan', 'attainment', 'results', 'actions']);
   const data = useQuery({ queryKey: ['program-assessment', programId], queryFn: () => api.programAssessment(programId) });
   const tabs = [{ id: 'plan', label: 'Plan' }, { id: 'attainment', label: 'Attainment' }, { id: 'results', label: 'Results' }, { id: 'actions', label: `Actions${data.data?.openGaps.length ? ` (${data.data.openGaps.length} gaps)` : ''}` }] as const;
   return (

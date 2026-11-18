@@ -15,6 +15,7 @@ import { useAssistantApi, type AssistantApi } from '../../lib/assistant-api';
 import { defaultEngagementApi, type EngagementApi } from '../../lib/engagement-api';
 import { ApiError, type FrameworkApi } from '../../lib/framework-api';
 import { can, useApi, useMe } from '../../lib/me';
+import { useUrlState } from '../../lib/url-state';
 
 const KIND_LABEL: Record<MemoryKind, string> = { preference: 'Preference', convention: 'Convention', fact: 'Fact', decision: 'Decision' };
 const select = 'h-10 w-full rounded-md border border-border bg-background px-2 text-sm';
@@ -159,7 +160,7 @@ export function AssistantMemoryPage({ api: override, frameworks: fwOverride, eng
   const qc = useQueryClient();
   const confirm = useConfirm();
   const me = useMe(frameworks);
-  const [tab, setTab] = useState<'mine' | 'shared'>('mine');
+  const [tab, setTab] = useUrlState<'mine' | 'shared'>('tab', 'mine', ['mine', 'shared']);
   const [scope, setScope] = useState('');
   const [showRemoved, setShowRemoved] = useState(false);
   const [dialog, setDialog] = useState<{ item: MemoryItem | null } | null>(null);
