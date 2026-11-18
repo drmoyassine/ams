@@ -23,6 +23,7 @@ export const README_LINES = [
   '',
   '## Dropdowns',
   'Unit, Program level, Mode, Language, Active, Bloom level and Status are picked from lists. Units are shown with their place in the org chart (College > Department).',
+  'ILOs (PLOs sheet): the institutional learning outcomes the PLO serves, as their codes separated by ; (for example ILO1; ILO3). The codes are in the note on the column\'s header. The import links the PLO to exactly those ILOs; an empty cell leaves its links as they are.',
   'On the PEOs and PLOs sheets, Program code lists the codes typed on the Programs sheet, so a program added there can be picked straight away. Program name (grey) shows which program the code is: it is filled in by the workbook and ignored by the import.',
   '',
   '## What the import never does',
@@ -83,6 +84,7 @@ export function programsWorkbookSheets(data: ProgramsExport): RichSheet[] {
     ...(h === 'Statement (English)' ? { wrap: true, width: 60 } : {}),
     ...(h === 'Statement (Arabic)' ? { wrap: true, rtl: true, width: 50 } : {}),
     ...(h === 'Bloom level' ? { check: { list: range('Bloom levels') } } : {}),
+    ...(h === 'ILOs' ? { width: 22, note: `The institutional learning outcomes this PLO serves, separated by ; (for example ILO1; ILO3). ${data.lists.ilos.length ? `Codes: ${data.lists.ilos.join(', ')}.` : 'No ILOs are defined yet (Settings > Organization > Learning outcomes).'} An empty cell leaves the PLO's links as they are.` } : {}),
     ...(h === 'Status' ? { check: { list: range('Statuses') } } : {}),
   } as RichColumn));
   return [

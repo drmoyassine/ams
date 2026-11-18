@@ -11,8 +11,8 @@ import { readProgramFiles } from '../pages/settings/programs-io';
 const data: ProgramsExport = {
   programs: [{ ID: '11111111-1111-4111-8111-111111111111', 'Program code': 'BS-ME', 'Name (English)': 'BS Mechanical Engineering', 'Name (Arabic)': 'بكالوريوس الهندسة الميكانيكية', Unit: 'College of Engineering › Mechanical', 'Program level': 'Bachelor', 'SIS code': '', Mode: 'On-campus', Credits: 132, Years: 4, 'Contact hours': 2200, Language: 'English', Mission: 'To educate engineers.', Vision: '', Active: 'Yes' }],
   peos: [{ ID: '22222222-2222-4222-8222-222222222222', 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Code: 'PEO1', 'Statement (English)': 'Lead projects', 'Statement (Arabic)': '', Status: 'Draft' }],
-  plos: [{ ID: '33333333-3333-4333-8333-333333333333', 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Code: 'PLO1', 'Statement (English)': 'Solve problems', 'Statement (Arabic)': '', 'Bloom level': 'Apply', Status: 'Approved' }],
-  lists: { units: ['College of Engineering', 'College of Engineering › Mechanical'], languages: ['English', 'Arabic', 'Bilingual'] },
+  plos: [{ ID: '33333333-3333-4333-8333-333333333333', 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Code: 'PLO1', 'Statement (English)': 'Solve problems', 'Statement (Arabic)': '', 'Bloom level': 'Apply', ILOs: 'ILO1; ILO2', Status: 'Approved' }],
+  lists: { units: ['College of Engineering', 'College of Engineering › Mechanical'], languages: ['English', 'Arabic', 'Bilingual'], ilos: ['ILO1', 'ILO2'] },
 };
 
 describe('the programs workbook', () => {
@@ -29,6 +29,7 @@ describe('the programs workbook', () => {
     expect(plos.find((c) => c.header === 'Program code')!.check).toEqual({ list: 'Programs!$B$2:$B$302' });
     expect(plos.find((c) => c.header === 'Program name')!.formula!(5)).toBe('IFERROR(INDEX(Programs!$C:$C,MATCH($B5,Programs!$B:$B,0)),"")');
     expect(plos.find((c) => c.header === 'Bloom level')!.check).toEqual({ list: 'Lists!$F$2:$F$7' });
+    expect(plos.find((c) => c.header === 'ILOs')!.note).toMatch(/Codes: ILO1, ILO2\./);
   });
 
   it('writes an .xlsx that reads back as the rows the import takes', async () => {
@@ -38,7 +39,7 @@ describe('the programs workbook', () => {
     const { workbook } = await readProgramFiles([new File([bytes], 'Programs.xlsx')]);
     expect(workbook.programs).toHaveLength(1);
     expect(workbook.programs[0]).toMatchObject({ ID: '11111111-1111-4111-8111-111111111111', 'Program code': 'BS-ME', Unit: 'College of Engineering › Mechanical', Credits: '132' });
-    expect(workbook.plos[0]).toMatchObject({ ID: '33333333-3333-4333-8333-333333333333', Code: 'PLO1', 'Bloom level': 'Apply', Status: 'Approved' });
+    expect(workbook.plos[0]).toMatchObject({ ID: '33333333-3333-4333-8333-333333333333', Code: 'PLO1', 'Bloom level': 'Apply', ILOs: 'ILO1; ILO2', Status: 'Approved' });
     // The prepared rows below (checks and the lookup formula only) are not read as data.
     expect(workbook.peos).toHaveLength(1);
   });

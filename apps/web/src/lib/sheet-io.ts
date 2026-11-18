@@ -196,6 +196,7 @@ export interface RichColumn {
   /** Right-to-left text (Arabic). */ rtl?: boolean;
   /** A dropdown from a range ("Lists!$A$2:$A$9"), or whole/decimal numbers between bounds. */
   check?: { list: string } | { whole: [number, number] } | { decimal: [number, number] };
+  /** A note on the header (what to type, the codes it takes). */ note?: string;
   /** A formula for the given row number (a lookup shown beside the data). */
   formula?: (row: number) => string;
 }
@@ -238,6 +239,7 @@ export async function richWorkbookXlsx(sheets: RichSheet[]): Promise<Blob> {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
       cell.alignment = { vertical: 'middle', wrapText: true };
       if (c.grey) cell.note = 'Filled in by the system: leave it as it is (empty for a new row).';
+      else if (c.note) cell.note = c.note;
     });
     const rows = s.rows ?? [];
     for (const r of rows) ws.addRow(Object.fromEntries(cols.map((c) => [c.header, r[c.header] ?? null])));

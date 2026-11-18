@@ -16,7 +16,7 @@ export const PROGRAM_SHEETS = {
     required: ['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission'],
   },
   peos: { name: 'PEOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },
-  plos: { name: 'PLOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Bloom level', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },
+  plos: { name: 'PLOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Bloom level', 'ILOs', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },
 } as const;
 /** Words of the dropdowns (the import also takes the codes behind them). */
 export const PROGRAM_LEVEL_WORDS = ['Associate', 'Bachelor', 'Master', 'Doctorate', 'Diploma', 'Certificate'] as const;
@@ -28,7 +28,7 @@ export type ProgramSheetKey = keyof typeof PROGRAM_SHEETS;
 export type ProgramSheetRow = Record<string, string | number | null>;
 export interface ProgramsWorkbook { programs: ProgramSheetRow[]; peos: ProgramSheetRow[]; plos: ProgramSheetRow[] }
 /** An export: the rows, and the institution's choices for the dropdowns (its units as org-chart paths, its languages). */
-export interface ProgramsExport extends ProgramsWorkbook { lists: { units: string[]; languages: string[] } }
+export interface ProgramsExport extends ProgramsWorkbook { lists: { units: string[]; languages: string[]; /** The institution's ILO codes, for the PLOs' ILOs column. */ ilos: string[] } }
 export const ProgramsExportSchema = z.any() as unknown as z.ZodType<ProgramsExport, ProgramsExport>;
 const rows = z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))).max(5000).default([]);
 export const ProgramsWorkbookSchema: z.ZodType<ProgramsWorkbook, ProgramsWorkbook> = z.object({ programs: rows, peos: rows, plos: rows }).strict() as unknown as z.ZodType<ProgramsWorkbook, ProgramsWorkbook>;

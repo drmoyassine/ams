@@ -2,8 +2,8 @@
 // change); one without is matched by Program code (PEOs and PLOs by their code within the program); anything else is added. Nothing absent is
 // removed: a PEO or PLO is retired with its Status, a program with Active. An empty cell leaves the field as it is. A row missing a required
 // field is saved and flagged; one that cannot be placed is skipped with the reason. With `apply` false nothing is written.
-import { eq } from 'drizzle-orm';
-import { institution, learningOutcome, orgUnit, program } from '@ams/db';
+import { and, eq, inArray } from 'drizzle-orm';
+import { institution, learningOutcome, orgUnit, outcomeLink, program } from '@ams/db';
 import {
   BLOOM_LEVELS, DEGREE_LEVELS, OUTCOME_STATUSES, PROGRAM_MODES, languageInfo, programMissing, sheetCell, UpsertProgramsSchema,
   type Program, type ProgramsExport, type UpdateOutcome, type UpdateProgram, type UpsertPrograms, type UpsertProgramsResult, type UpsertProgramsRow,
@@ -11,7 +11,7 @@ import {
 import type { Ctx } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
 import { createProgram, toProgram, updateProgram } from './programs.js';
-import { createOutcome, updateOutcome } from '../outcomes/outcomes.js';
+import { createOutcome, removeOutcomeLink, setOutcomeLink, updateOutcome } from '../outcomes/outcomes.js';
 
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -130,6 +130,16 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
   }
 
   // ---- PEOs and PLOs (by their ID, else their code within the program)
+  const ilos = await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code }).from(learningOutcome).where(eq(learningOutcome.kind, 'ilo'));
+  /** A PLO's ILOs column ("ILO1; ILO3"): the ILOs it names, those it does not know, or null for an empty cell (links left as they are). */
+  const ilosOf = (text: string) => {
+    if (!text.trim()) return null;
+    const codes = text.split(/[;,\n]/).map((x) => x.trim()).filter(Boolean);
+    const found = codes.map((c) => ilos.find((i) => key(i.code) === key(c)));
+    return { ids: [...new Set(found.filter((x): x is { id: string; code: string } => !!x).map((x) => x.id))], unknown: codes.filter((_, n) => !found[n]) };
+  };
+  const linkedIlos = async (ploId: string) => (ilos.length ? (await ctx.tx.select({ toId: outcomeLink.toId }).from(outcomeLink)
+    .where(and(eq(outcomeLink.fromId, ploId), inArray(outcomeLink.toId, ilos.map((i) => i.id))))).map((l) => l.toId) : []);
   const counts = new Map<string, { peos: number; plos: number }>();
   const outcomesOf = new Map<string, (typeof learningOutcome.$inferSelect)[]>();
   const loadOutcomes = async (programId: string) => {
@@ -168,6 +178,14 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
       const keyOf = key(pcode || '') || [...placed.entries()].find(([, v]) => v.id === target!.id)?.[0] || '';
       if (status !== 'retired') { const cn = counts.get(keyOf) ?? { peos: 0, plos: 0 }; cn[kind === 'peo' ? 'peos' : 'plos'] += 1; counts.set(keyOf, cn); }
       const bloomNote = bloomText && !bloom ? `Unknown Bloom level "${bloomText}" left as it was.` : '';
+      const want = kind === 'plo' ? ilosOf(c('ILOs')) : null;
+      const iloNote = want?.unknown.length ? `Unknown ILO${want.unknown.length === 1 ? '' : 's'} ${want.unknown.join(', ')} left out.` : '';
+      /** Sets the PLO's ILO links to exactly those named (only when the cell has some). */
+      const syncIlos = async (ploId: string, have: string[]) => {
+        if (!want) return;
+        for (const id of want.ids.filter((x) => !have.includes(x))) await setOutcomeLink(ctx, { fromId: ploId, toId: id });
+        for (const id of have.filter((x) => !want.ids.includes(x))) await removeOutcomeLink(ctx, ploId, id);
+      };
       if (cur) {
         const patch: UpdateOutcome = {};
         if (ocode && idText && cur.code !== ocode) patch.code = ocode;
@@ -175,15 +193,19 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
         if (ar && cur.textAr !== ar) patch.textAr = ar;
         if (bloom && cur.bloomLevel !== bloom) patch.bloomLevel = bloom;
         if (status && cur.status !== status) patch.status = status;
-        if (!Object.keys(patch).length) { note({ sheet, row, code: label, action: 'unchanged', message: bloomNote }); continue; }
-        if (apply) await updateOutcome(ctx, cur.id, patch);
-        note({ sheet, row, code: label, action: 'update', message: [`Changes: ${Object.keys(patch).join(', ')}${patch.code ? ` (code was ${cur.code})` : ''}.`, bloomNote].filter(Boolean).join(' ') });
+        const have = want ? await linkedIlos(cur.id) : [];
+        const ilosChange = !!want && (want.ids.length !== have.length || want.ids.some((x) => !have.includes(x)));
+        const changes = [...Object.keys(patch), ...(ilosChange ? ['ILOs'] : [])];
+        if (!changes.length) { note({ sheet, row, code: label, action: 'unchanged', message: [bloomNote, iloNote].filter(Boolean).join(' ') }); continue; }
+        if (apply) { if (Object.keys(patch).length) await updateOutcome(ctx, cur.id, patch); if (ilosChange) await syncIlos(cur.id, have); }
+        note({ sheet, row, code: label, action: 'update', message: [`Changes: ${changes.join(', ')}${patch.code ? ` (code was ${cur.code})` : ''}.`, bloomNote, iloNote].filter(Boolean).join(' ') });
       } else {
         if (apply && target.id) {
           const made = await createOutcome(ctx, { kind, programId: target.id, code: ocode, textEn: text, ...(ar ? { textAr: ar } : {}), ...(bloom ? { bloomLevel: bloom } : {}) });
           if (status && status !== 'draft') await updateOutcome(ctx, made.id, { status });
+          await syncIlos(made.id, []);
         }
-        note({ sheet, row, code: label, action: 'add', message: bloomNote });
+        note({ sheet, row, code: label, action: 'add', message: [bloomNote, iloNote].filter(Boolean).join(' ') });
       }
     }
   }
@@ -212,7 +234,9 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
   const unitRows: UnitRow[] = await ctx.tx.select({ id: orgUnit.id, parentId: orgUnit.parentId, nameEn: orgUnit.nameEn, code: orgUnit.code, active: orgUnit.active }).from(orgUnit);
   const paths = unitPaths(unitRows);
   const progs = (await ctx.tx.select().from(program)).sort((a, b) => a.nameEn.localeCompare(b.nameEn));
-  const outcomes = progs.length ? await ctx.tx.select().from(learningOutcome) : [];
+  const outcomes = await ctx.tx.select().from(learningOutcome);
+  const iloCode = new Map(outcomes.filter((o) => o.kind === 'ilo').map((o) => [o.id, o.code]));
+  const links = iloCode.size ? await ctx.tx.select({ fromId: outcomeLink.fromId, toId: outcomeLink.toId }).from(outcomeLink).where(inArray(outcomeLink.toId, [...iloCode.keys()])) : [];
   const [inst] = await ctx.tx.select({ secondary: institution.secondaryLanguage }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
   const secondary = languageInfo(inst?.secondary)?.nameEn;
   const wb: ProgramsExport = {
@@ -220,6 +244,7 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
     lists: {
       units: unitRows.filter((u) => u.active).map((u) => paths.get(u.id)!).sort((a, b) => a.localeCompare(b)),
       languages: ['English', ...(secondary ? [secondary] : []), 'Bilingual'],
+      ilos: outcomes.filter((o) => o.kind === 'ilo' && o.status !== 'retired').map((o) => o.code).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })),
     },
   };
   for (const p of progs) {
@@ -232,7 +257,10 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
     const mine = outcomes.filter((o) => o.programId === p.id).sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code, 'en', { numeric: true }));
     const base = (o: (typeof outcomes)[number]) => ({ ID: o.id, 'Program code': code, 'Program name': p.nameEn, Code: o.code, 'Statement (English)': o.textEn, 'Statement (Arabic)': o.textAr ?? '' });
     for (const o of mine.filter((x) => x.kind === 'peo')) wb.peos.push({ ...base(o), Status: cap(o.status) });
-    for (const o of mine.filter((x) => x.kind === 'plo')) wb.plos.push({ ...base(o), 'Bloom level': o.bloomLevel ? cap(o.bloomLevel) : '', Status: cap(o.status) });
+    for (const o of mine.filter((x) => x.kind === 'plo')) {
+      const ilosOfPlo = links.filter((l) => l.fromId === o.id).map((l) => iloCode.get(l.toId)!).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+      wb.plos.push({ ...base(o), 'Bloom level': o.bloomLevel ? cap(o.bloomLevel) : '', ILOs: ilosOfPlo.join('; '), Status: cap(o.status) });
+    }
   }
   return wb;
 }

@@ -5,6 +5,7 @@ import type { ProgramsWorkbook } from '@ams/shared';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { exportPrograms, upsertPrograms } from './programs-sheets.js';
 import { listPrograms } from './programs.js';
+import { createOutcome } from '../outcomes/outcomes.js';
 
 let w: World;
 beforeAll(async () => { w = await buildWorld('programsheets'); }, 120000);
@@ -89,5 +90,22 @@ describe('programs from the template', () => {
       ['skip', 'the Program code MS-CE belongs to another program (MS Civil Engineering)'],
       ['skip', 'no program with the ID 00000000-0000-4000-8000-000000000000 (leave the ID empty to add a program)'],
     ]);
+  });
+
+  it('sets a PLO\'s ILO links to exactly the codes in its ILOs cell, says which codes it does not know, and leaves them alone when the cell is empty', async () => {
+    await w.as('alo', (c) => createOutcome(c, { kind: 'ilo', code: 'ILO1', textEn: 'Critical thinking' }));
+    await w.as('alo', (c) => createOutcome(c, { kind: 'ilo', code: 'ILO2', textEn: 'Communication' }));
+    const plo = (await w.as('alo', (c) => exportPrograms(c))).plos.find((r) => r.Code === 'PLO-A')!;
+    const linked = async () => (await w.db.su.query(`select i.code from outcome_link l join learning_outcome i on i.id = l.to_id where l.from_id = $1 and i.kind = 'ilo' order by i.code`, [plo.ID])).rows.map((r) => r.code);
+    const run = (ilos: string) => w.as('alo', (c) => upsertPrograms(c, { apply: true, workbook: { programs: [], peos: [], plos: [{ ID: plo.ID as string, ILOs: ilos }] } }));
+    expect((await run('ILO1; ILOX')).rows.map((r) => [r.action, r.message])).toEqual([['update', 'Changes: ILOs. Unknown ILO ILOX left out.']]);
+    expect(await linked()).toEqual(['ILO1']);
+    expect((await run('ilo2')).rows[0]!.action).toBe('update');
+    expect(await linked()).toEqual(['ILO2']);
+    expect((await run('')).rows[0]!.action).toBe('unchanged');
+    expect(await linked()).toEqual(['ILO2']);
+    const wb = await w.as('alo', (c) => exportPrograms(c));
+    expect(wb.plos.find((r) => r.ID === plo.ID)).toMatchObject({ ILOs: 'ILO2' });
+    expect(wb.lists.ilos).toEqual(['ILO1', 'ILO2']);
   });
 });
