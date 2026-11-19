@@ -36,8 +36,8 @@ export function CatalogPage({ versionId, catalog: override }: { versionId: strin
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Link to="/settings/organization" search={{ tab: 'catalog' }} className="text-sm underline underline-offset-2">‹ Catalog editions</Link>
-        <label className="flex items-center gap-2 text-sm">Show
-          <select aria-label="Catalog scope" className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={program} onChange={(e) => setProgram(e.target.value)}>
+        <label className="flex min-w-0 max-w-full items-center gap-2 text-sm">Show
+          <select aria-label="Catalog scope" className="h-9 min-w-0 max-w-full rounded-md border border-border bg-background px-2 text-sm" value={program} onChange={(e) => setProgram(e.target.value)}>
             <option value="">The whole catalog</option>
             {snapshot.programs.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.nameEn}</option>)}
           </select>

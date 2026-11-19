@@ -5,14 +5,16 @@
 import { describeRequisites, BLOCK_LABEL, REQUIREMENT_BLOCKS, type CatalogSnapshot, type RequirementBlock, type SnapCourse, type SnapProgram } from '@ams/shared';
 
 export const CATALOG_CSS = `
-.catalog { font-family: Georgia, 'Times New Roman', serif; line-height: 1.45; color: #111; }
+.catalog { font-family: Georgia, 'Times New Roman', serif; line-height: 1.45; color: #111; overflow-wrap: anywhere; }
 .catalog h1 { font-size: 28px; margin: 0 0 4px; } .catalog h2 { font-size: 22px; margin: 28px 0 8px; border-bottom: 2px solid #444; padding-bottom: 4px; }
 .catalog h3 { font-size: 18px; margin: 20px 0 6px; } .catalog h4 { font-size: 15px; margin: 14px 0 4px; } .catalog h5 { font-size: 13px; margin: 10px 0 2px; text-transform: uppercase; color: #444; }
-.catalog p { margin: 4px 0; } .catalog ul, .catalog ol { margin: 4px 0 4px 22px; padding: 0; }
+.catalog h1, .catalog h2, .catalog h3, .catalog h4, .catalog h5 { font-weight: 700; }
+.catalog p { margin: 4px 0; } .catalog ul, .catalog ol { margin: 4px 0 4px 22px; padding: 0; } .catalog ul { list-style: disc; } .catalog ol { list-style: decimal; }
 .catalog table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 13px; } .catalog th, .catalog td { border: 1px solid #999; padding: 3px 6px; text-align: left; vertical-align: top; }
 .catalog th { background: #eee; } .catalog td.n, .catalog th.n { text-align: right; white-space: nowrap; }
 .catalog .muted { color: #555; } .catalog .ar { direction: rtl; unicode-bidi: plaintext; } .catalog .total td { font-weight: bold; background: #f6f6f6; }
 .catalog .course { margin: 8px 0; break-inside: avoid; } .catalog .facts { margin: 4px 0; font-size: 13px; }
+@media screen and (max-width: 700px) { .catalog table { display: block; overflow-x: auto; } }
 @media print { .catalog h2 { break-after: avoid; } .catalog section.program { break-before: page; } }
 `;
 
@@ -134,7 +136,7 @@ export function CatalogDocument({ snapshot, meta, program }: { snapshot: Catalog
     <article className="catalog" aria-label="Catalog">
       <header>
         <h1><Names en={snapshot.institution.nameEn} ar={snapshot.institution.nameAr} /></h1>
-        <p><b>{program ? `Program catalog: ${programs[0]?.nameEn ?? program}` : 'University catalog'}</b> · {meta.editionLabel}{meta.versionNo ? `, version ${meta.versionNo}` : ' (draft, not published)'}{when ? ` · published ${when}` : ''}</p>
+        <p><b>{program ? `Program catalog: ${programs[0]?.nameEn ?? program}` : 'University catalog'}</b> · {meta.versionNo ? `${meta.editionLabel}, version ${meta.versionNo}` : 'Draft (not published)'}{when ? ` · published ${when}` : ''}</p>
       </header>
       <nav aria-label="Contents">
         <h2>Contents</h2>

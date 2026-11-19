@@ -199,6 +199,6 @@ describe('the generated catalog', () => {
     cleanup();
     mount(<CatalogPage versionId="draft" catalog={a.catalog} />);
     expect((await screen.findByRole('note')).textContent).toMatch(/This is the draft/);
-    expect((await screen.findByRole('article', { name: 'Catalog' })).textContent).toMatch(/draft, not published/);
+    expect((await screen.findByRole('article', { name: 'Catalog' })).textContent).toMatch(/Draft \(not published\)/);
   }, 60000);
 });
