@@ -4,9 +4,9 @@
 // approved as on the course page. A part of the content is replaced only when the file has rows for that course; an empty cell leaves a
 // field as it is; content that comes out the same makes no draft. Nothing absent is removed. With `apply` false nothing is written.
 import { and, eq, inArray } from 'drizzle-orm';
-import { appUser, course, courseInstructor, courseProgram, learningOutcome, orgUnit, program } from '@ams/db';
+import { appUser, concentration, course, courseInstructor, courseProgram, learningOutcome, orgUnit, program } from '@ams/db';
 import {
-  ASSESSMENT_CATEGORIES, BLOOM_LEVELS, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_ROLES, COURSE_SHEETS, COURSE_TYPES, CONTENT_SHEETS, LABEL,
+  ASSESSMENT_CATEGORIES, BLOCK_LABEL, BLOOM_LEVELS, REQUIREMENT_BLOCKS, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_ROLES, COURSE_SHEETS, COURSE_TYPES, CONTENT_SHEETS, LABEL,
   LANGUAGES_OF_DELIVERY, MATERIAL_KINDS, SUSTAINABILITY, SYLLABUS_SHEETS, UpsertCoursesSchema, emptySyllabus, sheetCell, syllabusToWorkbook, workbookToSyllabi,
   type CourseSheetRow, type CoursesExport, type SyllabusContent, type SyllabusWorkbook, type UpdateCourse, type UpsertCourses, type UpsertCoursesResult, type UpsertCoursesRow,
 } from '@ams/shared';
@@ -125,6 +125,7 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
 
   // ---- The programs each course serves (applied at once)
   const links = await ctx.tx.select().from(courseProgram);
+  const concentrations = await ctx.tx.select().from(concentration);
   for (const [i, r] of workbook.studyPlan.entries()) {
     const c = (h: string) => sheetCell(r, h);
     const cc = c('Course code'); const pc = c('Program code'); const row = i + 2; const label = `${cc} ${pc}`.trim();
@@ -137,9 +138,15 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
     if (!role) { skip(`unknown role "${roleText}" (Core, Elective or Service)`); continue; }
     const y = numOf(c('Year')); const t = numOf(c('Term'));
     if ([y, t].some((n) => n !== undefined && (Number.isNaN(n) || !Number.isInteger(n)))) { skip('Year and Term are whole numbers'); continue; }
+    // The block of the program's requirements the course sits in, and the concentration it is for (empty: all). Left as they are when empty.
+    const blockText = c('Block'); const block = blockText ? REQUIREMENT_BLOCKS.find((b) => key(b) === key(blockText) || key(BLOCK_LABEL[b]) === key(blockText)) : undefined;
+    if (blockText && !block) { skip(`unknown block "${blockText}" (${REQUIREMENT_BLOCKS.map((b) => BLOCK_LABEL[b]).join(', ')})`); continue; }
+    const concText = c('Concentration');
+    const conc = concText ? concentrations.find((k) => k.programId === prog.id && (key(k.code) === key(concText) || key(k.nameEn) === key(concText))) : undefined;
+    if (concText && !conc) { skip(`no concentration "${concText}" in ${prog.code}`); continue; }
     const now = courseId ? links.find((l) => l.courseId === courseId && l.programId === prog.id) : undefined;
-    const next = { role, year: y ?? now?.year ?? null, term: t ?? now?.term ?? null };
-    if (now && now.role === next.role && now.year === next.year && now.term === next.term) { note({ sheet: 'Study plan', row, code: label, action: 'unchanged', message: '' }); continue; }
+    const next = { role, year: y ?? now?.year ?? null, term: t ?? now?.term ?? null, block: block ?? now?.block ?? null, concentrationId: conc?.id ?? now?.concentrationId ?? null };
+    if (now && now.role === next.role && now.year === next.year && now.term === next.term && now.block === next.block && now.concentrationId === next.concentrationId) { note({ sheet: 'Study plan', row, code: label, action: 'unchanged', message: '' }); continue; }
     if (apply && courseId) await setCourseProgram(ctx, courseId, prog.id, next);
     note({ sheet: 'Study plan', row, code: label, action: now ? 'update' : 'add', message: '' });
   }
@@ -205,6 +212,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
   const people = await ctx.tx.select({ id: appUser.id, email: appUser.email, active: appUser.active }).from(appUser);
   const all = (await ctx.tx.select().from(course)).sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true }));
   const links = await ctx.tx.select().from(courseProgram);
+  const concs = await ctx.tx.select().from(concentration);
   const levels = await getLevels(ctx);
   const template = await getSyllabusTemplate(ctx);
   const allPlos = all.length ? await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code, programId: learningOutcome.programId }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, programs.map((p) => p.id).concat('00000000-0000-0000-0000-000000000000')))) : [];
@@ -216,7 +224,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
       programs: programs.filter((p) => p.active && p.code).map((p) => p.code!).sort(),
       coordinators: people.filter((p) => p.active && !p.email.endsWith('.invalid')).map((p) => p.email).sort(),
       languages: LANGUAGES_OF_DELIVERY.map(lbl), types: COURSE_TYPES.map(lbl), levels: [...COURSE_LEVELS], categories: COURSE_CATEGORIES.map(lbl), sustainability: SUSTAINABILITY.map(lbl),
-      roles: COURSE_ROLES.map((r) => r[0]!.toUpperCase() + r.slice(1)), bloom: BLOOM_LEVELS.map(lbl), coverage: levels.map((l) => l.name), kinds: MATERIAL_KINDS.map(lbl), assessmentCategories: ASSESSMENT_CATEGORIES.map(lbl),
+      roles: COURSE_ROLES.map((r) => r[0]!.toUpperCase() + r.slice(1)), blocks: REQUIREMENT_BLOCKS.map((b) => BLOCK_LABEL[b]), bloom: BLOOM_LEVELS.map(lbl), coverage: levels.map((l) => l.name), kinds: MATERIAL_KINDS.map(lbl), assessmentCategories: ASSESSMENT_CATEGORIES.map(lbl),
     },
   };
   const email = new Map(people.map((p) => [p.id, p.email]));
@@ -235,7 +243,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
     });
     for (const l of links.filter((x) => x.courseId === c.id)) {
       const p = programs.find((x) => x.id === l.programId);
-      wb.studyPlan.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Year: l.year, Term: l.term });
+      wb.studyPlan.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Block: l.block ? BLOCK_LABEL[l.block] : '', Concentration: l.concentrationId ? concs.find((k) => k.id === l.concentrationId)?.code ?? '' : '', Year: l.year, Term: l.term });
     }
     for (const [k, x] of rows.clos.entries()) wb.clos.push({ ID: content.clos[k]?.id ?? '', 'Course code': c.code, 'Course title': c.titleEn, ...Object.fromEntries(Object.entries(x).filter(([h]) => h !== 'Course code')) });
     wb.outline.push(...rows.outline); wb.materials.push(...rows.materials); wb.assessments.push(...rows.assessments); wb.rubrics.push(...rows.rubrics); wb.sections.push(...rows.sections);

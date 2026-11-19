@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DEGREE_LEVELS, PROGRAM_MODES, languageInfo, type OrgUnit, type OrgUnitType, type Program } from '@ams/shared';
+import { DEGREE_LEVELS, PROGRAM_MODES, PROGRAM_TYPES, PROGRAM_TYPE_LABEL, languageInfo, type OrgUnit, type OrgUnitType, type Program } from '@ams/shared';
 import { Breadcrumb } from '../../components/breadcrumb';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -13,6 +13,8 @@ import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import type { SyllabusApi } from '../../lib/syllabus-api';
 import { useAction } from '../../lib/use-action';
 import { RecordedOutcomes } from './program-outcomes';
+import { RequirementsSection } from './requirements';
+import type { CatalogApi } from '../../lib/catalog-api';
 
 export const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
 export const MODE = { on_campus: 'On-campus', online: 'Online', blended: 'Blended' } as const;
@@ -34,18 +36,20 @@ export function unitChoices(units: OrgUnit[], types: OrgUnitType[], keep?: strin
 
 interface Values {
   nameEn: string; nameAr: string; orgUnitId: string; degreeLevel: Program['degreeLevel']; code: string; externalId: string; mode: string;
-  credits: string; durationYears: string; contactHours: string; languageOfInstruction: string; mission: string; vision: string;
+  credits: string; durationYears: string; contactHours: string; languageOfInstruction: string; mission: string; vision: string; programType: Program['programType'];
 }
 const valuesOf = (p?: Program): Values => ({
   nameEn: p?.nameEn ?? '', nameAr: p?.nameAr ?? '', orgUnitId: p?.orgUnitId ?? '', degreeLevel: p?.degreeLevel ?? 'bachelor', code: p?.code ?? '', externalId: p?.externalId ?? '',
   mode: p?.mode ?? '', credits: p?.credits?.toString() ?? '', durationYears: p?.durationYears?.toString() ?? '', contactHours: p?.contactHours?.toString() ?? '',
-  languageOfInstruction: p?.languageOfInstruction ?? '', mission: p?.mission ?? '', vision: p?.vision ?? '',
+  languageOfInstruction: p?.languageOfInstruction ?? '', mission: p?.mission ?? '', vision: p?.vision ?? '', programType: p?.programType ?? 'degree',
 });
 /** Everything is required except the vision and the SIS code (the owner, 2026-11-16); and at least one PEO and one PLO. */
 const REQUIRED: [keyof Values, string][] = [
   ['nameEn', 'Name (English)'], ['nameAr', 'Name (Arabic)'], ['orgUnitId', 'Unit'], ['code', 'Program code'], ['mode', 'Mode'], ['credits', 'Credits'],
   ['durationYears', 'Years'], ['contactHours', 'Contact hours'], ['languageOfInstruction', 'Language'], ['mission', 'Mission'],
 ];
+/** A minor has no mode, years or contact hours of its own (and no PEOs). */
+const MINOR_SKIPS = new Set<keyof Values>(['mode', 'durationYears', 'contactHours']);
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
 /**
@@ -53,8 +57,8 @@ const num = (s: string) => (s.trim() === '' ? null : Number(s));
  * or /new: its record in the owner's order, then its PEOs and PLOs (recorded ones edited in place, new ones typed as rows). The page refuses
  * to save without the required fields; an import or the API saves and flags what is missing instead.
  */
-export function ProgramPage({ programId, api: override, outcomes, syllabus, onSaved, onCancel }: {
-  programId: string | 'new'; api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; onSaved: (id: string) => void; onCancel: () => void;
+export function ProgramPage({ programId, api: override, outcomes, syllabus, catalog, onSaved, onCancel }: {
+  programId: string | 'new'; api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; catalog?: CatalogApi; onSaved: (id: string) => void; onCancel: () => void;
 }) {
   const api = useSettingsApi(override);
   const me = useMe(api);
@@ -65,12 +69,12 @@ export function ProgramPage({ programId, api: override, outcomes, syllabus, onSa
   // The form is made again when the saved record changes (after a save), so what is being typed is never overwritten by a refetch.
   return (
     <ProgramForm key={program ? JSON.stringify(program) : 'new'} program={program} canWrite={can(me.data, 'program:write')} api={api}
-      {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} onSaved={onSaved} onCancel={onCancel} />
+      {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} {...(catalog ? { catalog } : {})} onSaved={onSaved} onCancel={onCancel} />
   );
 }
 
-function ProgramForm({ program, canWrite, api, outcomes, syllabus, onSaved, onCancel }: {
-  program?: Program; canWrite: boolean; api: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; onSaved: (id: string) => void; onCancel: () => void;
+function ProgramForm({ program, canWrite, api, outcomes, syllabus, catalog, onSaved, onCancel }: {
+  program?: Program; canWrite: boolean; api: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; catalog?: CatalogApi; onSaved: (id: string) => void; onCancel: () => void;
 }) {
   const oapi = useOutcomesApi(outcomes);
   const qc = useQueryClient();
@@ -94,7 +98,8 @@ function ProgramForm({ program, canWrite, api, outcomes, syllabus, onSaved, onCa
   const hasPeos = (recorded.data?.peos.length ?? 0) + peos.filter((r) => r.textEn.trim()).length > 0;
   const hasPlos = (recorded.data?.plos.length ?? 0) + plos.filter((r) => r.textEn.trim()).length > 0;
   const uncoded = [...peos, ...plos].some((r) => r.textEn.trim() && !r.code.trim());
-  const missing = [...REQUIRED.filter(([k]) => !v[k].trim()).map(([, l]) => l), ...(hasPeos ? [] : ['at least one PEO']), ...(hasPlos ? [] : ['at least one PLO']), ...(uncoded ? ['a code for each new PEO and PLO'] : [])];
+  const minor = v.programType === 'minor';
+  const missing = [...REQUIRED.filter(([k]) => !(minor && MINOR_SKIPS.has(k)) && !v[k].trim()).map(([, l]) => l), ...(hasPeos || minor ? [] : ['at least one PEO']), ...(hasPlos || minor ? [] : ['at least one PLO']), ...(uncoded ? ['a code for each new PEO and PLO'] : [])];
   const bad = (k: keyof Values) => tried && !v[k].trim();
   const field = 'flex min-w-0 flex-col gap-1 text-xs';
   const control = (k: keyof Values) => `h-9 w-full min-w-0 max-w-full rounded-md border bg-background px-2 text-sm ${bad(k) ? 'border-red-600' : 'border-border'}`;
@@ -107,7 +112,7 @@ function ProgramForm({ program, canWrite, api, outcomes, syllabus, onSaved, onCa
     const body = {
       orgUnitId: v.orgUnitId, nameEn: v.nameEn.trim(), degreeLevel: v.degreeLevel, code: v.code.trim(), externalId: v.externalId.trim() || null,
       mode: v.mode as Program['mode'], credits: num(v.credits), durationYears: num(v.durationYears), contactHours: num(v.contactHours),
-      languageOfInstruction: v.languageOfInstruction, mission: v.mission.trim(), vision: v.vision.trim() || null,
+      languageOfInstruction: v.languageOfInstruction, mission: v.mission.trim(), vision: v.vision.trim() || null, programType: v.programType,
     };
     const result = await act(() => (program ? api.updateProgram(program.id, { ...body, nameAr: v.nameAr.trim() }) : api.createProgram({ ...body, nameAr: v.nameAr.trim() })));
     if (result === undefined) { setSaving(false); return; }
@@ -155,7 +160,12 @@ function ProgramForm({ program, canWrite, api, outcomes, syllabus, onSaved, onCa
                 {unitChoices(units.data ?? [], types.data ?? [], program?.orgUnitId).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
               </select>
             </label>
-            <div className="grid min-w-0 gap-3 sm:col-span-2 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:col-span-2 sm:grid-cols-4">
+              <label className={field}><span>Type</span>
+                <select aria-label="Program type" className={control('degreeLevel')} value={v.programType} onChange={set('programType')}>
+                  {PROGRAM_TYPES.map((t) => <option key={t} value={t}>{PROGRAM_TYPE_LABEL[t]}</option>)}
+                </select>
+              </label>
               <label className={field}><span>Program level{req}</span>
                 <select aria-label="Program level" className={control('degreeLevel')} value={v.degreeLevel} onChange={set('degreeLevel')}>
                   {DEGREE_LEVELS.map((d) => <option key={d} value={d}>{LEVEL[d]}</option>)}
@@ -201,13 +211,14 @@ function ProgramForm({ program, canWrite, api, outcomes, syllabus, onSaved, onCa
       {/* Outcomes sit after the form: an outcome edited in place has a form of its own, and forms do not nest; Save submits by the form's id. */}
       <Card>
         <div className="space-y-4">
-          <OutcomeRows label="PEO" title="Program educational objectives (PEOs) *" codeHint="PEO1" rows={peos} existing={recorded.data?.peos ?? []} onChange={setPeos}
+          <OutcomeRows label="PEO" title={`Program educational objectives (PEOs)${minor ? '' : ' *'}`} codeHint="PEO1" rows={peos} existing={recorded.data?.peos ?? []} onChange={setPeos}
             {...(program ? { recorded: <RecordedOutcomes programId={program.id} kind="peo" canWrite={canWrite} {...(outcomes ? { api: outcomes } : {})} {...(syllabus ? { syllabus } : {})} /> } : {})} />
-          <OutcomeRows label="PLO" title="Program learning outcomes (PLOs) *" codeHint="PLO1" rows={plos} existing={recorded.data?.plos ?? []} onChange={setPlos}
+          <OutcomeRows label="PLO" title={`Program learning outcomes (PLOs)${minor ? '' : ' *'}`} codeHint="PLO1" rows={plos} existing={recorded.data?.plos ?? []} onChange={setPlos}
             {...(program ? { recorded: <RecordedOutcomes programId={program.id} kind="plo" canWrite={canWrite} {...(outcomes ? { api: outcomes } : {})} {...(syllabus ? { syllabus } : {})} /> } : {})} />
           {plos.length > 0 && <p className="text-xs text-muted-foreground">Links to ILOs and PEOs, performance indicators, and courses and CLOs are added under a PLO once it is saved.</p>}
         </div>
       </Card>
+      {program && <RequirementsSection programId={program.id} canWrite={canWrite} {...(catalog ? { catalog } : {})} {...(outcomes ? { outcomes } : {})} />}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {saved && <p role="status" className="text-sm text-emerald-800">Saved.</p>}
       <div className="flex flex-wrap gap-2 border-t border-border pt-3">

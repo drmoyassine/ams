@@ -575,6 +575,13 @@
       "when": 1793376000000,
       "tag": "0083_course_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1793462400000,
+      "tag": "0084_catalog_structure",
+      "breakpoints": true
     }
   ]
 }

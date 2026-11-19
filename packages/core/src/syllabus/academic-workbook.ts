@@ -6,17 +6,19 @@ import { sql } from 'drizzle-orm';
 import { UpsertAcademicSchema, type AcademicExport, type AcademicWorkbook, type UpsertAcademic, type UpsertAcademicResult, type UpsertAcademicRow } from '@ams/shared';
 import { assertPermitted } from '../permissions.js';
 import { type Ctx } from '../ctx.js';
+import { exportCatalog, upsertCatalog } from '../catalog/catalog-sheets.js';
 import { exportPrograms, upsertPrograms } from '../org/programs-sheets.js';
 import { exportCourses, upsertCourses } from './courses-sheets.js';
 
 const PROGRAM_KEYS = ['programs', 'peos', 'plos'] as const;
+const CATALOG_KEYS = ['concentrations', 'blocks', 'genedAreas', 'catalog', 'slots'] as const;
 const COURSE_KEYS = ['courses', 'studyPlan', 'clos', 'outline', 'materials', 'assessments', 'rubrics', 'sections'] as const;
 
 /** Everything of the workbook in one read: the rows of both parts and the lists for the dropdowns. */
 export async function exportAcademic(ctx: Ctx): Promise<AcademicExport> {
   await assertPermitted(ctx, 'org:read', { type: 'any' });
-  const [p, c] = [await exportPrograms(ctx), await exportCourses(ctx)];
-  return { programs: p.programs, peos: p.peos, plos: p.plos, courses: c.courses, studyPlan: c.studyPlan, clos: c.clos, outline: c.outline, materials: c.materials, assessments: c.assessments, rubrics: c.rubrics, sections: c.sections, lists: { ...c.lists, units: p.lists.units, programLanguages: p.lists.languages, ilos: p.lists.ilos } };
+  const [p, c, k] = [await exportPrograms(ctx), await exportCourses(ctx), await exportCatalog(ctx)];
+  return { programs: p.programs, peos: p.peos, plos: p.plos, concentrations: k.concentrations, blocks: k.blocks, genedAreas: k.genedAreas, catalog: k.catalog, slots: k.slots, courses: c.courses, studyPlan: c.studyPlan, clos: c.clos, outline: c.outline, materials: c.materials, assessments: c.assessments, rubrics: c.rubrics, sections: c.sections, lists: { ...c.lists, units: p.lists.units, programLanguages: p.lists.languages, ilos: p.lists.ilos, areas: k.lists.areas, concentrations: k.lists.concentrations } };
 }
 
 const pick = <K extends string>(wb: AcademicWorkbook, keys: readonly K[]) => Object.fromEntries(keys.map((k) => [k, (wb as unknown as Record<string, unknown>)[k] ?? []])) as never;
@@ -24,13 +26,20 @@ const pick = <K extends string>(wb: AcademicWorkbook, keys: readonly K[]) => Obj
 async function run(ctx: Ctx, wb: AcademicWorkbook, apply: boolean): Promise<UpsertAcademicResult> {
   const hasPrograms = PROGRAM_KEYS.some((k) => wb[k].length);
   const hasCourses = COURSE_KEYS.some((k) => wb[k].length);
+  const hasCatalog = CATALOG_KEYS.some((k) => wb[k].length);
+  // The order: programs and outcomes; the structure the study plan names (settings, areas, concentrations, block credits); courses, study plan
+  // and content; then what needs the courses (the areas' pools, elective slots).
   const programs = hasPrograms ? await upsertPrograms(ctx, { workbook: pick(wb, PROGRAM_KEYS), apply }) : null;
+  const structure = hasCatalog ? await upsertCatalog(ctx, pick(wb, CATALOG_KEYS), 'structure') : [];
   const courses = hasCourses ? await upsertCourses(ctx, { workbook: pick(wb, COURSE_KEYS), apply }) : null;
-  const rows: UpsertAcademicRow[] = [...(programs?.rows ?? []), ...(courses?.rows ?? [])];
+  const late = hasCatalog ? await upsertCatalog(ctx, pick(wb, CATALOG_KEYS), 'late') : [];
+  const catalog = [...structure, ...late];
+  const count = (a: string) => catalog.filter((r) => r.action === a).length;
+  const rows: UpsertAcademicRow[] = [...(programs?.rows ?? []), ...structure, ...(courses?.rows ?? []), ...late];
   return {
     applied: apply,
-    added: (programs?.added ?? 0) + (courses?.added ?? 0), updated: (programs?.updated ?? 0) + (courses?.updated ?? 0), drafted: courses?.drafted ?? 0,
-    unchanged: (programs?.unchanged ?? 0) + (courses?.unchanged ?? 0), skipped: (programs?.skipped ?? 0) + (courses?.skipped ?? 0), rows,
+    added: (programs?.added ?? 0) + (courses?.added ?? 0) + count('add'), updated: (programs?.updated ?? 0) + (courses?.updated ?? 0) + count('update'), drafted: courses?.drafted ?? 0,
+    unchanged: (programs?.unchanged ?? 0) + (courses?.unchanged ?? 0) + count('unchanged'), skipped: (programs?.skipped ?? 0) + (courses?.skipped ?? 0) + count('skip'), rows,
   };
 }
 

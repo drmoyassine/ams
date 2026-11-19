@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { COURSE_ROLES, type Course, type Program } from '@ams/shared';
+import { BLOCK_LABEL, COURSE_ROLES, REQUIREMENT_BLOCKS, type Course, type Program, type RequirementBlock } from '@ams/shared';
 import { Breadcrumb } from '../../components/breadcrumb';
 import { CourseContent } from '../../components/syllabus/course-content';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useConfirm } from '../../components/confirm-dialog';
+import { useCatalogApi } from '../../lib/catalog-api';
 import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
@@ -192,6 +193,30 @@ function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units
 }
 
 /** The programs the course serves (at least one), each with its role, year and term. */
+/** The block of a program's requirements a course sits in, and the concentration it is for (DEC-046). */
+function PlacementBlock({ course, programId, role, year, term, block, concentrationId, canWrite, run, oapi }: {
+  course: Course; programId: string; role: (typeof COURSE_ROLES)[number]; year: number | null; term: number | null; block: RequirementBlock | null; concentrationId: string | null;
+  canWrite: boolean; run: (fn: () => Promise<unknown>) => void; oapi: OutcomesApi;
+}) {
+  const catalog = useCatalogApi();
+  const reqs = useQuery({ queryKey: ['requirements', programId], queryFn: () => catalog.requirements(programId) });
+  const concs = (reqs.data?.concentrations ?? []).filter((k) => k.active || k.id === concentrationId);
+  const set = (patch: { block?: RequirementBlock | null; concentrationId?: string | null }) => run(() => oapi.setCourseProgram(course.id, programId, { role, year, term, ...patch }));
+  if (!canWrite) return <span className="text-xs text-muted-foreground">{block ? BLOCK_LABEL[block] : 'No block'}{concentrationId ? ` · ${concs.find((k) => k.id === concentrationId)?.nameEn ?? ''}` : ''}</span>;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <select aria-label={`Block of ${course.code} in ${programId}`} className={`${select} w-48`} value={block ?? ''} onChange={(e) => set({ block: (e.target.value || null) as RequirementBlock | null, ...(e.target.value !== 'concentration' ? { concentrationId: null } : {}) })}>
+        <option value="">No block</option>{REQUIREMENT_BLOCKS.map((b) => <option key={b} value={b}>{BLOCK_LABEL[b]}</option>)}
+      </select>
+      {concs.length > 0 && (
+        <select aria-label={`Concentration of ${course.code} in ${programId}`} className={`${select} w-40`} value={concentrationId ?? ''} onChange={(e) => set({ concentrationId: e.target.value || null })}>
+          <option value="">All concentrations</option>{concs.map((k) => <option key={k.id} value={k.id}>{k.nameEn}</option>)}
+        </select>
+      )}
+    </span>
+  );
+}
+
 function Placement({ course, programs, oapi, canWrite }: { course: Course; programs: Program[]; oapi: OutcomesApi; canWrite: boolean }) {
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -207,10 +232,11 @@ function Placement({ course, programs, oapi, canWrite }: { course: Course; progr
         <p className="text-xs text-muted-foreground">The programs this course is part of, with its role, year and term in each.</p>
         {course.programIds.length === 0 && <p className="text-sm text-amber-800">It is in no program&apos;s study plan yet: add one.</p>}
         <ul className="space-y-1 text-sm">
-          {course.placements.map(({ programId: id, role, year, term }) => (
+          {course.placements.map(({ programId: id, role, year, term, block, concentrationId }) => (
             <li key={id} className="flex flex-wrap items-center gap-2">
               <span>{name.get(id) ?? 'A program you may not see'}</span>
               <span className="text-xs text-muted-foreground">{ROLE[role]}{year ? ` · year ${year}` : ''}{term ? `, term ${term}` : ''}</span>
+              <PlacementBlock course={course} programId={id} role={role} year={year} term={term} block={block} concentrationId={concentrationId} canWrite={canWrite} run={(fn) => run.mutate(fn)} oapi={oapi} />
               {canWrite && <Button type="button" variant="ghost" className="px-2 py-0.5 text-xs" aria-label={`Take ${course.code} out of ${name.get(id) ?? 'the program'}`}
                 onClick={() => { void confirm({ title: `Take ${course.code} out of ${name.get(id) ?? 'the program'}?`, message: 'Its CLOs\' links to that program\'s PLOs go with it.', confirmLabel: 'Take it out', tone: 'danger' }).then((ok) => { if (ok) run.mutate(() => oapi.removeCourseProgram(course.id, id)); }); }}>Remove</Button>}
             </li>

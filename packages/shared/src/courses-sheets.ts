@@ -12,7 +12,7 @@ export const COURSE_SHEETS = {
     headers: ['ID', 'Course code', 'Unit', 'Year of study', 'SIS code', ...CONTENT_COURSE_HEADERS, 'Coordinator', 'Active'] as readonly string[],
     required: ['Course code', 'Title (English)', 'Unit', 'Credit hours'] as readonly string[],
   },
-  studyPlan: { name: 'Study plan', headers: ['Course code', 'Course title', 'Program code', 'Role', 'Year', 'Term'] as readonly string[], required: ['Course code', 'Program code'] as readonly string[] },
+  studyPlan: { name: 'Study plan', headers: ['Course code', 'Course title', 'Program code', 'Role', 'Block', 'Concentration', 'Year', 'Term'] as readonly string[], required: ['Course code', 'Program code'] as readonly string[] },
   clos: { name: 'CLOs', headers: ['ID', 'Course code', 'Course title', ...SYLLABUS_SHEETS.clos.headers.filter((h) => h !== 'Course code')] as readonly string[], required: ['Course code', 'CLO', 'Outcome (English)'] as readonly string[] },
   outline: { name: 'Outline', headers: SYLLABUS_SHEETS.outline.headers as readonly string[], required: ['Course code', 'Week', 'Topic'] as readonly string[] },
   materials: { name: 'Materials', headers: SYLLABUS_SHEETS.materials.headers as readonly string[], required: ['Course code', 'Kind', 'Citation'] as readonly string[] },
@@ -38,7 +38,7 @@ export const emptyCoursesWorkbook = (): CoursesWorkbook => ({ courses: [], study
 export interface CoursesLists {
   units: string[]; programs: string[]; coordinators: string[];
   languages: string[]; types: string[]; levels: string[]; categories: string[]; sustainability: string[];
-  roles: string[]; bloom: string[]; coverage: string[]; kinds: string[]; assessmentCategories: string[];
+  roles: string[]; blocks: string[]; bloom: string[]; coverage: string[]; kinds: string[]; assessmentCategories: string[];
 }
 export interface CoursesExport extends CoursesWorkbook { lists: CoursesLists }
 export const CoursesExportSchema = z.any() as unknown as z.ZodType<CoursesExport, CoursesExport>;

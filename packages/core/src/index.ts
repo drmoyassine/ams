@@ -4,6 +4,7 @@ export * from './org/programs.js';
 export * from './org/programs-import.js';
 export * from './outcomes/index.js';
 export * from './syllabus/index.js';
+export * from './catalog/index.js';
 export * from './org/org-chart-import.js';
 export * from './framework/iqf-tree-import.js';
 export * from './ai/index.js';

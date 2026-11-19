@@ -35,3 +35,5 @@ export * from './api-keys.js';
 export * from './programs-sheets.js';
 export * from './courses-sheets.js';
 export * from './academic-sheets.js';
+export * from './catalog.js';
+export * from './catalog-sheets.js';

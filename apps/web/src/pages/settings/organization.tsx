@@ -6,6 +6,7 @@ import { OrgChartSection } from './org-chart/org-chart-section';
 import { useTranslation } from '../../i18n';
 import { LanguagesSection } from './languages-section';
 import { ProgramsSettingsPage } from './programs';
+import { GenedSection } from './gened';
 import { CoursesSettingsPage } from './courses';
 import { SyllabusSettingsPage } from './syllabus-settings';
 import { CurriculumMapPage } from './curriculum-map';
@@ -132,7 +133,7 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'map' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'gened' }, { id: 'map' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
@@ -150,7 +151,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
-  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), map: t('org.tab.map'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
+  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), gened: t('org.tab.gened'), map: t('org.tab.map'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -187,6 +188,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
           </>
         ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} />
           : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
+          : tab === 'gened' ? <GenedSection api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'map' ? <CurriculumMapPage api={api} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} program={map?.program} view={map?.view} {...(onMap ? { onPick: onMap } : {})} />
           : tab === 'syllabus' ? <SyllabusSettingsPage api={api} />
           : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} canEdit={can(me.data, 'org:write')} />}

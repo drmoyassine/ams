@@ -659,6 +659,8 @@ function pagesFor(ids) {
     { name: 'course-new', path: '/settings/organization/courses/new', action: async (page) => { await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export' }).waitFor(); } },
+    { name: 'settings-gened', path: '/settings/organization', action: async (page) => { await clickTab('General education')(page); await page.getByRole('form', { name: 'General education credits' }).waitFor(); } },
+    { name: 'program-requirements', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('region', { name: 'Requirements' }).waitFor(); } },
     { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
       await clickTab('Curriculum map')(page);
       // The map downloads as a workbook (fails the run if the download does not start).

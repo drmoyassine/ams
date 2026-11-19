@@ -3,7 +3,7 @@
 // checks as before. Program code on the PEOs, PLOs and Study plan sheets lists the codes typed on the Programs sheet, and Course code on the
 // course sheets lists the codes of the Courses sheet, so a program and its courses can be written in the same file.
 import {
-  ACADEMIC_SHEETS, BLOOM_WORDS, OUTCOME_STATUS_WORDS, PROGRAM_LEVEL_WORDS, PROGRAM_MODE_WORDS, type AcademicExport, type AcademicSheetKey,
+  ACADEMIC_SHEETS, BLOOM_WORDS, OUTCOME_STATUS_WORDS, PROGRAM_LEVEL_WORDS, PROGRAM_MODE_WORDS, PROGRAM_TYPE_WORDS, type AcademicExport, type AcademicSheetKey,
 } from '@ams/shared';
 import type { RichColumn, RichSheet } from './sheet-io';
 
@@ -16,11 +16,17 @@ export const ACADEMIC_README = [
   '',
   '## The sheets',
   'Programs: one row per program. PEOs and PLOs: one row per outcome, each naming its program by its Program code.',
-  'Courses: one row per course. Study plan: one row per course and program it serves, with its role, year and term. CLOs, Outline, Materials, Assessments, Rubrics, Sections: the course\'s content, each row naming its course by its Course code.',
+  'Courses: one row per course. Study plan: one row per course and program it serves, with its role (Core or Elective: a Service course counts as Core), the Block of the program\'s requirements it sits in, the Concentration it is for (empty: all), and its year and term. CLOs, Outline, Materials, Assessments, Rubrics, Sections: the course\'s content, each row naming its course by its Course code.',
+  '',
+  '## The degree\'s requirements (the catalog)',
+  'Blocks: General education, College requirements, Major requirements, Concentration requirements; each has core and elective credits. A degree is the common blocks plus one concentration.',
+  'Concentrations: one row per track of a program. Requirement blocks: the credits a program (or one concentration, for the Concentration block) asks of a block, Core credits and Elective credits; the page and the catalog check them against the study plan. Elective slots: "Major elective, 3 credits, year 3 term 2" with the Rule that fills it (for example Any MCE 4xx); a General education slot may name its Area.',
+  'GenEd areas: the areas of General Education with the Minimum credits each, and the Courses that count toward it (codes separated by ;). Catalog settings: the General education credits, the same for every degree. These are changed by Academic Affairs (program:write for the whole institution); a row you may not apply is skipped with the reason.',
+  'A minor is a program with Type Minor: it needs no Mode, Years, Contact hours or PEOs.',
   'Columns marked * (yellow header) are required. A row missing one is still imported, and the record is flagged with what it lacks until it is filled in. A course needs a Unit, its Credit hours and at least one program in the Study plan.',
   '',
   '## Order, and what changes at once',
-  'Programs, PEOs and PLOs are applied first, then courses, the study plan and content, so a course may name a program that is added in the same file.',
+  'Programs, PEOs and PLOs are applied first, then the structure (settings, GenEd areas, concentrations, block credits), then courses, the study plan and content, then the areas\' pools and the elective slots. So a course may name a program or a concentration added in the same file.',
   'A program\'s record, PEOs and PLOs, a course\'s record (Course code, Unit, Year of study, SIS code, Coordinator, Active) and its Study plan change at once.',
   'A course\'s content (title, credit hours, contact hours, language, type, level, category, description, methodology, CLOs with their PLOs, outline, materials, assessments, rubrics) goes into the course\'s draft and is approved as on the course page: the coordinator submits it, the chair endorses it, the Dean approves it. Content that comes out the same as the course already has makes no draft.',
   '',
@@ -54,7 +60,7 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
   const L = data.lists;
   // One hidden sheet, one column per list; `range` is the cells a dropdown reads.
   const lists: [string, string[]][] = [
-    ['Units', L.units], ['Program levels', [...PROGRAM_LEVEL_WORDS]], ['Modes', [...PROGRAM_MODE_WORDS]], ['Program languages', L.programLanguages], ['Active', ['Yes', 'No']],
+    ['Units', L.units], ['Program levels', [...PROGRAM_LEVEL_WORDS]], ['Program types', [...PROGRAM_TYPE_WORDS]], ['Blocks', L.blocks], ['Modes', [...PROGRAM_MODE_WORDS]], ['Program languages', L.programLanguages], ['Active', ['Yes', 'No']],
     ['Bloom levels', [...BLOOM_WORDS]], ['Statuses', [...OUTCOME_STATUS_WORDS]], ['Coordinators', L.coordinators], ['Delivery languages', L.languages], ['Course types', L.types],
     ['Course levels', L.levels], ['Categories', L.categories], ['Sustainability', L.sustainability], ['Roles', L.roles], ['Coverage', L.coverage], ['Material kinds', L.kinds],
     ['Assessment categories', L.assessmentCategories],
@@ -68,13 +74,20 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
   const pCode = col(progHeaders.indexOf('Program code')); const pName = col(progHeaders.indexOf('Name (English)'));
   const cCode = col(courseHeaders.indexOf('Course code')); const cTitle = col(courseHeaders.indexOf('Title (English)'));
   const programCodes = `Programs!$${pCode}$2:$${pCode}$${data.programs.length + 1 + SPARE_ROWS}`;
+  const concHeaders = ACADEMIC_SHEETS.concentrations.headers as readonly string[];
+  const kCode = col(concHeaders.indexOf('Code'));
+  const concentrationCodes = `Concentrations!$${kCode}$2:$${kCode}$${data.concentrations.length + 1 + SPARE_ROWS}`;
+  const areaHeaders = ACADEMIC_SHEETS.genedAreas.headers as readonly string[];
+  const aCode = col(areaHeaders.indexOf('Code'));
+  const areaCodes = `'GenEd areas'!$${aCode}$2:$${aCode}$${data.genedAreas.length + 1 + SPARE_ROWS}`;
+  const hasProgramCode = (k: AcademicSheetKey) => (ACADEMIC_SHEETS[k].headers as readonly string[]).includes('Program code');
   const courseCodes = `Courses!$${cCode}$2:$${cCode}$${data.courses.length + 1 + SPARE_ROWS}`;
 
   const columnsOf = (k: AcademicSheetKey): RichColumn[] => {
     const def = ACADEMIC_SHEETS[k];
     const headers = def.headers as readonly string[];
     const required = def.required as readonly string[];
-    const own = col(headers.indexOf(k === 'peos' || k === 'plos' ? 'Program code' : 'Course code'));
+    const own = col(headers.indexOf(hasProgramCode(k) && k !== 'studyPlan' ? 'Program code' : 'Course code'));
     return headers.map((h) => ({
       header: h, required: required.includes(h),
       ...(h === 'ID' ? { grey: true, width: 38 } : {}),
@@ -83,6 +96,7 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
       ...(h === 'Name (Arabic)' ? { rtl: true, width: 34 } : {}),
       ...((k === 'programs' || k === 'courses') && h === 'Unit' ? { check: { list: range('Units') }, width: 48 } : {}),
       ...(h === 'Program level' ? { check: { list: range('Program levels') } } : {}),
+      ...(k === 'programs' && h === 'Type' ? { check: { list: range('Program types') } } : {}),
       ...(h === 'Mode' ? { check: { list: range('Modes') } } : {}),
       ...(k === 'programs' && h === 'Language' ? { check: { list: range('Program languages') } } : {}),
       ...(h === 'Active' ? { check: { list: range('Active') } } : {}),
@@ -91,7 +105,7 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
       ...(h === 'Years' ? { check: { decimal: [0.5, 12] } } : {}),
       ...(h === 'Mission' || h === 'Vision' ? { wrap: true, width: 60 } : {}),
       // PEOs, PLOs
-      ...((k === 'peos' || k === 'plos') && h === 'Program code' ? { check: { list: programCodes } } : {}),
+      ...(hasProgramCode(k) && k !== 'programs' && k !== 'studyPlan' && h === 'Program code' ? { check: { list: programCodes } } : {}),
       ...(h === 'Program name' ? { grey: true, width: 34, formula: (n: number) => `IFERROR(INDEX(Programs!$${pName}:$${pName},MATCH($${own}${n},Programs!$${pCode}:$${pCode},0)),"")` } : {}),
       ...(h === 'Statement (Arabic)' ? { wrap: true, rtl: true, width: 50 } : {}),
       ...(h === 'Bloom level' ? { check: { list: range('Bloom levels') } } : {}),
@@ -108,6 +122,18 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
       ...(h === 'Course category' ? { check: { list: range('Categories') } } : {}),
       ...(h === 'Sustainability indicator' ? { check: { list: range('Sustainability') } } : {}),
       ...(k === 'studyPlan' && h === 'Role' ? { check: { list: range('Roles') } } : {}),
+      // The catalog's structure
+      ...((k === 'studyPlan' || k === 'blocks' || k === 'slots') && h === 'Block' ? { check: { list: range('Blocks') }, width: 26 } : {}),
+      ...((k === 'studyPlan' || k === 'blocks' || k === 'slots') && h === 'Concentration' ? { check: { list: concentrationCodes } } : {}),
+      ...(k === 'concentrations' && h === 'Code' ? { width: 14 } : {}),
+      ...(k === 'blocks' && (h === 'Core credits' || h === 'Elective credits') ? { check: { decimal: [0, 500] } } : {}),
+      ...(k === 'slots' && h === 'Area' ? { check: { list: areaCodes } } : {}),
+      ...(k === 'slots' && h === 'Credits' ? { check: { decimal: [0.5, 60] } } : {}),
+      ...(k === 'slots' && h === 'Rule' ? { wrap: true, width: 40, note: 'How the slot is filled, for example: Any MCE 4xx; or a list of course codes.' } : {}),
+      ...(k === 'slots' && (h === 'Year' || h === 'Term') ? { check: { whole: [1, 9] } } : {}),
+      ...(k === 'genedAreas' && h === 'Minimum credits' ? { check: { decimal: [0, 100] } } : {}),
+      ...(k === 'genedAreas' && h === 'Courses' ? { wrap: true, width: 50, note: 'The course codes that count toward the area, separated by ;' } : {}),
+      ...(k === 'catalog' && h === 'Setting' ? { grey: true, width: 34 } : {}),
       ...(k === 'clos' && h === 'Coverage' ? { width: 22 } : {}),
       ...(k === 'clos' && h === 'PLO' ? { width: 18, note: 'The PLO codes this CLO maps to, separated by ; (with their Coverage in the same order).' } : {}),
       ...(h === 'Kind' ? { check: { list: range('Material kinds') } } : {}),
@@ -124,7 +150,7 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
   const sheet = (k: AcademicSheetKey): RichSheet => ({ name: ACADEMIC_SHEETS[k].name, columns: columnsOf(k), rows: data[k], spare: SPARE_ROWS });
   return [
     { name: 'README', lines: ACADEMIC_README },
-    sheet('programs'), sheet('peos'), sheet('plos'), sheet('courses'), sheet('studyPlan'), sheet('clos'), sheet('outline'), sheet('materials'), sheet('assessments'), sheet('rubrics'), sheet('sections'),
+    sheet('programs'), sheet('peos'), sheet('plos'), sheet('concentrations'), sheet('blocks'), sheet('courses'), sheet('studyPlan'), sheet('slots'), sheet('genedAreas'), sheet('catalog'), sheet('clos'), sheet('outline'), sheet('materials'), sheet('assessments'), sheet('rubrics'), sheet('sections'),
     { name: 'Lists', state: 'hidden', columns: lists.map(([n]) => ({ header: n, width: n === 'Units' ? 60 : 24 })), rows: listRows },
   ];
 }

@@ -5,7 +5,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { institution, learningOutcome, orgUnit, outcomeLink, program } from '@ams/db';
 import {
-  BLOOM_LEVELS, DEGREE_LEVELS, OUTCOME_STATUSES, PROGRAM_MODES, languageInfo, programMissing, sheetCell, UpsertProgramsSchema,
+  BLOOM_LEVELS, DEGREE_LEVELS, OUTCOME_STATUSES, PROGRAM_MODES, PROGRAM_TYPES, languageInfo, programMissing, sheetCell, UpsertProgramsSchema,
   type Program, type ProgramsExport, type UpdateOutcome, type UpdateProgram, type UpsertPrograms, type UpsertProgramsResult, type UpsertProgramsRow,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
@@ -81,6 +81,8 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
     if (levelText && !level) { skip(`unknown program level "${levelText}"`); continue; }
     const nameEn = c('Name (English)');
     if (!cur && (!code || !nameEn || !unitMatches.length || !level)) { skip(`a new program needs ${[!code && 'Program code', !nameEn && 'Name (English)', !unitMatches.length && 'Unit', !level && 'Program level'].filter(Boolean).join(', ')}`); continue; }
+    const typeText = c('Type'); const ptype = typeText ? PROGRAM_TYPES.find((x) => key(x) === key(typeText)) : undefined;
+    if (typeText && !ptype) { skip(`unknown type "${typeText}" (Degree or Minor)`); continue; }
     const modeText = c('Mode'); const mode = modeText ? MODE_WORDS[key(modeText)] : undefined;
     const nums = { credits: intOf(c('Credits')), contactHours: intOf(c('Contact hours')), durationYears: c('Years') === '' ? undefined : Number(c('Years')) };
     const badNum = Object.entries(nums).find(([, v]) => v !== undefined && Number.isNaN(v));
@@ -95,6 +97,7 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
     if (code && (idText || !cur)) patch.code = code;
     if (c('SIS code')) patch.externalId = c('SIS code');
     if (mode) patch.mode = mode;
+    if (ptype) patch.programType = ptype;
     if (nums.credits !== undefined) patch.credits = nums.credits;
     if (nums.contactHours !== undefined) patch.contactHours = nums.contactHours;
     if (nums.durationYears !== undefined) patch.durationYears = nums.durationYears;
@@ -250,7 +253,7 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
   for (const p of progs) {
     const code = p.code ?? '';
     wb.programs.push({
-      ID: p.id, 'Program code': code, 'Name (English)': p.nameEn, 'Name (Arabic)': p.nameAr ?? '', Unit: paths.get(p.orgUnitId) ?? '', 'Program level': LEVEL_LABEL[p.degreeLevel] ?? p.degreeLevel,
+      ID: p.id, 'Program code': code, 'Name (English)': p.nameEn, 'Name (Arabic)': p.nameAr ?? '', Unit: paths.get(p.orgUnitId) ?? '', 'Program level': LEVEL_LABEL[p.degreeLevel] ?? p.degreeLevel, Type: p.programType === 'minor' ? 'Minor' : 'Degree',
       'SIS code': p.externalId ?? '', Mode: p.mode ? MODE_LABEL[p.mode] ?? p.mode : '', Credits: p.credits, Years: p.durationYears === null ? null : Number(p.durationYears),
       'Contact hours': p.contactHours, Language: p.languageOfInstruction ?? '', Mission: p.mission ?? '', Vision: p.vision ?? '', Active: p.active ? 'Yes' : 'No',
     });

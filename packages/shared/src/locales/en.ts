@@ -472,6 +472,7 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'org.tab.map': 'Curriculum map',
   'org.tab.outcomes': 'Learning outcomes',
   'org.tab.syllabus': 'Syllabus rules',
+  'org.tab.gened': 'General education',
 
   'iqf.intro': "Your institution's own standards and sub-standards, each with the evidence that supports it. Each accreditor's standard maps onto it from its own page, so evidence is collected once and reported to every accreditor.",
   'terms.title': 'Terms',

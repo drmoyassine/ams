@@ -1,3 +1,4 @@
+import { PROGRAM_TYPES } from './catalog.js';
 import { z } from 'zod';
 import { PROGRAM_MODES } from './outcomes.js';
 
@@ -71,6 +72,8 @@ export const ProgramSchema = z.object({
   languageOfInstruction: z.string().nullable(),
   campus: z.string().nullable(),
   startYear: z.number().int().nullable(),
+  /** A degree, or a minor (a program with its own unit, code, credits and blocks; no PEOs, mode, years or contact hours). */
+  programType: z.enum(PROGRAM_TYPES),
   /** What the program record still lacks (see `programMissing`): flagged, not refused, on import and the API. */
   missing: z.array(z.string()),
 });
@@ -90,6 +93,7 @@ const programFacts = {
   languageOfInstruction: z.string().trim().nullable().optional(),
   campus: z.string().trim().nullable().optional(),
   startYear: z.coerce.number().int().min(1900).max(2200).nullable().optional(),
+  programType: z.enum(PROGRAM_TYPES).optional(),
 };
 
 export const CreateProgramSchema = z.object({
@@ -123,14 +127,18 @@ export const PROGRAM_REQUIRED = {
   nameAr: 'Arabic name', code: 'Program code', mode: 'Mode', credits: 'Credits', durationYears: 'Years', contactHours: 'Contact hours',
   languageOfInstruction: 'Language', mission: 'Mission',
 } as const;
-export function programMissing(p: Pick<Program, keyof typeof PROGRAM_REQUIRED>, counts: { peos: number; plos: number }): string[] {
+/** What a minor does not need: a minor has no mode, years or contact hours of its own, and no PEOs. */
+const MINOR_SKIPS = new Set(['mode', 'durationYears', 'contactHours']);
+export function programMissing(p: Pick<Program, keyof typeof PROGRAM_REQUIRED> & { programType?: Program['programType'] }, counts: { peos: number; plos: number }): string[] {
   const out: string[] = [];
+  const minor = p.programType === 'minor';
   for (const [k, label] of Object.entries(PROGRAM_REQUIRED)) {
+    if (minor && MINOR_SKIPS.has(k)) continue;
     const v = p[k as keyof typeof PROGRAM_REQUIRED];
     if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) out.push(label);
   }
-  if (!counts.peos) out.push('PEOs');
-  if (!counts.plos) out.push('PLOs');
+  if (!counts.peos && !minor) out.push('PEOs');
+  if (!counts.plos && !minor) out.push('PLOs');
   return out;
 }
 

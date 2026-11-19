@@ -6,7 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
-  BLOOM_LEVELS, COURSE_ROLES, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric, type SyllabusSettings, type SyllabusTemplate,
+  BLOOM_LEVELS, COURSE_ROLES, PROGRAM_TYPES, REQUIREMENT_BLOCKS, REQUIREMENT_KINDS, type CatalogSettings, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric, type SyllabusSettings, type SyllabusTemplate,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -47,6 +47,8 @@ export const institution = pgTable('institution', {
   logoMime: text('logo_mime'),
   /** The CLO-PLO mapping levels (DEC-036), in order; one is mastery. Default I / R (alias D) / M. */
   outcomeLevels: jsonb('outcome_levels').$type<OutcomeLevel[]>().notNull().default(DEFAULT_OUTCOME_LEVELS),
+  /** The catalog's institution-wide settings (DEC-046): the credits of General Education. */
+  catalogSettings: jsonb('catalog_settings').$type<Partial<CatalogSettings>>().notNull().default({}),
   /** The program review rubric and its maturity levels (TASK-118, migration 0074). */
   reviewRubric: jsonb('review_rubric').$type<ReviewRubric>().notNull().default(DEFAULT_REVIEW_RUBRIC),
   /** Institution assessment targets (TASK-114, migration 0075); empty until set. */
@@ -238,6 +240,8 @@ export const program = pgTable('program', {
   languageOfInstruction: text('language_of_instruction'),
   campus: text('campus'),
   startYear: integer('start_year'),
+  /** A degree, or a minor (DEC-046). */
+  programType: text('program_type', { enum: PROGRAM_TYPES }).notNull().default('degree'),
 }, (t) => [index('program_org_unit_idx').on(t.orgUnitId), oneOf('program_degree_level_check', t.degreeLevel, DEGREE_LEVELS)]);
 
 /** A course of the institution, owned by an org unit (TASK-105). Code unique in the institution, case-insensitive. */
@@ -304,7 +308,62 @@ export const courseProgram = pgTable('course_program', {
   role: text('role', { enum: COURSE_ROLES }).notNull().default('core'),
   year: integer('year'),
   term: integer('term'),
+  /** The block of the program's requirements the course sits in, and the concentration it is for (null: all) (DEC-046). */
+  block: text('block', { enum: REQUIREMENT_BLOCKS }),
+  concentrationId: uuid('concentration_id').references((): AnyPgColumn => concentration.id, { onDelete: 'set null' }),
 }, (t) => [uniqueIndex('course_program_idx').on(t.courseId, t.programId), index('course_program_program_idx').on(t.programId)]);
+
+/** A track of a program (DEC-046): a student follows one; it has its own core and elective credits. */
+export const concentration = pgTable('concentration', {
+  ...base(), ...tenant(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  nameEn: text('name_en').notNull(),
+  nameAr: text('name_ar'),
+  displayOrder: integer('display_order').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+}, (t) => [uniqueIndex('concentration_code_idx').on(t.programId, sql`lower(${t.code})`)]);
+
+/** An area of General Education with its minimum credits, and the pool of courses that count toward it (DEC-046). */
+export const genedArea = pgTable('gened_area', {
+  ...base(), ...tenant(),
+  code: text('code').notNull(),
+  nameEn: text('name_en').notNull(),
+  nameAr: text('name_ar'),
+  minCredits: numeric('min_credits', { precision: 4, scale: 1 }).notNull().default('0'),
+  displayOrder: integer('display_order').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+}, (t) => [uniqueIndex('gened_area_code_idx').on(t.institutionId, sql`lower(${t.code})`)]);
+export const genedAreaCourse = pgTable('gened_area_course', {
+  ...base(), ...tenant(),
+  areaId: uuid('area_id').notNull().references(() => genedArea.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+}, (t) => [uniqueIndex('gened_area_course_idx').on(t.areaId, t.courseId), index('gened_area_course_course_idx').on(t.courseId)]);
+
+/** The credits a program (or one concentration) asks of a block, core or elective (DEC-046). */
+export const programBlock = pgTable('program_block', {
+  ...base(), ...tenant(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  concentrationId: uuid('concentration_id').references(() => concentration.id, { onDelete: 'cascade' }),
+  block: text('block', { enum: REQUIREMENT_BLOCKS }).notNull(),
+  requirement: text('requirement', { enum: REQUIREMENT_KINDS }).notNull(),
+  credits: numeric('credits', { precision: 5, scale: 1 }).notNull(),
+});
+
+/** An elective slot of a study plan: "Major elective, 3 credits, year 3 term 2", with the rule that fills it (DEC-046). */
+export const studyPlanSlot = pgTable('study_plan_slot', {
+  ...base(), ...tenant(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  concentrationId: uuid('concentration_id').references(() => concentration.id, { onDelete: 'cascade' }),
+  block: text('block', { enum: REQUIREMENT_BLOCKS }).notNull(),
+  requirement: text('requirement', { enum: REQUIREMENT_KINDS }).notNull().default('elective'),
+  areaId: uuid('area_id').references(() => genedArea.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  rule: text('rule'),
+  credits: numeric('credits', { precision: 4, scale: 1 }).notNull(),
+  year: integer('year'),
+  term: integer('term'),
+});
 
 /**
  * A learning outcome (TASK-112, DEC-036): an ILO of the institution, a PEO or PLO of a program, a performance indicator under a PLO,

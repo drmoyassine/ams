@@ -12,7 +12,7 @@ import { z } from 'zod';
 export const PROGRAM_SHEETS = {
   programs: {
     name: 'Programs',
-    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'SIS code', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Active'],
+    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Type', 'SIS code', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Active'],
     required: ['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission'],
   },
   peos: { name: 'PEOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },
@@ -20,6 +20,7 @@ export const PROGRAM_SHEETS = {
 } as const;
 /** Words of the dropdowns (the import also takes the codes behind them). */
 export const PROGRAM_LEVEL_WORDS = ['Associate', 'Bachelor', 'Master', 'Doctorate', 'Diploma', 'Certificate'] as const;
+export const PROGRAM_TYPE_WORDS = ['Degree', 'Minor'] as const;
 export const PROGRAM_MODE_WORDS = ['On-campus', 'Online', 'Blended'] as const;
 export const OUTCOME_STATUS_WORDS = ['Draft', 'Approved', 'Retired'] as const;
 export const BLOOM_WORDS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'] as const;
