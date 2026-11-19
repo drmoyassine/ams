@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { PreflightSchema } from './analysis-report.js';
 
 /** Scope kinds a plain upload (`import_document`) can belong to. Extensible: add one here, in the migration's check and in the scope registry. */
-export const IMPORT_SCOPE_KINDS = ['programs', 'org_chart', 'glossary'] as const;
+export const IMPORT_SCOPE_KINDS = ['programs', 'courses', 'org_chart', 'glossary'] as const;
 export type ImportScopeKind = (typeof IMPORT_SCOPE_KINDS)[number];
 /** Every place that can have a Docs tab. `framework_version` is the standards adapter: its rows are `source_document`. */
 export const DOC_SCOPE_KINDS = ['framework_version', ...IMPORT_SCOPE_KINDS] as const;

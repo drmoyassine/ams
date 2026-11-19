@@ -9,6 +9,7 @@ import { useAction } from '../../lib/use-action';
 import { useConfirm } from '../confirm-dialog';
 import { Button } from '../ui/button';
 import { humanize, RunChip, spendText } from './parts';
+import { CourseMatchCell, CourseProposalDetail } from './courses-review';
 import { ProgramMatchCell, ProgramProposalDetail } from './programs-review';
 
 const STATUS: Record<ImportProposalStatus, { label: string; cls: string }> = {
@@ -77,9 +78,10 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
   const [result, setResult] = useState<{ apply: ImportApplyResult; label: string; undone: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const list = q.data?.proposals ?? [];
-  const programs = q.data?.run.targetKind === 'programs';
-  // The programs import (DEC-043) shows what each proposal does (updates which program, or new) and a detail panel per proposal.
-  const cols = useMemo(() => (programs ? ['nameEn', 'degreeLevel', 'code', 'unitName'] : columnsOf(list)), [list, programs]);
+  // The programs and courses imports (DEC-043, DEC-044) show what each proposal does (updates which record, or new) and a detail panel.
+  const kind = q.data?.run.targetKind;
+  const matching = kind === 'programs' || kind === 'courses';
+  const cols = useMemo(() => (kind === 'programs' ? ['nameEn', 'degreeLevel', 'code', 'unitName'] : kind === 'courses' ? ['code', 'titleEn', 'unitName', 'credits'] : columnsOf(list)), [list, kind]);
   const options = q.data?.fieldOptions ?? {};
   // Fields with suggestions (the org chart's units) offer them, plus what the other rows already say, while a new value can be typed.
   const suggestions = useMemo(() => {
@@ -217,7 +219,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                   <tr>
                     {canWrite && <th className="w-8 p-2"><input type="checkbox" aria-label="Select all" checked={allChecked} onChange={() => setChecked(allChecked ? new Set() : new Set(list.map((p) => p.id)))} /></th>}
                     <th className="p-2 text-start font-medium">Decision</th>
-                    {programs && <th className="p-2 text-start font-medium">Program</th>}
+                    {matching && <th className="p-2 text-start font-medium">{kind === 'courses' ? 'Course' : 'Program'}</th>}
                     {cols.map((k) => <th key={k} className="p-2 text-start font-medium">{humanize(k)}</th>)}
                     <th className="p-2 text-start font-medium">Source</th>
                   </tr>
@@ -242,7 +244,7 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                             {p.status === 'skipped' && isSkippedByTarget(p) && <span className="max-w-40 text-xs text-muted-foreground">{skipReason(p)}</span>}
                           </div>
                         </td>
-                        {programs && <td className="p-2"><button type="button" className="text-start" aria-label={`Show the details of ${p.label}`} onClick={() => setSelected(p.id)}><ProgramMatchCell api={api} proposal={p} /></button></td>}
+                        {matching && <td className="p-2"><button type="button" className="text-start" aria-label={`Show the details of ${p.label}`} onClick={() => setSelected(p.id)}>{kind === 'courses' ? <CourseMatchCell api={api} proposal={p} /> : <ProgramMatchCell api={api} proposal={p} />}</button></td>}
                         {cols.map((k) => (
                           <td key={k} className="p-2"><ValueCell label={`${humanize(k)} of ${p.label}`} value={values[k]} disabled={!editable(p)} {...(options[k] ? { options: options[k] } : {})} {...(listIdOf(k) ? { listId: listIdOf(k)! } : {})} onSave={(v) => void save(p, k, v)} /></td>
                         ))}
@@ -263,7 +265,12 @@ export function ImportReview({ api, runId, canWrite, onBack }: { api: DocumentsA
                 </tbody>
               </table>
             </div>
-            {programs && current && <ProgramProposalDetail key={current.id} api={api} proposal={current} editable={editable(current)} save={async (next) => { setError(''); try { await api.editProposal(current.id, next); } catch (e) { if (e instanceof ApiError) setError(e.message); else throw e; } await refresh(); }} />}
+            {matching && current && (() => {
+              const saveDetail = async (next: unknown) => { setError(''); try { await api.editProposal(current.id, next); } catch (e) { if (e instanceof ApiError) setError(e.message); else throw e; } await refresh(); };
+              return kind === 'courses'
+                ? <CourseProposalDetail key={current.id} api={api} proposal={current} editable={editable(current)} save={saveDetail} />
+                : <ProgramProposalDetail key={current.id} api={api} proposal={current} editable={editable(current)} save={saveDetail} />;
+            })()}
             <p className="text-xs text-muted-foreground">{list.length} {targetNoun} proposed · {ready.length} accepted · {list.filter((p) => p.status === 'applied').length} applied</p>
           </div>
           <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">

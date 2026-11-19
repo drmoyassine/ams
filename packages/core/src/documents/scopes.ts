@@ -71,10 +71,14 @@ registerDocScope({
     };
   },
 });
-// The three upload scopes. The links point at where each Docs tab lives; update the href when the tab moves.
+// The upload scopes. The links point at where each Docs tab lives; update the href when the tab moves.
 registerDocScope({
   kind: 'programs', label: 'Programs', storage: 'import', read: 'org:read', write: 'program:write',
   describe: async () => fixed('Programs', '/settings/organization?tab=programs'),
+});
+registerDocScope({
+  kind: 'courses', label: 'Courses', storage: 'import', read: 'org:read', write: 'program:write',
+  describe: async () => fixed('Courses', '/settings/organization?tab=courses&section=docs'),
 });
 registerDocScope({
   kind: 'org_chart', label: 'Org chart', storage: 'import', read: 'org:read', write: 'org:write',

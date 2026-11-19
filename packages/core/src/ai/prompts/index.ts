@@ -9,6 +9,8 @@ import { extractV2 } from './extract.v2.js';
 import { importExtractV1 } from './import-extract.v1.js';
 import { importOrgChartV1 } from './import-org-chart.v1.js';
 import { importProgramsV1 } from './import-programs.v1.js';
+import { importCoursesFactsV1 } from './import-courses-facts.v1.js';
+import { importCoursesOrganiseV1 } from './import-courses-organise.v1.js';
 import { importProgramsFactsV1 } from './import-programs-facts.v1.js';
 import { importProgramsOrganiseV1 } from './import-programs-organise.v1.js';
 import { importProgramsV2 } from './import-programs.v2.js';
@@ -52,6 +54,8 @@ export const PROMPTS = {
   import_programs: { v1: importProgramsV1, v2: importProgramsV2 },
   import_programs_facts: { v1: importProgramsFactsV1 },
   import_programs_organise: { v1: importProgramsOrganiseV1 },
+  import_courses_facts: { v1: importCoursesFactsV1 },
+  import_courses_organise: { v1: importCoursesOrganiseV1 },
   // Document import for the org chart (TASK-073): units, their parents and heads from a picture or a PDF page.
   import_org_chart: { v1: importOrgChartV1 },
   // Drafting the institution's own framework from its documents (TASK-111): headings per window, then one call that draws the framework.

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ContentText } from '../../components/content-text';
+import { DocsTab } from '../../components/docs';
+import { useDocumentsApi, type DocumentsApi } from '../../lib/documents-api';
 import { ReadOnlyNote } from '../../components/read-only-note';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -14,10 +16,38 @@ import { CoursesImportExport } from './courses-io';
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 
 /**
- * Settings -> Organization -> Courses (DEC-042): the catalogue. Each course opens on its own page (/settings/organization/courses/<id>),
+ * Settings -> Organization -> Courses: the list, and a Docs section where course catalogues, study plans and specifications are uploaded
+ * and the AI import proposes courses (new, or matched to the existing ones) for review (DEC-044). The section is in the address.
+ */
+export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: docsOverride }: { api?: SettingsApi; outcomes?: OutcomesApi; docs?: DocumentsApi }) {
+  const api = useSettingsApi(settingsOverride);
+  const docs = useDocumentsApi(docsOverride);
+  const [section, setSection] = useUrlState<'list' | 'docs'>('section', 'list', ['list', 'docs']);
+  const me = useMe(api);
+  const targets = useQuery({ queryKey: ['import-targets', 'courses'], queryFn: () => docs.targets({ kind: 'courses', id: null }), enabled: section === 'docs' });
+  const sections = [{ id: 'list', label: 'List' }, { id: 'docs', label: 'Docs' }] as const;
+  return (
+    <div className="space-y-4">
+      <div role="tablist" aria-label="Courses sections" className="flex flex-wrap gap-1">
+        {sections.map((t) => (
+          <button key={t.id} id={`courses-section-${t.id}`} role="tab" type="button" aria-selected={section === t.id} aria-controls="courses-section-panel" onClick={() => setSection(t.id)}
+            className={`rounded-md px-3 py-1 text-sm ${section === t.id ? 'bg-muted font-medium' : 'text-muted-foreground'}`}>{t.label}</button>
+        ))}
+      </div>
+      <div role="tabpanel" id="courses-section-panel" aria-labelledby={`courses-section-${section}`}>
+        {section === 'list'
+          ? <CoursesList {...(settingsOverride ? { api: settingsOverride } : {})} {...(outcomes ? { outcomes } : {})} />
+          : <DocsTab scopeKind="courses" scopeId={null} targets={targets.data ?? []} canWrite={can(me.data, 'program:write')} api={docs} />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The catalogue (DEC-042). Each course opens on its own page (/settings/organization/courses/<id>),
  * "Add course" on /new; a course whose record lacks something shows it. Search and the program filter are in the address.
  */
-export function CoursesSettingsPage({ api: settingsOverride, outcomes: outcomesOverride }: { api?: SettingsApi; outcomes?: OutcomesApi }) {
+function CoursesList({ api: settingsOverride, outcomes: outcomesOverride }: { api?: SettingsApi; outcomes?: OutcomesApi }) {
   const api = useSettingsApi(settingsOverride);
   const oapi = useOutcomesApi(outcomesOverride);
   const me = useMe(api);
