@@ -14,6 +14,8 @@ import { createApi } from './lib/api';
 import { catalogApi } from './lib/catalog-api';
 import { outcomesApi } from './lib/outcomes-api';
 import { settingsApi } from './lib/settings-api';
+import { CatalogPage, catalogWordBlob } from './pages/catalog';
+import { CatalogEditionsSection } from './pages/settings/catalog-editions';
 import { GenedSection } from './pages/settings/gened';
 import { ProgramPage } from './pages/settings/program-page';
 
@@ -122,4 +124,81 @@ describe('a program\'s requirements', () => {
     expect((within(section).getByLabelText('Block of ENG 101') as HTMLSelectElement).disabled).toBe(true);
     expect(within(section).queryByRole('button', { name: 'Add slot' })).toBeNull();
   });
+});
+
+describe('catalog editions', () => {
+  it('starts an edition, shows the draft with what version 1 would hold, publishes it after a question, and lists what changed in version 2; a viewer only reads', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    mount(<CatalogEditionsSection api={a.api} catalog={a.catalog} />);
+    await user.type(await screen.findByLabelText('Edition label'), '2026-27');
+    await user.click(screen.getByRole('button', { name: 'Start edition' }));
+    const draft = await screen.findByRole('region', { name: 'Draft' });
+    expect(draft.textContent).toMatch(/Draft of 2026-27: version 1/);
+    expect(within(draft).getByLabelText('Changes in the draft').textContent).toMatch(/First version: 1 program and 3 courses/);
+    expect(within(draft).getByRole('list', { name: 'Problems' })).toBeTruthy(); // flagged, not a reason to refuse
+    await user.type(within(draft).getByLabelText('Version note'), 'First release');
+    await user.click(within(draft).getByRole('button', { name: 'Publish version 1' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Publish version 1' }));
+    const version = await screen.findByTestId('version');
+    expect(version.textContent).toMatch(/Version 1.*1 change.*First release/);
+    // Nothing changed: publishing is not offered.
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Publish version 2' }) as HTMLButtonElement).disabled).toBe(true));
+    expect(screen.getByText(/Nothing has changed since version 1/)).toBeTruthy();
+    // Change a course; the draft names it; publish version 2.
+    await db.su.query(`update course set credits = 4 where id = $1`, [ids['ACC 201']]);
+    cleanup();
+    mount(<CatalogEditionsSection api={a.api} catalog={a.catalog} />);
+    const d2 = await screen.findByRole('region', { name: 'Draft' });
+    await waitFor(() => expect(within(d2).getByLabelText('Changes in the draft').textContent).toMatch(/ACC 201.*Credit hours: 3 → 4/));
+    await user.click(within(d2).getByRole('button', { name: 'Publish version 2' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Publish version 2' }));
+    await waitFor(() => expect(screen.getAllByTestId('version')).toHaveLength(2));
+    await user.click(screen.getByRole('button', { name: 'Changes of version 2 of 2026-27' }));
+    expect((await screen.findByLabelText('Changes of version 2')).textContent).toMatch(/ACC 201: Credit hours: 3 → 4\./);
+    cleanup();
+    const v = apis('viewer');
+    mount(<CatalogEditionsSection api={v.api} catalog={v.catalog} />);
+    await screen.findByTestId('edition');
+    expect(screen.queryByRole('button', { name: /^Publish version/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Start edition' })).toBeNull();
+    expect(screen.getByText(/Academic Affairs publishes it/)).toBeTruthy();
+  }, 60000);
+});
+
+describe('the generated catalog', () => {
+  it('prints a published version: front matter, General education, the college with its program\'s requirements and plan, and the course descriptions; one program on its own; a Word file', async () => {
+    const user = userEvent.setup();
+    const a = apis('admin');
+    await db.su.query(`update course set description = 'Financial reporting for managers.', contact_lecture = 3, contact_lab = 0, other_requirements = 'Junior standing' where id = $1`, [ids['ACC 301']]);
+    await db.su.query(`insert into course_requisite (institution_id, course_id, requisite_id, kind, group_no) values ($1, $2, $3, 'prerequisite', 1), ($1, $2, $4, 'prerequisite', 1)`, [ids.inst, ids['ACC 301'], ids['ACC 201'], ids['ENG 101']]);
+    const list = await a.catalog.editions();
+    const published = list.editions.find((e) => e.status === 'working')!.versions[0]!;
+    await a.catalog.publish('With requisites');
+    const latest = (await a.catalog.editions()).editions.find((e) => e.status === 'working')!.versions[0]!;
+    expect(latest.versionNo).toBeGreaterThan(published.versionNo);
+    mount(<CatalogPage versionId={latest.id} catalog={a.catalog} />);
+    const doc = await screen.findByRole('article', { name: 'Catalog' });
+    expect(doc.textContent).toMatch(/Gulf University/);
+    expect(doc.textContent).toMatch(/University catalog · 2026-27, version \d+ · published/);
+    const gened = within(doc).getByRole('region', { name: 'General education' });
+    expect(gened.textContent).toMatch(/Every degree includes 3 credits of general education/);
+    expect(gened.textContent).toMatch(/English \(at least 3 credits\).*ENG 101.*English I/);
+    const program = within(doc).getByRole('region', { name: 'Program BBA' });
+    expect(program.textContent).toMatch(/BBA Accounting.*BBA · Bachelor · Business/);
+    expect(program.textContent).toMatch(/Degree requirements.*General education: 3 credits.*ENG 101.*Major requirements: 7 credits.*Required \(6 credits\).*ACC 201.*Major elective — Any ACC 4xx.*Concentration: Auditing: 3 credits.*ACC 301/);
+    const courses = within(doc).getByRole('region', { name: 'Course descriptions' });
+    expect(courses.textContent).toMatch(/ACC 301 Auditing \(3-0-3\)/);
+    expect(courses.textContent).toMatch(/Prerequisites: ACC 201 or ENG 101/);
+    expect(courses.textContent).toMatch(/Other requirements: Junior standing/);
+    expect(courses.textContent).toMatch(/Financial reporting for managers\./);
+    // One program's catalog.
+    await user.selectOptions(screen.getByLabelText('Catalog scope'), 'BBA');
+    await waitFor(() => expect(screen.getByRole('article', { name: 'Catalog' }).textContent).toMatch(/Program catalog: BBA Accounting/));
+    expect(catalogWordBlob('<p>x</p>').type).toBe('application/msword');
+    cleanup();
+    mount(<CatalogPage versionId="draft" catalog={a.catalog} />);
+    expect((await screen.findByRole('note')).textContent).toMatch(/This is the draft/);
+    expect((await screen.findByRole('article', { name: 'Catalog' })).textContent).toMatch(/draft, not published/);
+  }, 60000);
 });

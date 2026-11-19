@@ -369,6 +369,24 @@ export const studyPlanSlot = pgTable('study_plan_slot', {
   term: integer('term'),
 });
 
+/** One academic year's catalog (DEC-046): exactly one edition at a time is `working` (the live structure is its draft); the others are closed. */
+export const catalogEdition = pgTable('catalog_edition', {
+  ...base(), ...tenant(),
+  label: text('label').notNull(),
+  status: text('status', { enum: ['working', 'closed'] }).notNull().default('working'),
+}, (t) => [uniqueIndex('catalog_edition_label_idx').on(t.institutionId, sql`lower(${t.label})`)]);
+/** A published, frozen version of an edition: the snapshot of everything the catalog prints, and what changed against the version before. Never updated. */
+export const catalogVersion = pgTable('catalog_version', {
+  ...base(), ...tenant(),
+  editionId: uuid('edition_id').notNull().references(() => catalogEdition.id),
+  versionNo: integer('version_no').notNull(),
+  note: text('note'),
+  snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+  changes: jsonb('changes').$type<{ area: string; subject: string; text: string }[]>().notNull().default([]),
+  publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+  publishedBy: uuid('published_by').references(() => appUser.id),
+}, (t) => [uniqueIndex('catalog_version_idx').on(t.editionId, t.versionNo)]);
+
 /**
  * A learning outcome (TASK-112, DEC-036): an ILO of the institution, a PEO or PLO of a program, a performance indicator under a PLO,
  * or a CLO of a course. Text history is the audit trail.

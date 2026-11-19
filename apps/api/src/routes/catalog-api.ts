@@ -1,11 +1,11 @@
 import { OpenAPIHono, type Hook } from '@hono/zod-openapi';
 import { z } from 'zod';
 import {
-  createConcentration, createGenedArea, createStudySlot, deleteConcentration, deleteGenedArea, deleteStudySlot, getProgramRequirements, listGenedAreas, setAreaCourses, setCatalogSettings, setProgramBlock,
+  createConcentration, createGenedArea, createStudySlot, deleteConcentration, getCatalogVersion, listCatalogEditions, previewCatalogSnapshot, publishCatalogVersion, startCatalogEdition, deleteGenedArea, deleteStudySlot, getProgramRequirements, listGenedAreas, setAreaCourses, setCatalogSettings, setProgramBlock,
   updateConcentration, updateGenedArea, updateStudySlot,
 } from '@ams/core';
 import {
-  CatalogSettingsSchema, ConcentrationSchema, CreateConcentrationSchema, CreateGenedAreaSchema, CreateStudySlotSchema, GenedAreaSchema, GenedOverviewSchema, ProgramBlockSchema, ProgramRequirementsSchema,
+  CatalogEditionSchema, CatalogEditionsSchema, CatalogSettingsSchema, CatalogSnapshotSchema, CatalogVersionSchema, CatalogVersionSummarySchema, ConcentrationSchema, PublishVersionSchema, StartEditionSchema, CreateConcentrationSchema, CreateGenedAreaSchema, CreateStudySlotSchema, GenedAreaSchema, GenedOverviewSchema, ProgramBlockSchema, ProgramRequirementsSchema,
   SetAreaCoursesSchema, SetProgramBlockSchema, StudySlotSchema, UpdateConcentrationSchema, UpdateGenedAreaSchema, UpdateStudySlotSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -54,6 +54,39 @@ export function catalogRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { params: idParam, body: { required: true, ...json(SetAreaCoursesSchema) } },
       responses: { 200: { description: 'The area', ...json(GenedAreaSchema) }, ...errors },
     }), async (c) => c.json(toDto(GenedAreaSchema, await setAreaCourses(c.get('ctx'), c.req.valid('param').id, c.req.valid('json').courseIds)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/catalog/editions', access: requires('org:read'), tags: tag,
+      description: 'The catalog editions (one per academic year) with their published versions, and the draft of the working edition: what publishing now would add, and what the checks flag.',
+      responses: { 200: { description: 'The editions', ...json(CatalogEditionsSchema) }, ...errors },
+    }), async (c) => c.json(toDto(CatalogEditionsSchema, await listCatalogEditions(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/catalog/editions', access: requires('program:write'), tags: tag,
+      description: 'Starts an edition (a new academic year, for example 2027-28); the edition being worked on must have a published version and is closed. Needs program:write for the whole institution (Academic Affairs).',
+      request: { body: { required: true, ...json(StartEditionSchema) } },
+      responses: { 200: { description: 'The edition', ...json(CatalogEditionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(CatalogEditionSchema, await startCatalogEdition(c.get('ctx'), c.req.valid('json').label)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/catalog/versions', access: requires('program:write'), tags: tag,
+      description: 'Publishes the live structure as the next version of the working edition: a frozen snapshot of everything the catalog prints (programs, requirements, study plans, courses with their approved content, requisites) and the list of what changed since the version before. A published version never changes.',
+      request: { body: { required: true, ...json(PublishVersionSchema) } },
+      responses: { 200: { description: 'The version', ...json(CatalogVersionSummarySchema) }, ...errors },
+    }), async (c) => c.json(toDto(CatalogVersionSummarySchema, await publishCatalogVersion(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/catalog/versions/{id}', access: requires('org:read'), tags: tag,
+      description: 'A published version with its snapshot and its changes.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The version', ...json(CatalogVersionSchema) }, ...errors },
+    }), async (c) => c.json(toDto(CatalogVersionSchema, await getCatalogVersion(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/catalog/preview', access: requires('org:read'), tags: tag,
+      description: 'The draft as a snapshot: what the next version would freeze.',
+      responses: { 200: { description: 'The snapshot', ...json(CatalogSnapshotSchema) }, ...errors },
+    }), async (c) => c.json(toDto(CatalogSnapshotSchema, await previewCatalogSnapshot(c.get('ctx'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/programs/{id}/requirements', access: requires('org:read'), tags: tag,

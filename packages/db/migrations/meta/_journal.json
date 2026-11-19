@@ -589,6 +589,13 @@
       "when": 1793548800000,
       "tag": "0085_requisites",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793635200000,
+      "tag": "0086_catalog_editions",
+      "breakpoints": true
     }
   ]
 }

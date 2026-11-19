@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { CatalogRoutes } from '@ams/api';
 import type {
-  CatalogSettings, Concentration, CreateConcentration, CreateGenedArea, CreateStudySlot, GenedArea, GenedOverview, ProgramBlock, ProgramRequirements, SetProgramBlock, StudySlot,
+  CatalogEdition, CatalogEditions, CatalogSnapshot, CatalogVersion, CatalogVersionSummary, CatalogSettings, Concentration, CreateConcentration, CreateGenedArea, CreateStudySlot, GenedArea, GenedOverview, ProgramBlock, ProgramRequirements, SetProgramBlock, StudySlot,
   UpdateConcentration, UpdateGenedArea, UpdateStudySlot,
 } from '@ams/shared';
 import { noteResponse } from './undo';
@@ -22,6 +22,11 @@ export function catalogApi(fetcher: typeof fetch = fetch) {
     updateArea: (id: string, json: UpdateGenedArea) => a.catalog.gened.areas[':id'].$patch({ param: { id }, json }).then((r) => unwrap<GenedArea>(r)),
     deleteArea: (id: string) => a.catalog.gened.areas[':id'].$delete({ param: { id } }).then((r) => unwrap<{ deleted: boolean }>(r)),
     setAreaCourses: (id: string, courseIds: string[]) => a.catalog.gened.areas[':id'].courses.$put({ param: { id }, json: { courseIds } }).then((r) => unwrap<GenedArea>(r)),
+    editions: () => a.catalog.editions.$get().then((r) => unwrap<CatalogEditions>(r)),
+    startEdition: (label: string) => a.catalog.editions.$post({ json: { label } }).then((r) => unwrap<CatalogEdition>(r)),
+    publish: (note?: string | null) => a.catalog.versions.$post({ json: { note: note ?? null } }).then((r) => unwrap<CatalogVersionSummary>(r)),
+    version: (id: string) => a.catalog.versions[':id'].$get({ param: { id } }).then((r) => unwrap<CatalogVersion>(r)),
+    preview: () => a.catalog.preview.$get().then((r) => unwrap<CatalogSnapshot>(r)),
     requirements: (programId: string) => a.programs[':id'].requirements.$get({ param: { id: programId } }).then((r) => unwrap<ProgramRequirements>(r)),
     createConcentration: (json: CreateConcentration) => a.concentrations.$post({ json }).then((r) => unwrap<Concentration>(r)),
     updateConcentration: (id: string, json: UpdateConcentration) => a.concentrations[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Concentration>(r)),

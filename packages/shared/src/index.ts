@@ -38,3 +38,4 @@ export * from './academic-sheets.js';
 export * from './catalog.js';
 export * from './catalog-sheets.js';
 export * from './requisites.js';
+export * from './catalog-edition.js';
