@@ -19,10 +19,10 @@ import { ProgramsSettingsPage } from './pages/settings/programs';
 import { ProgramPage } from './pages/settings/program-page';
 import { ApiKeysPage } from './pages/settings/api-keys';
 import { apiKeysApi } from './lib/api-keys-api';
-import { programsApi } from './lib/programs-api';
+import { academicApi } from './lib/academic-api';
 import { richWorkbookXlsx } from './lib/sheet-io';
-import { programsWorkbookSheets } from './lib/programs-template';
-import { readProgramFiles } from './pages/settings/programs-io';
+import { academicWorkbookSheets } from './lib/academic-template';
+import { readAcademicFiles } from './pages/settings/academic-io';
 
 // Pages fill from real requests; a loaded machine (or CI) needs more than the default second.
 configure({ asyncUtilTimeout: 10000 });
@@ -253,13 +253,13 @@ describe('programs settings', () => {
 describe('programs import and export', () => {
   it('previews a CSV row by row, then applies it: adds by Program code, skips what cannot be placed', async () => {
     const user = userEvent.setup();
-    render(wrap(<ProgramsSettingsPage api={apiFor('admin')} programs={programsApi(fetchFor('admin'))} />));
+    render(wrap(<ProgramsSettingsPage api={apiFor('admin')} programs={academicApi(fetchFor('admin'))} />));
     await user.click(await screen.findByRole('button', { name: 'Import and export' }));
-    const panel = await screen.findByRole('region', { name: 'Import and export programs' });
+    const panel = await screen.findByRole('region', { name: 'Import and export' });
     const csv = 'Program code,Name (English),Unit,Program level,Mode\nBS-CHE,BS Chemical Engineering,College of Engineering,Bachelor,On-campus\nBS-Q,BS Quantum,Nowhere,Bachelor,Online\n';
-    await user.upload(await within(panel).findByLabelText('Programs file'), new File([csv], 'programs.csv', { type: 'text/csv' }));
+    await user.upload(await within(panel).findByLabelText('Workbook file'), new File([csv], 'programs.csv', { type: 'text/csv' }));
     const preview = await within(panel).findByRole('region', { name: 'Import preview' });
-    expect(within(preview).getByText(/1 to add, 0 to update, 0 unchanged, 1 skipped/)).toBeTruthy();
+    expect(within(preview).getByText(/1 to add, 0 to update, 0 into drafts, 0 unchanged, 1 skipped/)).toBeTruthy();
     expect(within(preview).getByText('no unit "Nowhere" in the org chart')).toBeTruthy();
     expect(within(preview).getByText(/Missing: Arabic name, Credits/)).toBeTruthy();
     expect(screen.queryByText('BS Chemical Engineering')).toBeNull(); // nothing written yet
@@ -270,14 +270,14 @@ describe('programs import and export', () => {
   });
 });
 
-describe('the programs workbook, round trip', () => {
+describe('the academic workbook, round trip', () => {
   it('exports everything with IDs as a workbook that, read back and previewed, changes nothing', async () => {
-    const api = programsApi(fetchFor('admin'));
+    const api = academicApi(fetchFor('admin'));
     const all = await api.exportAll();
     expect(all.programs.length).toBeGreaterThan(0);
     expect(all.programs.every((r) => /^[0-9a-f-]{36}$/.test(String(r.ID)))).toBe(true);
-    const blob = await richWorkbookXlsx(programsWorkbookSheets(all));
-    const { workbook } = await readProgramFiles([new File([await blob.arrayBuffer()], 'Programs.xlsx')]);
+    const blob = await richWorkbookXlsx(academicWorkbookSheets(all));
+    const { workbook } = await readAcademicFiles([new File([await blob.arrayBuffer()], 'Academic workbook.xlsx')]);
     expect(workbook.programs).toHaveLength(all.programs.length);
     const preview = await api.upsert(workbook, false);
     expect(preview.rows.filter((r) => r.action !== 'unchanged').map((r) => `${r.sheet} ${r.code}: ${r.action} ${r.message}`)).toEqual([]);

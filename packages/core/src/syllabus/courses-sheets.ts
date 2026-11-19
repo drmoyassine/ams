@@ -125,10 +125,10 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
 
   // ---- The programs each course serves (applied at once)
   const links = await ctx.tx.select().from(courseProgram);
-  for (const [i, r] of workbook.placement.entries()) {
+  for (const [i, r] of workbook.studyPlan.entries()) {
     const c = (h: string) => sheetCell(r, h);
     const cc = c('Course code'); const pc = c('Program code'); const row = i + 2; const label = `${cc} ${pc}`.trim();
-    const skip = (message: string) => note({ sheet: 'Placement', row, code: label, action: 'skip', message });
+    const skip = (message: string) => note({ sheet: 'Study plan', row, code: label, action: 'skip', message });
     const courseId = cc ? courseIdOf(cc) : undefined;
     if (courseId === undefined) { skip(cc ? `no course with the code ${cc}` : 'no Course code'); continue; }
     const prog = programs.find((p) => p.code && key(p.code) === key(pc));
@@ -139,9 +139,9 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
     if ([y, t].some((n) => n !== undefined && (Number.isNaN(n) || !Number.isInteger(n)))) { skip('Year and Term are whole numbers'); continue; }
     const now = courseId ? links.find((l) => l.courseId === courseId && l.programId === prog.id) : undefined;
     const next = { role, year: y ?? now?.year ?? null, term: t ?? now?.term ?? null };
-    if (now && now.role === next.role && now.year === next.year && now.term === next.term) { note({ sheet: 'Placement', row, code: label, action: 'unchanged', message: '' }); continue; }
+    if (now && now.role === next.role && now.year === next.year && now.term === next.term) { note({ sheet: 'Study plan', row, code: label, action: 'unchanged', message: '' }); continue; }
     if (apply && courseId) await setCourseProgram(ctx, courseId, prog.id, next);
-    note({ sheet: 'Placement', row, code: label, action: now ? 'update' : 'add', message: '' });
+    note({ sheet: 'Study plan', row, code: label, action: now ? 'update' : 'add', message: '' });
   }
 
   // ---- The content: into each course's draft
@@ -210,7 +210,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
   const allPlos = all.length ? await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code, programId: learningOutcome.programId }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, programs.map((p) => p.id).concat('00000000-0000-0000-0000-000000000000')))) : [];
   const progName = new Map(programs.map((p) => [p.id, p.nameEn]));
   const wb: CoursesExport = {
-    courses: [], placement: [], clos: [], outline: [], materials: [], assessments: [], rubrics: [], sections: [],
+    courses: [], studyPlan: [], clos: [], outline: [], materials: [], assessments: [], rubrics: [], sections: [],
     lists: {
       units: units.filter((u) => u.active).map((u) => paths.get(u.id)!).sort((a, b) => a.localeCompare(b)),
       programs: programs.filter((p) => p.active && p.code).map((p) => p.code!).sort(),
@@ -235,7 +235,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
     });
     for (const l of links.filter((x) => x.courseId === c.id)) {
       const p = programs.find((x) => x.id === l.programId);
-      wb.placement.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Year: l.year, Term: l.term });
+      wb.studyPlan.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Year: l.year, Term: l.term });
     }
     for (const [k, x] of rows.clos.entries()) wb.clos.push({ ID: content.clos[k]?.id ?? '', 'Course code': c.code, 'Course title': c.titleEn, ...Object.fromEntries(Object.entries(x).filter(([h]) => h !== 'Course code')) });
     wb.outline.push(...rows.outline); wb.materials.push(...rows.materials); wb.assessments.push(...rows.assessments); wb.rubrics.push(...rows.rubrics); wb.sections.push(...rows.sections);

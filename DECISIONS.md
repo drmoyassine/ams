@@ -2608,4 +2608,99 @@ modified:
   at: '2026-11-19T05:19:12.243Z'
 ---
 
+---
+
+## DEC-045 — One academic workbook for programs, outcomes, courses, the study plan and course content
+
+---
+title: One academic workbook for programs, outcomes, courses, the study plan and course content
+status: accepted
+context: >-
+  The owner (2026-11-19) asked whether the programs and courses import and export should be unified into a single xlsx,
+  and renamed the Placement sheet to Study plan. The longer aim is to generate the university catalog, made of program
+  catalogs, from the AMS (DEC-046).
+decision: >-
+  One workbook replaces the programs workbook (DEC-041) and the courses workbook (DEC-042): README; Programs, PEOs,
+  PLOs; Courses, Study plan (formerly Placement: one row per course and program, with role, year and term), CLOs,
+  Outline, Materials, Assessments, Rubrics, Sections; one hidden Lists sheet. Both the Programs and the Courses tabs
+  open the same Import and export panel. The import reads whatever sheets are in the file, applies programs, PEOs and
+  PLOs first and then courses, the study plan and content, in one transaction, so a course may name a program that only
+  the file adds. A preview is the apply itself inside a savepoint that is taken back (notifications and jobs included),
+  so it shows exactly what Apply will do. The rules of each part are unchanged: programs, outcomes, course records and
+  the study plan change at once, course content goes into each course's draft, nothing is deleted. Program code lists
+  the codes of the Programs sheet and Course code those of the Courses sheet. Older files that call the sheet
+  "Placement" still read. The API gets GET and POST /api/academic-workbook; the programs and courses routes stay. On the
+  course page the section is called Study plan, and a course with no program is flagged "Study plan".
+rationale: >-
+  A program and its courses belong together; one file, one preview and one ordered apply avoid importing programs first
+  and courses second, and give a single snapshot of the academic structure.
+consequences: >-
+  Later steps add sheets (concentrations, requirement blocks, requisites). A scoped export (one program) and undo of
+  workbook imports are not built yet.
+tags:
+  - program
+  - course
+  - import
+id: DEC-045
+last_updated: '2026-11-19'
+generated:
+  by: agent/claude-code
+  at: '2026-11-19T09:22:59.703Z'
+modified:
+  by: agent/claude-code
+  at: '2026-11-19T09:22:59.703Z'
+---
+
+---
+
+## DEC-046 — The university catalog is a generated report from versioned requirement blocks, concentrations, study plans and requisites
+
+---
+title: >-
+  The university catalog is a generated report from versioned requirement blocks, concentrations, study plans and
+  requisites
+status: accepted
+context: >-
+  The owner (2026-11-19) wants to generate the whole university catalog, made of program catalogs, from the AMS. Courses
+  fall into General Education, College requirements, Major requirements and Concentration requirements, each core or
+  elective, and the split varies per program (at AIU GenEd is 36 credits in total). A course's category depends on the
+  program, not on the course.
+decision: >-
+  Requirement blocks hold each program's degree requirements. General Education is one institutional block of 36 credits
+  in areas, each with a minimum (English, Arabic and Islamic studies, Math and science, Humanities, Social sciences),
+  each with a pool of courses; a program adopts it and marks which courses are its GenEd core, the rest being elective
+  within the areas' minimums. College requirements are one block per college, adopted by its programs the same way. Both
+  are owned by Academic Affairs. Major blocks and concentrations belong to the program: a program has any number of
+  concentrations and a student follows one. Elective blocks hold a list or a rule ("any MCE 4xx") with a credit count,
+  and elective slots in the study plan. Checks are flagged, never refused: GenEd equals 36, areas meet their minimums,
+  GenEd + college + major + a concentration equal the program's credits. The study plan rows carry program,
+  concentration, course or slot, block, core or elective, year, term; the course's own Category field is retired. A
+  minor is a program of type Minor (own unit, code, credits, blocks; no PEOs, mode, years). Pre- and co-requisites stay
+  on the course (changed through its draft), written with ; for and and | for or, plus Other requirements as text.
+  Catalog editions are one per academic year with numbered versions; a version is a draft like a standards version,
+  published as a frozen snapshot of approved content only, the next version starts as a copy, and each lists what
+  changed against the previous one. The catalog (university, college and program, course descriptions as Code Title
+  (lecture-lab-credits)) is generated from a published version on screen, as PDF and as Word. Approval of requirements,
+  sections and publishing is a separate workflow module, designed later; until then versions have the states draft and
+  published.
+rationale: >-
+  Requirements differ per program, so they belong to the program and its blocks; versions make a catalog year citable
+  and let the same year be amended; generating everything from structured data keeps one source of truth.
+consequences: >-
+  Built in steps: (1) one workbook (DEC-045), (2) program type, concentrations, blocks, pools and slots, (3) requisites,
+  (4) editions and versions, (5) the generated catalog. The approval workflow module is open.
+tags:
+  - catalog
+  - program
+  - course
+id: DEC-046
+last_updated: '2026-11-19'
+generated:
+  by: agent/claude-code
+  at: '2026-11-19T09:23:15.904Z'
+modified:
+  by: agent/claude-code
+  at: '2026-11-19T09:23:15.904Z'
+---
+
 <!-- End VEF generated items. -->

@@ -78,7 +78,7 @@ function NewCourse({ units, programs, oapi, canWrite, onSaved, onCancel }: {
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
-  const REQ: [keyof typeof v, string][] = [['code', 'Course code'], ['titleEn', 'Title'], ['orgUnitId', 'Unit'], ['credits', 'Credit hours'], ['programId', 'A program it serves']];
+  const REQ: [keyof typeof v, string][] = [['code', 'Course code'], ['titleEn', 'Title'], ['orgUnitId', 'Unit'], ['credits', 'Credit hours'], ['programId', 'A program (its study plan)']];
   const missing = REQ.filter(([k]) => !v[k].trim()).map(([, l]) => l);
   const bad = (k: keyof typeof v) => tried && !v[k].trim();
   const save = async () => {
@@ -202,9 +202,10 @@ function Placement({ course, programs, oapi, canWrite }: { course: Course; progr
   const name = new Map(programs.map((p) => [p.id, `${p.code ? `${p.code} · ` : ''}${p.nameEn}`]));
   return (
     <Card>
-      <section aria-label="Programs it serves" className="space-y-2">
-        <h3 className="text-base font-semibold">Programs it serves{req}</h3>
-        {course.programIds.length === 0 && <p className="text-sm text-amber-800">It serves no program yet: add one.</p>}
+      <section aria-label="Study plan" className="space-y-2">
+        <h3 className="text-base font-semibold">Study plan{req}</h3>
+        <p className="text-xs text-muted-foreground">The programs this course is part of, with its role, year and term in each.</p>
+        {course.programIds.length === 0 && <p className="text-sm text-amber-800">It is in no program&apos;s study plan yet: add one.</p>}
         <ul className="space-y-1 text-sm">
           {course.placements.map(({ programId: id, role, year, term }) => (
             <li key={id} className="flex flex-wrap items-center gap-2">

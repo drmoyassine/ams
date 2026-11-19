@@ -43,7 +43,7 @@ async function rowsToCourses(ctx: Ctx, rows: CourseRow[]): Promise<Course[]> {
 }
 /** What a course record must have (the owner, 2026-11-18): a unit, its credit hours and at least one program it serves (code and English title always do). */
 const withMissing = (c: Omit<Course, 'missing'>): Course => ({
-  ...c, missing: [...(c.orgUnitId ? [] : ['Unit']), ...(c.credits === null ? ['Credit hours'] : []), ...(c.programIds.length ? [] : ['Program placement'])],
+  ...c, missing: [...(c.orgUnitId ? [] : ['Unit']), ...(c.credits === null ? ['Credit hours'] : []), ...(c.programIds.length ? [] : ['Study plan'])],
 });
 
 /**

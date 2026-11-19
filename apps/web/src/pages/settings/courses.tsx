@@ -11,7 +11,8 @@ import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useUrlState } from '../../lib/url-state';
-import { CoursesImportExport } from './courses-io';
+import { AcademicImportExport } from './academic-io';
+import type { AcademicApi } from '../../lib/academic-api';
 
 const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm';
 
@@ -19,7 +20,7 @@ const select = 'rounded-md border border-border bg-background px-2 py-1 text-sm'
  * Settings -> Organization -> Courses: the list, and a Docs section where course catalogues, study plans and specifications are uploaded
  * and the AI import proposes courses (new, or matched to the existing ones) for review (DEC-044). The section is in the address.
  */
-export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: docsOverride }: { api?: SettingsApi; outcomes?: OutcomesApi; docs?: DocumentsApi }) {
+export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: docsOverride, academic }: { api?: SettingsApi; outcomes?: OutcomesApi; docs?: DocumentsApi; academic?: AcademicApi }) {
   const api = useSettingsApi(settingsOverride);
   const docs = useDocumentsApi(docsOverride);
   const [section, setSection] = useUrlState<'list' | 'docs'>('section', 'list', ['list', 'docs']);
@@ -36,7 +37,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: doc
       </div>
       <div role="tabpanel" id="courses-section-panel" aria-labelledby={`courses-section-${section}`}>
         {section === 'list'
-          ? <CoursesList {...(settingsOverride ? { api: settingsOverride } : {})} {...(outcomes ? { outcomes } : {})} />
+          ? <CoursesList {...(settingsOverride ? { api: settingsOverride } : {})} {...(outcomes ? { outcomes } : {})} {...(academic ? { academic } : {})} />
           : <DocsTab scopeKind="courses" scopeId={null} targets={targets.data ?? []} canWrite={can(me.data, 'program:write')} api={docs} />}
       </div>
     </div>
@@ -47,7 +48,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: doc
  * The catalogue (DEC-042). Each course opens on its own page (/settings/organization/courses/<id>),
  * "Add course" on /new; a course whose record lacks something shows it. Search and the program filter are in the address.
  */
-function CoursesList({ api: settingsOverride, outcomes: outcomesOverride }: { api?: SettingsApi; outcomes?: OutcomesApi }) {
+function CoursesList({ api: settingsOverride, outcomes: outcomesOverride, academic }: { api?: SettingsApi; outcomes?: OutcomesApi; academic?: AcademicApi }) {
   const api = useSettingsApi(settingsOverride);
   const oapi = useOutcomesApi(outcomesOverride);
   const me = useMe(api);
@@ -78,7 +79,7 @@ function CoursesList({ api: settingsOverride, outcomes: outcomesOverride }: { ap
           {canWrite && <Link to="/settings/organization/courses/$courseId" params={{ courseId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add course</Link>}
         </div>
       </div>
-      {io && <CoursesImportExport canWrite={canWrite} onDone={() => setIo(false)} />}
+      {io && <AcademicImportExport canWrite={canWrite} {...(academic ? { api: academic } : {})} onDone={() => setIo(false)} />}
       <div className="flex flex-wrap gap-2">
         <Input aria-label="Search courses" placeholder="Search by code or title" className="max-w-xs" value={q} onChange={(e) => setQ(e.target.value)} />
         <select aria-label="Filter by program" className={select} value={programFilter} onChange={(e) => setProgramFilter(e.target.value)}>

@@ -1,79 +1,82 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { COURSE_SHEETS, courseSheetOfHeaders, emptyCoursesWorkbook, type CourseSheetKey, type CoursesExport, type CoursesWorkbook, type UpsertCoursesResult } from '@ams/shared';
+import { ACADEMIC_SHEETS, ACADEMIC_SHEET_ORDER, academicSheetOfHeaders, emptyAcademicWorkbook, type AcademicExport, type AcademicWorkbook, type UpsertAcademicResult } from '@ams/shared';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { useCoursesApi, type CoursesApi } from '../../lib/courses-api';
-import { coursesWorkbookSheets } from '../../lib/courses-template';
+import { useAcademicApi, type AcademicApi } from '../../lib/academic-api';
+import { academicWorkbookSheets } from '../../lib/academic-template';
 import { download, readCsvRows, readSheets, richWorkbookXlsx, rowsToCsv } from '../../lib/sheet-io';
 import { useAction } from '../../lib/use-action';
 
-const KEYS = Object.keys(COURSE_SHEETS) as CourseSheetKey[];
+/** A row with its headers as the template names them (without the * that marks a required column). */
 const clean = (r: Record<string, string>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.replace(/\s*\*\s*$/, ''), v]));
 
-/** Reads an .xlsx (the workbook's sheets) or one or more .csv files (each sheet's file, told apart by its headers). */
-export async function readCourseFiles(files: File[]): Promise<{ workbook: CoursesWorkbook; ignored: string[] }> {
-  const wb = emptyCoursesWorkbook(); const ignored: string[] = [];
+/** Reads an .xlsx (the workbook's sheets; "Placement" is the Study plan of older files) or one or more .csv files (each told apart by its headers). */
+export async function readAcademicFiles(files: File[]): Promise<{ workbook: AcademicWorkbook; ignored: string[] }> {
+  const wb = emptyAcademicWorkbook(); const ignored: string[] = [];
   for (const f of files) {
     if (/\.(csv|tsv|txt)$/i.test(f.name)) {
       const { headers, rows } = await readCsvRows(f);
-      const k = courseSheetOfHeaders(headers);
+      const k = academicSheetOfHeaders(headers);
       if (!k) { ignored.push(f.name); continue; }
       wb[k].push(...rows.map(clean));
     } else {
-      const sheets = await readSheets(f, KEYS.map((k) => COURSE_SHEETS[k].name));
-      for (const k of KEYS) wb[k].push(...(sheets[COURSE_SHEETS[k].name] ?? []).map(clean));
+      const sheets = await readSheets(f, [...ACADEMIC_SHEET_ORDER.map((k) => ACADEMIC_SHEETS[k].name), 'Placement']);
+      for (const k of ACADEMIC_SHEET_ORDER) wb[k].push(...(sheets[ACADEMIC_SHEETS[k].name] ?? []).map(clean));
+      if (!(sheets['Study plan'] ?? []).length) wb.studyPlan.push(...(sheets['Placement'] ?? []).map(clean));
     }
   }
   return { workbook: wb, ignored };
 }
 
-async function save(data: CoursesExport, format: 'xlsx' | 'csv', base: string) {
-  if (format === 'xlsx') { download(await richWorkbookXlsx(coursesWorkbookSheets(data)), `${base}.xlsx`); return; }
-  for (const k of KEYS) download(await rowsToCsv(COURSE_SHEETS[k].headers, data[k]), `${base} - ${COURSE_SHEETS[k].name}.csv`);
+async function save(data: AcademicExport, format: 'xlsx' | 'csv', base: string) {
+  if (format === 'xlsx') { download(await richWorkbookXlsx(academicWorkbookSheets(data)), `${base}.xlsx`); return; }
+  for (const k of ACADEMIC_SHEET_ORDER) download(await rowsToCsv(ACADEMIC_SHEETS[k].headers, data[k]), `${base} - ${ACADEMIC_SHEETS[k].name}.csv`);
 }
 
 const ACTION = { add: 'Add', update: 'Update', unchanged: 'No change', skip: 'Skipped', draft: 'Into the draft' } as const;
 
 /**
- * Courses as a workbook (DEC-042): the template or every course (record, placements and content) as .xlsx or .csv, and an import previewed row
- * by row. The record and placements change at once; the content goes into each course's draft for approval. Nothing is removed.
+ * The academic workbook (DEC-045): ONE template for programs, PEOs, PLOs, courses, the study plan and course content, as .xlsx or CSV. An import
+ * is previewed row by row (programs first, so courses may name programs added in the same file); programs, outcomes, course records and the study
+ * plan change at once, course content goes into each course's draft. Nothing is removed. Both the Programs and the Courses tabs open it.
  */
-export function CoursesImportExport({ canWrite, api: override, onDone }: { canWrite: boolean; api?: CoursesApi; onDone: () => void }) {
-  const api = useCoursesApi(override);
+export function AcademicImportExport({ canWrite, api: override, onDone }: { canWrite: boolean; api?: AcademicApi; onDone: () => void }) {
+  const api = useAcademicApi(override);
   const qc = useQueryClient();
   const [format, setFormat] = useState<'xlsx' | 'csv'>('xlsx');
-  const [pending, setPending] = useState<{ workbook: CoursesWorkbook; names: string; ignored: string[] } | null>(null);
-  const [result, setResult] = useState<UpsertCoursesResult | null>(null);
+  const [pending, setPending] = useState<{ workbook: AcademicWorkbook; names: string; ignored: string[] } | null>(null);
+  const [result, setResult] = useState<UpsertAcademicResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const act = useAction(setError);
   const run = async (fn: () => Promise<unknown>) => { setBusy(true); setError(null); try { await act(fn); } finally { setBusy(false); } };
+  const empty = (all: AcademicExport): AcademicExport => ({ ...emptyAcademicWorkbook(), lists: all.lists });
   return (
     <Card>
-      <section aria-label="Import and export courses" className="space-y-3">
+      <section aria-label="Import and export" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="font-semibold">Import and export</h4>
           <Button type="button" variant="ghost" className="px-2 py-1" onClick={onDone}>Close</Button>
         </div>
-        <p className="text-sm text-muted-foreground">One workbook for courses, the programs they serve and their content (CLOs, outline, materials, assessments, rubrics), as Excel or as one CSV file per sheet. Each course's record and placements change at once; its content goes into its draft for approval. Nothing is removed.</p>
+        <p className="text-sm text-muted-foreground">One workbook for programs (with PEOs and PLOs), courses, the study plan and course content (CLOs, outline, materials, assessments, rubrics), as Excel or as one CSV file per sheet. Programs and course records change at once; course content goes into each course's draft for approval. Nothing is removed.</p>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-sm">Format
             <select aria-label="File format" className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={format} onChange={(e) => setFormat(e.target.value as 'xlsx' | 'csv')}>
               <option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV (one file per sheet)</option>
             </select>
           </label>
-          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => { const all = await api.exportAll(); return save({ ...emptyCoursesWorkbook(), lists: all.lists }, format, 'Courses template'); }); }}>Download the template</Button>
-          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => save(await api.exportAll(), format, 'Courses')); }}>Export all courses</Button>
+          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => save(empty(await api.exportAll()), format, 'Academic template')); }}>Download the template</Button>
+          <Button type="button" variant="outline" className="px-3 py-1" disabled={busy} onClick={() => { void run(async () => save(await api.exportAll(), format, 'Academic workbook')); }}>Export everything</Button>
         </div>
         {canWrite && (
           <label className="flex flex-wrap items-center gap-2 text-sm">Import a file
-            <input aria-label="Courses file" type="file" multiple accept=".xlsx,.csv" className="text-sm" disabled={busy}
+            <input aria-label="Workbook file" type="file" multiple accept=".xlsx,.csv" className="text-sm" disabled={busy}
               onChange={(e) => {
                 const files = [...(e.target.files ?? [])]; e.target.value = '';
                 if (!files.length) return;
                 void run(async () => {
-                  const { workbook, ignored } = await readCourseFiles(files);
+                  const { workbook, ignored } = await readAcademicFiles(files);
                   setPending({ workbook, names: files.map((f) => f.name).join(', '), ignored });
                   setResult(await api.upsert(workbook, false));
                 });
@@ -100,7 +103,12 @@ export function CoursesImportExport({ canWrite, api: override, onDone }: { canWr
             </div>
             {!result.applied && pending && canWrite && (
               <div className="flex flex-wrap gap-2">
-                <Button type="button" disabled={busy || result.added + result.updated + result.drafted === 0} onClick={() => { void run(async () => { setResult(await api.upsert(pending.workbook, true)); setPending(null); await qc.invalidateQueries({ queryKey: ['courses'] }); await qc.invalidateQueries({ queryKey: ['syllabus'] }); await qc.invalidateQueries({ queryKey: ['program-outcomes'] }); }); }}>Apply</Button>
+                <Button type="button" disabled={busy || result.added + result.updated + result.drafted === 0} onClick={() => {
+                  void run(async () => {
+                    setResult(await api.upsert(pending.workbook, true)); setPending(null);
+                    for (const key of ['programs', 'courses', 'syllabus', 'program-outcomes', 'syllabi']) await qc.invalidateQueries({ queryKey: [key] });
+                  });
+                }}>Apply</Button>
                 <Button type="button" variant="ghost" onClick={() => { setPending(null); setResult(null); }}>Cancel</Button>
               </div>
             )}

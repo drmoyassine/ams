@@ -9,21 +9,21 @@ import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, MemoryStore } from '@ams/api';
 import { createTestDb, type TestDb } from '@ams/db/test-db';
-import { emptyCoursesWorkbook, emptySyllabus, type SyllabusContent } from '@ams/shared';
+import { emptyAcademicWorkbook, emptySyllabus, type SyllabusContent } from '@ams/shared';
 import './i18n';
 import { SyllabiList } from './components/syllabus/syllabi-list';
 import { SyllabusAlertBar } from './components/syllabus/syllabus-alert-bar';
 import { CourseContent } from './components/syllabus/course-content';
 import { SyllabusLimits } from './components/syllabus/syllabus-limits';
 import { SyllabusTemplateEditor } from './components/syllabus/syllabus-template-editor';
-import { coursesApi } from './lib/courses-api';
-import { coursesWorkbookSheets } from './lib/courses-template';
+import { academicApi } from './lib/academic-api';
+import { academicWorkbookSheets } from './lib/academic-template';
 import { richWorkbookXlsx } from './lib/sheet-io';
 import { createApi } from './lib/api';
 import { settingsApi } from './lib/settings-api';
 import { scopeApi } from './lib/scope-api';
 import { syllabusApi } from './lib/syllabus-api';
-import { CoursesImportExport } from './pages/settings/courses-io';
+import { AcademicImportExport } from './pages/settings/academic-io';
 
 configure({ asyncUtilTimeout: 15000 });
 let db: TestDb;
@@ -205,19 +205,19 @@ describe('the red bar', () => {
   });
 });
 
-describe('the courses workbook', () => {
+describe('the academic workbook', () => {
   it('previews a workbook row by row, then puts the content into the course\'s draft and skips an unknown course', async () => {
     const user = userEvent.setup();
-    const api = coursesApi(fetcherOf('admin'));
+    const api = academicApi(fetcherOf('admin'));
     const lists = (await api.exportAll()).lists;
-    const wb = { ...emptyCoursesWorkbook(), lists };
+    const wb = { ...emptyAcademicWorkbook(), lists };
     wb.courses.push({ 'Course code': 'MCE 410', 'Title (English)': 'Heat Transfer', 'Credit hours': 3 });
     wb.clos.push({ 'Course code': 'MCE 410', CLO: 'CLO1', 'Outcome (English)': 'Analyse conduction', 'Bloom level': 'Analyze', PLO: 'PLO1', Coverage: 'Introduced' },
       { 'Course code': 'GHOST 1', CLO: 'CLO1', 'Outcome (English)': 'Nothing' });
-    const blob = await richWorkbookXlsx(coursesWorkbookSheets(wb));
+    const blob = await richWorkbookXlsx(academicWorkbookSheets(wb));
     const file = new File([await blob.arrayBuffer()], 'courses.xlsx', { type: blob.type });
-    render(wrap(<CoursesImportExport canWrite api={api} onDone={() => undefined} />));
-    await user.upload(await screen.findByLabelText('Courses file'), file);
+    render(wrap(<AcademicImportExport canWrite api={api} onDone={() => undefined} />));
+    await user.upload(await screen.findByLabelText('Workbook file'), file);
     const preview = await screen.findByRole('region', { name: 'Import preview' });
     expect(preview.textContent).toMatch(/1 into drafts/);
     expect(preview.textContent).toMatch(/GHOST 1/);

@@ -247,8 +247,8 @@ describe('the course is the master record (the owner, 2026-11-18)', () => {
     expect((await w.as('alo', (c) => updateCourse(c, ids.course!, { titleEn: c0.titleEn, externalId: 'MCE410-SIS', level: 4 })))).toMatchObject({ externalId: 'MCE410-SIS', level: 4 });
     // A new course seeds its content directly, and is flagged for what its record lacks.
     const fresh = await w.as('alo', (c) => createCourse(c, { code: 'MCE 499', titleEn: 'Special Topics' }));
-    expect(fresh).toMatchObject({ approved: false, missing: ['Unit', 'Credit hours', 'Program placement'] });
-    expect(await w.as('alo', (c) => updateCourse(c, fresh.id, { credits: 3 }))).toMatchObject({ credits: 3, missing: ['Unit', 'Program placement'] });
+    expect(fresh).toMatchObject({ approved: false, missing: ['Unit', 'Credit hours', 'Study plan'] });
+    expect(await w.as('alo', (c) => updateCourse(c, fresh.id, { credits: 3 }))).toMatchObject({ credits: 3, missing: ['Unit', 'Study plan'] });
     expect(await w.as('alo', (c) => deleteCourse(c, fresh.id))).toMatchObject({ active: false });
   });
 });

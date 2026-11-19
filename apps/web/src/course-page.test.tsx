@@ -56,7 +56,7 @@ describe('a new course', () => {
     await user.type(code, 'MCE 410');
     await user.type(screen.getByLabelText('Course title'), 'Heat Transfer');
     await user.click(screen.getByRole('button', { name: 'Add course' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/Unit, Credit hours, A program it serves/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Unit, Credit hours, A program \(its study plan\)/);
     await user.selectOptions(screen.getByLabelText('Owning unit'), ids.unit!);
     await user.type(screen.getByLabelText('Credit hours'), '3');
     await waitFor(() => expect(screen.getByRole('option', { name: /BSME/ })).toBeTruthy());

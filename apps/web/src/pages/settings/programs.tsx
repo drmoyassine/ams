@@ -11,16 +11,16 @@ import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 import { useAction } from '../../lib/use-action';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 import type { SyllabusApi } from '../../lib/syllabus-api';
-import type { ProgramsApi } from '../../lib/programs-api';
+import type { AcademicApi } from '../../lib/academic-api';
 import { LEVEL } from './program-page';
-import { ProgramsImportExport } from './programs-io';
+import { AcademicImportExport } from './academic-io';
 import { useUrlState } from '../../lib/url-state';
 
 /**
  * The Programs tab of Settings -> Organization: the list, and a Docs section where catalogues and program lists are uploaded and
  * the AI import proposes programs for review (TASK-076). `docs` is for tests; the app's own client is the default.
  */
-export function ProgramsSettingsPage({ api: override, docs: docsOverride, programs: programsApi }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; programs?: ProgramsApi }) {
+export function ProgramsSettingsPage({ api: override, docs: docsOverride, programs: programsApi }: { api?: SettingsApi; docs?: DocumentsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; programs?: AcademicApi }) {
   const api = useSettingsApi(override);
   const docs = useDocumentsApi(docsOverride);
   const [section, setSection] = useUrlState<'list' | 'docs'>('section', 'list', ['list', 'docs']);
@@ -49,7 +49,7 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, progra
  * The list of programs: each opens on its own page (/settings/organization/programs/<id>), "Add program" on /new. A record saved by an
  * import or the API without its required fields shows what is missing.
  */
-function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: ProgramsApi }) {
+function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: AcademicApi }) {
   const qc = useQueryClient();
   const me = useMe(api);
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
@@ -77,7 +77,7 @@ function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: Pr
           {canWrite && <Link to="/settings/organization/programs/$programId" params={{ programId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add program</Link>}
         </div>
       </div>
-      {io && <ProgramsImportExport canWrite={canWrite} {...(programsApi ? { api: programsApi } : {})} onDone={() => setIo(false)} />}
+      {io && <AcademicImportExport canWrite={canWrite} {...(programsApi ? { api: programsApi } : {})} onDone={() => setIo(false)} />}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {programs.isError && <p role="alert">Could not load programs.</p>}
       {programs.data && rows.length === 0 && <p className="text-muted-foreground">No programs visible to you yet.</p>}

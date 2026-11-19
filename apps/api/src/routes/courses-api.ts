@@ -1,6 +1,6 @@
 import { OpenAPIHono, type Hook } from '@hono/zod-openapi';
-import { deleteCourse, exportCourses, upsertCourses } from '@ams/core';
-import { CourseSchema, CoursesExportSchema, UpsertCoursesResultSchema, UpsertCoursesSchema, toDto } from '@ams/shared';
+import { deleteCourse, exportAcademic, exportCourses, upsertAcademic, upsertCourses } from '@ams/core';
+import { AcademicExportSchema, CourseSchema, CoursesExportSchema, UpsertAcademicResultSchema, UpsertAcademicSchema, UpsertCoursesResultSchema, UpsertCoursesSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -21,6 +21,19 @@ export function courseRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
       request: { body: { required: true, ...json(UpsertCoursesSchema) } },
       responses: { 200: { description: 'What was (or would be) done, row by row', ...json(UpsertCoursesResultSchema) }, ...errors },
     }), async (c) => c.json(toDto(UpsertCoursesResultSchema, await upsertCourses(c.get('ctx'), c.req.valid('json'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/academic-workbook', access: requires('org:read'), tags: tag,
+      description: 'Every program and course as the rows of the academic workbook (Programs, PEOs, PLOs, Courses, Study plan, CLOs, Outline, Materials, Assessments, Rubrics, Sections), each with its ID, and the choices for the template\'s dropdowns.',
+      responses: { 200: { description: 'The rows and the lists', ...json(AcademicExportSchema) }, ...errors },
+    }), async (c) => c.json(toDto(AcademicExportSchema, await exportAcademic(c.get('ctx'))), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'post', path: '/api/academic-workbook', access: requires('program:write'), tags: tag,
+      description: 'Adds or updates programs, PEOs, PLOs, courses, their study plan and content from one workbook, in one transaction: programs first, so a course may name a program added in the same file. Programs, outcomes, course records and the study plan change at once; course content goes into each course\'s draft. Nothing is removed. With apply false nothing is written and the result says what would happen, row by row.',
+      request: { body: { required: true, ...json(UpsertAcademicSchema) } },
+      responses: { 200: { description: 'What was (or would be) done, row by row', ...json(UpsertAcademicResultSchema) }, ...errors },
+    }), async (c) => c.json(toDto(UpsertAcademicResultSchema, await upsertAcademic(c.get('ctx'), c.req.valid('json'))), 200))
 
     .openapi(secured(registry, deps, {
       method: 'delete', path: '/api/courses/{id}', access: requires('program:write'), tags: tag,

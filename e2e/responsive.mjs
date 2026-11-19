@@ -658,7 +658,7 @@ function pagesFor(ids) {
     ids.courseId && { name: 'course-page', path: `/settings/organization/courses/${ids.courseId}`, action: async (page) => { await page.getByRole('region', { name: 'Course content' }).waitFor(); } },
     { name: 'course-new', path: '/settings/organization/courses/new', action: async (page) => { await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
-    { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export courses' }).waitFor(); } },
+    { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export' }).waitFor(); } },
     { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
       await clickTab('Curriculum map')(page);
       // The map downloads as a workbook (fails the run if the download does not start).
