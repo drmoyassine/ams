@@ -71,7 +71,7 @@ describe('the degree\'s structure in the same file', () => {
     concentrations: [{ 'Program code': 'BS-ENG', Code: 'DES', 'Name (English)': 'Design' }],
     blocks: [{ 'Program code': 'BS-ENG', Block: 'Major requirements', 'Core credits': 6, 'Elective credits': 3 }, { 'Program code': 'BS-ENG', Concentration: 'DES', Block: 'Concentration requirements', 'Core credits': 3 }],
     courses: [{ 'Course code': 'HUM 101', 'Title (English)': 'Ethics', Unit: 'Engineering', 'Credit hours': 3 }, { 'Course code': 'ENG 201', 'Title (English)': 'Mechanics', Unit: 'Engineering', 'Credit hours': 6 },
-      { 'Course code': 'ENG 301', 'Title (English)': 'Design Studio', Unit: 'Engineering', 'Credit hours': 3 }],
+      { 'Course code': 'ENG 301', 'Title (English)': 'Design Studio', Unit: 'Engineering', 'Credit hours': 3, Prerequisites: 'eng 201 | HUM 101; HUM 999', 'Other requirements': 'Junior standing' }],
     studyPlan: [{ 'Course code': 'HUM 101', 'Program code': 'BS-ENG', Role: 'Core', Block: 'General education', Year: 1, Term: 1 }, { 'Course code': 'ENG 201', 'Program code': 'BS-ENG', Role: 'Core', Block: 'Major requirements', Year: 2, Term: 1 },
       { 'Course code': 'ENG 301', 'Program code': 'BS-ENG', Role: 'Core', Block: 'Concentration requirements', Concentration: 'DES', Year: 3, Term: 1 }],
     slots: [{ 'Program code': 'BS-ENG', Block: 'Major requirements', 'Slot name': 'Major elective', Rule: 'Any ENG 4xx', Credits: 3, Year: 4, Term: 1 }, { 'Program code': 'BS-ENG', Block: 'General education', 'Slot name': 'GenEd elective', Area: 'HUM', Credits: 3, Year: 1, Term: 2 }],
@@ -101,6 +101,8 @@ describe('the degree\'s structure in the same file', () => {
     const all = await w.as('alo', (c) => exportAcademic(c));
     expect(all.concentrations.map((x) => x.Code)).toContain('DES');
     expect(all.blocks.map((x) => [x.Block, x['Core credits'], x['Elective credits']])).toContainEqual(['Major requirements', 6, 3]);
+    // Prerequisites: ; is and, | is or; a code that is not a course was left out; they read back in the same syntax.
+    expect(all.courses.find((x) => x['Course code'] === 'ENG 301')).toMatchObject({ Prerequisites: 'ENG 201 | HUM 101', 'Other requirements': 'Junior standing' });
     expect(all.catalog).toEqual([{ Setting: 'General education credits', Value: 6 }]);
     expect(all.genedAreas[0]).toMatchObject({ Code: 'HUM', Courses: 'HUM 101' });
     expect(all.studyPlan.find((x) => x['Course code'] === 'ENG 301')).toMatchObject({ Block: 'Concentration requirements', Concentration: 'DES' });

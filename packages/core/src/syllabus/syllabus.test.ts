@@ -20,7 +20,7 @@ const note = async (user: string) => (await w.db.su.query(`select title, body fr
 /** A complete syllabus for the course: 4 CLOs over two PLOs, assessments adding to 100, one rubric. */
 function complete(): SyllabusContent {
   const c = emptySyllabus();
-  c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: [], corequisiteIds: [] };
+  c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisites: [[ids.req1!, ids.req2!], [ids.req3!]], corequisites: [], otherRequirements: 'Junior standing' };
   c.description.en = 'Conduction, convection and radiation.'; c.methodology = 'Lectures and problem sessions.';
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals of Heat and Mass Transfer', isbn: '', year: null }];
   c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }] }));
@@ -37,6 +37,7 @@ beforeAll(async () => {
   const p = w.ids.mech!;
   ids.course = (await w.as('alo', (c) => createCourse(c, { code: 'MCE 410', titleEn: 'Heat Transfer' }))).id;
   await w.as('alo', (c) => setCourseProgram(c, ids.course!, p, { role: 'core', year: 4 }));
+  for (const [k, code] of [['req1', 'MCE 200'], ['req2', 'MCE 201'], ['req3', 'PHY 100']] as const) ids[k] = (await w.as('alo', (c) => createCourse(c, { code, titleEn: code }))).id;
   ids.plo1 = (await w.as('alo', (c) => createOutcome(c, { kind: 'plo', programId: p, code: 'PLO1', textEn: 'Solve problems' }))).id;
   ids.plo2 = (await w.as('alo', (c) => createOutcome(c, { kind: 'plo', programId: p, code: 'PLO2', textEn: 'Design systems' }))).id;
   // The course coordinator is `second` and an instructor is `outsider` (each only a viewer), the Dean is a lead of the unit, the chair is `coord` (lead of the program).
@@ -159,6 +160,14 @@ describe('the workflow', () => {
     expect(course).toMatchObject({ course_type: 'didactic', level_band: '400', category: 'program_core', language_of_instruction: 'English' });
     const rows = (await w.db.su.query(`select o.code, o.status, l.level, p.code as plo from learning_outcome o join outcome_link l on l.from_id = o.id join learning_outcome p on p.id = l.to_id where o.course_id = $1 and o.kind = 'clo' order by o.code`, [ids.course])).rows;
     expect(rows).toEqual([{ code: 'CLO1', status: 'approved', level: 'R', plo: 'PLO1' }, { code: 'CLO2', status: 'approved', level: 'R', plo: 'PLO1' }, { code: 'CLO3', status: 'approved', level: 'R', plo: 'PLO2' }, { code: 'CLO4', status: 'approved', level: 'M', plo: 'PLO2' }]);
+    // The prerequisites keep their alternatives: MCE 200 or MCE 201 share a group, PHY 100 is a group of its own; "other requirements" is on the course.
+    const reqs = (await w.db.su.query(`select r.requisite_id, r.kind, r.group_no from course_requisite r where r.course_id = $1 order by r.group_no, r.requisite_id`, [ids.course])).rows;
+    expect(reqs.map((r) => r.kind)).toEqual(['prerequisite', 'prerequisite', 'prerequisite']);
+    expect(new Set(reqs.filter((r) => [ids.req1, ids.req2].includes(r.requisite_id)).map((r) => r.group_no)).size).toBe(1);
+    expect(reqs.find((r) => r.requisite_id === ids.req3)!.group_no).not.toBe(reqs.find((r) => r.requisite_id === ids.req1)!.group_no);
+    expect((await w.db.su.query(`select other_requirements from course where id = $1`, [ids.course])).rows[0].other_requirements).toBe('Junior standing');
+    const next = (await w.as('second', (c) => getSyllabusOverview(c, ids.course!))).current!.content.info;
+    expect(next.prerequisites.map((g) => g.length).sort()).toEqual([1, 2]);
     await expect(w.db.su.query(`update syllabus_version set content = '{}' where course_id = $1 and status = 'approved'`, [ids.course])).rejects.toThrow(/cannot be changed/);
   });
 

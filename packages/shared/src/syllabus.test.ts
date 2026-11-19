@@ -12,7 +12,7 @@ const codes = (c: SyllabusContent, over: Partial<SyllabusCheckContext> = {}) => 
 /** A complete, valid syllabus: 4 CLOs over 2 PLOs, three assessments whose weights and shares are 100, one rubric. */
 function good(): SyllabusContent {
   const c = emptySyllabus();
-  c.info = { titleEn: 'Digital Signal Processing', titleAr: 'معالجة الإشارات الرقمية', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: [], corequisiteIds: [] };
+  c.info = { titleEn: 'Digital Signal Processing', titleAr: 'معالجة الإشارات الرقمية', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisites: [], corequisites: [], otherRequirements: '' };
   c.description.en = 'An advanced course on discrete-time signals and filters.';
   c.methodology = 'Lectures, demonstrations and hands-on work.';
   c.materials = [{ kind: 'textbook', citation: 'Proakis, Digital Signal Processing', isbn: '', year: null }];
@@ -111,7 +111,7 @@ describe('the syllabus rule checker', () => {
     const c = good();
     c.outline.push({ week: 1, topic: 'Again', reading: '', lab: '', cloIds: ['zzz'], sdgs: [], assessmentId: '', activity: '' }, { week: 2, topic: '', reading: '', lab: '', cloIds: [], sdgs: [], assessmentId: '', activity: '' });
     c.rubrics[0]!.criteria[0]!.descriptions = ['Sound', ''];
-    c.info.prerequisiteIds = ['ghost'];
+    c.info.prerequisites = [['ghost']];
     expect(codes(c, { knownCourseIds: new Set() })).toEqual(expect.arrayContaining(['outline.duplicateWeek', 'outline.clo', 'outline.topic', 'rubric.descriptions', 'info.requisite']));
   });
 

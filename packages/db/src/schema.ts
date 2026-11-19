@@ -261,6 +261,8 @@ export const course = pgTable('course', {
   /** From the approved syllabus (TASK-122): contact hours, type, level band, category, sustainability indicator and the coordinator. */
   contactLecture: numeric('contact_lecture', { precision: 4, scale: 1 }), contactLab: numeric('contact_lab', { precision: 4, scale: 1 }), contactOther: numeric('contact_other', { precision: 4, scale: 1 }),
   courseType: text('course_type'), levelBand: text('level_band'), category: text('category'), sustainability: text('sustainability'),
+  /** What is not a course: "Junior standing", "Consent of the instructor" (from the approved syllabus; DEC-046). */
+  otherRequirements: text('other_requirements'),
   coordinatorUserId: uuid('coordinator_user_id').references(() => appUser.id),
 }, (t) => [index('course_unit_idx').on(t.orgUnitId)]);
 
@@ -276,6 +278,8 @@ export const courseRequisite = pgTable('course_requisite', {
   courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
   requisiteId: uuid('requisite_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
   kind: text('kind', { enum: ['prerequisite', 'corequisite'] }).notNull(),
+  /** Requisites of a course with the same kind and group number are alternatives; groups are all required (DEC-046). Null: a group of its own. */
+  groupNo: integer('group_no'),
 }, (t) => [uniqueIndex('course_requisite_idx').on(t.courseId, t.requisiteId)]);
 /** The syllabus of a course, one document per version (DEC-038): locked by a trigger once approved. */
 export const syllabusVersion = pgTable('syllabus_version', {

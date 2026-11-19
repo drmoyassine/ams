@@ -41,6 +41,7 @@ export const ACADEMIC_README = [
   'Unit, Program level, Mode, Language, Active, Coordinator, Course type, Course level, Course category, Sustainability indicator, Role, Bloom level, Coverage, Kind, Category and Status are picked from lists. Units are shown with their place in the org chart (College > Department).',
   'Program code (PEOs, PLOs, Study plan) lists the codes typed on the Programs sheet; Course code (every course sheet) lists the codes typed on the Courses sheet. Program name and Course title (grey) show which record the code is: they are filled in by the workbook and ignored by the import.',
   'ILOs (PLOs sheet): the institutional learning outcomes the PLO serves, as their codes separated by ; (for example ILO1; ILO3). An empty cell leaves the PLO\'s links as they are.',
+  'Prerequisites and Co-requisites (Courses sheet): course codes, with ; for and and | for or: MATH 101; PHYS 101 | PHYS 111 means MATH 101 and one of PHYS 101 or PHYS 111. A code that is not a course is left out. Other requirements is text (Junior standing, consent of the instructor). They go into the course\'s draft like the rest of its content.',
   'PLO (CLOs sheet): the PLO codes the CLO maps to, separated by ; with their Coverage in the same order (for example PLO1; PLO3 and Introduced; Mastered).',
   '',
   '## What the import never does',

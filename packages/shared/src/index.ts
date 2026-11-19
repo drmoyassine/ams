@@ -37,3 +37,4 @@ export * from './courses-sheets.js';
 export * from './academic-sheets.js';
 export * from './catalog.js';
 export * from './catalog-sheets.js';
+export * from './requisites.js';

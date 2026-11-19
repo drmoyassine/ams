@@ -70,7 +70,7 @@ export const StudyPlanCourseSchema = z.object({
 });
 export type StudyPlanCourse = z.infer<typeof StudyPlanCourseSchema>;
 
-export const REQUIREMENT_ISSUES = ['total_credits', 'gened_total', 'gened_area', 'block_credits', 'unplaced_course', 'no_concentration_credits'] as const;
+export const REQUIREMENT_ISSUES = ['total_credits', 'gened_total', 'gened_area', 'block_credits', 'unplaced_course', 'no_concentration_credits', 'requisite_missing', 'requisite_order', 'requisite_cycle'] as const;
 export const RequirementIssueSchema = z.object({ kind: z.enum(REQUIREMENT_ISSUES), message: z.string(), concentrationId: z.uuid().nullable().default(null), block: z.enum(REQUIREMENT_BLOCKS).nullable().default(null) });
 export type RequirementIssue = z.infer<typeof RequirementIssueSchema>;
 /** Credits asked and credits planned, for one block (and requirement) of a program or one of its concentrations. */

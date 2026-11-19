@@ -194,6 +194,18 @@ async function liveMapping(ctx: Ctx, courseId: string): Promise<{ clos: Syllabus
   };
 }
 
+/** The live requisites of one kind as groups of alternatives: rows with the same group number are one group; a row without one is its own. */
+function requisiteGroups(rows: { requisiteId: string; groupNo: number | null }[]): string[][] {
+  const groups: string[][] = []; const byNo = new Map<number, string[]>();
+  for (const r of rows) {
+    if (r.groupNo === null) { groups.push([r.requisiteId]); continue; }
+    let g = byNo.get(r.groupNo);
+    if (!g) { g = []; byNo.set(r.groupNo, g); groups.push(g); }
+    g.push(r.requisiteId);
+  }
+  return groups;
+}
+
 /** A starting document from what the course already holds: its facts, and its CLOs with their PLO and coverage level. */
 export async function startingContent(ctx: Ctx, c: CourseRow): Promise<SyllabusContent> {
   const doc = emptySyllabus();
@@ -202,11 +214,11 @@ export async function startingContent(ctx: Ctx, c: CourseRow): Promise<SyllabusC
     titleEn: c.titleEn, titleAr: c.titleAr ?? '', credits: c.credits === null ? null : Number(c.credits), languageOfDelivery: ['english', 'arabic', 'bilingual'].includes(lang) ? lang : '',
     contactLecture: c.contactLecture === null ? null : Number(c.contactLecture), contactLab: c.contactLab === null ? null : Number(c.contactLab), contactOther: c.contactOther === null ? null : Number(c.contactOther),
     courseType: c.courseType ?? '', courseLevel: c.levelBand ?? '', category: c.category ?? '', sustainability: c.sustainability ?? '',
-    prerequisiteIds: [], corequisiteIds: [],
+    prerequisites: [], corequisites: [], otherRequirements: c.otherRequirements ?? '',
   };
   const reqs = await ctx.tx.select().from(courseRequisite).where(eq(courseRequisite.courseId, c.id));
-  doc.info.prerequisiteIds = reqs.filter((r) => r.kind === 'prerequisite').map((r) => r.requisiteId);
-  doc.info.corequisiteIds = reqs.filter((r) => r.kind === 'corequisite').map((r) => r.requisiteId);
+  doc.info.prerequisites = requisiteGroups(reqs.filter((r) => r.kind === 'prerequisite'));
+  doc.info.corequisites = requisiteGroups(reqs.filter((r) => r.kind === 'corequisite'));
   doc.description.en = c.description ?? '';
   const live = await liveMapping(ctx, c.id);
   doc.clos = live.clos;
@@ -490,14 +502,23 @@ async function writeCourse(ctx: Ctx, c: CourseRow, doc: SyllabusContent, version
   const i = doc.info;
   const num = (x: number | null) => (x === null ? null : String(x));
   await ctx.tx.update(course).set({
+    otherRequirements: i.otherRequirements.trim() ? nfc(i.otherRequirements) : null,
     titleEn: nfc(i.titleEn) || c.titleEn, titleAr: i.titleAr ? nfc(i.titleAr) : null, description: doc.description.en ? nfc(doc.description.en) : null, credits: num(i.credits),
     languageOfInstruction: LANGUAGE_NAME[i.languageOfDelivery] ?? c.languageOfInstruction, contactLecture: num(i.contactLecture), contactLab: num(i.contactLab), contactOther: num(i.contactOther),
     courseType: (i.courseType || null) as CourseRow['courseType'], levelBand: (i.courseLevel || null) as CourseRow['levelBand'], category: (i.category || null) as CourseRow['category'], sustainability: (i.sustainability || null) as CourseRow['sustainability'],
   }).where(eq(course.id, c.id));
   await ctx.tx.delete(courseRequisite).where(eq(courseRequisite.courseId, c.id));
-  const reqs: { id: string; kind: 'prerequisite' | 'corequisite' }[] = [...new Set(i.prerequisiteIds)].map((id) => ({ id, kind: 'prerequisite' }));
-  for (const id of new Set(i.corequisiteIds)) if (!i.prerequisiteIds.includes(id)) reqs.push({ id, kind: 'corequisite' });
-  for (const r of reqs) await ctx.tx.insert(courseRequisite).values({ institutionId: ctx.caller.institutionId, courseId: c.id, requisiteId: r.id, kind: r.kind });
+  // Each group of alternatives shares a group number; a course in the prerequisites is not also a co-requisite.
+  const taken = new Set<string>();
+  let groupNo = 0;
+  for (const [kind, list] of [['prerequisite', i.prerequisites], ['corequisite', i.corequisites]] as const) {
+    for (const group of list) {
+      const ids = group.filter((id) => id !== c.id && !taken.has(id));
+      if (!ids.length) continue;
+      groupNo++;
+      for (const id of ids) { taken.add(id); await ctx.tx.insert(courseRequisite).values({ institutionId: ctx.caller.institutionId, courseId: c.id, requisiteId: id, kind, groupNo }); }
+    }
+  }
 
   const levels = await levelsOf(ctx);
   const existing = await ctx.tx.select().from(learningOutcome).where(and(eq(learningOutcome.courseId, c.id), eq(learningOutcome.kind, 'clo')));

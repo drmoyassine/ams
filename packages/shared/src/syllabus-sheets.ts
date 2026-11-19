@@ -4,10 +4,11 @@
 // is left empty and the rule checker flags it, because a rule never stops an import.
 import { z } from 'zod';
 import { resolveOutcomeLevel, type OutcomeLevel } from './outcomes.js';
+import { formatRequisites, parseRequisites } from './requisites.js';
 import { emptySyllabus, LABEL, type SyllabusContent } from './syllabus.js';
 
 export const SYLLABUS_SHEETS = {
-  courses: { name: 'Courses', headers: ['Course code', 'Title (English)', 'Title (Arabic)', 'Credit hours', 'Lecture hours', 'Lab hours', 'Other hours', 'Language of delivery', 'Course type', 'Course level', 'Course category', 'Sustainability indicator', 'Prerequisites', 'Co-requisites', 'Description (English)', 'Description (Arabic)', 'Teaching methodology', 'Pass percentage and submission details', 'How assessments work'] },
+  courses: { name: 'Courses', headers: ['Course code', 'Title (English)', 'Title (Arabic)', 'Credit hours', 'Lecture hours', 'Lab hours', 'Other hours', 'Language of delivery', 'Course type', 'Course level', 'Course category', 'Sustainability indicator', 'Prerequisites', 'Co-requisites', 'Other requirements', 'Description (English)', 'Description (Arabic)', 'Teaching methodology', 'Pass percentage and submission details', 'How assessments work'] },
   clos: { name: 'CLOs', headers: ['Course code', 'CLO', 'Outcome (English)', 'Outcome (Arabic)', 'Bloom level', 'PLO', 'Coverage'] },
   outline: { name: 'Outline', headers: ['Course code', 'Week', 'Topic', 'Reading', 'Lab / other sessions', 'CLOs', 'SDGs', 'Assessment'] },
   materials: { name: 'Materials', headers: ['Course code', 'Kind', 'Citation', 'ISBN', 'Year'] },
@@ -73,8 +74,9 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
       titleEn: cell(r, 'Title (English)'), titleAr: cell(r, 'Title (Arabic)'), credits: numOf(cell(r, 'Credit hours')), languageOfDelivery: vocab(cell(r, 'Language of delivery'), LANG),
       contactLecture: numOf(cell(r, 'Lecture hours')), contactLab: numOf(cell(r, 'Lab hours')), contactOther: numOf(cell(r, 'Other hours')),
       courseType: vocab(cell(r, 'Course type'), TYPES), courseLevel: vocab(cell(r, 'Course level'), LEVELS), category: vocab(cell(r, 'Course category'), CATS), sustainability: vocab(cell(r, 'Sustainability indicator'), SUST),
-      prerequisiteIds: list(cell(r, 'Prerequisites')).map((x) => rs.courseId(code(x))).filter((x): x is string => !!x),
-      corequisiteIds: list(cell(r, 'Co-requisites')).map((x) => rs.courseId(code(x))).filter((x): x is string => !!x),
+      prerequisites: parseRequisites(cell(r, 'Prerequisites'), (c) => rs.courseId(code(c))).groups,
+      corequisites: parseRequisites(cell(r, 'Co-requisites'), (c) => rs.courseId(code(c))).groups,
+      otherRequirements: cell(r, 'Other requirements'),
     };
     d.description = { en: cell(r, 'Description (English)'), ar: cell(r, 'Description (Arabic)') };
     d.methodology = cell(r, 'Teaching methodology');
@@ -160,7 +162,7 @@ export function syllabusToWorkbook(c: SyllabusContent, ex: ExportContext): Sylla
   const cloCode = (id: string) => c.clos.find((x) => x.id === id)?.code ?? '';
   const wb = emptyWorkbook();
   wb.courses.push(put(S.courses.headers, [ex.code, i.titleEn, i.titleAr, i.credits, i.contactLecture, i.contactLab, i.contactOther, lbl(i.languageOfDelivery), lbl(i.courseType), i.courseLevel, lbl(i.category), lbl(i.sustainability),
-    i.prerequisiteIds.map(codeOf).join(', '), i.corequisiteIds.map(codeOf).join(', '), c.description.en, c.description.ar, c.methodology, c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks]));
+    formatRequisites(i.prerequisites, codeOf), formatRequisites(i.corequisites, codeOf), i.otherRequirements, c.description.en, c.description.ar, c.methodology, c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks]));
   for (const x of c.clos) wb.clos.push(put(S.clos.headers, [ex.code, x.code, x.textEn, x.textAr, lbl(x.bloom), x.plos.map((m) => ex.plos.find((p) => p.id === m.ploId)?.code ?? '').join('; '), x.plos.map((m) => ex.levels.find((l) => l.code === m.level)?.name ?? m.level).join('; ')]));
   for (const w of c.outline) wb.outline.push(put(S.outline.headers, [ex.code, w.week, w.topic, w.reading, w.lab, w.cloIds.map(cloCode).join(', '), w.sdgs.join(', '), c.assessments.find((a) => a.id === w.assessmentId)?.name ?? '']));
   for (const m of c.materials) wb.materials.push(put(S.materials.headers, [ex.code, lbl(m.kind), m.citation, m.isbn, m.year]));

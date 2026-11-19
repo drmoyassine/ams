@@ -40,7 +40,10 @@ export interface SyllabusInfo {
   titleEn: string; titleAr: string; credits: number | null;
   languageOfDelivery: string; contactLecture: number | null; contactLab: number | null; contactOther: number | null;
   courseType: string; courseLevel: string; category: string; sustainability: string;
-  prerequisiteIds: string[]; corequisiteIds: string[];
+  /** AND of OR-groups of course ids (see requisites.ts): "MATH 101; PHYS 101 | PHYS 111". */
+  prerequisites: string[][]; corequisites: string[][];
+  /** What is not a course: "Junior standing", "Consent of the instructor". */
+  otherRequirements: string;
 }
 /** A PLO and the level at which it is covered (a code of the institution's levels: Introduced, Reinforced, Mastered). */
 export interface SyllabusPloLevel { ploId: string; level: string }
@@ -74,11 +77,22 @@ export interface SyllabusContent {
 const s = z.string().default('');
 const n = z.number().nullable().default(null);
 const strs = z.array(z.string()).default([]);
+const groups = z.array(z.array(z.string())).default([]);
 export const SyllabusContentSchema: z.ZodType<SyllabusContent, SyllabusContent> = z.object({
-  info: z.object({
+  // A document stored before DEC-046 lists flat ids: each is a group of its own.
+  info: z.preprocess((v) => {
+    if (v && typeof v === 'object') {
+      const o = { ...(v as Record<string, unknown>) };
+      if (!('prerequisites' in o) && Array.isArray(o.prerequisiteIds)) o.prerequisites = (o.prerequisiteIds as string[]).map((id) => [id]);
+      if (!('corequisites' in o) && Array.isArray(o.corequisiteIds)) o.corequisites = (o.corequisiteIds as string[]).map((id) => [id]);
+      delete o.prerequisiteIds; delete o.corequisiteIds;
+      return o;
+    }
+    return v;
+  }, z.object({
     titleEn: s, titleAr: s, credits: n, languageOfDelivery: s, contactLecture: n, contactLab: n, contactOther: n,
-    courseType: s, courseLevel: s, category: s, sustainability: s, prerequisiteIds: strs, corequisiteIds: strs,
-  }).default({ titleEn: '', titleAr: '', credits: null, languageOfDelivery: '', contactLecture: null, contactLab: null, contactOther: null, courseType: '', courseLevel: '', category: '', sustainability: '', prerequisiteIds: [], corequisiteIds: [] }),
+    courseType: s, courseLevel: s, category: s, sustainability: s, prerequisites: groups, corequisites: groups, otherRequirements: s,
+  })).default({ titleEn: '', titleAr: '', credits: null, languageOfDelivery: '', contactLecture: null, contactLab: null, contactOther: null, courseType: '', courseLevel: '', category: '', sustainability: '', prerequisites: [], corequisites: [], otherRequirements: '' }),
   description: z.object({ en: s, ar: s }).default({ en: '', ar: '' }),
   // A syllabus stored before DEC-039 has one ploId and level per CLO: read it as a list of one.
   clos: z.array(z.preprocess((v) => {
@@ -236,7 +250,7 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
   if (i.credits !== null && i.credits > 0 && (i.contactLecture !== null || i.contactLab !== null || i.contactOther !== null) && contact < i.credits) {
     add('warning', 'info.contactHours', 'info', `Contact hours (${contact}) are fewer than the credit hours (${i.credits}); they should align with the credit hour policy.`);
   }
-  if (ctx.knownCourseIds) for (const id of [...i.prerequisiteIds, ...i.corequisiteIds]) if (!ctx.knownCourseIds.has(id)) add('error', 'info.requisite', 'info', 'A prerequisite or co-requisite is not a course of the institution.', id);
+  if (ctx.knownCourseIds) for (const id of [...i.prerequisites.flat(), ...i.corequisites.flat()]) if (!ctx.knownCourseIds.has(id)) add('error', 'info.requisite', 'info', 'A prerequisite or co-requisite is not a course of the institution.', id);
 
   // -- Description and methodology
   need('description.en', blank(c.description.en), 'description.missing', 'description', 'The course description is required.');

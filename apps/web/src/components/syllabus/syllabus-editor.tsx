@@ -1,7 +1,8 @@
 // The syllabus editor (DEC-038): one block per section of the AIU template, with the rule checker's issues shown beside what they are about.
 // It is a controlled component: the page holds the document, saves it, and runs the same shared checker live, so a coordinator sees an
 // error as it appears. Nothing here blocks typing; only submitting for review waits for the errors to be fixed.
-import { ASSESSMENT_CATEGORIES, BLOOM_LEVELS, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_TYPES, LANGUAGES_OF_DELIVERY, MATERIAL_KINDS, SDGS, SUSTAINABILITY, cloWeights } from '@ams/shared';
+import { useState } from 'react';
+import { ASSESSMENT_CATEGORIES, BLOOM_LEVELS, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_TYPES, LANGUAGES_OF_DELIVERY, MATERIAL_KINDS, SDGS, SUSTAINABILITY, cloWeights, formatRequisites, parseRequisites } from '@ams/shared';
 import type { OutcomeLevel, SectionKey, SyllabusAssessment, SyllabusContent, SyllabusIssue, SyllabusPlo, SyllabusRubric, SyllabusSettings, SyllabusTemplate } from '@ams/shared';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -19,6 +20,34 @@ const toggle = (xs: string[], v: string) => (xs.includes(v) ? xs.filter((x) => x
 function Num({ value, onChange, ariaLabel, className }: { value: number | null; onChange: (v: number | null) => void; ariaLabel: string; className?: string }) {
   return <Input aria-label={ariaLabel} inputMode="decimal" className={className} value={value ?? ''} onChange={(e) => onChange(toNum(e.target.value))} />;
 }
+/**
+ * Prerequisites or co-requisites as text: ; means and, | means or ("MATH 101; PHYS 101 | PHYS 111" is MATH 101 and one of PHYS 101 or PHYS 111).
+ * The text is read when the field loses focus; a code that is not a course of the institution is named and left out.
+ */
+function RequisiteField({ label: text, ariaLabel, groups, courses, onChange }: {
+  label: string; ariaLabel: string; groups: string[][]; courses: { id: string; code: string }[]; onChange: (v: string[][]) => void;
+}) {
+  const codeOf = (id: string) => courses.find((x) => x.id === id)?.code ?? '';
+  const shown = formatRequisites(groups, codeOf);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [unknown, setUnknown] = useState<string[]>([]);
+  const commit = () => {
+    if (draft === null) return;
+    const byCode = new Map(courses.map((x) => [x.code.normalize('NFC').trim().replace(/\s+/g, ' ').toUpperCase(), x.id]));
+    const { groups: next, unknown: bad } = parseRequisites(draft, (c) => byCode.get(c));
+    setUnknown(bad); setDraft(null);
+    if (formatRequisites(next, codeOf) !== shown) onChange(next);
+  };
+  return (
+    <label className="flex min-w-0 flex-col gap-1 text-xs sm:col-span-3"><span>{text}</span>
+      <Input aria-label={ariaLabel} dir="auto" placeholder="MATH 101; PHYS 101 | PHYS 111" value={draft ?? shown} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }} />
+      <span className="text-muted-foreground">; means and, | means or.</span>
+      {unknown.length > 0 && <span role="note" className="text-amber-800">Not a course of the institution: {unknown.join(', ')}.</span>}
+    </label>
+  );
+}
+
 function Chips({ options, value, onChange, ariaLabel }: { options: { id: string; text: string }[]; value: string[]; onChange: (v: string[]) => void; ariaLabel: string }) {
   if (!options.length) return <span className="text-xs text-muted-foreground">—</span>;
   return (
@@ -149,8 +178,11 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
               <option value="">Choose</option>{SUSTAINABILITY.map((v) => <option key={v} value={v}>{label(v)}</option>)}
             </select>
           </label>
-          <div className={`${field} sm:col-span-3`}>Prerequisite(s)<Chips ariaLabel="Prerequisites" options={otherCourses.map((x) => ({ id: x.id, text: x.code }))} value={c.info.prerequisiteIds} onChange={(v) => setInfo({ prerequisiteIds: v })} /></div>
-          <div className={`${field} sm:col-span-3`}>Co-requisite(s)<Chips ariaLabel="Co-requisites" options={otherCourses.map((x) => ({ id: x.id, text: x.code }))} value={c.info.corequisiteIds} onChange={(v) => setInfo({ corequisiteIds: v })} /></div>
+          <RequisiteField label="Prerequisite(s)" ariaLabel="Prerequisites" groups={c.info.prerequisites} courses={otherCourses} onChange={(v) => setInfo({ prerequisites: v })} />
+          <RequisiteField label="Co-requisite(s)" ariaLabel="Co-requisites" groups={c.info.corequisites} courses={otherCourses} onChange={(v) => setInfo({ corequisites: v })} />
+          <label className={`${field} sm:col-span-6`}><span>Other requirements</span>
+            <Input aria-label="Other requirements" dir="auto" placeholder="Junior standing; consent of the instructor" value={c.info.otherRequirements} onChange={(e) => setInfo({ otherRequirements: e.target.value })} />
+          </label>
         </div>
       </Section>
     ),

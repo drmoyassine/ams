@@ -1,5 +1,5 @@
 // The syllabus in the layout of the AIU Course Syllabus Template, read-only. It is also what is printed.
-import { cloWeights, type OutcomeLevel, type SyllabusContent, type SyllabusPlo, type SyllabusTemplate } from '@ams/shared';
+import { cloWeights, describeRequisites, type OutcomeLevel, type SyllabusContent, type SyllabusPlo, type SyllabusTemplate } from '@ams/shared';
 import { ContentText } from '../content-text';
 import { label, LEVEL_NAME } from './labels';
 
@@ -36,7 +36,7 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
         <Facts rows={[
           ['Course code and title', `${code}  ${i.titleEn}`], ['Language of delivery', label(i.languageOfDelivery) || '—'],
           ['Credit hours', dash(i.credits)], ['Contact hours per week', `${contact}  (lecture ${dash(i.contactLecture)}, lab ${dash(i.contactLab)}, other ${dash(i.contactOther)})`],
-          ['Prerequisite(s)', i.prerequisiteIds.map(courseCode).join(', ') || '—'], ['Co-requisite(s)', i.corequisiteIds.map(courseCode).join(', ') || '—'],
+          ['Prerequisite(s)', describeRequisites(i.prerequisites, courseCode) || '—'], ['Co-requisite(s)', describeRequisites(i.corequisites, courseCode) || '—'], ['Other requirements', i.otherRequirements || '—'],
           ['Course type', label(i.courseType) || '—'], ['Course level', dash(i.courseLevel)], ['Course category', label(i.category) || '—'], ['Sustainability indicator', label(i.sustainability) || '—'],
         ]} />
       </Block>

@@ -10,7 +10,7 @@ const ex: ExportContext = { code: 'MCE 410', levels: DEFAULT_OUTCOME_LEVELS, plo
 
 function sample(): SyllabusContent {
   const c = emptySyllabus();
-  c.info = { titleEn: 'Heat Transfer', titleAr: 'انتقال الحرارة', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: ['c2'], corequisiteIds: [] };
+  c.info = { titleEn: 'Heat Transfer', titleAr: 'انتقال الحرارة', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisites: [['c2']], corequisites: [], otherRequirements: '' };
   c.description = { en: 'Conduction, convection and radiation.', ar: '' }; c.methodology = 'Lectures.'; c.assessmentNotes = { passPercentage: 'Pass at 60%', howItWorks: '' };
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals', isbn: '978-1', year: 2017 }];
   c.clos = [{ id: 'a', code: 'CLO1', textEn: 'Analyse conduction', textAr: '', bloom: 'analyze', plos: [{ ploId: 'plo1', level: 'R' }] }, { id: 'b', code: 'CLO2', textEn: 'Design an exchanger', textAr: '', bloom: 'create', plos: [{ ploId: 'plo2', level: 'M' }] }];

@@ -38,7 +38,7 @@ const label = (p: Program) => `${p.code ? `${p.code} · ` : ''}${p.nameEn} (${p.
 /** The "Program" cell of the table: what the proposal does. */
 export function ProgramMatchCell({ api, proposal }: { api: DocumentsApi; proposal: ImportProposal }) {
   const { programs } = useLookups(api);
-  const it = proposal.effective as Item;
+  const it = { matchProgramId: null, ...(proposal.effective as object) } as Item;
   const p = it.matchProgramId ? programs.find((x) => x.id === it.matchProgramId) : undefined;
   return it.matchProgramId
     ? <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-900">Updates {p ? (p.code ?? p.nameEn) : '…'}</span>
@@ -48,7 +48,8 @@ export function ProgramMatchCell({ api, proposal }: { api: DocumentsApi; proposa
 /** The selected proposal in full: its match, and each field and outcome with what is there now and a tick to apply it. */
 export function ProgramProposalDetail({ api, proposal, editable, save }: { api: DocumentsApi; proposal: ImportProposal; editable: boolean; save: (next: Item) => Promise<void> }) {
   const { programs, units } = useLookups(api);
-  const it = proposal.effective as Item;
+  // A proposal of an older run (v2) has no outcomes, match or keep list: read them as empty.
+  const it = { peos: [], plos: [], keep: [], matchProgramId: null, matchReason: null, ...(proposal.effective as object) } as Item;
   const cur = it.matchProgramId ? programs.find((p) => p.id === it.matchProgramId) : undefined;
   const oapi = outcomesApi(api.fetcher);
   const outs = useQuery({ queryKey: ['program-outcomes', cur?.id], queryFn: () => oapi.programOutcomes(cur!.id), enabled: !!cur });

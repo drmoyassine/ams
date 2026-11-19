@@ -2,7 +2,7 @@
 // a pool of courses), owned by Academic Affairs: whoever holds program:write for the whole institution. Concentrations, block credits and
 // elective slots belong to a program (program:write at the program). The checks are flagged, never refused.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { concentration, course, courseProgram, genedArea, genedAreaCourse, institution, program, programBlock, studyPlanSlot } from '@ams/db';
+import { concentration, course, courseProgram, courseRequisite, genedArea, genedAreaCourse, institution, program, programBlock, studyPlanSlot } from '@ams/db';
 import {
   CatalogSettingsSchema, REQUIREMENT_BLOCKS, REQUIREMENT_KINDS,
   type BlockTotal, type CatalogSettings, type Concentration, type CreateConcentration, type CreateGenedArea, type CreateStudySlot, type GenedArea, type GenedOverview,
@@ -281,6 +281,8 @@ export async function getProgramRequirements(ctx: Ctx, programId: string): Promi
       else if (r1(common + own(c.id)) !== p.credits) issues.push({ kind: 'total_credits', message: `With ${c.nameEn}, the blocks add up to ${fmt(common + own(c.id))} credits, the program has ${p.credits}.`, concentrationId: c.id, block: null });
     }
   }
+  // Requisites: each prerequisite group needs one of its courses in this study plan, placed before the course; and no cycles.
+  await requisiteIssues(ctx, courses, issues);
   return { programId, programType: p.programType, credits: p.credits, genedCredits: settings.genedCredits, concentrations, blocks, slots, courses, areas: areaRows, totals, issues };
 }
 
@@ -288,4 +290,51 @@ export async function getProgramRequirements(ctx: Ctx, programId: string): Promi
 export async function assertInStudyPlan(ctx: Ctx, courseId: string, programId: string): Promise<void> {
   const [row] = await ctx.tx.select({ id: courseProgram.id }).from(courseProgram).where(and(eq(courseProgram.courseId, courseId), eq(courseProgram.programId, programId)));
   if (!row) throw new ConflictError('the course is not in this program\'s study plan');
+}
+
+type PlanRow = { courseId: string; code: string; year: number | null; term: number | null };
+
+/** The prerequisites of the program's courses against its study plan (missing, not before) and the cycles among them. Flagged, never refused. */
+async function requisiteIssues(ctx: Ctx, plan: PlanRow[], issues: RequirementIssue[]): Promise<void> {
+  if (!plan.length) return;
+  const rows = await ctx.tx.select().from(courseRequisite).where(eq(courseRequisite.kind, 'prerequisite'));
+  if (!rows.length) return;
+  const codes = new Map((await ctx.tx.select({ id: course.id, code: course.code }).from(course)).map((c) => [c.id, c.code]));
+  const groupsOf = (courseId: string): string[][] => {
+    const out: string[][] = []; const byNo = new Map<number, string[]>();
+    for (const r of rows.filter((x) => x.courseId === courseId)) {
+      if (r.groupNo === null) { out.push([r.requisiteId]); continue; }
+      let g = byNo.get(r.groupNo); if (!g) { g = []; byNo.set(r.groupNo, g); out.push(g); }
+      g.push(r.requisiteId);
+    }
+    return out;
+  };
+  const when = (r: PlanRow) => (r.year ?? 0) * 10 + (r.term ?? 0);
+  const placed = (r: PlanRow) => r.year !== null;
+  const byId = new Map(plan.map((p) => [p.courseId, p]));
+  const names = (ids: string[]) => ids.map((id) => codes.get(id) ?? '?').join(' or ');
+  for (const c of plan) {
+    for (const g of groupsOf(c.courseId)) {
+      const inPlan = g.map((id) => byId.get(id)).filter((x): x is PlanRow => !!x);
+      if (!inPlan.length) { issues.push({ kind: 'requisite_missing', message: `${c.code} needs ${names(g)}, which ${g.length > 1 ? 'are' : 'is'} not in this study plan.`, concentrationId: null, block: null }); continue; }
+      if (placed(c) && inPlan.every(placed) && !inPlan.some((r) => when(r) < when(c))) {
+        issues.push({ kind: 'requisite_order', message: `${c.code} (year ${c.year}${c.term ? ` term ${c.term}` : ''}) needs ${names(g)} first, but ${inPlan.length > 1 ? 'they are' : `${inPlan[0]!.code} is`} not earlier in the plan.`, concentrationId: null, block: null });
+      }
+    }
+  }
+  // A cycle: a course that can be reached from itself through prerequisites.
+  const next = (id: string) => rows.filter((r) => r.courseId === id).map((r) => r.requisiteId);
+  const reported = new Set<string>();
+  for (const c of plan) {
+    const seen = new Set<string>(); const stack = next(c.courseId);
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (id === c.courseId) {
+        if (!reported.has(c.code)) { reported.add(c.code); issues.push({ kind: 'requisite_cycle', message: `${c.code} is its own prerequisite, through a chain of prerequisites.`, concentrationId: null, block: null }); }
+        break;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id); stack.push(...next(id));
+    }
+  }
 }

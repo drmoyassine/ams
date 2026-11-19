@@ -90,3 +90,31 @@ describe('a degree\'s requirements', () => {
     await w.as('alo', (c) => updateGenedArea(c, ids.eng!, { minCredits: 3 }));
   });
 });
+
+describe('prerequisites against the study plan', () => {
+  it('flags a prerequisite that is not in the plan, not earlier, or a cycle; alternatives need only one; nothing flagged when the order is right', async () => {
+    const q = async (sql: string, p: unknown[] = []) => (await w.db.su.query(sql, p)).rows;
+    const req = async (course: string, requisite: string, group: number | null) => q(`insert into course_requisite (institution_id, course_id, requisite_id, kind, group_no) values ($1, $2, $3, 'prerequisite', $4)`, [w.ids.inst, ids[course], ids[requisite], group]);
+    // MCE 301 is year 3; MCE 201 year 2 term 1; ENG 101 year 1 term 1; HUM 101 year 1 term 2 (see the tests above).
+    await w.as('alo', (c) => setCourseProgram(c, ids['MCE 301']!, w.ids.mech!, { role: 'core', year: 3, term: 1 }));
+    await w.as('alo', (c) => setCourseProgram(c, ids['MCE 201']!, w.ids.mech!, { role: 'core', year: 2, term: 1 }));
+    const extra = (await w.as('alo', (c) => createCourse(c, { code: 'PHY 100', titleEn: 'Physics', credits: 3, orgUnitId: null } as never))).id; ids['PHY 100'] = extra;
+    const issues = async () => (await req_()).issues.filter((i) => i.kind.startsWith('requisite')).map((i) => i.message);
+    const req_ = () => w.as('alo', (c) => getProgramRequirements(c, w.ids.mech!));
+    // MCE 301 needs MCE 201 (earlier: fine) and PHY 100 or ENG 101 (ENG 101 is earlier: one is enough).
+    await req('MCE 301', 'MCE 201', 1); await req('MCE 301', 'PHY 100', 2); await req('MCE 301', 'ENG 101', 2);
+    expect(await issues()).toEqual([]);
+    // PHY 100 only: it is not in this study plan.
+    await q(`delete from course_requisite where course_id = $1 and requisite_id = $2`, [ids['MCE 301'], ids['ENG 101']]);
+    expect(await issues()).toEqual(['MCE 301 needs PHY 100, which is not in this study plan.']);
+    // MCE 201 needs MCE 301, which comes later; and MCE 301 needs MCE 201: a cycle, and the order is wrong.
+    await q(`delete from course_requisite where course_id = $1 and requisite_id = $2`, [ids['MCE 301'], ids['PHY 100']]);
+    await req('MCE 201', 'MCE 301', null);
+    const found = await issues();
+    expect(found).toContain('MCE 201 (year 2 term 1) needs MCE 301 first, but MCE 301 is not earlier in the plan.');
+    expect(found).toContain('MCE 201 is its own prerequisite, through a chain of prerequisites.');
+    expect(found).toContain('MCE 301 is its own prerequisite, through a chain of prerequisites.');
+    await q(`delete from course_requisite where course_id = $1`, [ids['MCE 201']]);
+    expect(await issues()).toEqual([]);
+  });
+});

@@ -46,7 +46,7 @@ const page = (who: string) => { const a = apisOf(who); return wrap(<CourseConten
 /** A complete syllabus: 4 CLOs over two PLOs, two assessments adding to 100, one rubric. */
 function complete(): SyllabusContent {
   const c = emptySyllabus();
-  c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisiteIds: [], corequisiteIds: [] };
+  c.info = { titleEn: 'Heat Transfer', titleAr: '', credits: 3, languageOfDelivery: 'english', contactLecture: 3, contactLab: 0, contactOther: 0, courseType: 'didactic', courseLevel: '400', category: 'program_core', sustainability: 'none', prerequisites: [], corequisites: [], otherRequirements: '' };
   c.description.en = 'Conduction, convection and radiation.'; c.methodology = 'Lectures and problem sessions.';
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Heat and Mass Transfer', isbn: '', year: null }];
   c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }] }));
@@ -79,6 +79,32 @@ beforeAll(async () => {
 }, 120000);
 afterEach(() => cleanup());
 afterAll(async () => { await pool.end(); await db.close(); });
+
+describe('the requisites', () => {
+  it('are typed as text (; and, | or), read when the field loses focus, and name a code that is not a course', async () => {
+    const user = userEvent.setup();
+    const other = await one(`insert into course (institution_id, org_unit_id, code, title_en) values ($1, $2, 'MCE 300', 'Thermodynamics') returning id`, [ids.inst, ids.unit]);
+    const other2 = await one(`insert into course (institution_id, org_unit_id, code, title_en) values ($1, $2, 'PHY 101', 'Physics I') returning id`, [ids.inst, ids.unit]);
+    await apisOf('coordinator').syllabus.discard(ids.course!).catch(() => undefined);
+    render(page('coordinator'));
+    await user.click(await screen.findByRole('button', { name: /^Start the course content$|^Start a new version$/ }));
+    const info = await screen.findByRole('region', { name: 'Basic course information' });
+    const pre = within(info).getByLabelText('Prerequisites') as HTMLInputElement;
+    await user.type(pre, 'mce 300; phy 101 | GHOST 9');
+    await user.tab();
+    expect(await within(info).findByRole('note')).toHaveProperty('textContent', 'Not a course of the institution: GHOST 9.');
+    expect((within(info).getByLabelText('Prerequisites') as HTMLInputElement).value).toBe('MCE 300; PHY 101');
+    await user.type(within(info).getByLabelText('Other requirements'), 'Junior standing');
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(async () => {
+      const open = (await apisOf('coordinator').syllabus.overview(ids.course!)).open!;
+      expect(open.content.info.prerequisites).toEqual([[other], [other2]]);
+      expect(open.content.info.otherRequirements).toBe('Junior standing');
+    });
+    await apisOf('coordinator').syllabus.discard(ids.course!); // leave no draft for the tests after this one
+    await db.su.query(`delete from course where id in ($1, $2)`, [other, other2]);
+  });
+});
 
 describe('the editor', () => {
   it('starts a syllabus from the course, flags what is missing as you type, and clears an error as it is fixed', async () => {

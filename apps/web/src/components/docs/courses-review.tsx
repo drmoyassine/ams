@@ -42,7 +42,7 @@ const contentValue = (c: SyllabusContent | null, k: string): unknown => (!c ? nu
 /** The "Course" cell of the table: what the proposal does. */
 export function CourseMatchCell({ api, proposal }: { api: DocumentsApi; proposal: ImportProposal }) {
   const { courses } = useCourses(api);
-  const it = proposal.effective as Item;
+  const it = { matchCourseId: null, ...(proposal.effective as object) } as Item;
   const c = it.matchCourseId ? courses.find((x) => x.id === it.matchCourseId) : undefined;
   return it.matchCourseId
     ? <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-900">Updates {c ? c.code : '…'}</span>
@@ -52,7 +52,7 @@ export function CourseMatchCell({ api, proposal }: { api: DocumentsApi; proposal
 /** The selected proposal in full: its match, then the record, the programs and the content (into the draft), each change with a tick. */
 export function CourseProposalDetail({ api, proposal, editable, save }: { api: DocumentsApi; proposal: ImportProposal; editable: boolean; save: (next: Item) => Promise<void> }) {
   const { courses, units, programs } = useCourses(api);
-  const it = proposal.effective as Item;
+  const it = { programs: [], clos: [], keep: [], matchCourseId: null, matchReason: null, ...(proposal.effective as object) } as Item;
   const cur: Course | undefined = it.matchCourseId ? courses.find((c) => c.id === it.matchCourseId) : undefined;
   const ov = useQuery({ queryKey: ['syllabus', cur?.id], queryFn: () => syllabusApi(api.fetcher).overview(cur!.id), enabled: !!cur });
   const content = (ov.data?.open?.content ?? ov.data?.current?.content ?? null) as SyllabusContent | null;
