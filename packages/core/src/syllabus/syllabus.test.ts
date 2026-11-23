@@ -258,7 +258,11 @@ describe('the course is the master record (the owner, 2026-11-18)', () => {
     const fresh = await w.as('alo', (c) => createCourse(c, { code: 'MCE 499', titleEn: 'Special Topics' }));
     expect(fresh).toMatchObject({ approved: false, missing: ['Unit', 'Credit hours', 'Study plan'] });
     expect(await w.as('alo', (c) => updateCourse(c, fresh.id, { credits: 3 }))).toMatchObject({ credits: 3, missing: ['Unit', 'Study plan'] });
-    expect(await w.as('alo', (c) => deleteCourse(c, fresh.id))).toMatchObject({ active: false });
+    expect(await w.as('alo', (c) => deleteCourse(c, fresh.id))).toMatchObject({ deleted: true, course: null });
+    expect((await w.db.su.query(`select count(*)::int n from course where id = $1`, [fresh.id])).rows[0].n).toBe(0);
+    // A course with an approved syllabus is kept for the record: deactivated, with the reason.
+    expect(await w.as('alo', (c) => deleteCourse(c, ids.course!))).toMatchObject({ deleted: false, course: { active: false }, reason: expect.stringMatching(/approved syllabus/) });
+    await w.as('alo', (c) => updateCourse(c, ids.course!, { active: true }));
   });
 });
 

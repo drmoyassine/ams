@@ -18,6 +18,7 @@ import { scopeApi } from './lib/scope-api';
 import { settingsApi } from './lib/settings-api';
 import { EvidencePage } from './pages/evidence';
 import { ReportsPage, ReportViewPage } from './pages/reports';
+import type { OutcomesApi } from './lib/outcomes-api';
 
 configure({ asyncUtilTimeout: 15000 });
 let db: TestDb;
@@ -108,10 +109,17 @@ describe('the KPI card', () => {
       { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO1', pass_rate: 76.5, target: 70 }, { course: 'ECE 420', term: 'Spring 2026', outcome: 'SO2', pass_rate: 52.9, target: 70 },
       { course: 'ECE 420', term: 'Fall 2025', outcome: 'SO1', pass_rate: 100, target: 70 }] }) });
     const a = apis('admin');
-    const router = createRouter({ routeTree: createRootRoute({ component: () => <ReportViewPage id="course" api={a.evidence} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+    // The course records: the report links to the one whose code the KPI names ("ECE 420" is ECE420; ECE4201 is another course).
+    const outcomes = { courses: async () => [
+      { id: '11111111-1111-4111-8111-111111111111', code: 'ECE4201', titleEn: 'Other', active: true },
+      { id: '22222222-2222-4222-8222-222222222222', code: 'ECE420', titleEn: 'Digital Signal Processing', active: true }] } as unknown as OutcomesApi;
+    const router = createRouter({ routeTree: createRootRoute({ component: () => <ReportViewPage id="course" api={a.evidence} outcomes={outcomes} /> }), history: createMemoryHistory({ initialEntries: ['/'] }) });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
     const report = await screen.findByTestId('course-report');
     expect(await within(report).findByRole('heading', { name: /ECE 420 · Spring 2026/ })).toBeTruthy();
+    const link = await within(report).findByTestId('report-course-link');
+    expect(link.textContent).toBe('ECE420 Digital Signal Processing');
+    expect(link.getAttribute('href')).toBe('/settings/organization/courses/22222222-2222-4222-8222-222222222222');
     const table = await within(report).findByRole('table');
     const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent);
     expect(rows[0]).toContain('SO1'); expect(rows[0]).toContain('At or above target');

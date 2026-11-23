@@ -17,6 +17,16 @@ const text = (v: unknown) => (v == null ? '' : String(v));
 const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)) ? Number(v) : null);
 const select = 'h-9 rounded-md border border-border bg-background px-2 text-sm';
 
+/** A course record the report can link to. */
+export interface ReportCourse { id: string; code: string; titleEn: string; active: boolean }
+const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+/** The course record a KPI's course text names: its code starts the text, spaces and dashes aside ("ECE 420 Digital…" is ECE420). */
+export function courseOf(textValue: string, courses: ReportCourse[]): ReportCourse | undefined {
+  const t = norm(textValue);
+  return courses.filter((c) => c.code && t.startsWith(norm(c.code)) && !/[0-9]/.test(t.charAt(norm(c.code).length) || 'X'))
+    .sort((a, b) => Number(b.active) - Number(a.active) || norm(b.code).length - norm(a.code).length)[0];
+}
+
 /** Outcomes that sort as people expect: SO2 before SO10. */
 const byOutcome = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 
@@ -34,7 +44,7 @@ function useSources(api: EvidenceApi, items: EvidenceItem[]): { sources: Source[
   return { sources, loading: results.some((r) => r.isLoading) };
 }
 
-export function CourseReport({ api, items }: { api: EvidenceApi; items: EvidenceItem[] }) {
+export function CourseReport({ api, items, courses: records = [] }: { api: EvidenceApi; items: EvidenceItem[]; courses?: ReportCourse[] }) {
   const { sources, loading } = useSources(api, items);
   const courses = useMemo(() => [...new Set(sources.flatMap((s) => s.rows.map((r) => text(r.course))))].filter(Boolean).sort(), [sources]);
   const [course, setCourse] = useState('');
@@ -70,6 +80,12 @@ export function CourseReport({ api, items }: { api: EvidenceApi; items: Evidence
         <header>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Course Report</p>
           <h2 className="text-lg font-semibold"><ContentText>{chosenCourse}</ContentText> · {chosenTerm}</h2>
+          {(() => {
+            const rec = courseOf(chosenCourse, records);
+            return rec
+              ? <p className="text-sm">Course record: <a className="underline underline-offset-2" href={`/settings/organization/courses/${rec.id}`} data-testid="report-course-link">{rec.code} {rec.titleEn}</a>{rec.active ? '' : ' (inactive)'}</p>
+              : <p className="text-xs text-muted-foreground print:hidden">No course record has the code this KPI names.</p>;
+          })()}
           <p className="text-xs text-muted-foreground">Generated from {parts.length === 1 ? 'one KPI' : `${parts.length} KPIs`} of this course and term. Each figure is a value of the KPI named under the table; nothing is typed in here.</p>
         </header>
 

@@ -134,8 +134,23 @@ export async function updateCourse(ctx: Ctx, id: string, patch: UpdateCourse): P
 }
 
 /** Deleting a course deactivates it: results, syllabi and the audit trail refer to it (the API's DELETE). */
-export async function deleteCourse(ctx: Ctx, id: string): Promise<Course> {
-  return updateCourse(ctx, id, { active: false });
+/**
+ * Deletes a course that has no history: no approved syllabus (its draft, CLOs, study-plan rows and links go with it). A course with an
+ * approved syllabus is kept for the record and deactivated instead, as is one the database will not let go (it then says why).
+ */
+export async function deleteCourse(ctx: Ctx, id: string): Promise<{ deleted: boolean; course: Course | null; reason: string | null }> {
+  assertHuman(ctx);
+  const cur = await loadCourse(ctx, id);
+  await assertPermitted(ctx, 'program:write', courseScope(cur.orgUnitId));
+  const kept = await ctx.tx.select({ id: syllabusVersion.id }).from(syllabusVersion)
+    .where(and(eq(syllabusVersion.courseId, id), inArray(syllabusVersion.status, ['approved', 'superseded']))).limit(1);
+  if (kept.length) return { deleted: false, course: await updateCourse(ctx, id, { active: false }), reason: 'it has an approved syllabus, which is kept for the record' };
+  try {
+    await ctx.tx.transaction(async (sp) => { await sp.delete(course).where(eq(course.id, id)); });
+    return { deleted: true, course: null, reason: null };
+  } catch (e) {
+    return { deleted: false, course: await updateCourse(ctx, id, { active: false }), reason: `the database keeps it (${(e as Error).message})` };
+  }
 }
 
 /** Puts a course in a program (or changes its role, year and term there). */

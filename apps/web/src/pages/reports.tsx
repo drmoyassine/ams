@@ -5,6 +5,7 @@ import { CourseReport } from '../components/course-report';
 import { PageHeader } from '../components/page-header';
 import { useTranslation } from '../i18n';
 import { useEvidenceApi, type EvidenceApi } from '../lib/evidence-api';
+import { useOutcomesApi, type OutcomesApi } from '../lib/outcomes-api';
 
 /** The reports the AMS can generate. Each draws on the values of KPIs; add a report here and give it a body below. */
 export const REPORTS = [
@@ -32,11 +33,14 @@ export function ReportsPage() {
 }
 
 /** One report as a full page. Its filters (the dropdowns) are inside the report. */
-export function ReportViewPage({ id, api: override }: { id: string; api?: EvidenceApi }) {
+export function ReportViewPage({ id, api: override, outcomes: outcomesOverride }: { id: string; api?: EvidenceApi; outcomes?: OutcomesApi }) {
   const api = useEvidenceApi(override);
+  const oapi = useOutcomesApi(outcomesOverride);
+  // The course records, to link a report to its course; the report still shows without them.
+  const courses = useQuery({ queryKey: ['courses'], queryFn: () => oapi.courses(), enabled: id === 'course', retry: false });
   const report = REPORTS.find((r) => r.id === id);
   const list = useQuery({ queryKey: ['evidence', '', 'with-archived'], queryFn: () => api.list(undefined, { includeArchived: true }), enabled: !!report });
-  const bodies: Record<ReportId, () => React.ReactNode> = { course: () => (list.data ? <CourseReport api={api} items={list.data} /> : <p className="text-sm">Loading…</p>) };
+  const bodies: Record<ReportId, () => React.ReactNode> = { course: () => (list.data ? <CourseReport api={api} items={list.data} courses={courses.data ?? []} /> : <p className="text-sm">Loading…</p>) };
   return (
     <section className="space-y-4">
       <Link to="/reports" className="inline-block text-sm text-muted-foreground underline-offset-2 hover:underline">← Reports</Link>

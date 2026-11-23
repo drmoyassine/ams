@@ -1,4 +1,4 @@
-import { OpenAPIHono, type Hook } from '@hono/zod-openapi';
+import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import { deleteCourse, exportAcademic, exportCourses, upsertAcademic, upsertCourses } from '@ams/core';
 import { AcademicExportSchema, CourseSchema, CoursesExportSchema, UpsertAcademicResultSchema, UpsertAcademicSchema, UpsertCoursesResultSchema, UpsertCoursesSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
@@ -37,8 +37,8 @@ export function courseRoutes(registry: RouteRegistry, deps: ChainDeps, options: 
 
     .openapi(secured(registry, deps, {
       method: 'delete', path: '/api/courses/{id}', access: requires('program:write'), tags: tag,
-      description: 'Deactivates the course: results, syllabi and the audit trail refer to it, so the record stays and can be reactivated (PATCH active: true).',
+      description: 'Deletes a course with no approved syllabus, with its draft, CLOs and study-plan rows. A course with an approved syllabus is kept for the record and deactivated instead (reactivate with PATCH active: true); `reason` says why.',
       request: { params: idParam },
-      responses: { 200: { description: 'The course, inactive', ...json(CourseSchema) }, ...errors },
-    }), async (c) => c.json(toDto(CourseSchema, await deleteCourse(c.get('ctx'), c.req.valid('param').id)), 200));
+      responses: { 200: { description: 'Deleted, or the course now inactive', ...json(z.object({ deleted: z.boolean(), course: CourseSchema.nullable(), reason: z.string().nullable() })) }, ...errors },
+    }), async (c) => c.json(await deleteCourse(c.get('ctx'), c.req.valid('param').id), 200));
 }
