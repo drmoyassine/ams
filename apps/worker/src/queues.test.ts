@@ -91,7 +91,7 @@ describe('compose files', () => {
 
   it('the app prepares Garage itself: admin URL set, depends on garage, and there is no garage-init service', () => {
     expect(compose.services['garage-init']).toBeUndefined();
-    expect(compose.services.app!.environment?.GARAGE_ADMIN_URL).toBe('http://garage:3903');
+    expect(compose.services.app!.environment?.GARAGE_ADMIN_URL).toBe('http://ams-garage:3903');
     expect(compose.services.app!.depends_on?.garage?.condition).toBe('service_healthy');
   });
 
