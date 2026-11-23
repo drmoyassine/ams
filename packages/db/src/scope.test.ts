@@ -62,8 +62,8 @@ describe('requirement scope', () => {
     await expect(scope(ids.a!, ids.fwA!, 'S3', 'unit', [ids.unitB!])).rejects.toThrow(/units of the same institution/);
     await expect(scope(ids.a!, ids.fwA!, 'S3', 'unit', [ids.progA!])).rejects.toThrow(/units of the same institution/);
     await expect(scope(ids.a!, ids.fwA!, 'S3', 'program', [ids.unitA!])).rejects.toThrow(/programs of the same institution/);
-    await expect(scope(ids.a!, ids.fwA!, 'S3', 'course', [ids.unitA!])).rejects.toThrow(/no list of items/);
-    await scope(ids.a!, ids.fwA!, 'S3', 'course', []);   // empty = all courses (the placeholder level)
+    await expect(scope(ids.a!, ids.fwA!, 'S3', 'course', [ids.unitA!])).rejects.toThrow(/courses of the same institution/);   // a unit is not a course (DEC-048)
+    await scope(ids.a!, ids.fwA!, 'S3', 'course', []);   // empty = all courses
     await scope(ids.a!, ids.fwA!, 'S4', 'program', [ids.progA!]);
   });
 
@@ -95,7 +95,8 @@ describe('requirement champion', () => {
   it('is all-or-nothing about the item, a known kind, and people and items of the same institution', async () => {
     await expect(champ(ids.ua!, 'org_unit', null, 'C9')).rejects.toThrow(/requirement_champion_item_check|unit of the same institution/);
     await expect(champ(ids.ua!, null, ids.unitA!, 'C9')).rejects.toThrow(/requirement_champion_item_check/);
-    await expect(champ(ids.ua!, 'course', ids.unitA!, 'C9')).rejects.toThrow(/requirement_champion_item_kind_check/);
+    await expect(champ(ids.ua!, 'galaxy', ids.unitA!, 'C9')).rejects.toThrow(/requirement_champion_item_kind_check/);
+    await expect(champ(ids.ua!, 'course', ids.unitA!, 'C9')).rejects.toThrow(/course of the same institution/);
     await expect(champ(ids.ub!, null, null, 'C9')).rejects.toThrow(/person of the same institution/);
     await expect(champ(ids.ua!, 'org_unit', ids.unitB!, 'C9')).rejects.toThrow(/unit of the same institution/);
     await expect(champ(ids.ua!, 'program', ids.unitA!, 'C9')).rejects.toThrow(/program of the same institution/);

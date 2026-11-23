@@ -23,14 +23,14 @@ async function rows(ctx: Ctx): Promise<Row[]> {
   return ctx.tx.select().from(scopeLevel).orderBy(asc(scopeLevel.displayOrder), asc(scopeLevel.labelEn), asc(scopeLevel.id));
 }
 
-async function itemCounts(ctx: Ctx): Promise<{ org_unit: number; program: number }> {
-  const res = await ctx.tx.execute<{ u: number; p: number }>(sql`select (select count(*) from org_unit where active)::int as u, (select count(*) from program where active)::int as p`);
-  return { org_unit: res.rows[0]?.u ?? 0, program: res.rows[0]?.p ?? 0 };
+async function itemCounts(ctx: Ctx): Promise<{ org_unit: number; program: number; course: number }> {
+  const res = await ctx.tx.execute<{ u: number; p: number; c: number }>(sql`select (select count(*) from org_unit where active)::int as u, (select count(*) from program where active)::int as p, (select count(*) from course where active)::int as c`);
+  return { org_unit: res.rows[0]?.u ?? 0, program: res.rows[0]?.p ?? 0, course: res.rows[0]?.c ?? 0 };
 }
 
-const dto = (r: Row, n: { org_unit: number; program: number }): ScopeLevel => ({
+const dto = (r: Row, n: { org_unit: number; program: number; course: number }): ScopeLevel => ({
   id: r.id, key: r.key, labelEn: r.labelEn, labelAr: r.labelAr, kind: r.kind, displayOrder: r.displayOrder, active: r.active,
-  itemCount: r.kind === 'org_unit' ? n.org_unit : r.kind === 'program' ? n.program : 0,
+  itemCount: r.kind === 'org_unit' ? n.org_unit : r.kind === 'program' ? n.program : r.kind === 'course' ? n.course : 0,
 });
 
 /** The institution's scope levels in order, active or not (the manager shows both; the pickers use the active ones). */
@@ -40,13 +40,15 @@ export async function listScopeLevels(ctx: Ctx): Promise<ScopeLevel[]> {
   return (await rows(ctx)).map((r) => dto(r, n));
 }
 
-/** What a scope can list: the active units and programs (a program is shown with its unit). */
+/** What a scope can list: the active units, programs (shown with their unit) and courses (shown with their title). */
 export async function listScopeItems(ctx: Ctx): Promise<ScopeItems> {
   await assertPermitted(ctx, 'org:read', any);
   const units = await ctx.tx.execute<{ id: string; name_en: string; name_ar: string | null; type: string }>(sql`select id, name_en, name_ar, type from org_unit where active order by lower(name_en), id`);
   const progs = await ctx.tx.execute<{ id: string; name_en: string; name_ar: string | null; unit: string }>(sql`
     select p.id, p.name_en, p.name_ar, u.name_en as unit from program p join org_unit u on u.id = p.org_unit_id where p.active order by lower(p.name_en), p.id`);
+  const courses = await ctx.tx.execute<{ id: string; code: string; title_en: string; title_ar: string | null }>(sql`select id, code, title_en, title_ar from course where active order by code, id`);
   return {
+    course: courses.rows.map((c) => ({ id: c.id, nameEn: `${c.code} ${c.title_en}`, nameAr: c.title_ar, detail: null })),
     orgUnit: units.rows.map((u) => ({ id: u.id, nameEn: u.name_en, nameAr: u.name_ar, detail: null })),
     program: progs.rows.map((p) => ({ id: p.id, nameEn: p.name_en, nameAr: p.name_ar, detail: p.unit })),
   };

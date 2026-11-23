@@ -49,6 +49,8 @@ export const institution = pgTable('institution', {
   outcomeLevels: jsonb('outcome_levels').$type<OutcomeLevel[]>().notNull().default(DEFAULT_OUTCOME_LEVELS),
   /** The catalog's institution-wide settings (DEC-046): the credits of General Education. */
   catalogSettings: jsonb('catalog_settings').$type<Partial<CatalogSettings>>().notNull().default({}),
+  /** The unit whose head and members are the QA office step of every approval chain (DEC-048). */
+  qualityOfficeUnitId: uuid('quality_office_unit_id'),
   /** The program review rubric and its maturity levels (TASK-118, migration 0074). */
   reviewRubric: jsonb('review_rubric').$type<ReviewRubric>().notNull().default(DEFAULT_REVIEW_RUBRIC),
   /** Institution assessment targets (TASK-114, migration 0075); empty until set. */
@@ -1176,16 +1178,76 @@ export const requirementChampion = pgTable('requirement_champion', {
   ...base(), ...tenant(),
   frameworkId: uuid('framework_id').notNull().references(() => framework.id),
   code: text('code').notNull(),
-  scopeItemKind: text('scope_item_kind', { enum: ['org_unit', 'program'] }),
+  scopeItemKind: text('scope_item_kind', { enum: ['org_unit', 'program', 'course'] }),
   scopeItemId: uuid('scope_item_id'),
   userId: uuid('user_id').notNull().references(() => appUser.id),
 }, (t) => [
   uniqueIndex('requirement_champion_unique_idx').on(t.institutionId, t.frameworkId, t.code, sql`coalesce(${t.scopeItemKind}, '')`, sql`coalesce(${t.scopeItemId}, '00000000-0000-0000-0000-000000000000'::uuid)`),
   index('requirement_champion_framework_idx').on(t.frameworkId, t.code),
   index('requirement_champion_user_idx').on(t.userId),
-  check('requirement_champion_item_kind_check', sql`${t.scopeItemKind} is null or ${t.scopeItemKind} in ('org_unit', 'program')`),
+  check('requirement_champion_item_kind_check', sql`${t.scopeItemKind} is null or ${t.scopeItemKind} in ('org_unit', 'program', 'course')`),
   check('requirement_champion_item_check', sql`(${t.scopeItemKind} is null) = (${t.scopeItemId} is null)`),
 ]);
+
+/** How often a standard asks for its evidence (DEC-048): a rule, or an opt-out of the inherited one. By framework and code, like scope. */
+export const requirementFrequency = pgTable('requirement_frequency', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  rule: jsonb('rule'),
+  optOut: boolean('opt_out').notNull().default(false),
+}, (t) => [uniqueIndex('requirement_frequency_idx').on(t.institutionId, t.frameworkId, t.code)]);
+
+/** The approval steps of a standard's submissions, before the QA office and the champion (DEC-048). */
+export const requirementApproval = pgTable('requirement_approval', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  steps: jsonb('steps').notNull().default([]),
+}, (t) => [uniqueIndex('requirement_approval_idx').on(t.institutionId, t.frameworkId, t.code)]);
+
+export const QUALITY_SUBJECT_KINDS = ['course', 'program', 'org_unit', 'institution'] as const;
+export const QUALITY_SUBMISSION_STATUSES = ['draft', 'submitted', 'returned', 'approved'] as const;
+/** One scoped item's evidence for a standard (the one whose frequency applies) and a period (DEC-048). Frozen once approved. */
+export const qualitySubmission = pgTable('quality_submission', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  subjectKind: text('subject_kind', { enum: QUALITY_SUBJECT_KINDS }).notNull(),
+  subjectId: uuid('subject_id'),
+  periodKey: text('period_key').notNull(),
+  periodLabel: text('period_label').notNull(),
+  periodStart: date('period_start').notNull(),
+  dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+  status: text('status', { enum: QUALITY_SUBMISSION_STATUSES }).notNull().default('draft'),
+  round: integer('round').notNull().default(1),
+  submittedBy: uuid('submitted_by').references(() => appUser.id),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+});
+/** The version that answers one linked evidence item in a submission. */
+export const qualitySubmissionEvidence = pgTable('quality_submission_evidence', {
+  ...base(), ...tenant(),
+  submissionId: uuid('submission_id').notNull().references(() => qualitySubmission.id, { onDelete: 'cascade' }),
+  evidenceItemId: uuid('evidence_item_id').notNull().references(() => evidenceItem.id),
+  evidenceVersionId: uuid('evidence_version_id').references(() => evidenceVersion.id),
+  note: text('note'),
+}, (t) => [uniqueIndex('quality_submission_evidence_idx').on(t.submissionId, t.evidenceItemId)]);
+export const QUALITY_STEP_DECISIONS = ['pending', 'approved', 'returned', 'skipped'] as const;
+/** One approval step of one round of a submission (a return starts a new round). */
+export const qualitySubmissionStep = pgTable('quality_submission_step', {
+  ...base(), ...tenant(),
+  submissionId: uuid('submission_id').notNull().references(() => qualitySubmission.id, { onDelete: 'cascade' }),
+  round: integer('round').notNull(),
+  ordinal: integer('ordinal').notNull(),
+  kind: text('kind').notNull(),
+  label: text('label').notNull(),
+  approverIds: uuid('approver_ids').array().notNull().default(sql`'{}'::uuid[]`),
+  decision: text('decision', { enum: QUALITY_STEP_DECISIONS }).notNull().default('pending'),
+  decidedBy: uuid('decided_by').references(() => appUser.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  note: text('note'),
+}, (t) => [uniqueIndex('quality_submission_step_idx').on(t.submissionId, t.round, t.ordinal)]);
 
 export const IQF_PROPOSAL_STATUSES =['pending', 'accepted', 'dismissed', 'superseded'] as const;
 /**

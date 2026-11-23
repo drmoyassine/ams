@@ -115,7 +115,7 @@ describe('setting a scope', () => {
 
   it('refuses a level that does not exist, an inactive one, a list on a level without one, and units of another institution', async () => {
     await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('Q1'), levelKey: 'galaxy' }))).rejects.toThrow(ValidationError);
-    await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('Q1'), levelKey: 'course', itemIds: [w.ids.mech!] }))).rejects.toThrow(/no list to choose from/);
+    await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('Q1'), levelKey: 'course', itemIds: [w.ids.mech!] }))).rejects.toThrow(/only courses of this institution/);   // a program is not a course
     await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('Q1'), levelKey: 'unit', itemIds: [ids.otherUnit!] }))).rejects.toThrow(ValidationError);
     await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('Q1'), levelKey: 'unit', itemIds: [w.ids.mech!] }))).rejects.toThrow(ValidationError);   // a program is not a unit
     await expect(w.as('alo', (c) => setRequirementScope(c, { ...tgt('NOPE'), levelKey: 'unit' }))).rejects.toThrow(NotFoundError);

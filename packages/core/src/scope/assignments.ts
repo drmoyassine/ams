@@ -2,7 +2,7 @@
 // can be assigned too; keyed by standard and code, so it carries over to the next version), and what each requirement of a
 // version ends up with after inheritance (resolve.ts) described for the screen in one batched answer.
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
-import { appUser, framework, frameworkVersion, orgUnit, program, requirement, requirementChampion, requirementMapping, requirementScope, scopeLevel } from '@ams/db';
+import { appUser, course, framework, frameworkVersion, orgUnit, program, requirement, requirementChampion, requirementMapping, requirementScope, scopeLevel } from '@ams/db';
 import {
   itemKey, SetRequirementChampionSchema, SetRequirementScopeSchema,
   type AssignmentSource, type ClearRequirementChampion, type EffectiveChampion, type EffectiveScope, type NodeAssignment, type OwnAssignment, type OwnChampion, type RequirementTarget,
@@ -52,10 +52,10 @@ interface Lookup {
 
 /** Names for everything the resolved values mention, in a fixed number of queries. */
 async function lookupFor(ctx: Ctx, resolved: Resolved[], owns: Own[]): Promise<Lookup> {
-  const unitIds = new Set<string>(); const programIds = new Set<string>(); const userIds = new Set<string>();
-  const note = (key: string | null) => { if (!key) return; const [k, id] = key.split(':') as [string, string]; (k === 'org_unit' ? unitIds : programIds).add(id); };
+  const unitIds = new Set<string>(); const programIds = new Set<string>(); const courseIds = new Set<string>(); const userIds = new Set<string>();
+  const note = (key: string | null) => { if (!key) return; const [k, id] = key.split(':') as [string, string]; (k === 'org_unit' ? unitIds : k === 'course' ? courseIds : programIds).add(id); };
   const levels = new Map((await ctx.tx.select().from(scopeLevel)).map((l) => [l.key, l] as const));
-  const scopeItems = (level: string, ids: string[]) => { const kind = levels.get(level)?.kind; for (const id of ids) (kind === 'org_unit' ? unitIds : kind === 'program' ? programIds : new Set<string>()).add(id); };
+  const scopeItems = (level: string, ids: string[]) => { const kind = levels.get(level)?.kind; for (const id of ids) (kind === 'org_unit' ? unitIds : kind === 'program' ? programIds : kind === 'course' ? courseIds : new Set<string>()).add(id); };
   for (const r of resolved) {
     for (const l of r.scope?.levels ?? []) scopeItems(l.levelKey, l.itemIds);
     for (const c of r.champions) { note(c.itemKey); if (c.userId) userIds.add(c.userId); }
@@ -64,6 +64,7 @@ async function lookupFor(ctx: Ctx, resolved: Resolved[], owns: Own[]): Promise<L
   const items = new Map<string, { nameEn: string; nameAr: string | null }>();
   if (unitIds.size) for (const u of await ctx.tx.select({ id: orgUnit.id, n: orgUnit.nameEn, a: orgUnit.nameAr }).from(orgUnit).where(inArray(orgUnit.id, [...unitIds]))) items.set(`org_unit:${u.id}`, { nameEn: u.n, nameAr: u.a });
   if (programIds.size) for (const p of await ctx.tx.select({ id: program.id, n: program.nameEn, a: program.nameAr }).from(program).where(inArray(program.id, [...programIds]))) items.set(`program:${p.id}`, { nameEn: p.n, nameAr: p.a });
+  if (courseIds.size) for (const c of await ctx.tx.select({ id: course.id, code: course.code, n: course.titleEn, a: course.titleAr }).from(course).where(inArray(course.id, [...courseIds]))) items.set(`course:${c.id}`, { nameEn: `${c.code} ${c.n}`, nameAr: c.a });
   const users = new Map<string, string>();
   if (userIds.size) for (const u of await ctx.tx.select({ id: appUser.id, n: appUser.fullName }).from(appUser).where(inArray(appUser.id, [...userIds]))) users.set(u.id, u.n);
   return { levels, items, users };
@@ -77,7 +78,7 @@ function describeScope(r: Resolved['scope'], lk: Lookup): EffectiveScope | null 
   for (const v of r.levels) {
     const level = lk.levels.get(v.levelKey);
     if (!level) continue;
-    const kind = level.kind === 'org_unit' ? 'org_unit' : level.kind === 'program' ? 'program' : null;
+    const kind = level.kind === 'org_unit' ? 'org_unit' : level.kind === 'program' ? 'program' : level.kind === 'course' ? 'course' : null;
     // A unit or program deleted since is simply gone from the list; the others stay.
     const items = v.itemIds.flatMap((id) => { const it = kind ? lk.items.get(`${kind}:${id}`) : undefined; return it ? [{ id, nameEn: it.nameEn, nameAr: it.nameAr }] : []; });
     levels.push({ levelKey: level.key, labelEn: level.labelEn, labelAr: level.labelAr, kind: level.kind, active: level.active, all: v.itemIds.length === 0, items });
@@ -184,11 +185,12 @@ export async function setRequirementScope(ctx: Ctx, input: SetRequirementScope):
   if (!level.active && prior?.levelKey !== level.key) throw new ConflictError(`The scope level ${level.labelEn} is not in use any more. Choose another.`);
   const ids = [...new Set(d.itemIds)];
   if (ids.length) {
-    if (level.kind !== 'org_unit' && level.kind !== 'program') throw new ValidationError(`${level.labelEn} has no list to choose from yet: leave it empty to cover all of them.`);
+    if (level.kind !== 'org_unit' && level.kind !== 'program' && level.kind !== 'course') throw new ValidationError(`${level.labelEn} has no list to choose from yet: leave it empty to cover all of them.`);
     const found = level.kind === 'org_unit'
       ? await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(inArray(orgUnit.id, ids))
+      : level.kind === 'course' ? await ctx.tx.select({ id: course.id }).from(course).where(inArray(course.id, ids))
       : await ctx.tx.select({ id: program.id }).from(program).where(inArray(program.id, ids));
-    if (found.length !== ids.length) throw new ValidationError(`A scope can list only ${level.kind === 'org_unit' ? 'units' : 'programs'} of this institution.`);
+    if (found.length !== ids.length) throw new ValidationError(`A scope can list only ${level.kind === 'org_unit' ? 'units' : level.kind === 'course' ? 'courses' : 'programs'} of this institution.`);
   }
   if (prior) await guardIntegrity(() => ctx.tx.update(requirementScope).set({ levelKey: level.key, itemIds: ids }).where(eq(requirementScope.id, prior.id)));
   else await guardIntegrity(() => ctx.tx.insert(requirementScope).values({ institutionId: ctx.caller.institutionId, frameworkId: t.frameworkId, code: t.code, levelKey: level.key, itemIds: ids }));
@@ -228,8 +230,10 @@ export async function setRequirementChampion(ctx: Ctx, input: SetRequirementCham
   if (!p) throw new ValidationError('A champion must be a person of this institution.');
   if (!p.active) throw new ConflictError('That person is inactive and cannot be a champion.');
   if (d.itemKind && d.itemId) {
-    const [it] = d.itemKind === 'org_unit' ? await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(eq(orgUnit.id, d.itemId)) : await ctx.tx.select({ id: program.id }).from(program).where(eq(program.id, d.itemId));
-    if (!it) throw new ValidationError(`The ${d.itemKind === 'org_unit' ? 'unit' : 'program'} was not found in this institution.`);
+    const [it] = d.itemKind === 'org_unit' ? await ctx.tx.select({ id: orgUnit.id }).from(orgUnit).where(eq(orgUnit.id, d.itemId))
+      : d.itemKind === 'course' ? await ctx.tx.select({ id: course.id }).from(course).where(eq(course.id, d.itemId))
+      : await ctx.tx.select({ id: program.id }).from(program).where(eq(program.id, d.itemId));
+    if (!it) throw new ValidationError(`The ${d.itemKind === 'org_unit' ? 'unit' : d.itemKind === 'course' ? 'course' : 'program'} was not found in this institution.`);
   }
   const [prior] = await ctx.tx.select().from(requirementChampion).where(championWhere(t, d.itemKind, d.itemId));
   if (prior) await guardIntegrity(() => ctx.tx.update(requirementChampion).set({ userId: d.userId }).where(eq(requirementChampion.id, prior.id)));

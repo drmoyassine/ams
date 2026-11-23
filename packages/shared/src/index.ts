@@ -39,3 +39,4 @@ export * from './catalog.js';
 export * from './catalog-sheets.js';
 export * from './requisites.js';
 export * from './catalog-edition.js';
+export * from './quality.js';

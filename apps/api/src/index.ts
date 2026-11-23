@@ -8,6 +8,7 @@ export type OutcomeRoutes = ReturnType<typeof import('./routes/outcomes.js').out
 export type EvidenceOpsRoutes = ReturnType<typeof import('./routes/evidence-ops.js').evidenceOpsRoutes>;
 export type AssessmentRoutes = ReturnType<typeof import('./routes/assessment.js').assessmentRoutes>;
 export type CatalogRoutes = ReturnType<typeof import('./routes/catalog-api.js').catalogRoutes>;
+export type QualityRoutes = ReturnType<typeof import('./routes/quality.js').qualityRoutes>;
 export type CourseRoutes = ReturnType<typeof import('./routes/courses-api.js').courseRoutes>;
 export type ApiKeyRoutes = ReturnType<typeof import('./routes/api-keys.js').apiKeyRoutes>;
 export type ProgramRoutes = ReturnType<typeof import('./routes/programs-api.js').programRoutes>;

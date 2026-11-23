@@ -10,7 +10,7 @@ export const SCOPE_LEVEL_KINDS = ['institution', 'org_unit', 'program', 'course'
 export type ScopeLevelKind = (typeof SCOPE_LEVEL_KINDS)[number];
 
 /** The kinds of item a scope can list or a champion can be set for. */
-export const SCOPE_ITEM_KINDS = ['org_unit', 'program'] as const;
+export const SCOPE_ITEM_KINDS = ['org_unit', 'program', 'course'] as const;
 export type ScopeItemKind = (typeof SCOPE_ITEM_KINDS)[number];
 
 // ---- Scope levels (Settings -> Organization -> Institution) ---------------------------------------------------------------
@@ -18,7 +18,7 @@ export type ScopeItemKind = (typeof SCOPE_ITEM_KINDS)[number];
 export const ScopeLevelSchema = z.object({
   id: z.string(), key: z.string(), labelEn: z.string(), labelAr: z.string().nullable(), kind: z.enum(SCOPE_LEVEL_KINDS),
   displayOrder: z.number(), active: z.boolean(),
-  /** How many things a scope at this level can list (units, programs); 0 for the levels that have no list yet (Course, custom). */
+  /** How many things a scope at this level can list (units, programs, courses); 0 for custom levels. */
   itemCount: z.number(),
 });
 export type ScopeLevel = z.infer<typeof ScopeLevelSchema>;
@@ -37,7 +37,7 @@ export type ReorderScopeLevels = z.infer<typeof ReorderScopeLevelsSchema>;
 /** What a scope can list: the institution's active units and programs. */
 export const ScopeItemSchema = z.object({ id: z.string(), nameEn: z.string(), nameAr: z.string().nullable(), detail: z.string().nullable() });
 export type ScopeItem = z.infer<typeof ScopeItemSchema>;
-export const ScopeItemsSchema = z.object({ orgUnit: z.array(ScopeItemSchema), program: z.array(ScopeItemSchema) });
+export const ScopeItemsSchema = z.object({ orgUnit: z.array(ScopeItemSchema), program: z.array(ScopeItemSchema), course: z.array(ScopeItemSchema) });
 export type ScopeItems = z.infer<typeof ScopeItemsSchema>;
 
 // ---- What a person sets ---------------------------------------------------------------------------------------------------

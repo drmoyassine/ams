@@ -22,6 +22,7 @@ export * from './trash/index.js';
 export * from './cycles/index.js';
 export * from './reports/index.js';
 export * from './scope/index.js';
+export * from './quality/index.js';
 export * from './documents/index.js';
 export * from './assistant/index.js';
 export * from './framework/index.js';

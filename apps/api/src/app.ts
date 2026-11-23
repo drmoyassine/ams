@@ -12,6 +12,7 @@ import { evidenceOpsRoutes } from './routes/evidence-ops.js';
 import { programRoutes } from './routes/programs-api.js';
 import { apiKeyRoutes } from './routes/api-keys.js';
 import { catalogRoutes } from './routes/catalog-api.js';
+import { qualityRoutes } from './routes/quality.js';
 import { courseRoutes } from './routes/courses-api.js';
 import type pg from 'pg';
 
@@ -51,6 +52,7 @@ export function createApp(opts: AppOptions) {
   app.route('/', apiKeyRoutes(registry, deps, options));
   app.route('/', courseRoutes(registry, deps, options));
   app.route('/', catalogRoutes(registry, deps, options));
+  app.route('/', qualityRoutes(registry, deps, options));
   if (opts.authHandler) {
     const authHandler = opts.authHandler;
     rawPublicRoute(app, registry, ['GET', 'POST'], '/api/auth/*', authHandler);
