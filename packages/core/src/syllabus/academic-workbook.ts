@@ -11,14 +11,14 @@ import { exportPrograms, upsertPrograms } from '../org/programs-sheets.js';
 import { exportCourses, upsertCourses } from './courses-sheets.js';
 
 const PROGRAM_KEYS = ['programs', 'peos', 'plos'] as const;
-const CATALOG_KEYS = ['concentrations', 'blocks', 'genedAreas', 'catalog', 'slots'] as const;
+const CATALOG_KEYS = ['concentrations', 'blocks', 'genedAreas', 'programAreas', 'catalog', 'slots'] as const;
 const COURSE_KEYS = ['courses', 'studyPlan', 'clos', 'outline', 'materials', 'assessments', 'rubrics', 'sections'] as const;
 
 /** Everything of the workbook in one read: the rows of both parts and the lists for the dropdowns. */
 export async function exportAcademic(ctx: Ctx): Promise<AcademicExport> {
   await assertPermitted(ctx, 'org:read', { type: 'any' });
   const [p, c, k] = [await exportPrograms(ctx), await exportCourses(ctx), await exportCatalog(ctx)];
-  return { programs: p.programs, peos: p.peos, plos: p.plos, concentrations: k.concentrations, blocks: k.blocks, genedAreas: k.genedAreas, catalog: k.catalog, slots: k.slots, courses: c.courses, studyPlan: c.studyPlan, clos: c.clos, outline: c.outline, materials: c.materials, assessments: c.assessments, rubrics: c.rubrics, sections: c.sections, lists: { ...c.lists, units: p.lists.units, programLanguages: p.lists.languages, ilos: p.lists.ilos, areas: k.lists.areas, concentrations: k.lists.concentrations } };
+  return { programs: p.programs, peos: p.peos, plos: p.plos, concentrations: k.concentrations, blocks: k.blocks, genedAreas: k.genedAreas, programAreas: k.programAreas, catalog: k.catalog, slots: k.slots, courses: c.courses, studyPlan: c.studyPlan, clos: c.clos, outline: c.outline, materials: c.materials, assessments: c.assessments, rubrics: c.rubrics, sections: c.sections, lists: { ...c.lists, units: p.lists.units, programLanguages: p.lists.languages, ilos: p.lists.ilos, areas: k.lists.areas, concentrations: k.lists.concentrations } };
 }
 
 const pick = <K extends string>(wb: AcademicWorkbook, keys: readonly K[]) => Object.fromEntries(keys.map((k) => [k, (wb as unknown as Record<string, unknown>)[k] ?? []])) as never;

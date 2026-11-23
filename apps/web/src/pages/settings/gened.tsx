@@ -56,26 +56,35 @@ export function GenedSection({ catalog: catalogOverride, api: settingsOverride, 
   const act = useAction(setError);
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); return act(fn); }, onSuccess: () => { void qc.invalidateQueries({ queryKey: ['gened'] }); void qc.invalidateQueries({ queryKey: ['requirements'] }); } });
   const [credits, setCredits] = useState<string | null>(null);
+  const [free, setFree] = useState<string | null>(null);
   const [area, setArea] = useState({ code: '', nameEn: '', minCredits: '3' });
   const data = q.data;
   if (q.isError) return <p role="alert" className="text-sm text-red-700">Could not load General education.</p>;
   if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>;
   const total = data.settings.genedCredits;
+  const freeTotal = data.settings.freeElectiveCredits;
   const sumMin = data.areas.filter((a) => a.active).reduce((n, a) => n + a.minCredits, 0);
   const list = (courses.data ?? []).filter((c) => c.active).sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true }));
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold">General education</h3>
-        <p className="text-sm text-muted-foreground">One block for the whole institution, owned by Academic Affairs: the credits every degree asks, in areas with a minimum each. A program adopts it and marks which courses it requires; the rest it fills as electives within the areas&apos; minimums.</p>
+        <p className="text-sm text-muted-foreground">Owned by Academic Affairs: the credits of General education and of Free electives every degree asks by default, and the areas of General education with a minimum each. A program may set its own credits and its own minimum for an area (on the program page, Requirements); it marks which courses it requires and fills the rest as electives.</p>
         {!canWrite && me.data && <p className="text-xs text-muted-foreground">You can read General education; Academic Affairs changes it.</p>}
       </div>
       <Card>
-        <form aria-label="General education credits" className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); const n = (credits ?? (total === null ? '' : String(total))).trim(); run.mutate(() => api.setSettings({ genedCredits: n === '' ? null : Number(n) })); setCredits(null); }}>
-          <label className="flex flex-col gap-1 text-xs"><span>Credits of General education</span>
+        <form aria-label="General education credits" className="flex flex-wrap items-end gap-2" onSubmit={(e) => {
+          e.preventDefault();
+          const n = (credits ?? (total === null ? '' : String(total))).trim(); const f = (free ?? (freeTotal === null ? '' : String(freeTotal))).trim();
+          run.mutate(() => api.setSettings({ genedCredits: n === '' ? null : Number(n), freeElectiveCredits: f === '' ? null : Number(f) })); setCredits(null); setFree(null);
+        }}>
+          <label className="flex flex-col gap-1 text-xs"><span>Credits of General education (default)</span>
             <Input aria-label="General education credits" className="h-9 w-28" inputMode="decimal" disabled={!canWrite} value={credits ?? (total === null ? '' : String(total))} onChange={(e) => setCredits(e.target.value)} />
           </label>
-          {canWrite && <Button type="submit" variant="outline" disabled={credits === null}>Save</Button>}
+          <label className="flex flex-col gap-1 text-xs"><span>Free elective credits (default)</span>
+            <Input aria-label="Free elective credits" className="h-9 w-28" inputMode="decimal" disabled={!canWrite} value={free ?? (freeTotal === null ? '' : String(freeTotal))} onChange={(e) => setFree(e.target.value)} />
+          </label>
+          {canWrite && <Button type="submit" variant="outline" disabled={credits === null && free === null}>Save</Button>}
           <span className="text-xs text-muted-foreground">{total === null ? 'Not set: the total is not checked.' : `The areas' minimums add up to ${fmt(sumMin)} of ${fmt(total)}.`}</span>
         </form>
       </Card>

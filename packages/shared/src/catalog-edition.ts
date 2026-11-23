@@ -9,7 +9,10 @@ export interface SnapProgram {
   peos: SnapOutcome[]; plos: (SnapOutcome & { ilos: string[] })[];
   concentrations: { code: string; nameEn: string; nameAr: string | null }[];
   blocks: { concentration: string | null; block: string; requirement: string; credits: number }[];
-  plan: { course: string; role: string; block: string | null; concentration: string | null; year: number | null; term: number | null }[];
+  /** A row's concentrations (codes); none: every student of the program (DEC-047). */
+  plan: { course: string; role: string; block: string | null; concentrations: string[]; year: number | null; term: number | null }[];
+  /** What applies to the program: its own credits, else the institution's; each area's minimum, its own else the institution's. */
+  gened: { credits: number | null; freeElectiveCredits: number | null; areas: { code: string; minCredits: number }[] };
   slots: { concentration: string | null; block: string; requirement: string; area: string | null; name: string; rule: string | null; credits: number; year: number | null; term: number | null }[];
 }
 export interface SnapCourse {
@@ -22,7 +25,8 @@ export interface CatalogSnapshot {
   schema: 1;
   generatedAt: string;
   institution: { nameEn: string; nameAr: string | null; mission: string | null; vision: string | null };
-  gened: { credits: number | null; areas: { code: string; nameEn: string; nameAr: string | null; minCredits: number; courses: string[] }[] };
+  /** The institution's defaults (a program's own values are on the program). */
+  gened: { credits: number | null; freeElectiveCredits?: number | null; areas: { code: string; nameEn: string; nameAr: string | null; minCredits: number; courses: string[] }[] };
   ilos: SnapIlo[];
   programs: SnapProgram[];
   courses: SnapCourse[];

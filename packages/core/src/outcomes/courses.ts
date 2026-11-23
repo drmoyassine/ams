@@ -2,7 +2,7 @@
 // course record is institution-wide (everyone with org:read sees the catalogue); writing it needs program:write at its unit (or at
 // the institution when it has none); linking it to a program needs program:write on that program.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { concentration, course, courseProgram, learningOutcome, orgUnit, program, syllabusVersion } from '@ams/db';
+import { concentration, course, courseProgram, courseProgramConcentration, learningOutcome, orgUnit, program, syllabusVersion } from '@ams/db';
 import type { Course, CourseProgramInput, CreateCourse, Scope, UpdateCourse } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
@@ -25,10 +25,21 @@ async function guardCodes<T>(fn: () => Promise<T>, code?: string): Promise<T> {
   }
 }
 
+/** The concentrations each study-plan row (course_program id) counts toward (DEC-047). */
+export async function concentrationsOf(ctx: Ctx, courseProgramIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!courseProgramIds.length) return out;
+  const rows = await ctx.tx.select({ cp: courseProgramConcentration.courseProgramId, c: courseProgramConcentration.concentrationId }).from(courseProgramConcentration)
+    .where(inArray(courseProgramConcentration.courseProgramId, courseProgramIds));
+  for (const r of rows) out.set(r.cp, [...(out.get(r.cp) ?? []), r.c]);
+  return out;
+}
+
 async function rowsToCourses(ctx: Ctx, rows: CourseRow[]): Promise<Course[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
-  const links = await ctx.tx.select({ courseId: courseProgram.courseId, programId: courseProgram.programId, role: courseProgram.role, year: courseProgram.year, term: courseProgram.term, block: courseProgram.block, concentrationId: courseProgram.concentrationId }).from(courseProgram).where(inArray(courseProgram.courseId, ids));
+  const links = await ctx.tx.select({ courseId: courseProgram.courseId, programId: courseProgram.programId, role: courseProgram.role, year: courseProgram.year, term: courseProgram.term, block: courseProgram.block, id: courseProgram.id }).from(courseProgram).where(inArray(courseProgram.courseId, ids));
+  const concs = await concentrationsOf(ctx, links.map((l) => l.id));
   const clos = await ctx.tx.select({ courseId: learningOutcome.courseId, n: sql<number>`count(*)::int` }).from(learningOutcome)
     .where(and(inArray(learningOutcome.courseId, ids), eq(learningOutcome.kind, 'clo'))).groupBy(learningOutcome.courseId);
   const cloN = new Map(clos.map((c) => [c.courseId, c.n]));
@@ -38,7 +49,7 @@ async function rowsToCourses(ctx: Ctx, rows: CourseRow[]): Promise<Course[]> {
     id: r.id, orgUnitId: r.orgUnitId, code: r.code, externalId: r.externalId, titleEn: r.titleEn, titleAr: r.titleAr, description: r.description,
     credits: r.credits === null ? null : Number(r.credits), level: r.level, languageOfInstruction: r.languageOfInstruction, active: r.active,
     programIds: links.filter((l) => l.courseId === r.id).map((l) => l.programId),
-    placements: links.filter((l) => l.courseId === r.id).map((l) => ({ programId: l.programId, role: l.role, year: l.year, term: l.term, block: l.block, concentrationId: l.concentrationId })), cloCount: cloN.get(r.id) ?? 0, approved: approved.has(r.id),
+    placements: links.filter((l) => l.courseId === r.id).map((l) => ({ programId: l.programId, role: l.role, year: l.year, term: l.term, block: l.block, concentrationIds: concs.get(l.id) ?? [] })), cloCount: cloN.get(r.id) ?? 0, approved: approved.has(r.id),
   }));
 }
 /** What a course record must have (the owner, 2026-11-18): a unit, its credit hours and at least one program it serves (code and English title always do). */
@@ -134,15 +145,20 @@ export async function setCourseProgram(ctx: Ctx, courseId: string, programId: st
   const [p] = await ctx.tx.select({ id: program.id }).from(program).where(eq(program.id, programId));
   if (!p) throw new NotFoundError(`program ${programId}`);
   await assertPermitted(ctx, 'program:write', { type: 'program', id: programId });
-  if (input.concentrationId) {
-    const [k] = await ctx.tx.select({ programId: concentration.programId }).from(concentration).where(eq(concentration.id, input.concentrationId));
-    if (!k || k.programId !== programId) throw new ValidationError('the concentration does not belong to this program');
+  const concIds = input.concentrationIds === undefined ? undefined : [...new Set(input.concentrationIds)];
+  if (concIds?.length) {
+    const ks = await ctx.tx.select({ id: concentration.id, programId: concentration.programId }).from(concentration).where(inArray(concentration.id, concIds));
+    if (ks.length !== concIds.length || ks.some((k) => k.programId !== programId)) throw new ValidationError('a concentration does not belong to this program');
   }
-  // The block and the concentration are left as they are when the input does not name them (a role change must not unplace the course).
-  const place = { ...(input.block !== undefined ? { block: input.block } : {}), ...(input.concentrationId !== undefined ? { concentrationId: input.concentrationId } : {}) };
-  await guardIntegrity(() => ctx.tx.insert(courseProgram).values({
+  // The block and the concentrations are left as they are when the input does not name them (a role change must not unplace the course).
+  const place = input.block !== undefined ? { block: input.block } : {};
+  const [row] = await guardIntegrity(() => ctx.tx.insert(courseProgram).values({
     institutionId: ctx.caller.institutionId, courseId, programId, role: input.role ?? 'core', year: input.year ?? null, term: input.term ?? null, ...place,
-  }).onConflictDoUpdate({ target: [courseProgram.courseId, courseProgram.programId], set: { role: input.role ?? 'core', year: input.year ?? null, term: input.term ?? null, ...place } }));
+  }).onConflictDoUpdate({ target: [courseProgram.courseId, courseProgram.programId], set: { role: input.role ?? 'core', year: input.year ?? null, term: input.term ?? null, ...place } }).returning({ id: courseProgram.id }));
+  if (concIds !== undefined) {
+    await ctx.tx.delete(courseProgramConcentration).where(eq(courseProgramConcentration.courseProgramId, row!.id));
+    if (concIds.length) await ctx.tx.insert(courseProgramConcentration).values(concIds.map((concentrationId) => ({ institutionId: ctx.caller.institutionId, courseProgramId: row!.id, concentrationId })));
+  }
   return getCourse(ctx, courseId);
 }
 

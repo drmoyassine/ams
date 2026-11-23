@@ -43,7 +43,8 @@ function CourseRows({ codes, byCode, withRole }: { codes: { code: string; role?:
 
 /** One block of a degree's requirements: its core courses, elective courses and slots, with the credits planned and the credits asked. */
 function BlockTable({ program, block, concentration, byCode, title }: { program: SnapProgram; block: RequirementBlock; concentration: string | null; byCode: Map<string, SnapCourse>; title: string }) {
-  const rows = program.plan.filter((r) => r.block === block && (r.concentration ?? null) === (concentration ?? null));
+  const concsOf = (r: { concentrations?: string[]; concentration?: string | null }) => r.concentrations ?? (r.concentration ? [r.concentration] : []);
+  const rows = program.plan.filter((r) => r.block === block && (concentration ? concsOf(r).includes(concentration) : concsOf(r).length === 0));
   const slots = program.slots.filter((s) => s.block === block && (s.concentration ?? null) === (concentration ?? null));
   const asked = (req: string) => program.blocks.find((b) => b.block === block && (b.concentration ?? null) === (concentration ?? null) && b.requirement === req)?.credits ?? null;
   if (!rows.length && !slots.length && asked('core') === null && asked('elective') === null) return null;
@@ -91,8 +92,8 @@ function ProgramSection({ program: p, snapshot, byCode }: { program: SnapProgram
       {p.plos.length > 0 && <><h4>Program learning outcomes</h4><ol>{p.plos.map((o) => <li key={o.code} dir="auto"><b>{o.code}</b> {o.textEn}{o.ilos.length ? <span className="muted"> (ILOs: {o.ilos.join(', ')})</span> : ''}</li>)}</ol></>}
 
       <h4>Degree requirements</h4>
-      {!minor && snapshot.gened.credits !== null && <p className="muted">General education is the institution&apos;s: {fmt(snapshot.gened.credits)} credits, in the areas described in the General Education section.</p>}
-      {(['general_education', 'college', 'major'] as const).map((b) => minor && b === 'general_education' ? null : <BlockTable key={b} program={p} block={b} concentration={null} byCode={byCode} title={BLOCK_LABEL[b]} />)}
+      {!minor && (p.gened?.credits ?? snapshot.gened.credits) !== null && <p className="muted">General education: {fmt(p.gened?.credits ?? snapshot.gened.credits)} credits{p.gened?.areas.some((a) => a.minCredits > 0) ? ` (${p.gened.areas.filter((a) => a.minCredits > 0).map((a) => `${snapshot.gened.areas.find((x) => x.code === a.code)?.nameEn ?? a.code} at least ${fmt(a.minCredits)}`).join(', ')})` : ''}, from the areas described in the General Education section.{(p.gened?.freeElectiveCredits ?? null) ? ` Free electives: ${fmt(p.gened.freeElectiveCredits)} credits.` : ''}</p>}
+      {(['general_education', 'free_elective', 'college', 'major'] as const).map((b) => minor && (b === 'general_education' || b === 'free_elective') ? null : <BlockTable key={b} program={p} block={b} concentration={null} byCode={byCode} title={BLOCK_LABEL[b]} />)}
       {p.concentrations.map((c) => <BlockTable key={c.code} program={p} block="concentration" concentration={c.code} byCode={byCode} title={`Concentration: ${c.nameEn}`} />)}
       {p.plan.some((r) => !r.block) && (
         <><h5>Other courses</h5><table><tbody><CourseRows codes={p.plan.filter((r) => !r.block).map((r) => ({ code: r.course }))} byCode={byCode} /></tbody></table></>
@@ -109,7 +110,7 @@ function ProgramSection({ program: p, snapshot, byCode }: { program: SnapProgram
               <table key={`${y}-${t}`} aria-label={`Year ${y}${t ? ` term ${t}` : ''}`}>
                 <thead><tr><th colSpan={3}>Year {ROMAN(y)}{t ? `, term ${t}` : ''}</th></tr></thead>
                 <tbody>
-                  {rows.map((r) => <tr key={r.course}><td>{r.course}</td><td>{byCode.get(r.course)?.titleEn ?? ''}{r.concentration ? <span className="muted"> ({conc(r.concentration)})</span> : ''}</td><td className="n">{fmt(byCode.get(r.course)?.credits)}</td></tr>)}
+                  {rows.map((r) => <tr key={r.course}><td>{r.course}</td><td>{byCode.get(r.course)?.titleEn ?? ''}{(r.concentrations ?? []).length ? <span className="muted"> ({(r.concentrations ?? []).map((x) => conc(x)).join(' or ')})</span> : ''}</td><td className="n">{fmt(byCode.get(r.course)?.credits)}</td></tr>)}
                   {slots.map((s, i) => <tr key={`s${i}`}><td colSpan={2}>{s.name}{s.rule ? <span className="muted"> — {s.rule}</span> : ''}{s.concentration ? <span className="muted"> ({conc(s.concentration)})</span> : ''}</td><td className="n">{fmt(s.credits)}</td></tr>)}
                   <tr className="total"><td colSpan={2}>Total</td><td className="n">{fmt(total)}</td></tr>
                 </tbody>

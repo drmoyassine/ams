@@ -53,7 +53,7 @@ export const CourseSchema = z.object({
   /** The programs it serves (ids), for lists and filters. */
   programIds: z.array(z.uuid()),
   /** How it serves each program: core, elective or service, in which year and term. */
-  placements: z.array(z.object({ programId: z.uuid(), role: z.enum(COURSE_ROLES), year: z.number().int().nullable(), term: z.number().int().nullable(), block: z.enum(REQUIREMENT_BLOCKS).nullable(), concentrationId: z.uuid().nullable() })),
+  placements: z.array(z.object({ programId: z.uuid(), role: z.enum(COURSE_ROLES), year: z.number().int().nullable(), term: z.number().int().nullable(), block: z.enum(REQUIREMENT_BLOCKS).nullable(), concentrationIds: z.array(z.uuid()) })),
   cloCount: z.number().int(),
   /** The course has approved content: its titles, credits, description, language and CLOs then change only through a course draft. */
   approved: z.boolean(),
@@ -81,9 +81,9 @@ export const CourseProgramInputSchema = z.object({
   role: z.enum(COURSE_ROLES).default('core'),
   year: opt(num.int().min(1).max(9)),
   term: opt(num.int().min(1).max(4)),
-  /** The block of the program's requirements the course sits in, and the concentration it is for (null: all). Left as they are when absent. */
+  /** The block of the program's requirements the course sits in, and the concentrations it counts toward (none: all). Left as they are when absent. */
   block: z.enum(REQUIREMENT_BLOCKS).nullable().optional(),
-  concentrationId: z.uuid().nullable().optional(),
+  concentrationIds: z.array(z.uuid()).optional(),
 });
 export type CourseProgramInput = z.infer<typeof CourseProgramInputSchema>;
 

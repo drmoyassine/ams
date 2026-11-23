@@ -84,6 +84,8 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
     const typeText = c('Type'); const ptype = typeText ? PROGRAM_TYPES.find((x) => key(x) === key(typeText)) : undefined;
     if (typeText && !ptype) { skip(`unknown type "${typeText}" (Degree or Minor)`); continue; }
     const modeText = c('Mode'); const mode = modeText ? MODE_WORDS[key(modeText)] : undefined;
+    const own = { genedCredits: c('GenEd credits') === '' ? undefined : Number(c('GenEd credits')), freeElectiveCredits: c('Free elective credits') === '' ? undefined : Number(c('Free elective credits')) };
+    if (Object.values(own).some((v) => v !== undefined && (Number.isNaN(v) || v < 0))) { skip('GenEd credits and Free elective credits are numbers (empty: the institution\'s)'); continue; }
     const nums = { credits: intOf(c('Credits')), contactHours: intOf(c('Contact hours')), durationYears: c('Years') === '' ? undefined : Number(c('Years')) };
     const badNum = Object.entries(nums).find(([, v]) => v !== undefined && Number.isNaN(v));
     if (badNum) { skip(`${badNum[0] === 'durationYears' ? 'Years' : badNum[0] === 'contactHours' ? 'Contact hours' : 'Credits'} is not a number`); continue; }
@@ -98,6 +100,8 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
     if (c('SIS code')) patch.externalId = c('SIS code');
     if (mode) patch.mode = mode;
     if (ptype) patch.programType = ptype;
+    if (own.genedCredits !== undefined) patch.genedCredits = own.genedCredits;
+    if (own.freeElectiveCredits !== undefined) patch.freeElectiveCredits = own.freeElectiveCredits;
     if (nums.credits !== undefined) patch.credits = nums.credits;
     if (nums.contactHours !== undefined) patch.contactHours = nums.contactHours;
     if (nums.durationYears !== undefined) patch.durationYears = nums.durationYears;
@@ -253,7 +257,7 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
   for (const p of progs) {
     const code = p.code ?? '';
     wb.programs.push({
-      ID: p.id, 'Program code': code, 'Name (English)': p.nameEn, 'Name (Arabic)': p.nameAr ?? '', Unit: paths.get(p.orgUnitId) ?? '', 'Program level': LEVEL_LABEL[p.degreeLevel] ?? p.degreeLevel, Type: p.programType === 'minor' ? 'Minor' : 'Degree',
+      ID: p.id, 'Program code': code, 'Name (English)': p.nameEn, 'Name (Arabic)': p.nameAr ?? '', Unit: paths.get(p.orgUnitId) ?? '', 'Program level': LEVEL_LABEL[p.degreeLevel] ?? p.degreeLevel, Type: p.programType === 'minor' ? 'Minor' : 'Degree', 'GenEd credits': p.genedCredits === null ? null : Number(p.genedCredits), 'Free elective credits': p.freeElectiveCredits === null ? null : Number(p.freeElectiveCredits),
       'SIS code': p.externalId ?? '', Mode: p.mode ? MODE_LABEL[p.mode] ?? p.mode : '', Credits: p.credits, Years: p.durationYears === null ? null : Number(p.durationYears),
       'Contact hours': p.contactHours, Language: p.languageOfInstruction ?? '', Mission: p.mission ?? '', Vision: p.vision ?? '', Active: p.active ? 'Yes' : 'No',
     });

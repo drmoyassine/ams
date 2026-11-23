@@ -24,7 +24,7 @@ describe('General Education', () => {
   it('is set by someone with program:write for the whole institution: the credits, the areas with a minimum, and each area\'s pool', async () => {
     await expect(w.as('contrib', (c) => setCatalogSettings(c, { genedCredits: 6 }))).rejects.toThrow(ForbiddenError);
     await expect(w.as('contrib', (c) => createGenedArea(c, { code: 'X', nameEn: 'X', minCredits: 0 }))).rejects.toThrow(ForbiddenError);
-    expect(await w.as('alo', (c) => setCatalogSettings(c, { genedCredits: 6 }))).toEqual({ genedCredits: 6 });
+    expect(await w.as('alo', (c) => setCatalogSettings(c, { genedCredits: 6 }))).toEqual({ genedCredits: 6, freeElectiveCredits: null });
     const eng = await w.as('alo', (c) => createGenedArea(c, { code: 'ENG', nameEn: 'English', minCredits: 3 }));
     const hum = await w.as('alo', (c) => createGenedArea(c, { code: 'HUM', nameEn: 'Humanities', minCredits: 3 }));
     ids.eng = eng.id; ids.hum = hum.id;
@@ -44,7 +44,7 @@ describe('a degree\'s requirements', () => {
     await expect(w.as('contrib', (c) => createConcentration(c, { programId: w.ids.mech!, code: 'X', nameEn: 'X' }))).rejects.toThrow(ForbiddenError);
     await w.as('alo', (c) => setCourseProgram(c, ids['ENG 101']!, w.ids.mech!, { role: 'core', year: 1, term: 1, block: 'general_education' }));
     await w.as('alo', (c) => setCourseProgram(c, ids['MCE 201']!, w.ids.mech!, { role: 'core', year: 2, term: 1, block: 'major' }));
-    await w.as('alo', (c) => setCourseProgram(c, ids['MCE 301']!, w.ids.mech!, { role: 'core', year: 3, term: 1, block: 'concentration', concentrationId: ids.therm! }));
+    await w.as('alo', (c) => setCourseProgram(c, ids['MCE 301']!, w.ids.mech!, { role: 'core', year: 3, term: 1, block: 'concentration', concentrationIds: [ids.therm!] }));
     await w.as('alo', (c) => setCourseProgram(c, ids['HUM 101']!, w.ids.mech!, { role: 'elective', year: 1, term: 2 })); // in no block yet
     let r = await req();
     expect(r.courses.map((c) => [c.code, c.block, c.role])).toEqual([['ENG 101', 'general_education', 'core'], ['HUM 101', null, 'elective'], ['MCE 201', 'major', 'core'], ['MCE 301', 'concentration', 'core']]);

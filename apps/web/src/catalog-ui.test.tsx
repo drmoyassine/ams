@@ -102,7 +102,7 @@ describe('a program\'s requirements', () => {
     await within(section).findByRole('list', { name: 'Concentrations' });
     await user.selectOptions(await within(section).findByLabelText('Block of ACC 301'), 'concentration');
     await waitFor(() => expect((within(section).getByLabelText('Block of ACC 301') as HTMLSelectElement).value).toBe('concentration'));
-    await user.selectOptions(await within(section).findByLabelText('Concentration of ACC 301'), (await catalogApi(fetcherOf('admin')).requirements(ids.prog!)).concentrations[0]!.id);
+    await user.selectOptions(await within(section).findByLabelText('Add a concentration to Concentrations of ACC 301'), (await catalogApi(fetcherOf('admin')).requirements(ids.prog!)).concentrations[0]!.id);
     // 3 + 3 + 3 = 9: the credits add up (no General education total is set on this program's check besides 3).
     await waitFor(() => expect((within(section).queryByRole('status')?.textContent ?? within(section).queryByRole('list', { name: 'To look at' })?.textContent)).toMatch(/credits add up/));
     // The credits asked of a block: Major core 6 while 3 are planned.

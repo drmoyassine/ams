@@ -13,7 +13,7 @@ import {
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError } from '../ctx.js';
 import { assertPermitted } from '../permissions.js';
-import { createCourse, setCourseProgram, updateCourse } from '../outcomes/courses.js';
+import { concentrationsOf, createCourse, setCourseProgram, updateCourse } from '../outcomes/courses.js';
 import { unitPaths, type UnitRow } from '../org/programs-sheets.js';
 import { sheetResolver } from './import.js';
 import { courseContentNow, getLevels, getSyllabusTemplate, saveSyllabusDraft, setCourseStaff } from './syllabus.js';
@@ -127,6 +127,7 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
   // ---- The programs each course serves (applied at once)
   const links = await ctx.tx.select().from(courseProgram);
   const concentrations = await ctx.tx.select().from(concentration);
+  const linkConcs = await concentrationsOf(ctx, links.map((l) => l.id));
   for (const [i, r] of workbook.studyPlan.entries()) {
     const c = (h: string) => sheetCell(r, h);
     const cc = c('Course code'); const pc = c('Program code'); const row = i + 2; const label = `${cc} ${pc}`.trim();
@@ -142,12 +143,16 @@ export async function upsertCourses(ctx: Ctx, input: UpsertCourses): Promise<Ups
     // The block of the program's requirements the course sits in, and the concentration it is for (empty: all). Left as they are when empty.
     const blockText = c('Block'); const block = blockText ? REQUIREMENT_BLOCKS.find((b) => key(b) === key(blockText) || key(BLOCK_LABEL[b]) === key(blockText)) : undefined;
     if (blockText && !block) { skip(`unknown block "${blockText}" (${REQUIREMENT_BLOCKS.map((b) => BLOCK_LABEL[b]).join(', ')})`); continue; }
-    const concText = c('Concentration');
-    const conc = concText ? concentrations.find((k) => k.programId === prog.id && (key(k.code) === key(concText) || key(k.nameEn) === key(concText))) : undefined;
-    if (concText && !conc) { skip(`no concentration "${concText}" in ${prog.code}`); continue; }
+    // Several concentrations are separated by ; (a course shared by "choose one" tracks, DEC-047).
+    const concTexts = c('Concentration').split(/[;,]/).map((x) => x.trim()).filter(Boolean);
+    const concs = concTexts.map((t) => ({ t, k: concentrations.find((k) => k.programId === prog.id && (key(k.code) === key(t) || key(k.nameEn) === key(t))) }));
+    const missingConc = concs.filter((x) => !x.k).map((x) => x.t);
+    if (missingConc.length) { skip(`no concentration ${missingConc.map((x) => `"${x}"`).join(', ')} in ${prog.code}`); continue; }
     const now = courseId ? links.find((l) => l.courseId === courseId && l.programId === prog.id) : undefined;
-    const next = { role, year: y ?? now?.year ?? null, term: t ?? now?.term ?? null, block: block ?? now?.block ?? null, concentrationId: conc?.id ?? now?.concentrationId ?? null };
-    if (now && now.role === next.role && now.year === next.year && now.term === next.term && now.block === next.block && now.concentrationId === next.concentrationId) { note({ sheet: 'Study plan', row, code: label, action: 'unchanged', message: '' }); continue; }
+    const nowConcs = now ? (linkConcs.get(now.id) ?? []) : [];
+    const concentrationIds = concs.length ? [...new Set(concs.map((x) => x.k!.id))].sort() : [...nowConcs].sort();
+    const next = { role, year: y ?? now?.year ?? null, term: t ?? now?.term ?? null, block: block ?? now?.block ?? null, concentrationIds };
+    if (now && now.role === next.role && now.year === next.year && now.term === next.term && now.block === next.block && [...nowConcs].sort().join() === concentrationIds.join()) { note({ sheet: 'Study plan', row, code: label, action: 'unchanged', message: '' }); continue; }
     if (apply && courseId) await setCourseProgram(ctx, courseId, prog.id, next);
     note({ sheet: 'Study plan', row, code: label, action: now ? 'update' : 'add', message: '' });
   }
@@ -214,6 +219,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
   const all = (await ctx.tx.select().from(course)).sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true }));
   const links = await ctx.tx.select().from(courseProgram);
   const concs = await ctx.tx.select().from(concentration);
+  const planConcs = await concentrationsOf(ctx, links.map((l) => l.id));
   const levels = await getLevels(ctx);
   const template = await getSyllabusTemplate(ctx);
   const allPlos = all.length ? await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code, programId: learningOutcome.programId }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, programs.map((p) => p.id).concat('00000000-0000-0000-0000-000000000000')))) : [];
@@ -244,7 +250,7 @@ export async function exportCourses(ctx: Ctx): Promise<CoursesExport> {
     });
     for (const l of links.filter((x) => x.courseId === c.id)) {
       const p = programs.find((x) => x.id === l.programId);
-      wb.studyPlan.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Block: l.block ? BLOCK_LABEL[l.block] : '', Concentration: l.concentrationId ? concs.find((k) => k.id === l.concentrationId)?.code ?? '' : '', Year: l.year, Term: l.term });
+      wb.studyPlan.push({ 'Course code': c.code, 'Course title': c.titleEn, 'Program code': p?.code ?? '', Role: l.role[0]!.toUpperCase() + l.role.slice(1), Block: l.block ? BLOCK_LABEL[l.block] : '', Concentration: (planConcs.get(l.id) ?? []).map((id) => concs.find((k) => k.id === id)?.code ?? '').filter(Boolean).sort().join('; '), Year: l.year, Term: l.term });
     }
     for (const [k, x] of rows.clos.entries()) wb.clos.push({ ID: content.clos[k]?.id ?? '', 'Course code': c.code, 'Course title': c.titleEn, ...Object.fromEntries(Object.entries(x).filter(([h]) => h !== 'Course code')) });
     wb.outline.push(...rows.outline); wb.materials.push(...rows.materials); wb.assessments.push(...rows.assessments); wb.rubrics.push(...rows.rubrics); wb.sections.push(...rows.sections);

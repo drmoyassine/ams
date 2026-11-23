@@ -8,14 +8,15 @@ export type ProgramType = (typeof PROGRAM_TYPES)[number];
 export const PROGRAM_TYPE_LABEL: Record<ProgramType, string> = { degree: 'Degree', minor: 'Minor' };
 
 /** The blocks of a degree's requirements, in the order a catalog prints them. */
-export const REQUIREMENT_BLOCKS = ['general_education', 'college', 'major', 'concentration'] as const;
+export const REQUIREMENT_BLOCKS = ['general_education', 'free_elective', 'college', 'major', 'concentration'] as const;
 export type RequirementBlock = (typeof REQUIREMENT_BLOCKS)[number];
-export const BLOCK_LABEL: Record<RequirementBlock, string> = { general_education: 'General education', college: 'College requirements', major: 'Major requirements', concentration: 'Concentration requirements' };
+export const BLOCK_LABEL: Record<RequirementBlock, string> = { general_education: 'General education', free_elective: 'Free electives', college: 'College requirements', major: 'Major requirements', concentration: 'Concentration requirements' };
 export const REQUIREMENT_KINDS = ['core', 'elective'] as const;
 export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
 
 /** Institution-wide catalog settings: the credits of General Education. */
-export const CatalogSettingsSchema = z.object({ genedCredits: z.number().min(0).max(200).nullable().default(null) }).strict();
+/** The institution's defaults: the credits of General education and of Free electives; a program may set its own (DEC-047). */
+export const CatalogSettingsSchema = z.object({ genedCredits: z.number().min(0).max(200).nullable().default(null), freeElectiveCredits: z.number().min(0).max(200).nullable().default(null) }).strict();
 export type CatalogSettings = z.infer<typeof CatalogSettingsSchema>;
 
 const nullableNum = z.coerce.number().min(0).max(500).nullable().optional();
@@ -66,11 +67,12 @@ export type UpdateStudySlot = z.infer<typeof UpdateStudySlotSchema>;
 /** One row of a program's study plan, as the requirements read it. */
 export const StudyPlanCourseSchema = z.object({
   courseId: z.uuid(), code: z.string(), titleEn: z.string(), credits: z.number().nullable(), role: z.enum(['core', 'elective', 'service']), block: z.enum(REQUIREMENT_BLOCKS).nullable(),
-  concentrationId: z.uuid().nullable(), year: z.number().int().nullable(), term: z.number().int().nullable(), areaIds: z.array(z.uuid()),
+  /** The concentrations it counts toward; none: every student of the program (DEC-047). */
+  concentrationIds: z.array(z.uuid()), year: z.number().int().nullable(), term: z.number().int().nullable(), areaIds: z.array(z.uuid()),
 });
 export type StudyPlanCourse = z.infer<typeof StudyPlanCourseSchema>;
 
-export const REQUIREMENT_ISSUES = ['total_credits', 'gened_total', 'gened_area', 'block_credits', 'unplaced_course', 'no_concentration_credits', 'requisite_missing', 'requisite_order', 'requisite_cycle'] as const;
+export const REQUIREMENT_ISSUES = ['total_credits', 'gened_total', 'free_elective_total', 'gened_area', 'block_credits', 'unplaced_course', 'no_concentration_credits', 'requisite_missing', 'requisite_order', 'requisite_cycle'] as const;
 export const RequirementIssueSchema = z.object({ kind: z.enum(REQUIREMENT_ISSUES), message: z.string(), concentrationId: z.uuid().nullable().default(null), block: z.enum(REQUIREMENT_BLOCKS).nullable().default(null) });
 export type RequirementIssue = z.infer<typeof RequirementIssueSchema>;
 /** Credits asked and credits planned, for one block (and requirement) of a program or one of its concentrations. */
@@ -79,9 +81,17 @@ export type BlockTotal = z.infer<typeof BlockTotalSchema>;
 
 /** A program's requirements as the page and the catalog read them: its concentrations, block credits, study plan, slots, and what the checks say. */
 export const ProgramRequirementsSchema = z.object({
-  programId: z.uuid(), programType: z.enum(PROGRAM_TYPES), credits: z.number().nullable(), genedCredits: z.number().nullable(),
+  programId: z.uuid(), programType: z.enum(PROGRAM_TYPES), credits: z.number().nullable(),
+  /** What applies to the program (its own value, else the institution's), and the institution's default beside it. */
+  genedCredits: z.number().nullable(), genedDefault: z.number().nullable(), genedOverridden: z.boolean(),
+  freeElectiveCredits: z.number().nullable(), freeElectiveDefault: z.number().nullable(), freeElectiveOverridden: z.boolean(),
   concentrations: z.array(ConcentrationSchema), blocks: z.array(ProgramBlockSchema), slots: z.array(StudySlotSchema), courses: z.array(StudyPlanCourseSchema),
-  areas: z.array(GenedAreaSchema.omit({ courseIds: true }).extend({ planned: z.number() })),
+  /** The areas with the minimum that applies to the program (its own, else the institution's), the default and the credits planned. */
+  areas: z.array(GenedAreaSchema.omit({ courseIds: true }).extend({ planned: z.number(), defaultMin: z.number(), overridden: z.boolean() })),
   totals: z.array(BlockTotalSchema), issues: z.array(RequirementIssueSchema),
 });
 export type ProgramRequirements = z.infer<typeof ProgramRequirementsSchema>;
+
+/** A program's own minimum for a General education area; null returns to the institution's (DEC-047). */
+export const SetProgramGenedAreaSchema = z.object({ programId: z.uuid(), areaId: z.uuid(), minCredits: z.coerce.number().min(0).max(100).nullable() }).strict();
+export type SetProgramGenedArea = z.infer<typeof SetProgramGenedAreaSchema>;

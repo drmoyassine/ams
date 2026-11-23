@@ -16,12 +16,12 @@ export const ACADEMIC_README = [
   '',
   '## The sheets',
   'Programs: one row per program. PEOs and PLOs: one row per outcome, each naming its program by its Program code.',
-  'Courses: one row per course. Study plan: one row per course and program it serves, with its role (Core or Elective: a Service course counts as Core), the Block of the program\'s requirements it sits in, the Concentration it is for (empty: all), and its year and term. CLOs, Outline, Materials, Assessments, Rubrics, Sections: the course\'s content, each row naming its course by its Course code.',
+  'Courses: one row per course. Study plan: one row per course and program it serves, with its role (Core or Elective: a Service course counts as Core), the Block of the program\'s requirements it sits in, the Concentrations it counts toward (codes separated by ;, for a course shared by several tracks; empty: all), and its year and term. CLOs, Outline, Materials, Assessments, Rubrics, Sections: the course\'s content, each row naming its course by its Course code.',
   '',
   '## The degree\'s requirements (the catalog)',
-  'Blocks: General education, College requirements, Major requirements, Concentration requirements; each has core and elective credits. A degree is the common blocks plus one concentration.',
+  'Blocks: General education, Free electives, College requirements, Major requirements, Concentration requirements; each has core and elective credits. A degree is the common blocks plus one concentration.',
   'Concentrations: one row per track of a program. Requirement blocks: the credits a program (or one concentration, for the Concentration block) asks of a block, Core credits and Elective credits; the page and the catalog check them against the study plan. Elective slots: "Major elective, 3 credits, year 3 term 2" with the Rule that fills it (for example Any MCE 4xx); a General education slot may name its Area.',
-  'GenEd areas: the areas of General Education with the Minimum credits each, and the Courses that count toward it (codes separated by ;). Catalog settings: the General education credits, the same for every degree. These are changed by Academic Affairs (program:write for the whole institution); a row you may not apply is skipped with the reason.',
+  'GenEd areas: the areas of General Education with the Minimum credits each, and the Courses that count toward it (codes separated by ;). Program GenEd areas: a program\'s own minimum for an area (empty: the institution\'s). Catalog settings: the institution\'s default General education credits and Free elective credits; a program may set its own on the Programs sheet (GenEd credits, Free elective credits; empty: the default). These are changed by Academic Affairs (program:write for the whole institution); a row you may not apply is skipped with the reason.',
   'A minor is a program with Type Minor: it needs no Mode, Years, Contact hours or PEOs.',
   'Columns marked * (yellow header) are required. A row missing one is still imported, and the record is flagged with what it lacks until it is filled in. A course needs a Unit, its Credit hours and at least one program in the Study plan.',
   '',
@@ -125,7 +125,11 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
       ...(k === 'studyPlan' && h === 'Role' ? { check: { list: range('Roles') } } : {}),
       // The catalog's structure
       ...((k === 'studyPlan' || k === 'blocks' || k === 'slots') && h === 'Block' ? { check: { list: range('Blocks') }, width: 26 } : {}),
-      ...((k === 'studyPlan' || k === 'blocks' || k === 'slots') && h === 'Concentration' ? { check: { list: concentrationCodes } } : {}),
+      ...((k === 'blocks' || k === 'slots') && h === 'Concentration' ? { check: { list: concentrationCodes } } : {}),
+      ...(k === 'studyPlan' && h === 'Concentration' ? { width: 22, note: 'The concentration codes the course counts toward, separated by ; (empty: every student of the program).' } : {}),
+      ...(k === 'programs' && (h === 'GenEd credits' || h === 'Free elective credits') ? { check: { decimal: [0, 200] }, note: 'The program\'s own credits; empty: the institution\'s default (Catalog settings).' } : {}),
+      ...(k === 'programAreas' && h === 'Area' ? { check: { list: areaCodes } } : {}),
+      ...(k === 'programAreas' && h === 'Minimum credits' ? { check: { decimal: [0, 100] }, note: 'The program\'s own minimum for the area (0: it does not ask for it); empty or no row: the institution\'s.' } : {}),
       ...(k === 'concentrations' && h === 'Code' ? { width: 14 } : {}),
       ...(k === 'blocks' && (h === 'Core credits' || h === 'Elective credits') ? { check: { decimal: [0, 500] } } : {}),
       ...(k === 'slots' && h === 'Area' ? { check: { list: areaCodes } } : {}),
@@ -151,7 +155,7 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
   const sheet = (k: AcademicSheetKey): RichSheet => ({ name: ACADEMIC_SHEETS[k].name, columns: columnsOf(k), rows: data[k], spare: SPARE_ROWS });
   return [
     { name: 'README', lines: ACADEMIC_README },
-    sheet('programs'), sheet('peos'), sheet('plos'), sheet('concentrations'), sheet('blocks'), sheet('courses'), sheet('studyPlan'), sheet('slots'), sheet('genedAreas'), sheet('catalog'), sheet('clos'), sheet('outline'), sheet('materials'), sheet('assessments'), sheet('rubrics'), sheet('sections'),
+    sheet('programs'), sheet('peos'), sheet('plos'), sheet('concentrations'), sheet('blocks'), sheet('courses'), sheet('studyPlan'), sheet('slots'), sheet('genedAreas'), sheet('programAreas'), sheet('catalog'), sheet('clos'), sheet('outline'), sheet('materials'), sheet('assessments'), sheet('rubrics'), sheet('sections'),
     { name: 'Lists', state: 'hidden', columns: lists.map(([n]) => ({ header: n, width: n === 'Units' ? 60 : 24 })), rows: listRows },
   ];
 }

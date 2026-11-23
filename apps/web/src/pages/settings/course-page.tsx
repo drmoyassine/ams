@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useConfirm } from '../../components/confirm-dialog';
 import { useCatalogApi } from '../../lib/catalog-api';
+import { ConcentrationChips } from '../../components/catalog/concentration-chips';
 import { can, useMe } from '../../lib/me';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
@@ -194,24 +195,22 @@ function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units
 
 /** The programs the course serves (at least one), each with its role, year and term. */
 /** The block of a program's requirements a course sits in, and the concentration it is for (DEC-046). */
-function PlacementBlock({ course, programId, role, year, term, block, concentrationId, canWrite, run, oapi }: {
-  course: Course; programId: string; role: (typeof COURSE_ROLES)[number]; year: number | null; term: number | null; block: RequirementBlock | null; concentrationId: string | null;
+function PlacementBlock({ course, programId, role, year, term, block, concentrationIds, canWrite, run, oapi }: {
+  course: Course; programId: string; role: (typeof COURSE_ROLES)[number]; year: number | null; term: number | null; block: RequirementBlock | null; concentrationIds: string[];
   canWrite: boolean; run: (fn: () => Promise<unknown>) => void; oapi: OutcomesApi;
 }) {
   const catalog = useCatalogApi();
   const reqs = useQuery({ queryKey: ['requirements', programId], queryFn: () => catalog.requirements(programId) });
-  const concs = (reqs.data?.concentrations ?? []).filter((k) => k.active || k.id === concentrationId);
-  const set = (patch: { block?: RequirementBlock | null; concentrationId?: string | null }) => run(() => oapi.setCourseProgram(course.id, programId, { role, year, term, ...patch }));
-  if (!canWrite) return <span className="text-xs text-muted-foreground">{block ? BLOCK_LABEL[block] : 'No block'}{concentrationId ? ` · ${concs.find((k) => k.id === concentrationId)?.nameEn ?? ''}` : ''}</span>;
+  const concs = (reqs.data?.concentrations ?? []).filter((k) => k.active || concentrationIds.includes(k.id));
+  const set = (patch: { block?: RequirementBlock | null; concentrationIds?: string[] }) => run(() => oapi.setCourseProgram(course.id, programId, { role, year, term, ...patch }));
+  if (!canWrite) return <span className="text-xs text-muted-foreground">{block ? BLOCK_LABEL[block] : 'No block'}{concentrationIds.length ? ` · ${concentrationIds.map((id) => concs.find((k) => k.id === id)?.nameEn ?? '').join(', ')}` : ''}</span>;
   return (
     <span className="flex flex-wrap items-center gap-1">
-      <select aria-label={`Block of ${course.code} in ${programId}`} className={`${select} w-48`} value={block ?? ''} onChange={(e) => set({ block: (e.target.value || null) as RequirementBlock | null, ...(e.target.value !== 'concentration' ? { concentrationId: null } : {}) })}>
+      <select aria-label={`Block of ${course.code} in ${programId}`} className={`${select} w-48`} value={block ?? ''} onChange={(e) => set({ block: (e.target.value || null) as RequirementBlock | null })}>
         <option value="">No block</option>{REQUIREMENT_BLOCKS.map((b) => <option key={b} value={b}>{BLOCK_LABEL[b]}</option>)}
       </select>
       {concs.length > 0 && (
-        <select aria-label={`Concentration of ${course.code} in ${programId}`} className={`${select} w-40`} value={concentrationId ?? ''} onChange={(e) => set({ concentrationId: e.target.value || null })}>
-          <option value="">All concentrations</option>{concs.map((k) => <option key={k.id} value={k.id}>{k.nameEn}</option>)}
-        </select>
+        <ConcentrationChips label={`Concentrations of ${course.code} in ${programId}`} all={concs} value={concentrationIds} disabled={false} onChange={(ids) => set({ concentrationIds: ids })} />
       )}
     </span>
   );
@@ -232,11 +231,11 @@ function Placement({ course, programs, oapi, canWrite }: { course: Course; progr
         <p className="text-xs text-muted-foreground">The programs this course is part of, with its role, year and term in each.</p>
         {course.programIds.length === 0 && <p className="text-sm text-amber-800">It is in no program&apos;s study plan yet: add one.</p>}
         <ul className="space-y-1 text-sm">
-          {course.placements.map(({ programId: id, role, year, term, block, concentrationId }) => (
+          {course.placements.map(({ programId: id, role, year, term, block, concentrationIds }) => (
             <li key={id} className="flex flex-wrap items-center gap-2">
               <span>{name.get(id) ?? 'A program you may not see'}</span>
               <span className="text-xs text-muted-foreground">{ROLE[role]}{year ? ` · year ${year}` : ''}{term ? `, term ${term}` : ''}</span>
-              <PlacementBlock course={course} programId={id} role={role} year={year} term={term} block={block} concentrationId={concentrationId} canWrite={canWrite} run={(fn) => run.mutate(fn)} oapi={oapi} />
+              <PlacementBlock course={course} programId={id} role={role} year={year} term={term} block={block} concentrationIds={concentrationIds} canWrite={canWrite} run={(fn) => run.mutate(fn)} oapi={oapi} />
               {canWrite && <Button type="button" variant="ghost" className="px-2 py-0.5 text-xs" aria-label={`Take ${course.code} out of ${name.get(id) ?? 'the program'}`}
                 onClick={() => { void confirm({ title: `Take ${course.code} out of ${name.get(id) ?? 'the program'}?`, message: 'Its CLOs\' links to that program\'s PLOs go with it.', confirmLabel: 'Take it out', tone: 'danger' }).then((ok) => { if (ok) run.mutate(() => oapi.removeCourseProgram(course.id, id)); }); }}>Remove</Button>}
             </li>

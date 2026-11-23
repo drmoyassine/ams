@@ -3,11 +3,11 @@
 // credits: what the study plan names) and `late` (the areas' pools and the elective slots: what needs the courses). Rows write directly (the
 // workbook's preview is the whole apply inside a savepoint that is taken back). A row that cannot be applied is skipped with the reason.
 import { eq } from 'drizzle-orm';
-import { concentration, course, genedArea, genedAreaCourse, program, programBlock, studyPlanSlot } from '@ams/db';
-import { BLOCK_LABEL, CATALOG_SHEETS, GENED_CREDITS_SETTING, REQUIREMENT_BLOCKS, sheetCell, type CatalogWorkbook, type RequirementBlock, type UpsertCatalogRow } from '@ams/shared';
+import { concentration, course, genedArea, genedAreaCourse, program, programBlock, programGenedArea, studyPlanSlot } from '@ams/db';
+import { BLOCK_LABEL, CATALOG_SHEETS, FREE_ELECTIVE_CREDITS_SETTING, GENED_CREDITS_SETTING, REQUIREMENT_BLOCKS, sheetCell, type CatalogWorkbook, type RequirementBlock, type UpsertCatalogRow } from '@ams/shared';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type Ctx } from '../ctx.js';
 import {
-  createConcentration, createGenedArea, createStudySlot, getCatalogSettings, setAreaCourses, setCatalogSettings, setProgramBlock, updateConcentration, updateGenedArea, updateStudySlot,
+  createConcentration, createGenedArea, createStudySlot, getCatalogSettings, setAreaCourses, setCatalogSettings, setProgramBlock, setProgramGenedArea, updateConcentration, updateGenedArea, updateStudySlot,
 } from './catalog.js';
 
 const key = (s: string) => s.normalize('NFKD').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
@@ -35,12 +35,13 @@ export async function upsertCatalog(ctx: Ctx, wb: CatalogWorkbook, stage: Catalo
       const row = i + 2; const name = sheetCell(r, 'Setting'); const value = sheetCell(r, 'Value');
       if (!value) continue; // an empty setting leaves it as it is
       const res = (action: UpsertCatalogRow['action'], message = '') => rowFor({ sheet: CATALOG_SHEETS.catalog.name, row, code: name, action, message });
-      if (key(name) !== key(GENED_CREDITS_SETTING)) { res('skip', `unknown setting "${name}" (${GENED_CREDITS_SETTING})`); continue; }
+      const field = key(name) === key(GENED_CREDITS_SETTING) ? 'genedCredits' : key(name) === key(FREE_ELECTIVE_CREDITS_SETTING) ? 'freeElectiveCredits' : null;
+      if (!field) { res('skip', `unknown setting "${name}" (${GENED_CREDITS_SETTING}, ${FREE_ELECTIVE_CREDITS_SETTING})`); continue; }
       const n = numOf(value);
       if (n === undefined || Number.isNaN(n) || n < 0) { res('skip', 'the value is a number of credits'); continue; }
       try {
-        if ((await getCatalogSettings(ctx)).genedCredits === n) { res('unchanged'); continue; }
-        await setCatalogSettings(ctx, { genedCredits: n }); res('update');
+        if ((await getCatalogSettings(ctx))[field] === n) { res('unchanged'); continue; }
+        await setCatalogSettings(ctx, { [field]: n }); res('update');
       } catch (e) { if (!isSkip(e)) throw e; res('skip', e.message); }
     }
     // ---- GenEd areas (the pool is set later, once the courses exist)
@@ -66,6 +67,21 @@ export async function upsertCatalog(ctx: Ctx, wb: CatalogWorkbook, stage: Catalo
         if (!Object.keys(patch).length) { res('unchanged'); continue; }
         await updateGenedArea(ctx, cur.id, patch); areas = await ctx.tx.select().from(genedArea); res('update', `Changes: ${Object.keys(patch).join(', ')}.`);
       } catch (e) { if (!isSkip(e)) throw e; res('skip', e.message); }
+    }
+    // ---- A program's own minimum for an area (empty: back to the institution's)
+    const mins = await ctx.tx.select().from(programGenedArea);
+    for (const [i, r] of wb.programAreas.entries()) {
+      const c = (h: string) => sheetCell(r, h); const row = i + 2; const pc = c('Program code');
+      const res = (action: UpsertCatalogRow['action'], message = '') => rowFor({ sheet: CATALOG_SHEETS.programAreas.name, row, code: `${pc} ${c('Area')}`.trim(), action, message });
+      const prog = programOf(pc);
+      if (!prog) { res('skip', pc ? `no program with the code ${pc}` : 'no Program code'); continue; }
+      const area = areaOf(c('Area'));
+      if (!area) { res('skip', `no General Education area "${c('Area')}"`); continue; }
+      const n = c('Minimum credits') === '' ? null : numOf(c('Minimum credits'))!;
+      if (n !== null && (Number.isNaN(n) || n < 0)) { res('skip', 'Minimum credits is a number (empty: the institution\'s)'); continue; }
+      const cur = mins.find((m) => m.programId === prog.id && m.areaId === area.id);
+      if ((cur ? Number(cur.minCredits) : null) === n) { res('unchanged'); continue; }
+      try { await setProgramGenedArea(ctx, { programId: prog.id, areaId: area.id, minCredits: n }); res(cur ? 'update' : 'add'); } catch (e) { if (!isSkip(e)) throw e; res('skip', e.message); }
     }
     // ---- Concentrations
     for (const [i, r] of wb.concentrations.entries()) {
@@ -197,8 +213,12 @@ export async function exportCatalog(ctx: Ctx): Promise<CatalogWorkbook & { lists
   const settings = await getCatalogSettings(ctx);
   const byCode = (a: { program: string }, b: { program: string }) => a.program.localeCompare(b.program);
   void byCode;
-  const wb: CatalogWorkbook = { concentrations: [], blocks: [], slots: [], genedAreas: [], catalog: [] };
-  wb.catalog.push({ Setting: GENED_CREDITS_SETTING, Value: settings.genedCredits });
+  const wb: CatalogWorkbook = { concentrations: [], blocks: [], slots: [], genedAreas: [], programAreas: [], catalog: [] };
+  wb.catalog.push({ Setting: GENED_CREDITS_SETTING, Value: settings.genedCredits }, { Setting: FREE_ELECTIVE_CREDITS_SETTING, Value: settings.freeElectiveCredits });
+  for (const m of await ctx.tx.select().from(programGenedArea)) {
+    const a = areas.find((x) => x.id === m.areaId);
+    if (a) wb.programAreas.push({ 'Program code': code(m.programId), 'Program name': name(m.programId), Area: a.code, 'Minimum credits': Number(m.minCredits) });
+  }
   for (const a of areas) {
     const list = pools.filter((p) => p.areaId === a.id).map((p) => courses.find((c) => c.id === p.courseId)?.code ?? '').filter(Boolean).sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
     wb.genedAreas.push({ ID: a.id, Code: a.code, 'Name (English)': a.nameEn, 'Name (Arabic)': a.nameAr ?? '', 'Minimum credits': Number(a.minCredits), Courses: list.join('; ') });

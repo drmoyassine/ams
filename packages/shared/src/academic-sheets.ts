@@ -9,7 +9,7 @@ import { PROGRAM_SHEETS, sheetOfHeaders, type ProgramSheetKey, type ProgramsWork
 
 export type AcademicSheetKey = ProgramSheetKey | CourseSheetKey | CatalogSheetKey;
 /** The sheets in the order of the file (and of the apply). */
-export const ACADEMIC_SHEET_ORDER = ['programs', 'peos', 'plos', 'concentrations', 'blocks', 'genedAreas', 'catalog', 'courses', 'studyPlan', 'slots', 'clos', 'outline', 'materials', 'assessments', 'rubrics', 'sections'] as const satisfies readonly AcademicSheetKey[];
+export const ACADEMIC_SHEET_ORDER = ['programs', 'peos', 'plos', 'concentrations', 'blocks', 'genedAreas', 'programAreas', 'catalog', 'courses', 'studyPlan', 'slots', 'clos', 'outline', 'materials', 'assessments', 'rubrics', 'sections'] as const satisfies readonly AcademicSheetKey[];
 export const ACADEMIC_SHEETS = { ...PROGRAM_SHEETS, ...CATALOG_SHEETS, ...COURSE_SHEETS } as const;
 export const academicSheetName = (k: AcademicSheetKey): string => ACADEMIC_SHEETS[k].name;
 /** The name of a sheet as an older file spelled it, mapped to today's name. */
@@ -17,10 +17,10 @@ export const currentSheetName = (name: string): string => LEGACY_SHEET_NAMES[nam
 
 export type CatalogWorkbook = Record<CatalogSheetKey, ProgramsWorkbook['programs']>;
 export type AcademicWorkbook = ProgramsWorkbook & CoursesWorkbook & CatalogWorkbook;
-export const emptyAcademicWorkbook = (): AcademicWorkbook => ({ programs: [], peos: [], plos: [], concentrations: [], blocks: [], genedAreas: [], catalog: [], slots: [], ...emptyCoursesWorkbook() });
+export const emptyAcademicWorkbook = (): AcademicWorkbook => ({ programs: [], peos: [], plos: [], concentrations: [], blocks: [], genedAreas: [], programAreas: [], catalog: [], slots: [], ...emptyCoursesWorkbook() });
 const rows = z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))).max(20000).default([]);
 export const AcademicWorkbookSchema: z.ZodType<AcademicWorkbook, AcademicWorkbook> = z.object({
-  programs: rows, peos: rows, plos: rows, concentrations: rows, blocks: rows, genedAreas: rows, catalog: rows, slots: rows, courses: rows, studyPlan: rows, clos: rows, outline: rows, materials: rows, assessments: rows, rubrics: rows, sections: rows,
+  programs: rows, peos: rows, plos: rows, concentrations: rows, blocks: rows, genedAreas: rows, programAreas: rows, catalog: rows, slots: rows, courses: rows, studyPlan: rows, clos: rows, outline: rows, materials: rows, assessments: rows, rubrics: rows, sections: rows,
 }).strict() as unknown as z.ZodType<AcademicWorkbook, AcademicWorkbook>;
 
 /** The choices for the template's dropdowns: the programs part's and the courses part's. */

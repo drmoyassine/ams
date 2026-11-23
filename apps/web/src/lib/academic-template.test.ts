@@ -18,6 +18,7 @@ const data: AcademicExport = {
   concentrations: [{ ID: '55555555-5555-4555-8555-555555555555', 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Code: 'THERM', 'Name (English)': 'Thermal Systems', 'Name (Arabic)': '', Active: 'Yes' }],
   blocks: [{ 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Concentration: '', Block: 'Major requirements', 'Core credits': 60, 'Elective credits': 9 }],
   genedAreas: [{ ID: '66666666-6666-4666-8666-666666666666', Code: 'ENG', 'Name (English)': 'English', 'Name (Arabic)': '', 'Minimum credits': 6, Courses: 'ENG 101; ENG 102' }],
+  programAreas: [],
   catalog: [{ Setting: 'General education credits', Value: 36 }],
   slots: [{ ID: '', 'Program code': 'BS-ME', 'Program name': 'BS Mechanical Engineering', Concentration: '', Block: 'Major requirements', 'Slot name': 'Major elective', Rule: 'Any MCE 4xx', Area: '', Credits: 3, Year: 4, Term: 1 }],
   lists: {
@@ -32,7 +33,7 @@ describe('the academic workbook', () => {
     const sheets = academicWorkbookSheets(data);
     expect(sheets.map((s) => [s.name, s.state ?? 'visible'])).toEqual([
       ['README', 'visible'], ['Programs', 'visible'], ['PEOs', 'visible'], ['PLOs', 'visible'], ['Concentrations', 'visible'], ['Requirement blocks', 'visible'], ['Courses', 'visible'], ['Study plan', 'visible'],
-      ['Elective slots', 'visible'], ['GenEd areas', 'visible'], ['Catalog settings', 'visible'], ['CLOs', 'visible'], ['Outline', 'visible'], ['Materials', 'visible'], ['Assessments', 'visible'], ['Rubrics', 'visible'], ['Sections', 'visible'], ['Lists', 'hidden']]);
+      ['Elective slots', 'visible'], ['GenEd areas', 'visible'], ['Program GenEd areas', 'visible'], ['Catalog settings', 'visible'], ['CLOs', 'visible'], ['Outline', 'visible'], ['Materials', 'visible'], ['Assessments', 'visible'], ['Rubrics', 'visible'], ['Sections', 'visible'], ['Lists', 'hidden']]);
     expect(sheets[0]!.lines).toBe(ACADEMIC_README);
     const by = (n: string) => sheets.find((s) => s.name === n)!.columns!;
     expect(by('Programs')[0]).toMatchObject({ header: 'ID', grey: true });
@@ -48,7 +49,9 @@ describe('the academic workbook', () => {
     expect(by('Study plan').find((c) => c.header === 'Role')!.check).toEqual({ list: 'Lists!$P$2:$P$4' });
     // The catalog's structure: blocks from the Lists sheet, concentrations from the Concentrations sheet, areas from the GenEd areas sheet.
     expect(by('Study plan').find((c) => c.header === 'Block')!.check).toEqual({ list: 'Lists!$D$2:$D$3' });
-    expect(by('Study plan').find((c) => c.header === 'Concentration')!.check).toEqual({ list: 'Concentrations!$D$2:$D$302' });
+    // Several concentrations in a Study plan row are separated by ; so it has no dropdown, the Requirement blocks sheet has one.
+    expect(by('Study plan').find((c) => c.header === 'Concentration')!.check).toBeUndefined();
+    expect(by('Requirement blocks').find((c) => c.header === 'Concentration')!.check).toEqual({ list: 'Concentrations!$D$2:$D$302' });
     expect(by('Elective slots').find((c) => c.header === 'Area')!.check).toEqual({ list: "'GenEd areas'!$B$2:$B$302" });
     expect(by('Requirement blocks').find((c) => c.header === 'Program code')!.check).toEqual({ list: 'Programs!$B$2:$B$302' });
     expect(by('Programs').find((c) => c.header === 'Type')!.check).toEqual({ list: 'Lists!$C$2:$C$3' });

@@ -5,7 +5,7 @@
 // institution (Academic Affairs); the approval of a version is a later workflow module.
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import {
-  appUser, catalogEdition, catalogVersion, concentration, course, courseProgram, courseRequisite, genedArea, genedAreaCourse, institution, learningOutcome, orgUnit, outcomeLink, program, programBlock,
+  appUser, catalogEdition, catalogVersion, concentration, course, courseProgram, courseProgramConcentration, courseRequisite, programGenedArea, genedArea, genedAreaCourse, institution, learningOutcome, orgUnit, outcomeLink, program, programBlock,
   studyPlanSlot,
 } from '@ams/db';
 import {
@@ -43,6 +43,8 @@ export async function buildCatalogSnapshot(ctx: Ctx): Promise<CatalogSnapshot> {
   const areas = (await ctx.tx.select().from(genedArea).where(eq(genedArea.active, true))).sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code));
   const pools = await ctx.tx.select().from(genedAreaCourse);
   const reqs = await ctx.tx.select().from(courseRequisite);
+  const planConcs = await ctx.tx.select().from(courseProgramConcentration);
+  const ownMins = await ctx.tx.select().from(programGenedArea);
   const concCode = (id: string | null) => (id ? concs.find((c) => c.id === id)?.code ?? null : null);
   const areaCode = (id: string | null) => (id ? areas.find((a) => a.id === id)?.code ?? null : null);
   const iloById = new Map(outcomes.filter((o) => o.kind === 'ilo' && o.status !== 'retired').map((o) => [o.id, o]));
@@ -57,9 +59,13 @@ export async function buildCatalogSnapshot(ctx: Ctx): Promise<CatalogSnapshot> {
       mode: p.mode, credits: p.credits, durationYears: num(p.durationYears), contactHours: p.contactHours, language: p.languageOfInstruction, mission: p.mission, vision: p.vision, description: p.description,
       peos: mine.filter((o) => o.kind === 'peo').map((o) => ({ code: o.code, textEn: o.textEn, textAr: o.textAr })),
       plos: mine.filter((o) => o.kind === 'plo').map((o) => ({ code: o.code, textEn: o.textEn, textAr: o.textAr, ilos: links.filter((l) => l.fromId === o.id && iloById.has(l.toId)).map((l) => iloById.get(l.toId)!.code).sort() })),
+      gened: {
+        credits: p.genedCredits === null ? settings.genedCredits : Number(p.genedCredits), freeElectiveCredits: p.freeElectiveCredits === null ? settings.freeElectiveCredits : Number(p.freeElectiveCredits),
+        areas: areas.map((a) => ({ code: a.code, minCredits: Number(ownMins.find((m) => m.programId === p.id && m.areaId === a.id)?.minCredits ?? a.minCredits) })),
+      },
       concentrations: pc.map((c) => ({ code: c.code, nameEn: c.nameEn, nameAr: c.nameAr })),
       blocks: blocks.filter((b) => b.programId === p.id && (!b.concentrationId || ids.has(b.concentrationId))).map((b) => ({ concentration: concCode(b.concentrationId), block: b.block, requirement: b.requirement, credits: Number(b.credits) })),
-      plan: plan.filter((x) => x.programId === p.id && codeById.has(x.courseId)).map((x) => ({ course: codeById.get(x.courseId)!, role: x.role, block: x.block, concentration: concCode(x.concentrationId), year: x.year, term: x.term }))
+      plan: plan.filter((x) => x.programId === p.id && codeById.has(x.courseId)).map((x) => ({ course: codeById.get(x.courseId)!, role: x.role, block: x.block, concentrations: planConcs.filter((k) => k.courseProgramId === x.id).map((k) => concCode(k.concentrationId)).filter((c): c is string => !!c).sort(), year: x.year, term: x.term }))
         .sort((a, b) => (a.year ?? 99) - (b.year ?? 99) || (a.term ?? 99) - (b.term ?? 99) || a.course.localeCompare(b.course, 'en', { numeric: true })),
       slots: slots.filter((s) => s.programId === p.id && (!s.concentrationId || ids.has(s.concentrationId))).map((s) => ({ concentration: concCode(s.concentrationId), block: s.block, requirement: s.requirement, area: areaCode(s.areaId), name: s.name, rule: s.rule, credits: Number(s.credits), year: s.year, term: s.term }))
         .sort((a, b) => (a.year ?? 99) - (b.year ?? 99) || (a.term ?? 99) - (b.term ?? 99) || a.name.localeCompare(b.name)),
@@ -83,7 +89,7 @@ export async function buildCatalogSnapshot(ctx: Ctx): Promise<CatalogSnapshot> {
   }));
   return {
     schema: 1, generatedAt: new Date().toISOString(), institution: { nameEn: inst?.nameEn ?? '', nameAr: inst?.nameAr ?? null, mission: null, vision: null },
-    gened: { credits: settings.genedCredits, areas: areas.map((a) => ({ code: a.code, nameEn: a.nameEn, nameAr: a.nameAr, minCredits: Number(a.minCredits), courses: pools.filter((x) => x.areaId === a.id).map((x) => codeById.get(x.courseId)).filter((x): x is string => !!x).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })) })) },
+    gened: { credits: settings.genedCredits, freeElectiveCredits: settings.freeElectiveCredits, areas: areas.map((a) => ({ code: a.code, nameEn: a.nameEn, nameAr: a.nameAr, minCredits: Number(a.minCredits), courses: pools.filter((x) => x.areaId === a.id).map((x) => codeById.get(x.courseId)).filter((x): x is string => !!x).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })) })) },
     ilos: [...iloById.values()].map((o) => ({ code: o.code, textEn: o.textEn, textAr: o.textAr })).sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true })),
     programs: snapPrograms, courses: snapCourses,
   };
@@ -102,6 +108,7 @@ export function diffSnapshots(prev: CatalogSnapshot | null, next: CatalogSnapsho
   if (!prev) { add('Catalog', next.institution.nameEn, `First version: ${next.programs.length} program${next.programs.length === 1 ? '' : 's'} and ${next.courses.length} course${next.courses.length === 1 ? '' : 's'}.`); return out; }
   // General education
   if (prev.gened.credits !== next.gened.credits) add('General education', 'Credits', `General education credits: ${fmt(prev.gened.credits)} → ${fmt(next.gened.credits)}.`);
+  if ((prev.gened.freeElectiveCredits ?? null) !== (next.gened.freeElectiveCredits ?? null)) add('General education', 'Free electives', `Free elective credits: ${fmt(prev.gened.freeElectiveCredits)} → ${fmt(next.gened.freeElectiveCredits)}.`);
   for (const a of next.gened.areas) {
     const was = prev.gened.areas.find((x) => x.code === a.code);
     if (!was) { add('General education', a.code, `Area ${a.nameEn} added (at least ${a.minCredits} credits).`); continue; }
@@ -114,6 +121,9 @@ export function diffSnapshots(prev: CatalogSnapshot | null, next: CatalogSnapsho
   for (const p of next.programs) {
     const was = prev.programs.find((x) => x.code === p.code);
     if (!was) { add('Program', p.code, `${p.nameEn} added${p.type === 'minor' ? ' (minor)' : ''}.`); continue; }
+    if (was.gened && (was.gened.credits !== p.gened.credits)) add('Program', p.code, `General education credits: ${fmt(was.gened.credits)} → ${fmt(p.gened.credits)}.`);
+    if (was.gened && (was.gened.freeElectiveCredits !== p.gened.freeElectiveCredits)) add('Program', p.code, `Free elective credits: ${fmt(was.gened.freeElectiveCredits)} → ${fmt(p.gened.freeElectiveCredits)}.`);
+    for (const a of p.gened.areas) { const w = was.gened?.areas.find((x) => x.code === a.code); if (w && w.minCredits !== a.minCredits) add('Program', p.code, `General education ${a.code} minimum: ${w.minCredits} → ${a.minCredits}.`); }
     const fields: [string, unknown, unknown][] = [['name', was.nameEn, p.nameEn], ['Arabic name', was.nameAr, p.nameAr], ['level', was.level, p.level], ['type', was.type, p.type], ['unit', was.unit, p.unit], ['mode', was.mode, p.mode],
       ['credits', was.credits, p.credits], ['years', was.durationYears, p.durationYears], ['contact hours', was.contactHours, p.contactHours], ['language', was.language, p.language], ['mission', was.mission, p.mission], ['vision', was.vision, p.vision]];
     for (const [name, a, b] of fields) if ((a ?? null) !== (b ?? null)) add('Program', p.code, name === 'mission' || name === 'vision' ? `The ${name} changed.` : `${name[0]!.toUpperCase()}${name.slice(1)}: ${fmt(a)} → ${fmt(b)}.`);
@@ -132,7 +142,8 @@ export function diffSnapshots(prev: CatalogSnapshot | null, next: CatalogSnapsho
       const w = was.plan.find((x) => x.course === r.course);
       if (!w) { add('Study plan', p.code, `${r.course} added (${blockLabel(r.block ?? '')}, ${r.role}, ${when(r.year, r.term)}).`); continue; }
       if (w.year !== r.year || w.term !== r.term) add('Study plan', p.code, `${r.course} moved from ${when(w.year, w.term)} to ${when(r.year, r.term)}.`);
-      if (w.block !== r.block || w.role !== r.role || w.concentration !== r.concentration) add('Study plan', p.code, `${r.course}: now ${blockLabel(r.block ?? '')}, ${r.role}${r.concentration ? `, ${r.concentration}` : ''} (was ${blockLabel(w.block ?? '')}, ${w.role}${w.concentration ? `, ${w.concentration}` : ''}).`);
+      const cs = (x: { concentrations?: string[] }) => (x.concentrations ?? []).join(', ');
+      if (w.block !== r.block || w.role !== r.role || cs(w) !== cs(r)) add('Study plan', p.code, `${r.course}: now ${blockLabel(r.block ?? '')}, ${r.role}${cs(r) ? `, ${cs(r)}` : ''} (was ${blockLabel(w.block ?? '')}, ${w.role}${cs(w) ? `, ${cs(w)}` : ''}).`);
     }
     for (const r of was.plan.filter((x) => !p.plan.some((y) => y.course === x.course))) add('Study plan', p.code, `${r.course} removed.`);
     const skey = (s: SnapProgram['slots'][number]) => `${s.concentration ?? ''}|${s.block}|${s.name}`;

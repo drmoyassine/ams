@@ -12,7 +12,7 @@ import { z } from 'zod';
 export const PROGRAM_SHEETS = {
   programs: {
     name: 'Programs',
-    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Type', 'SIS code', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Active'],
+    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Type', 'SIS code', 'Mode', 'Credits', 'GenEd credits', 'Free elective credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Active'],
     required: ['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission'],
   },
   peos: { name: 'PEOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },

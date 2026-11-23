@@ -242,6 +242,9 @@ export const program = pgTable('program', {
   startYear: integer('start_year'),
   /** A degree, or a minor (DEC-046). */
   programType: text('program_type', { enum: PROGRAM_TYPES }).notNull().default('degree'),
+  /** The program's own General education and Free elective credits when they differ from the institution's (null: the default; DEC-047). */
+  genedCredits: numeric('gened_credits', { precision: 5, scale: 1 }),
+  freeElectiveCredits: numeric('free_elective_credits', { precision: 5, scale: 1 }),
 }, (t) => [index('program_org_unit_idx').on(t.orgUnitId), oneOf('program_degree_level_check', t.degreeLevel, DEGREE_LEVELS)]);
 
 /** A course of the institution, owned by an org unit (TASK-105). Code unique in the institution, case-insensitive. */
@@ -312,9 +315,8 @@ export const courseProgram = pgTable('course_program', {
   role: text('role', { enum: COURSE_ROLES }).notNull().default('core'),
   year: integer('year'),
   term: integer('term'),
-  /** The block of the program's requirements the course sits in, and the concentration it is for (null: all) (DEC-046). */
+  /** The block of the program's requirements the course sits in (DEC-046); its concentrations are in course_program_concentration (DEC-047). */
   block: text('block', { enum: REQUIREMENT_BLOCKS }),
-  concentrationId: uuid('concentration_id').references((): AnyPgColumn => concentration.id, { onDelete: 'set null' }),
 }, (t) => [uniqueIndex('course_program_idx').on(t.courseId, t.programId), index('course_program_program_idx').on(t.programId)]);
 
 /** A track of a program (DEC-046): a student follows one; it has its own core and elective credits. */
@@ -343,6 +345,21 @@ export const genedAreaCourse = pgTable('gened_area_course', {
   areaId: uuid('area_id').notNull().references(() => genedArea.id, { onDelete: 'cascade' }),
   courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
 }, (t) => [uniqueIndex('gened_area_course_idx').on(t.areaId, t.courseId), index('gened_area_course_course_idx').on(t.courseId)]);
+
+/** A program's own minimum for a General education area (0: it does not ask for the area; DEC-047). */
+export const programGenedArea = pgTable('program_gened_area', {
+  ...base(), ...tenant(),
+  programId: uuid('program_id').notNull().references(() => program.id, { onDelete: 'cascade' }),
+  areaId: uuid('area_id').notNull().references(() => genedArea.id, { onDelete: 'cascade' }),
+  minCredits: numeric('min_credits', { precision: 4, scale: 1 }).notNull(),
+}, (t) => [uniqueIndex('program_gened_area_idx').on(t.programId, t.areaId)]);
+
+/** The concentrations a course of a program's study plan counts toward (several when tracks share a course; none: all; DEC-047). */
+export const courseProgramConcentration = pgTable('course_program_concentration', {
+  ...base(), ...tenant(),
+  courseProgramId: uuid('course_program_id').notNull().references(() => courseProgram.id, { onDelete: 'cascade' }),
+  concentrationId: uuid('concentration_id').notNull().references(() => concentration.id, { onDelete: 'cascade' }),
+}, (t) => [uniqueIndex('course_program_concentration_idx').on(t.courseProgramId, t.concentrationId)]);
 
 /** The credits a program (or one concentration) asks of a block, core or elective (DEC-046). */
 export const programBlock = pgTable('program_block', {

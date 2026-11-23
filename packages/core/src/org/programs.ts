@@ -30,11 +30,12 @@ export const toProgram = (r: typeof program.$inferSelect, counts?: { peos: numbe
   code: r.code, externalId: r.externalId, mission: r.mission, vision: r.vision, description: r.description, mode: r.mode,
   durationYears: r.durationYears === null ? null : Number(r.durationYears), credits: r.credits, languageOfInstruction: r.languageOfInstruction,
   campus: r.campus, startYear: r.startYear, contactHours: r.contactHours, programType: r.programType,
+  genedCredits: r.genedCredits === null ? null : Number(r.genedCredits), freeElectiveCredits: r.freeElectiveCredits === null ? null : Number(r.freeElectiveCredits),
   };
   return { ...p, missing: counts ? programMissing(p, counts) : [] };
 };
 
-const FACTS = ['code', 'externalId', 'mission', 'vision', 'description', 'mode', 'durationYears', 'credits', 'contactHours', 'languageOfInstruction', 'campus', 'startYear', 'programType'] as const;
+const FACTS = ['code', 'externalId', 'mission', 'vision', 'description', 'mode', 'durationYears', 'credits', 'contactHours', 'languageOfInstruction', 'campus', 'startYear', 'programType', 'genedCredits', 'freeElectiveCredits'] as const;
 /** The program-record fields of an input, NFC and trimmed; an empty string or null clears one. Only the keys present are returned. */
 function factsOf(input: Partial<Record<(typeof FACTS)[number], unknown>>): Partial<typeof program.$inferInsert> {
   const set: Record<string, unknown> = {};
@@ -43,7 +44,7 @@ function factsOf(input: Partial<Record<(typeof FACTS)[number], unknown>>): Parti
     const v = input[k];
     if (v === null || v === '') set[k] = null;
     else if (typeof v === 'string') set[k] = v.normalize('NFC').trim();
-    else if (k === 'durationYears') set[k] = String(v);
+    else if (k === 'durationYears' || k === 'genedCredits' || k === 'freeElectiveCredits') set[k] = String(v);
     else set[k] = v;
   }
   return set as Partial<typeof program.$inferInsert>;

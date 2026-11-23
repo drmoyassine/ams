@@ -74,6 +74,9 @@ export const ProgramSchema = z.object({
   startYear: z.number().int().nullable(),
   /** A degree, or a minor (a program with its own unit, code, credits and blocks; no PEOs, mode, years or contact hours). */
   programType: z.enum(PROGRAM_TYPES),
+  /** The program's own General education and Free elective credits; null: the institution's default (DEC-047). */
+  genedCredits: z.number().nullable(),
+  freeElectiveCredits: z.number().nullable(),
   /** What the program record still lacks (see `programMissing`): flagged, not refused, on import and the API. */
   missing: z.array(z.string()),
 });
@@ -94,6 +97,8 @@ const programFacts = {
   campus: z.string().trim().nullable().optional(),
   startYear: z.coerce.number().int().min(1900).max(2200).nullable().optional(),
   programType: z.enum(PROGRAM_TYPES).optional(),
+  genedCredits: z.coerce.number().min(0).max(200).nullable().optional(),
+  freeElectiveCredits: z.coerce.number().min(0).max(200).nullable().optional(),
 };
 
 export const CreateProgramSchema = z.object({

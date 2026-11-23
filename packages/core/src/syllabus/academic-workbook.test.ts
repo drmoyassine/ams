@@ -38,7 +38,7 @@ describe('the academic workbook', () => {
     expect(done).toMatchObject({ applied: true, added: 4, drafted: 1, skipped: 0 });
     const program = (await w.as('alo', (c) => listPrograms(c))).find((p) => p.code === 'BS-ACC')!;
     const course = (await w.as('alo', (c) => listCourses(c))).find((x) => x.code === 'ACC 101')!;
-    expect(course.placements).toEqual([{ programId: program.id, role: 'core', year: 1, term: 1, block: null, concentrationId: null }]);
+    expect(course.placements).toEqual([{ programId: program.id, role: 'core', year: 1, term: 1, block: null, concentrationIds: [] }]);
     const open = (await w.as('alo', (c) => getSyllabusOverview(c, course.id))).open!;
     expect(open.content.clos.map((x) => [x.code, x.plos.length])).toEqual([['CLO1', 1]]);
   });
@@ -91,7 +91,7 @@ describe('the degree\'s structure in the same file', () => {
     expect(r.concentrations.map((k) => k.code)).toEqual(['DES']);
     expect(r.genedCredits).toBe(6);
     expect(r.slots.map((x) => [x.name, x.block, x.credits])).toEqual([['GenEd elective', 'general_education', 3], ['Major elective', 'major', 3]]);
-    expect(r.courses.map((x) => [x.code, x.block, x.concentrationId ? 'DES' : null])).toEqual([['HUM 101', 'general_education', null], ['ENG 201', 'major', null], ['ENG 301', 'concentration', 'DES']]);
+    expect(r.courses.map((x) => [x.code, x.block, x.concentrationIds.length ? 'DES' : null])).toEqual([['HUM 101', 'general_education', null], ['ENG 201', 'major', null], ['ENG 301', 'concentration', 'DES']]);
     // 3 + 3 (GenEd) + 9 (major) + 3 (concentration) = 18, not the 15 of the program: the check says so, and nothing else.
     expect(r.issues.map((i) => i.message)).toEqual(['With Design, the blocks add up to 18 credits, the program has 15.']);
     expect(r.areas.find((a) => a.code === 'HUM')!.planned).toBe(6);
@@ -103,7 +103,7 @@ describe('the degree\'s structure in the same file', () => {
     expect(all.blocks.map((x) => [x.Block, x['Core credits'], x['Elective credits']])).toContainEqual(['Major requirements', 6, 3]);
     // Prerequisites: ; is and, | is or; a code that is not a course was left out; they read back in the same syntax.
     expect(all.courses.find((x) => x['Course code'] === 'ENG 301')).toMatchObject({ Prerequisites: 'ENG 201 | HUM 101', 'Other requirements': 'Junior standing' });
-    expect(all.catalog).toEqual([{ Setting: 'General education credits', Value: 6 }]);
+    expect(all.catalog).toEqual([{ Setting: 'General education credits', Value: 6 }, { Setting: 'Free elective credits', Value: null }]);
     expect(all.genedAreas[0]).toMatchObject({ Code: 'HUM', Courses: 'HUM 101' });
     expect(all.studyPlan.find((x) => x['Course code'] === 'ENG 301')).toMatchObject({ Block: 'Concentration requirements', Concentration: 'DES' });
     const { lists: _l, ...rows } = all; void _l;

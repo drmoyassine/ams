@@ -596,6 +596,13 @@
       "when": 1793635200000,
       "tag": "0086_catalog_editions",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793721600000,
+      "tag": "0087_gened_overrides_free_electives",
+      "breakpoints": true
     }
   ]
 }

@@ -2,11 +2,11 @@ import { OpenAPIHono, type Hook } from '@hono/zod-openapi';
 import { z } from 'zod';
 import {
   createConcentration, createGenedArea, createStudySlot, deleteConcentration, getCatalogVersion, listCatalogEditions, previewCatalogSnapshot, publishCatalogVersion, startCatalogEdition, deleteGenedArea, deleteStudySlot, getProgramRequirements, listGenedAreas, setAreaCourses, setCatalogSettings, setProgramBlock,
-  updateConcentration, updateGenedArea, updateStudySlot,
+  setProgramGenedArea, updateConcentration, updateGenedArea, updateStudySlot,
 } from '@ams/core';
 import {
   CatalogEditionSchema, CatalogEditionsSchema, CatalogSettingsSchema, CatalogSnapshotSchema, CatalogVersionSchema, CatalogVersionSummarySchema, ConcentrationSchema, PublishVersionSchema, StartEditionSchema, CreateConcentrationSchema, CreateGenedAreaSchema, CreateStudySlotSchema, GenedAreaSchema, GenedOverviewSchema, ProgramBlockSchema, ProgramRequirementsSchema,
-  SetAreaCoursesSchema, SetProgramBlockSchema, StudySlotSchema, UpdateConcentrationSchema, UpdateGenedAreaSchema, UpdateStudySlotSchema, toDto,
+  SetAreaCoursesSchema, SetProgramBlockSchema, SetProgramGenedAreaSchema, StudySlotSchema, UpdateConcentrationSchema, UpdateGenedAreaSchema, UpdateStudySlotSchema, toDto,
 } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
@@ -25,8 +25,8 @@ export function catalogRoutes(registry: RouteRegistry, deps: ChainDeps, options:
 
     .openapi(secured(registry, deps, {
       method: 'put', path: '/api/catalog/settings', access: requires('program:write'), tags: tag,
-      description: 'Sets the credits of General Education, the same for every degree (needs program:write for the whole institution).',
-      request: { body: { required: true, ...json(CatalogSettingsSchema) } },
+      description: 'Sets the institution\'s defaults: the credits of General education and of Free electives (a program may set its own). A field left out stays as it is. Needs program:write for the whole institution.',
+      request: { body: { required: true, ...json(CatalogSettingsSchema.partial()) } },
       responses: { 200: { description: 'The settings', ...json(CatalogSettingsSchema) }, ...errors },
     }), async (c) => c.json(toDto(CatalogSettingsSchema, await setCatalogSettings(c.get('ctx'), c.req.valid('json'))), 200))
 
@@ -94,6 +94,13 @@ export function catalogRoutes(registry: RouteRegistry, deps: ChainDeps, options:
       request: { params: idParam },
       responses: { 200: { description: 'The requirements', ...json(ProgramRequirementsSchema) }, ...errors },
     }), async (c) => c.json(toDto(ProgramRequirementsSchema, await getProgramRequirements(c.get('ctx'), c.req.valid('param').id)), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/program-gened-areas', access: requires('program:write'), tags: tag,
+      description: 'Sets a program\'s own minimum for a General education area (0: the program does not ask for it); null returns it to the institution\'s.',
+      request: { body: { required: true, ...json(SetProgramGenedAreaSchema) } },
+      responses: { 200: { description: 'The minimum that is now the program\'s own', ...json(z.object({ minCredits: z.number().nullable() })) }, ...errors },
+    }), async (c) => c.json(await setProgramGenedArea(c.get('ctx'), c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'post', path: '/api/concentrations', access: requires('program:write'), tags: tag,

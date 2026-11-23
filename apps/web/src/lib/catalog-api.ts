@@ -17,7 +17,7 @@ export function catalogApi(fetcher: typeof fetch = fetch) {
   const a = hc<CatalogRoutes>('/', { fetch: wrapped }).api;
   return {
     gened: () => a.catalog.gened.$get().then((r) => unwrap<GenedOverview>(r)),
-    setSettings: (json: CatalogSettings) => a.catalog.settings.$put({ json }).then((r) => unwrap<CatalogSettings>(r)),
+    setSettings: (json: Partial<CatalogSettings>) => a.catalog.settings.$put({ json }).then((r) => unwrap<CatalogSettings>(r)),
     createArea: (json: CreateGenedArea) => a.catalog.gened.areas.$post({ json }).then((r) => unwrap<GenedArea>(r)),
     updateArea: (id: string, json: UpdateGenedArea) => a.catalog.gened.areas[':id'].$patch({ param: { id }, json }).then((r) => unwrap<GenedArea>(r)),
     deleteArea: (id: string) => a.catalog.gened.areas[':id'].$delete({ param: { id } }).then((r) => unwrap<{ deleted: boolean }>(r)),
@@ -28,6 +28,7 @@ export function catalogApi(fetcher: typeof fetch = fetch) {
     version: (id: string) => a.catalog.versions[':id'].$get({ param: { id } }).then((r) => unwrap<CatalogVersion>(r)),
     preview: () => a.catalog.preview.$get().then((r) => unwrap<CatalogSnapshot>(r)),
     requirements: (programId: string) => a.programs[':id'].requirements.$get({ param: { id: programId } }).then((r) => unwrap<ProgramRequirements>(r)),
+    setProgramGenedArea: (json: { programId: string; areaId: string; minCredits: number | null }) => a['program-gened-areas'].$put({ json }).then((r) => unwrap<{ minCredits: number | null }>(r)),
     createConcentration: (json: CreateConcentration) => a.concentrations.$post({ json }).then((r) => unwrap<Concentration>(r)),
     updateConcentration: (id: string, json: UpdateConcentration) => a.concentrations[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Concentration>(r)),
     deleteConcentration: (id: string) => a.concentrations[':id'].$delete({ param: { id } }).then((r) => unwrap<{ deleted: boolean; concentration: Concentration }>(r)),

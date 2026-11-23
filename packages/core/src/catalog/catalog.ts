@@ -2,11 +2,11 @@
 // a pool of courses), owned by Academic Affairs: whoever holds program:write for the whole institution. Concentrations, block credits and
 // elective slots belong to a program (program:write at the program). The checks are flagged, never refused.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { concentration, course, courseProgram, courseRequisite, genedArea, genedAreaCourse, institution, program, programBlock, studyPlanSlot } from '@ams/db';
+import { concentration, course, courseProgram, courseProgramConcentration, courseRequisite, programGenedArea, genedArea, genedAreaCourse, institution, program, programBlock, studyPlanSlot } from '@ams/db';
 import {
   CatalogSettingsSchema, REQUIREMENT_BLOCKS, REQUIREMENT_KINDS,
   type BlockTotal, type CatalogSettings, type Concentration, type CreateConcentration, type CreateGenedArea, type CreateStudySlot, type GenedArea, type GenedOverview,
-  type ProgramBlock, type ProgramRequirements, type RequirementBlock, type RequirementIssue, type RequirementKind, type SetProgramBlock, type StudySlot, type UpdateConcentration,
+  type ProgramBlock, type ProgramRequirements, type SetProgramGenedArea, type RequirementBlock, type RequirementIssue, type RequirementKind, type SetProgramBlock, type StudySlot, type UpdateConcentration,
   type UpdateGenedArea, type UpdateStudySlot,
 } from '@ams/shared';
 import { ConflictError, NotFoundError, ValidationError, type Ctx } from '../ctx.js';
@@ -24,12 +24,13 @@ const programScope = (id: string) => ({ type: 'program', id }) as const;
 
 export async function getCatalogSettings(ctx: Ctx): Promise<CatalogSettings> {
   const [row] = await ctx.tx.select({ s: institution.catalogSettings }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
-  return CatalogSettingsSchema.parse({ genedCredits: null, ...(row?.s ?? {}) });
+  return CatalogSettingsSchema.parse({ genedCredits: null, freeElectiveCredits: null, ...(row?.s ?? {}) });
 }
-export async function setCatalogSettings(ctx: Ctx, input: CatalogSettings): Promise<CatalogSettings> {
+/** Sets the institution's defaults; a field left out stays as it is. */
+export async function setCatalogSettings(ctx: Ctx, input: Partial<CatalogSettings>): Promise<CatalogSettings> {
   assertHuman(ctx);
   await assertPermitted(ctx, 'program:write', ALL);
-  const next = CatalogSettingsSchema.parse(input);
+  const next = CatalogSettingsSchema.parse({ ...(await getCatalogSettings(ctx)), ...input });
   await ctx.tx.update(institution).set({ catalogSettings: next }).where(eq(institution.id, ctx.caller.institutionId));
   return next;
 }
@@ -86,6 +87,22 @@ export async function setAreaCourses(ctx: Ctx, areaId: string, courseIds: string
   return toArea(area, ids);
 }
 
+/** A program's own minimum for a General education area; null returns it to the institution's. */
+export async function setProgramGenedArea(ctx: Ctx, input: SetProgramGenedArea): Promise<{ minCredits: number | null }> {
+  assertHuman(ctx);
+  await loadProgram(ctx, input.programId);
+  await assertPermitted(ctx, 'program:write', programScope(input.programId));
+  if (!(await ctx.tx.select({ id: genedArea.id }).from(genedArea).where(eq(genedArea.id, input.areaId))).length) throw new NotFoundError(`GenEd area ${input.areaId}`);
+  const same = and(eq(programGenedArea.programId, input.programId), eq(programGenedArea.areaId, input.areaId));
+  if (input.minCredits === null) { await ctx.tx.delete(programGenedArea).where(same); return { minCredits: null }; }
+  const [cur] = await ctx.tx.select().from(programGenedArea).where(same);
+  if (cur) await ctx.tx.update(programGenedArea).set({ minCredits: String(input.minCredits) }).where(eq(programGenedArea.id, cur.id));
+  else await ctx.tx.insert(programGenedArea).values({ institutionId: ctx.caller.institutionId, programId: input.programId, areaId: input.areaId, minCredits: String(input.minCredits) });
+  return { minCredits: input.minCredits };
+}
+
+const SHORT: Record<RequirementBlock, string> = { general_education: 'General education', free_elective: 'Free electives', college: 'College', major: 'Major', concentration: 'Concentration' };
+
 // ---- Concentrations ---------------------------------------------------------------------------------------------------------------
 
 const toConcentration = (r: typeof concentration.$inferSelect): Concentration => ({ id: r.id, programId: r.programId, code: r.code, nameEn: r.nameEn, nameAr: r.nameAr, displayOrder: r.displayOrder, active: r.active });
@@ -129,7 +146,7 @@ export async function deleteConcentration(ctx: Ctx, id: string): Promise<{ delet
   const [cur] = await ctx.tx.select().from(concentration).where(eq(concentration.id, id));
   if (!cur) throw new NotFoundError(`concentration ${id}`);
   await assertPermitted(ctx, 'program:write', programScope(cur.programId));
-  const used = (await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(courseProgram).where(eq(courseProgram.concentrationId, id)))[0]!.n
+  const used = (await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(courseProgramConcentration).where(eq(courseProgramConcentration.concentrationId, id)))[0]!.n
     + (await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(studyPlanSlot).where(eq(studyPlanSlot.concentrationId, id)))[0]!.n
     + (await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(programBlock).where(eq(programBlock.concentrationId, id)))[0]!.n;
   if (used) {
@@ -233,15 +250,17 @@ export async function getProgramRequirements(ctx: Ctx, programId: string): Promi
   const areas = await ctx.tx.select().from(genedArea).where(eq(genedArea.active, true)).orderBy(asc(genedArea.displayOrder), asc(genedArea.code));
   const pools = areas.length ? await ctx.tx.select().from(genedAreaCourse) : [];
   const areaIdsOf = (courseId: string) => pools.filter((x) => x.courseId === courseId).map((x) => x.areaId);
+  const concsOf = links.length ? await ctx.tx.select().from(courseProgramConcentration).where(inArray(courseProgramConcentration.courseProgramId, links.map((l) => l.cp.id))) : [];
   const courses = links.map(({ cp, c }) => ({
-    courseId: c.id, code: c.code, titleEn: c.titleEn, credits: num(c.credits), role: cp.role, block: cp.block, concentrationId: cp.concentrationId, year: cp.year, term: cp.term, areaIds: areaIdsOf(c.id),
+    courseId: c.id, code: c.code, titleEn: c.titleEn, credits: num(c.credits), role: cp.role, block: cp.block, concentrationIds: concsOf.filter((x) => x.courseProgramId === cp.id).map((x) => x.concentrationId), year: cp.year, term: cp.term, areaIds: areaIdsOf(c.id),
   })).sort((a, b) => (a.year ?? 99) - (b.year ?? 99) || (a.term ?? 99) - (b.term ?? 99) || a.code.localeCompare(b.code, 'en', { numeric: true }));
 
   // Planned credits per (concentration, block, requirement): courses (service counts as core) and slots.
   const key = (c: string | null, b: RequirementBlock, r: RequirementKind) => `${c ?? ''}|${b}|${r}`;
   const planned = new Map<string, number>();
   const add = (c: string | null, b: RequirementBlock | null, r: RequirementKind, credits: number) => { if (b) planned.set(key(c, b, r), (planned.get(key(c, b, r)) ?? 0) + credits); };
-  for (const c of courses) add(c.concentrationId, c.block, c.role === 'elective' ? 'elective' : 'core', c.credits ?? 0);
+  // A course of several concentrations counts toward each (a student follows one); one of none counts for every student.
+  for (const c of courses) for (const k of c.concentrationIds.length ? c.concentrationIds : [null]) add(k, c.block, c.role === 'elective' ? 'elective' : 'core', c.credits ?? 0);
   for (const s of slots) add(s.concentrationId, s.block, s.requirement, s.credits);
   const target = new Map(blocks.map((b) => [key(b.concentrationId, b.block, b.requirement), b.credits]));
   const keys = new Set([...planned.keys(), ...target.keys()]);
@@ -258,16 +277,25 @@ export async function getProgramRequirements(ctx: Ctx, programId: string): Promi
   if (unplaced.length) issues.push({ kind: 'unplaced_course', message: `${unplaced.length} course${unplaced.length === 1 ? ' is' : 's are'} in no block of the requirements (${unplaced.slice(0, 4).map((c) => c.code).join(', ')}${unplaced.length > 4 ? '…' : ''}): they are not counted.`, concentrationId: null, block: null });
   // Each block's credits against what is asked of it.
   for (const t of totals) {
-    if (t.target !== null && r1(t.target) !== t.planned) issues.push({ kind: 'block_credits', message: `${t.concentrationId ? `${concName(t.concentrationId)}: ` : ''}${t.block === 'general_education' ? 'General education' : t.block === 'college' ? 'College' : t.block === 'major' ? 'Major' : 'Concentration'} ${t.requirement} credits: ${fmt(t.planned)} planned, ${fmt(t.target)} asked.`, concentrationId: t.concentrationId, block: t.block });
+    if (t.target !== null && r1(t.target) !== t.planned) issues.push({ kind: 'block_credits', message: `${t.concentrationId ? `${concName(t.concentrationId)}: ` : ''}${SHORT[t.block]} ${t.requirement} credits: ${fmt(t.planned)} planned, ${fmt(t.target)} asked.`, concentrationId: t.concentrationId, block: t.block });
   }
-  // General Education: the institution's total, and each area's minimum.
-  const gePlanned = (r: RequirementKind) => planned.get(key(null, 'general_education', r)) ?? 0;
-  const geTotal = gePlanned('core') + gePlanned('elective');
-  if (!minor && settings.genedCredits !== null && (geTotal > 0 || courses.length) && r1(geTotal) !== r1(settings.genedCredits)) issues.push({ kind: 'gened_total', message: `General education: ${fmt(geTotal)} credits planned, the institution asks ${fmt(settings.genedCredits)}.`, concentrationId: null, block: 'general_education' });
+  // General Education and Free electives: the program's own credits, else the institution's; each area's minimum, the program's own else the institution's.
+  const blockPlanned = (b: RequirementBlock) => (planned.get(key(null, b, 'core')) ?? 0) + (planned.get(key(null, b, 'elective')) ?? 0);
+  const geTotal = blockPlanned('general_education');
+  const genedOwn = p.genedCredits === null ? null : Number(p.genedCredits);
+  const freeOwn = p.freeElectiveCredits === null ? null : Number(p.freeElectiveCredits);
+  const genedCredits = genedOwn ?? settings.genedCredits;
+  const freeElectiveCredits = freeOwn ?? settings.freeElectiveCredits;
+  const who = (own: number | null) => (own !== null ? 'the program asks' : 'the institution asks');
+  if (!minor && genedCredits !== null && (geTotal > 0 || courses.length) && r1(geTotal) !== r1(genedCredits)) issues.push({ kind: 'gened_total', message: `General education: ${fmt(geTotal)} credits planned, ${who(genedOwn)} ${fmt(genedCredits)}.`, concentrationId: null, block: 'general_education' });
+  const freeTotal = blockPlanned('free_elective');
+  if (!minor && freeElectiveCredits !== null && (freeTotal > 0 || courses.length) && r1(freeTotal) !== r1(freeElectiveCredits)) issues.push({ kind: 'free_elective_total', message: `Free electives: ${fmt(freeTotal)} credits planned, ${who(freeOwn)} ${fmt(freeElectiveCredits)}.`, concentrationId: null, block: 'free_elective' });
+  const ownMin = new Map((await ctx.tx.select().from(programGenedArea).where(eq(programGenedArea.programId, programId))).map((x) => [x.areaId, Number(x.minCredits)]));
   const areaRows = areas.map((a) => {
     const fromCourses = courses.filter((c) => c.block === 'general_education' && c.areaIds.includes(a.id)).reduce((n, c) => n + (c.credits ?? 0), 0);
     const fromSlots = slots.filter((s) => s.block === 'general_education' && s.areaId === a.id).reduce((n, s) => n + s.credits, 0);
-    return { id: a.id, code: a.code, nameEn: a.nameEn, nameAr: a.nameAr, minCredits: Number(a.minCredits), displayOrder: a.displayOrder, active: a.active, planned: r1(fromCourses + fromSlots) };
+    const defaultMin = Number(a.minCredits);
+    return { id: a.id, code: a.code, nameEn: a.nameEn, nameAr: a.nameAr, minCredits: ownMin.get(a.id) ?? defaultMin, defaultMin, overridden: ownMin.has(a.id), displayOrder: a.displayOrder, active: a.active, planned: r1(fromCourses + fromSlots) };
   });
   if (!minor) for (const a of areaRows) if (a.minCredits > 0 && a.planned < a.minCredits && (geTotal > 0 || courses.length)) issues.push({ kind: 'gened_area', message: `General education, ${a.nameEn}: ${fmt(a.planned)} credits planned, at least ${fmt(a.minCredits)} asked.`, concentrationId: null, block: 'general_education' });
   // The degree's credits: the common blocks plus any one concentration.
@@ -283,7 +311,10 @@ export async function getProgramRequirements(ctx: Ctx, programId: string): Promi
   }
   // Requisites: each prerequisite group needs one of its courses in this study plan, placed before the course; and no cycles.
   await requisiteIssues(ctx, courses, issues);
-  return { programId, programType: p.programType, credits: p.credits, genedCredits: settings.genedCredits, concentrations, blocks, slots, courses, areas: areaRows, totals, issues };
+  return {
+    programId, programType: p.programType, credits: p.credits,
+    genedCredits, genedDefault: settings.genedCredits, genedOverridden: genedOwn !== null, freeElectiveCredits, freeElectiveDefault: settings.freeElectiveCredits, freeElectiveOverridden: freeOwn !== null,
+    concentrations, blocks, slots, courses, areas: areaRows, totals, issues };
 }
 
 /** Throws unless the course is in the program's study plan (used where a block or a concentration is set for it). */

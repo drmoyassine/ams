@@ -21,12 +21,19 @@ export const CATALOG_SHEETS = {
     headers: ['ID', 'Code', 'Name (English)', 'Name (Arabic)', 'Minimum credits', 'Courses'] as readonly string[],
     required: ['Code', 'Name (English)'] as readonly string[],
   },
+  /** A program's own minimum for a General education area (0: it does not ask for it; empty: the institution's). */
+  programAreas: {
+    name: 'Program GenEd areas',
+    headers: ['Program code', 'Program name', 'Area', 'Minimum credits'] as readonly string[],
+    required: ['Program code', 'Area'] as readonly string[],
+  },
   catalog: { name: 'Catalog settings', headers: ['Setting', 'Value'] as readonly string[], required: ['Setting', 'Value'] as readonly string[] },
 } as const;
 export type CatalogSheetKey = keyof typeof CATALOG_SHEETS;
 export const CATALOG_SHEET_KEYS = Object.keys(CATALOG_SHEETS) as CatalogSheetKey[];
-/** The one setting: the credits of General Education. */
+/** The settings: the institution's default credits of General education and of Free electives. */
 export const GENED_CREDITS_SETTING = 'General education credits';
+export const FREE_ELECTIVE_CREDITS_SETTING = 'Free elective credits';
 
 /** Which sheet a CSV file is, from its headers. */
 export function catalogSheetOfHeaders(headers: string[]): CatalogSheetKey | null {
@@ -34,6 +41,7 @@ export function catalogSheetOfHeaders(headers: string[]): CatalogSheetKey | null
   if (h.has('setting') && h.has('value')) return 'catalog';
   if (h.has('slotname')) return 'slots';
   if (h.has('corecredits') || h.has('electivecredits')) return 'blocks';
+  if (h.has('minimumcredits') && h.has('programcode')) return 'programAreas';
   if (h.has('minimumcredits')) return 'genedAreas';
   if (h.has('programcode') && h.has('code') && h.has('nameenglish') && !h.has('mission')) return 'concentrations';
   return null;

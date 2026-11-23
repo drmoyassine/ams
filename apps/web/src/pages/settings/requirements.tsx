@@ -8,7 +8,9 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useCatalogApi, type CatalogApi } from '../../lib/catalog-api';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
+import { ConcentrationChips } from '../../components/catalog/concentration-chips';
 import { useAction } from '../../lib/use-action';
+import { useSettingsApi, type SettingsApi } from '../../lib/settings-api';
 
 const select = 'h-8 rounded-md border border-border bg-background px-2 text-sm';
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
@@ -25,7 +27,22 @@ function CreditCell({ label, value, disabled, onSave }: { label: string; value: 
   );
 }
 
-export function RequirementsSection({ programId, canWrite, catalog: catalogOverride, outcomes: outcomesOverride }: { programId: string; canWrite: boolean; catalog?: CatalogApi; outcomes?: OutcomesApi }) {
+/** A program's own value beside the institution's default: empty means the default. Saved when the field loses focus. */
+function Override({ label, own, fallback, disabled, compact, onSave }: { label: string; own: number | null; fallback: number | null; disabled: boolean; compact?: boolean; onSave: (v: number | null) => void }) {
+  const [draft, setDraft] = useState(own === null ? '' : String(own));
+  return (
+    <label className={`flex ${compact ? 'items-center' : 'flex-col'} gap-1 text-xs`}>{!compact && <span>{label}</span>}
+      <Input aria-label={label} inputMode="decimal" className="h-8 w-20" disabled={disabled} value={draft} placeholder={fallback === null ? '—' : String(fallback)} onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { const n = num(draft); if (n === own || (n !== null && Number.isNaN(n))) { setDraft(own === null ? '' : String(own)); return; } onSave(n); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }} />
+      <span className="text-muted-foreground">{own === null ? `institution: ${fallback === null ? 'not set' : fmt(fallback)}` : `own (institution: ${fallback === null ? 'not set' : fmt(fallback)})`}</span>
+    </label>
+  );
+}
+
+export function RequirementsSection({ programId, canWrite, catalog: catalogOverride, outcomes: outcomesOverride, settings: settingsOverride }: { programId: string; canWrite: boolean; catalog?: CatalogApi; outcomes?: OutcomesApi; settings?: SettingsApi }) {
+  const sapi = useSettingsApi(settingsOverride);
+  const settingsUpdate = (patch: { genedCredits?: number | null; freeElectiveCredits?: number | null }) => sapi.updateProgram(programId, patch);
   const api = useCatalogApi(catalogOverride);
   const oapi = useOutcomesApi(outcomesOverride);
   const qc = useQueryClient();
@@ -50,7 +67,7 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
   const setBlock = (concentrationId: string | null, block: RequirementBlock, requirement: 'core' | 'elective', credits: number | null) =>
     run.mutate(() => api.setBlock({ programId, block, requirement, credits, ...(concentrationId ? { concentrationId } : {}) }));
   const rows: { concentrationId: string | null; block: RequirementBlock; label: string }[] = [
-    ...(['general_education', 'college', 'major'] as const).filter((b) => !(minor && b === 'general_education')).map((b) => ({ concentrationId: null, block: b, label: BLOCK_LABEL[b] })),
+    ...(['general_education', 'free_elective', 'college', 'major'] as const).filter((b) => !(minor && (b === 'general_education' || b === 'free_elective'))).map((b) => ({ concentrationId: null, block: b, label: BLOCK_LABEL[b] })),
     ...r.concentrations.filter((c) => c.active).map((c) => ({ concentrationId: c.id, block: 'concentration' as const, label: `${BLOCK_LABEL.concentration}: ${c.nameEn}` })),
   ];
   const plan = (c: StudyPlanCourse) => (
@@ -58,16 +75,14 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
       <td className="px-2 py-1 font-mono">{c.code}</td><td className="px-2 py-1">{c.titleEn}</td><td className="px-2 py-1 text-end">{fmt(c.credits)}</td>
       <td className="px-2 py-1">
         <select aria-label={`Block of ${c.code}`} className={select} disabled={!canWrite} value={c.block ?? ''}
-          onChange={(e) => { const v = e.target.value; run.mutate(() => oapi.setCourseProgram(c.courseId, programId, { role: c.role, year: c.year, term: c.term, block: (v || null) as RequirementBlock | null, ...(v !== 'concentration' ? { concentrationId: null } : {}) })); }}>
+          onChange={(e) => { const v = e.target.value; run.mutate(() => oapi.setCourseProgram(c.courseId, programId, { role: c.role, year: c.year, term: c.term, block: (v || null) as RequirementBlock | null })); }}>
           <option value="">No block</option>{REQUIREMENT_BLOCKS.map((b) => <option key={b} value={b}>{BLOCK_LABEL[b]}</option>)}
         </select>
       </td>
       <td className="px-2 py-1">
         {r.concentrations.length > 0 && (
-          <select aria-label={`Concentration of ${c.code}`} className={select} disabled={!canWrite} value={c.concentrationId ?? ''}
-            onChange={(e) => { const v = e.target.value; run.mutate(() => oapi.setCourseProgram(c.courseId, programId, { role: c.role, year: c.year, term: c.term, concentrationId: v || null })); }}>
-            <option value="">All</option>{r.concentrations.map((k) => <option key={k.id} value={k.id}>{k.nameEn}</option>)}
-          </select>
+          <ConcentrationChips label={`Concentrations of ${c.code}`} all={r.concentrations} value={c.concentrationIds} disabled={!canWrite}
+            onChange={(ids) => run.mutate(() => oapi.setCourseProgram(c.courseId, programId, { role: c.role, year: c.year, term: c.term, concentrationIds: ids }))} />
         )}
       </td>
       <td className="px-2 py-1">{ROLE_LABEL[c.role]}</td><td className="px-2 py-1 whitespace-nowrap">{c.year ? `Y${c.year}` : ''}{c.term ? ` T${c.term}` : ''}</td>
@@ -103,11 +118,29 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-muted-foreground">Program credits: {fmt(r.credits)}.{!minor && r.genedCredits !== null ? ` General education: ${fmt(r.genedCredits)} for every degree.` : ''}</p>
-          {!minor && r.areas.length > 0 && (
-            <ul aria-label="General education areas" className="flex flex-wrap gap-2 text-xs">
-              {r.areas.map((a) => <li key={a.id} className={`rounded border px-2 py-0.5 ${a.minCredits > 0 && a.planned < a.minCredits ? 'border-amber-400 bg-amber-50' : 'border-border'}`}>{a.nameEn}: {fmt(a.planned)}{a.minCredits > 0 ? ` of at least ${fmt(a.minCredits)}` : ''}</li>)}
-            </ul>
+          <p className="text-xs text-muted-foreground">Program credits: {fmt(r.credits)}.</p>
+          {!minor && (
+            <div className="space-y-2 rounded-md border border-border p-2" role="group" aria-label="General education and free electives">
+              <p className="text-xs text-muted-foreground">General education and Free electives come from the institution; this program can set its own. Empty: the institution&apos;s default.</p>
+              <div className="flex flex-wrap items-end gap-3">
+                <Override label="General education credits" own={r.genedOverridden ? r.genedCredits : null} fallback={r.genedDefault} disabled={!canWrite} onSave={(v) => run.mutate(() => settingsUpdate({ genedCredits: v }))} />
+                <Override label="Free elective credits" own={r.freeElectiveOverridden ? r.freeElectiveCredits : null} fallback={r.freeElectiveDefault} disabled={!canWrite} onSave={(v) => run.mutate(() => settingsUpdate({ freeElectiveCredits: v }))} />
+              </div>
+              {r.areas.length > 0 && (
+                <table aria-label="General education areas" className="w-full text-xs">
+                  <thead className="text-muted-foreground"><tr><th className="px-1 text-start">Area</th><th className="px-1 text-start">Minimum (this program)</th><th className="px-1 text-end">Planned</th></tr></thead>
+                  <tbody>
+                    {r.areas.map((a) => (
+                      <tr key={a.id} className={a.minCredits > 0 && a.planned < a.minCredits ? 'bg-amber-50' : ''}>
+                        <td className="px-1">{a.nameEn}</td>
+                        <td className="px-1"><Override label={`Minimum of ${a.nameEn}`} own={a.overridden ? a.minCredits : null} fallback={a.defaultMin} disabled={!canWrite} compact onSave={(v) => run.mutate(() => api.setProgramGenedArea({ programId, areaId: a.id, minCredits: v }))} /></td>
+                        <td className="px-1 text-end">{fmt(a.planned)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
         </div>
 
