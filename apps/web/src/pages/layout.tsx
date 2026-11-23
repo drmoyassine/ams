@@ -40,7 +40,7 @@ export function MyWorkLink({ enabled, notify = false, api, evidence }: { enabled
   const runs = useMyRuns(evidence ? { evidence } : {}, notify);
   const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0) + unread + (runs.data?.length ?? 0);
   if ((!enabled && !notify) || count === 0) return null;
-  return <Link to="/quality-management" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
+  return <Link to="/quality-management/legacy" search={{ tab: 'my-work' }} className={navLink}>{t('nav.myWork', { count })}</Link>;
 }
 
 /** Focusable elements inside the drawer, for keeping Tab inside it while it is open. */

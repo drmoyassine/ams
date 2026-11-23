@@ -698,6 +698,6 @@ describe('the menu', () => {
     await atReview();
     render(wrap(shell('qaHead')));
     const link = await within(await nav()).findByRole('link', { name: /^My work \(\d+\)$/ });
-    expect(link.getAttribute('href')).toBe('/quality-management?tab=my-work');
+    expect(link.getAttribute('href')).toBe('/quality-management/legacy?tab=my-work');
   });
 });

@@ -19,6 +19,8 @@ import { anchorLabels, statusLabels, type T } from './labels';
 const control = 'rounded-md border border-border bg-background px-3 py-2 text-sm';
 const small = 'px-3 py-1';
 
+import { QualityOfficeCard } from './quality-office';
+
 export function QualityManagementSettingsPage({ api = defaultCyclesApi, settingsApi = defaultSettingsApi, onOpen }: {
   api?: CyclesApi; settingsApi?: SettingsApi; onOpen: (id: string) => void;
 }) {
@@ -67,6 +69,7 @@ export function QualityManagementSettingsPage({ api = defaultCyclesApi, settings
         <h2 className="text-xl font-semibold">{t('qmt.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('qmt.intro')}</p>
       </div>
+      <QualityOfficeCard settings={settingsApi} />
       <ReadOnlyNote show={me.isSuccess && !canManage} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="text-sm text-green-800">{message}</p>}

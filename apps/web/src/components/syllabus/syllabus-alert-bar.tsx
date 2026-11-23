@@ -17,9 +17,9 @@ export function SyllabusAlertBar({ enabled, api: override }: { enabled: boolean;
         {rows.slice(0, 4).map((r) => (
           <Link key={r.courseId} to="/settings/courses/$courseId" params={{ courseId: r.courseId }} className="underline underline-offset-2">{r.code} ({r.errorCount})</Link>
         ))}
-        {rows.length > 4 && <Link to="/quality-management" search={{ tab: 'syllabi' }} className="underline underline-offset-2">and {rows.length - 4} more</Link>}
+        {rows.length > 4 && <Link to="/quality-management/legacy" search={{ tab: 'syllabi' }} className="underline underline-offset-2">and {rows.length - 4} more</Link>}
       </span>
-      <Link to="/quality-management" search={{ tab: 'syllabi' }} className="ms-auto underline underline-offset-2">Open the list</Link>
+      <Link to="/quality-management/legacy" search={{ tab: 'syllabi' }} className="ms-auto underline underline-offset-2">Open the list</Link>
     </div>
   );
 }

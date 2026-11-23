@@ -651,6 +651,8 @@ function pagesFor(ids) {
     { name: 'my-requests', path: '/requests' },
     // The course syllabus (DEC-038): the Syllabi list, the course page with its content, the syllabus report with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
+    { name: 'qm-standards', path: '/quality-management', action: async (page) => { await page.getByRole('tablist', { name: 'IQF standards' }).or(page.getByTestId('no-standards')).first().waitFor(); } },
+    { name: 'qm-legacy', path: '/quality-management/legacy', action: async (page) => { await page.getByRole('tab', { name: 'Programs' }).waitFor(); } },
     { name: 'qm-programs', path: '/quality-management?tab=programs', action: async (page) => { await page.getByRole('region', { name: 'Assessment' }).waitFor(); } },
     { name: 'program-edit', path: '/settings/programs', action: async (page) => { await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'settings-api-keys', path: '/settings/api-keys', action: async (page) => { await page.getByRole('form', { name: 'Issue a key' }).waitFor(); } },

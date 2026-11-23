@@ -195,7 +195,6 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'ops.scope.wouldBeNone': 'Without its own scope it would have none.',
   'ops.scope.level': 'Level',
   'ops.scope.inactive': 'inactive',
-  'ops.scope.noCourses': 'No courses yet. A scope at this level covers every course once courses exist.',
   'ops.scope.noList': '{{level}} has no list to choose from: the scope covers all of them.',
   'ops.scope.which': 'Which ones',
   'ops.scope.allOf': 'All of {{level}}',

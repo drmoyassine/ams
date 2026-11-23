@@ -101,7 +101,7 @@ afterAll(async () => { await pool.end(); await db.close(); });
 describe('Quality Management -> Standards', () => {
   it('has a Standards tab with the institution\'s standards, full width, and no side panel', async () => {
     render(wrap(qm('lead')));
-    expect(await screen.findByRole('heading', { name: 'Quality Management' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Quality Management: earlier screens' })).toBeTruthy();
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Standards', 'Cycles', 'Plans', 'Programs', 'Syllabi', 'My work']);
     expect(screen.getByRole('tab', { name: 'Standards' }).getAttribute('aria-selected')).toBe('true');
     const list = await screen.findByRole('list', { name: 'Standards' });
@@ -112,11 +112,11 @@ describe('Quality Management -> Standards', () => {
     expect(screen.queryByRole('button', { name: 'Publish this version' })).toBeNull();
   });
 
-  it('has the menu Link evidence · Assign scope · Assign champion for a lead; no Create cycle, no Set cycle plan (DEC-030), no Request evidence, no authoring', async () => {
+  it('has the menu Link evidence · Assign scope · Assign champion · Set frequency · Approval steps (DEC-048) for a lead; no Create cycle, no Set cycle plan (DEC-030), no Request evidence, no authoring', async () => {
     const user = userEvent.setup();
     render(wrap(qm('lead')));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Set frequency', 'Approval steps']);
   });
 
   it('shows only what the person may do: a contributor links evidence; a viewer has no menu', async () => {
@@ -136,12 +136,12 @@ describe('Quality Management -> Standards', () => {
     // The published version is fixed: only the operations are offered there; a draft adds the authoring items.
     render(wrap(<QualityFrameworkPage api={a.framework} glossary={a.glossary} settings={a.settings} evidence={a.evidence} />));
     await user.click(await actions('3.2'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Set frequency', 'Approval steps']);
     await user.keyboard('{Escape}');
     await user.click(await screen.findByRole('button', { name: 'Start a new version' }));
     await waitFor(async () => expect((await screen.findByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
     await user.click(await actions('3.0'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Add sub-standard', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Set frequency', 'Approval steps', 'Add sub-standard', 'Edit', 'Delete']);
     expect(screen.queryByRole('menuitem', { name: 'Request evidence' })).toBeNull();
   });
 });
@@ -202,15 +202,14 @@ describe('Assign scope and Assign champion', () => {
     await unhover(user, '3.2');
   });
 
-  it('Course is a placeholder: selectable, with "No courses yet"; a level without a list covers all', async () => {
+  it('Course lists the courses (DEC-048): all of them, or only these', async () => {
     const user = userEvent.setup();
     render(wrap(qm('lead')));
     await user.click(await actions('4.0'));
     await user.click(screen.getByRole('menuitem', { name: 'Assign scope' }));
     const dialog = await screen.findByRole('dialog', { name: /Assign scope/ });
     await user.selectOptions(await within(dialog).findByLabelText('Level'), await within(dialog).findByRole('option', { name: 'Course' }));
-    expect(within(dialog).getByTestId('no-courses').textContent).toContain('No courses yet');
-    expect(within(dialog).queryByRole('radio', { name: 'Only these' })).toBeNull();
+    expect(within(dialog).getByRole('radio', { name: 'Only these' })).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Save scope' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await hoverTip(user, '4.0')).toMatch(/Scope\s*Course: all\s*\(Own\)/);
@@ -270,6 +269,7 @@ describe('an external standard', () => {
     await user.click(await screen.findByRole('button', { name: `Actions for ${tagOf(ext.sub)}` }));
     const names = menuNames();
     expect(names.slice(0, 3)).toEqual(['Link evidence', 'Assign scope', 'Assign champion']);
+    expect(names).not.toContain('Set frequency');   // frequency and approval steps are the institution's own standards' (DEC-048)
     expect(names).not.toContain('Create cycle');
     expect(names).not.toContain('Set cycle plan…');
     expect(names).toContain('Map to IQF…');

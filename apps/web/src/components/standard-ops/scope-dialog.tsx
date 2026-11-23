@@ -39,9 +39,9 @@ export function ScopeDialog({ target, assignment, api: apiProp, onClose }: { tar
 
   const active = useMemo(() => (levels.data ?? []).filter((l) => l.active || l.key === own?.levelKey), [levels.data, own?.levelKey]);
   const level = active.find((l) => l.key === (levelKey || active[0]?.key));
-  const list = level?.kind === 'org_unit' ? items.data?.orgUnit : level?.kind === 'program' ? items.data?.program : undefined;
+  const list = level?.kind === 'org_unit' ? items.data?.orgUnit : level?.kind === 'program' ? items.data?.program : level?.kind === 'course' ? items.data?.course : undefined;
   const shown = (list ?? []).filter((i) => !filter || i.nameEn.toLowerCase().includes(filter.toLowerCase()) || (i.nameAr ?? '').includes(filter));
-  const hasList = level?.kind === 'org_unit' || level?.kind === 'program';
+  const hasList = level?.kind === 'org_unit' || level?.kind === 'program' || level?.kind === 'course';
   const target_ = { frameworkId: target.frameworkId, code: target.code };
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['requirement-context'] });
@@ -84,8 +84,7 @@ export function ScopeDialog({ target, assignment, api: apiProp, onClose }: { tar
           </select>
         </label>
 
-        {level?.kind === 'course' && <p className="text-sm text-muted-foreground" data-testid="no-courses">{t('ops.scope.noCourses')}</p>}
-        {level && !hasList && level.kind !== 'course' && <p className="text-sm text-muted-foreground">{t('ops.scope.noList', { level: level.labelEn })}</p>}
+        {level && !hasList && <p className="text-sm text-muted-foreground">{t('ops.scope.noList', { level: level.labelEn })}</p>}
         {hasList && (
           <fieldset className="space-y-2">
             <legend className="text-sm">{t('ops.scope.which')}</legend>

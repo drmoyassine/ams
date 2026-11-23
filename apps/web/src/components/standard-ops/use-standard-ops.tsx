@@ -11,6 +11,7 @@ import { can } from '../../lib/me';
 import type { Requirement, Version } from '../../lib/framework-api';
 import { ChampionDialog } from './champion-dialog';
 import { ScopeDialog, type OpsTarget } from './scope-dialog';
+import { ApprovalDialog, FrequencyDialog } from './quality-dialogs';
 import type { NodeAssignment } from '@ams/shared';
 
 export type OpsApis = CycleApis;
@@ -25,12 +26,17 @@ export function useStandardOps({ me, version, assignmentOf, tagOf, apis = {} }: 
   me: Me | undefined; version: Version; assignmentOf: (code: string) => NodeAssignment | undefined; tagOf: (r: Requirement) => string; apis?: OpsApis;
 }): { items: (r: Requirement) => MenuItem[]; dialogs: ReactNode } {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<{ kind: 'scope' | 'champion'; r: Requirement } | null>(null);
+  const [open, setOpen] = useState<{ kind: 'scope' | 'champion' | 'frequency' | 'approval'; r: Requirement } | null>(null);
   const internal = version.internal === true;
   const items = (r: Requirement): MenuItem[] => [
     ...(can(me, 'framework:write') ? [
       { label: t('ops.menu.scope'), onSelect: () => setOpen({ kind: 'scope', r }) },
       { label: t('ops.menu.champion'), onSelect: () => setOpen({ kind: 'champion', r }) },
+      // The institution's own standards are submitted on a frequency and signed off step by step (DEC-048).
+      ...(internal ? [
+        { label: 'Set frequency', onSelect: () => setOpen({ kind: 'frequency', r }) },
+        { label: 'Approval steps', onSelect: () => setOpen({ kind: 'approval', r }) },
+      ] : []),
     ] : []),
   ];
   let dialogs: ReactNode = null;
@@ -39,7 +45,9 @@ export function useStandardOps({ me, version, assignmentOf, tagOf, apis = {} }: 
     const target: OpsTarget = { frameworkId: version.frameworkId, versionId: version.id, code: r.code, title: r.title, label: tagOf(r), internal };
     const close = () => setOpen(null);
     const assignment = assignmentOf(r.code);
-    dialogs = open.kind === 'scope' ? <ScopeDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} onClose={close} />
+    dialogs = open.kind === 'frequency' ? <FrequencyDialog target={target} onClose={close} />
+      : open.kind === 'approval' ? <ApprovalDialog target={target} {...(apis.settings ? { settings: apis.settings } : {})} onClose={close} />
+      : open.kind === 'scope' ? <ScopeDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} onClose={close} />
       : <ChampionDialog target={target} assignment={assignment} {...(apis.scope ? { api: apis.scope } : {})} {...(apis.settings ? { settings: apis.settings } : {})} onClose={close} />;
   }
   return { items, dialogs };

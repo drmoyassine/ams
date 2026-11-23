@@ -93,7 +93,7 @@ export function CyclePage({ id, stageId, apis = {}, onBack }: { id: string; /** 
 
   return (
     <div className="space-y-4" data-testid="cycle-page">
-      <p className="text-sm"><Link to="/quality-management" search={{ tab: 'cycles' }} className="underline">{t('qmc.cycle.back')}</Link></p>
+      <p className="text-sm"><Link to="/quality-management/legacy" search={{ tab: 'cycles' }} className="underline">{t('qmc.cycle.back')}</Link></p>
       <header className="space-y-2">
         <div className="flex flex-wrap items-start gap-2">
           <h1 className="min-w-0 flex-1 break-words text-xl font-semibold sm:text-2xl" dir="auto">{cycle.title}</h1>

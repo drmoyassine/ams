@@ -8,6 +8,7 @@ import { ReportPage } from './pages/reports/report-page';
 import { NewEngagementPage } from './pages/engagement-new';
 import { EngagementsPage } from './pages/engagements';
 import { QualityManagementPage, QM_TABS, type QmTab } from './pages/quality-management';
+import { QualityPage } from './pages/quality/quality-page';
 import { CyclePage } from './pages/cycles/cycle-page';
 import { AppLayout } from './pages/layout';
 import { EvidencePage } from './pages/evidence';
@@ -197,8 +198,29 @@ function VersionRoute() {
 }
 // Quality Management: ?tab=standards|cycles|my-work (the address follows the tab, replacing the entry), and one cycle's own page, which
 // ?stage=<id> opens on one stage (the links of My work).
+// Quality Management (DEC-048): one tab per IQF standard the person is linked to by scope (?tab=<code>&period=<key>&open=<submission>).
+// The earlier screens (Standards, Cycles, Plans, Programs, Syllabi, My work) wait at /quality-management/legacy until the owner decides
+// on them; their old addresses (?tab=programs …) go there.
 const qualityManagementRoute = createRoute({
-  getParentRoute: () => appRoute, path: '/quality-management', component: () => <QualityManagementRoute />,
+  getParentRoute: () => appRoute, path: '/quality-management', component: () => <QualityHomeRoute />,
+  validateSearch: (s: Record<string, unknown>): { tab?: string; period?: string; open?: string; program?: string } => ({
+    ...(typeof s.tab === 'string' && s.tab.length <= 200 ? { tab: s.tab } : {}),
+    ...(typeof s.period === 'string' && s.period.length <= 60 ? { period: s.period } : {}),
+    ...(typeof s.open === 'string' && s.open.length <= 300 ? { open: s.open } : {}),
+    ...(typeof s.program === 'string' && /^[0-9a-f-]{36}$/i.test(s.program) ? { program: s.program } : {}),
+  }),
+  beforeLoad: ({ search }) => {
+    if (search.tab && QM_TABS.some((x) => x.id === search.tab)) throw redirect({ to: '/quality-management/legacy', search: { tab: search.tab as QmTab, ...(search.program ? { program: search.program } : {}) } });
+  },
+});
+function QualityHomeRoute() {
+  const { tab, period, open } = qualityManagementRoute.useSearch();
+  const navigate = qualityManagementRoute.useNavigate();
+  return <QualityPage tab={tab} period={period} open={open}
+    onNavigate={(next) => { void navigate({ search: Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as never, replace: true }); }} />;
+}
+const legacyQualityRoute = createRoute({
+  getParentRoute: () => appRoute, path: '/quality-management/legacy', component: () => <QualityManagementRoute />,
   // ?tab=programs also takes &program=<id>, so one program's assessment and review can be linked to.
   validateSearch: (s: Record<string, unknown>): { tab?: QmTab; program?: string } => ({
     ...(QM_TABS.some((x) => x.id === s.tab) ? { tab: s.tab as QmTab } : {}),
@@ -206,8 +228,8 @@ const qualityManagementRoute = createRoute({
   }),
 });
 function QualityManagementRoute() {
-  const { tab, program } = qualityManagementRoute.useSearch();
-  const navigate = qualityManagementRoute.useNavigate();
+  const { tab, program } = legacyQualityRoute.useSearch();
+  const navigate = legacyQualityRoute.useNavigate();
   return <QualityManagementPage tab={tab ?? 'standards'} onTab={(next) => { void navigate({ search: next === 'standards' ? {} : { tab: next }, replace: true }); }}
     program={program} onProgram={(id) => { void navigate({ search: { tab: 'programs', program: id }, replace: true }); }} />;
 }
@@ -268,7 +290,7 @@ const syllabusRoute = createRoute({ getParentRoute: () => appRoute, path: '/cour
 function SyllabusRoute() { const { id } = syllabusRoute.useParams(); return <SyllabusPage key={id} courseId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, catalogRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, coursePageRoute, programsSettingsRoute, coursesSettingsRoute, oldProgramPageRoute, oldCoursePageRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, catalogRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, coursePageRoute, programsSettingsRoute, coursesSettingsRoute, oldProgramPageRoute, oldCoursePageRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, legacyQualityRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

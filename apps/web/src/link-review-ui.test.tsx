@@ -147,7 +147,7 @@ describe('My work', () => {
     const maker = apis('maker');
     render(wrap(<AppLayout api={maker.settings} cycles={maker.cycles} evidence={maker.evidence} />));
     const main = await (async () => { await screen.findByTestId('institution-name'); return screen.getByRole('navigation', { name: 'Main' }); })();
-    expect((await within(main).findByRole('link', { name: 'My work (2)' })).getAttribute('href')).toBe('/quality-management?tab=my-work');
+    expect((await within(main).findByRole('link', { name: 'My work (2)' })).getAttribute('href')).toBe('/quality-management/legacy?tab=my-work');
     cleanup();
 
     render(wrap(<MyWorkTab apis={maker} />));

@@ -86,7 +86,7 @@ export function QualityManagementPage({ api: apiProp, evidence, apis, tab: tabPr
   const setTab = (next: QmTab) => { setOwn(next); onTab?.(next); };
   return (
     <div className="space-y-4">
-      <PageHeader title={t('nav.quality')} />
+      <PageHeader title={`${t('nav.quality')}: earlier screens`} intro="These screens wait here until it is decided where they go. Quality Management now shows the IQF standards you submit or approve for." />
       <div role="tablist" aria-label={t('nav.quality')} className="flex flex-wrap gap-1 border-b border-border">
         {QM_TABS.map((x) => (
           <button key={x.id} role="tab" type="button" id={`qm-tab-${x.id}`} aria-selected={tab === x.id} aria-controls="qm-tabpanel" onClick={() => setTab(x.id)}
