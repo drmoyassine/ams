@@ -188,7 +188,7 @@ export function PendingBar({ v, mapping, canWrite }: { v: ProgramOutcomes; mappi
       <ul className="flex flex-wrap gap-2">
         {v.drafts.map((d) => (
           <li key={d.versionId}>
-            <a className="rounded border border-sky-300 bg-background px-2 py-0.5 text-xs underline-offset-2 hover:underline" href={`/settings/organization/courses/${d.courseId}`}>
+            <a className="rounded border border-sky-300 bg-background px-2 py-0.5 text-xs underline-offset-2 hover:underline" href={`/settings/courses/${d.courseId}`}>
               {code(d.courseId)} · v{d.versionNo} {d.status === 'draft' ? 'draft' : d.status === 'in_review' ? 'in review' : 'endorsed'}{d.errorCount ? ` · ${d.errorCount} error${d.errorCount === 1 ? '' : 's'}` : ''}
             </a>
           </li>
@@ -341,7 +341,7 @@ export function CellPanel({ v, ploId, courseId, canWrite, mapping, onClose }: { 
         {d ? (locked ? `${course.code}'s syllabus (v${d.versionNo}) is ${d.status === 'in_review' ? 'in review' : 'endorsed'}: its mapping cannot change until it is returned or approved.`
           : `Showing ${course.code}'s syllabus draft (v${d.versionNo}). Changes go into it and are on the map once it is approved.`)
           : canWrite ? `A change starts a draft of ${course.code}'s syllabus from the approved one; it is on the map once approved.` : ''}
-        {' '}<a className="underline" href={`/settings/organization/courses/${courseId}`}>Open the course</a>
+        {' '}<a className="underline" href={`/settings/courses/${courseId}`}>Open the course</a>
       </p>
       <label className="flex flex-wrap items-center gap-2 text-sm">
         <span className="font-medium">Course level (top-down)</span>

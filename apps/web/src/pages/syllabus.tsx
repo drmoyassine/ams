@@ -23,11 +23,11 @@ export function SyllabusPage({ courseId, api: override }: { courseId: string; ap
   if (!ov) return <p className="text-sm">Loading…</p>;
   const draft = ov.open;
   const shown = which === 'draft' && draft ? draft : ov.current;
-  const coursePage = `/settings/organization/courses/${courseId}`;
+  const coursePage = `/settings/courses/${courseId}`;
   return (
     <section className="space-y-4">
       <div className="print:hidden">
-        <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Organization', href: '/settings/organization' }, { label: 'Courses', href: '/settings/organization?tab=courses' }, { label: ov.course.code, href: coursePage }, { label: 'Syllabus' }]} />
+        <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Courses', href: '/settings/courses' }, { label: ov.course.code, href: coursePage }, { label: 'Syllabus' }]} />
       </div>
       <PageHeader title={`${ov.course.code} · ${ov.course.titleEn}`}
         intro={`Syllabus${shown ? ` · version ${shown.versionNo}${shown.status === 'approved' ? ', approved' : `, ${shown.status.replace('_', ' ')} (not yet approved)`}` : ''}${ov.course.unitName ? ` · ${ov.course.unitName}` : ''}${ov.course.coordinatorName ? ` · Coordinator: ${ov.course.coordinatorName}` : ''}`}
@@ -46,7 +46,7 @@ export function SyllabusPage({ courseId, api: override }: { courseId: string; ap
           </div>
         )}
         {shown && shown.status !== 'approved' && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Preview: this version is not approved</span>}
-        <Link to="/settings/organization/courses/$courseId" params={{ courseId }} className="ms-auto underline-offset-2 hover:underline">Edit the course content</Link>
+        <Link to="/settings/courses/$courseId" params={{ courseId }} className="ms-auto underline-offset-2 hover:underline">Edit the course content</Link>
       </div>
       {shown
         ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} template={ov.template} />

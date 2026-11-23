@@ -21,6 +21,7 @@ import { LoginPage } from './pages/login';
 import { GlossaryPage } from './pages/settings/glossary';
 import { SettingsLayout } from './pages/settings/layout';
 import { OrganizationPage } from './pages/settings/organization';
+import { ProgramsSettingsPage } from './pages/settings/programs';
 import { QualityFrameworkPage } from './pages/settings/quality-framework';
 
 configure({ asyncUtilTimeout: 10000 });
@@ -78,7 +79,7 @@ describe('Organization: tabs, deep-linkable', () => {
     current = 'admin';
     const router = await openRouter('/settings/organization');
     const tabs = await screen.findByRole('tablist', { name: 'Organization' });
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'Programs', 'Courses', 'General education', 'Catalog', 'Curriculum map', 'Learning outcomes', 'Syllabus rules']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'General education', 'Catalog', 'Learning outcomes', 'Syllabus rules']);
     expect(within(tabs).getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true');
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });
@@ -87,22 +88,22 @@ describe('Organization: tabs, deep-linkable', () => {
     expect(router.state.location.pathname).toBe('/settings/organization');
   });
 
-  it('follows the tab in the address, opens a deep link on Programs, and removes Programs from the Settings menu', async () => {
+  it('has Programs and Courses as Settings pages of their own, under Organization in the menu, and follows the Organization tab in the address', async () => {
     current = 'admin';
-    const router = await openRouter('/settings/organization?tab=programs');
-    const programs = await screen.findByRole('tab', { name: 'Programs' });
-    expect(programs.getAttribute('aria-selected')).toBe('true');
+    const router = await openRouter('/settings/programs');
     await screen.findByText('BS Physics');
     const menu = screen.getByRole('navigation', { name: 'Settings' });
-    expect(within(menu).getByRole('link', { name: 'Organization' })).toBeTruthy();
-    expect(within(menu).queryByRole('link', { name: 'Programs' })).toBeNull();
+    expect(within(menu).getAllByRole('link').slice(0, 3).map((a) => a.textContent)).toEqual(['Organization', 'Programs', 'Courses']);
+    expect(screen.queryByRole('tab', { name: 'Programs' })).toBeNull();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: 'Institution' }));
-    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'institution' }));
-    await screen.findByRole('heading', { name: 'Logo' });
-    await user.click(screen.getByRole('tab', { name: 'Programs' }));
-    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'programs' }));
-    await screen.findByText('BS Physics');
+    await user.click(within(menu).getByRole('link', { name: 'Organization' }));
+    await screen.findByRole('tablist', { name: 'Organization' });
+    expect(screen.queryByRole('tab', { name: 'Programs' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Courses' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'General education' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'gened' }));
+    await user.click(within(menu).getByRole('link', { name: 'Courses' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/courses'));
   });
 
   it('moves between the tabs with the arrow keys (the focused tab is the selected one)', async () => {
@@ -112,24 +113,24 @@ describe('Organization: tabs, deep-linkable', () => {
     const institution = await screen.findByRole('tab', { name: 'Institution' });
     institution.focus();
     expect(institution.getAttribute('tabindex')).toBe('0');
-    expect(screen.getByRole('tab', { name: 'Programs' }).getAttribute('tabindex')).toBe('-1');
+    expect(screen.getByRole('tab', { name: 'General education' }).getAttribute('tabindex')).toBe('-1');
     await user.keyboard('{ArrowRight}');
-    const programs = screen.getByRole('tab', { name: 'Programs' });
-    await waitFor(() => expect(programs.getAttribute('aria-selected')).toBe('true'));
-    expect(document.activeElement).toBe(programs);
+    const gened = screen.getByRole('tab', { name: 'General education' });
+    await waitFor(() => expect(gened.getAttribute('aria-selected')).toBe('true'));
+    expect(document.activeElement).toBe(gened);
     await user.keyboard('{Home}');
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
     await user.keyboard('{End}');
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Syllabus rules' }).getAttribute('aria-selected')).toBe('true'));
   });
 
-  it('sends the old Programs address to the Programs tab, and ignores an unknown tab', async () => {
+  it('sends the old Programs and Courses addresses to their pages, and ignores an unknown tab', async () => {
     current = 'admin';
-    const router = await openRouter('/settings/programs');
-    await screen.findByRole('tab', { name: 'Programs' });
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Programs' }).getAttribute('aria-selected')).toBe('true'));
-    expect(router.state.location.pathname).toBe('/settings/organization');
-    expect(router.state.location.search).toEqual({ tab: 'programs' });
+    const router = await openRouter('/settings/organization?tab=programs');
+    await screen.findByText('BS Physics');
+    expect(router.state.location.pathname).toBe('/settings/programs');
+    await act(async () => { await router.navigate({ href: '/settings/organization?tab=courses', replace: true }); });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/courses'));
     await act(async () => { await router.navigate({ to: '/settings/organization', search: { tab: 'nonsense' } as never }); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
   });
@@ -137,19 +138,19 @@ describe('Organization: tabs, deep-linkable', () => {
   it('opens sub-sections and open records from the address, and writes them back as they change', async () => {
     current = 'admin';
     // Programs -> Docs, straight from a link.
-    let router = await openRouter('/settings/organization?tab=programs&section=docs');
+    let router = await openRouter('/settings/programs?section=docs');
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Docs' }).getAttribute('aria-selected')).toBe('true'));
     const user = userEvent.setup();
     await user.click(screen.getByRole('tab', { name: 'List' }));
-    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'programs' })); // the default leaves the address
+    await waitFor(() => expect(router.state.location.search).toEqual({})); // the default leaves the address
     cleanup();
     // A course opens on its own address (DEC-042), with a breadcrumb back to the list.
     const courseId = (await db.su.query(`insert into course (institution_id, code, title_en) values ($1, 'DEEP 101', 'Deep links') returning id`, [ids.inst])).rows[0].id as string;
-    router = await openRouter('/settings/organization?tab=courses');
-    expect((await screen.findByRole('link', { name: 'DEEP 101 Deep links' })).getAttribute('href')).toBe(`/settings/organization/courses/${courseId}`);
+    router = await openRouter('/settings/courses');
+    expect((await screen.findByRole('link', { name: 'DEEP 101 Deep links' })).getAttribute('href')).toBe(`/settings/courses/${courseId}`);
     cleanup();
-    router = await openRouter(`/settings/organization/courses/${courseId}`);
-    expect((await screen.findByRole('navigation', { name: 'Breadcrumb' })).textContent).toMatch(/Settings.*Organization.*Courses.*DEEP 101/);
+    router = await openRouter(`/settings/courses/${courseId}`);
+    expect((await screen.findByRole('navigation', { name: 'Breadcrumb' })).textContent).toMatch(/Settings.*Courses.*DEEP 101/);
     cleanup();
     // The org chart's view, on the Institution tab.
     router = await openRouter('/settings/organization?chartView=chart');
@@ -161,12 +162,15 @@ describe('Organization: tabs, deep-linkable', () => {
 
   it('opens a program on its own address with a breadcrumb, and keeps the curriculum map\'s view in the address', async () => {
     current = 'admin';
-    const router = await openRouter('/settings/organization/programs/new');
+    const router = await openRouter('/settings/programs/new');
     const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
-    expect(crumbs.textContent).toMatch(/Settings.*Organization.*Programs.*New program/);
+    expect(crumbs.textContent).toMatch(/Settings.*Programs.*New program/);
     expect(await screen.findByRole('heading', { name: 'New program' })).toBeTruthy();
-    await act(async () => { await router.navigate({ href: '/settings/organization?tab=map&view=plo', replace: true }); });
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Curriculum map' }).getAttribute('aria-selected')).toBe('true'));
+    // The curriculum map is a tab of the program's page; an old Organization address goes there.
+    const physics = (await db.su.query(`select id from program where name_en = 'BS Physics'`)).rows[0].id as string;
+    await act(async () => { await router.navigate({ href: `/settings/organization?tab=map&program=${physics}&view=plo`, replace: true }); });
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/settings/programs/${physics}`));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Curriculum Map' }).getAttribute('aria-selected')).toBe('true'));
     const user = userEvent.setup();
     const byCourse = await screen.findByRole('tab', { name: 'By course' });
     expect(screen.getByRole('tab', { name: 'By PLO' }).getAttribute('aria-selected')).toBe('true');
@@ -293,14 +297,13 @@ describe('Settings for every role', () => {
   });
 
   it('lists the pages each role may open: Trash for editors, AI for administrators, the rest for everyone', async () => {
-    const base = ['Organization', 'Internal Quality Framework', 'External Standards', 'Quality Management', 'Documents'];
+    const base = ['Organization', 'Programs', 'Courses', 'Internal Quality Framework', 'External Standards', 'Quality Management', 'Documents'];
     expect(await settingsLinks('viewer')).toEqual([...base, 'Assistant memory']);
     expect(await settingsLinks('lead')).toEqual([...base, 'Trash', 'Assistant memory']);
     expect(await settingsLinks('admin')).toEqual([...base, 'Trash', 'Assistant memory', 'AI', 'API keys']);
   });
 
   it('shows the Organization tabs read-only to a viewer, with the one-line note', async () => {
-    const user = userEvent.setup();
     render(wrap(<OrganizationPage api={settingsFor('viewer')} />));
     const name = await screen.findByLabelText('Name (English)') as HTMLInputElement;
     await waitFor(() => expect(name.value).toBe('Gulf University'));
@@ -311,20 +314,21 @@ describe('Settings for every role', () => {
     expect(screen.queryByLabelText(/^Add a unit under /)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add unit' })).toBeNull();
     await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.').length).toBe(6)); // details, logo, languages, org chart, scope levels, academic calendar
-    await user.click(screen.getByRole('tab', { name: 'Programs' }));
+    cleanup();
+    render(wrap(<ProgramsSettingsPage api={settingsFor('viewer')} />));
     await screen.findByText('BS Physics');
     expect(screen.queryByRole('button', { name: 'Add program' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull();
-    expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(1);
+    expect(await screen.findAllByText('You can view this; ask an administrator to change it.')).toHaveLength(1);
   });
 
   it('shows a lead the org chart and programs to edit, and the institution details read-only', async () => {
-    const user = userEvent.setup();
     render(wrap(<OrganizationPage api={settingsFor('lead')} />));
     expect(((await screen.findByLabelText('Name (English)')) as HTMLInputElement).disabled).toBe(true);
     expect(await screen.findByLabelText('Add a unit under College of Engineering')).toBeTruthy();
     await waitFor(() => expect(screen.getAllByText('You can view this; ask an administrator to change it.')).toHaveLength(3)); // details, logo, languages
-    await user.click(screen.getByRole('tab', { name: 'Programs' }));
+    cleanup();
+    render(wrap(<ProgramsSettingsPage api={settingsFor('lead')} />));
     expect(await screen.findByRole('link', { name: 'Add program' })).toBeTruthy();
     expect(screen.queryByText('You can view this; ask an administrator to change it.')).toBeNull();
   });

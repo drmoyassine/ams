@@ -141,7 +141,7 @@ export function UnitDrawer({ api, mode, types, people, editable, onClose, onSave
               <ul className="list-disc space-y-0.5 ps-5 text-sm">
                 {unit.programs.map((p) => (
                   <li key={p.id}>
-                    <a href="/settings/organization?tab=programs" className="underline" onClick={(e) => { e.preventDefault(); onClose(); onOpenPrograms(); }}><ContentText>{p.nameEn}</ContentText></a>
+                    <a href="/settings/programs" className="underline" onClick={(e) => { e.preventDefault(); onClose(); onOpenPrograms(); }}><ContentText>{p.nameEn}</ContentText></a>
                     {p.nameAr && <> · <ContentText className="text-muted-foreground">{p.nameAr}</ContentText></>}
                     {!p.active && <span className="ms-2 rounded border border-border px-1.5 text-xs">Inactive</span>}
                   </li>

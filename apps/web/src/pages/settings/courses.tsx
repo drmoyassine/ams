@@ -45,7 +45,7 @@ export function CoursesSettingsPage({ api: settingsOverride, outcomes, docs: doc
 }
 
 /**
- * The catalogue (DEC-042). Each course opens on its own page (/settings/organization/courses/<id>),
+ * The catalogue (DEC-042). Each course opens on its own page (/settings/courses/<id>),
  * "Add course" on /new; a course whose record lacks something shows it. Search and the program filter are in the address.
  */
 function CoursesList({ api: settingsOverride, outcomes: outcomesOverride, academic }: { api?: SettingsApi; outcomes?: OutcomesApi; academic?: AcademicApi }) {
@@ -76,7 +76,7 @@ function CoursesList({ api: settingsOverride, outcomes: outcomesOverride, academ
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
           <Button type="button" variant="outline" aria-expanded={io} onClick={() => setIo(!io)}>Import and export</Button>
-          {canWrite && <Link to="/settings/organization/courses/$courseId" params={{ courseId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add course</Link>}
+          {canWrite && <Link to="/settings/courses/$courseId" params={{ courseId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add course</Link>}
         </div>
       </div>
       {io && <AcademicImportExport canWrite={canWrite} {...(academic ? { api: academic } : {})} onDone={() => setIo(false)} />}
@@ -94,7 +94,7 @@ function CoursesList({ api: settingsOverride, outcomes: outcomesOverride, academ
           <li key={c.id} className="px-4 py-3" data-testid="course">
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1">
-                <Link to="/settings/organization/courses/$courseId" params={{ courseId: c.id }} className="underline-offset-2 hover:underline" aria-label={`${c.code} ${c.titleEn}`}>
+                <Link to="/settings/courses/$courseId" params={{ courseId: c.id }} className="underline-offset-2 hover:underline" aria-label={`${c.code} ${c.titleEn}`}>
                   <span className="font-mono font-semibold">{c.code}</span> <ContentText className="font-medium">{c.titleEn}</ContentText>
                 </Link>
                 <span className="block text-xs text-muted-foreground">
@@ -104,7 +104,7 @@ function CoursesList({ api: settingsOverride, outcomes: outcomesOverride, academ
                 {c.missing.length > 0 && <p className="mt-1 text-xs"><span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">Missing: {c.missing.join(', ')}</span></p>}
               </div>
               {!c.active && <span className="rounded border border-border px-2 py-0.5 text-xs">Inactive</span>}
-              <Link to="/settings/organization/courses/$courseId" params={{ courseId: c.id }} aria-label={`${canWrite ? 'Edit' : 'Open'} ${c.code}`} className="rounded-md px-2 py-1 text-sm hover:bg-muted">{canWrite ? 'Edit' : 'Open'}</Link>
+              <Link to="/settings/courses/$courseId" params={{ courseId: c.id }} aria-label={`${canWrite ? 'Edit' : 'Open'} ${c.code}`} className="rounded-md px-2 py-1 text-sm hover:bg-muted">{canWrite ? 'Edit' : 'Open'}</Link>
             </div>
           </li>
         ))}

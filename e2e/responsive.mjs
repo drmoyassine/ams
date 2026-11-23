@@ -652,22 +652,22 @@ function pagesFor(ids) {
     // The course syllabus (DEC-038): the Syllabi list, the course page with its content, the syllabus report with its flag banner and issues, and the limits and template in Settings.
     { name: 'syllabi', path: '/quality-management?tab=syllabi' },
     { name: 'qm-programs', path: '/quality-management?tab=programs', action: async (page) => { await page.getByRole('region', { name: 'Assessment' }).waitFor(); } },
-    { name: 'program-edit', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
+    { name: 'program-edit', path: '/settings/programs', action: async (page) => { await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
     { name: 'settings-api-keys', path: '/settings/api-keys', action: async (page) => { await page.getByRole('form', { name: 'Issue a key' }).waitFor(); } },
     ids.courseId && { name: 'syllabus-report', path: `/courses/${ids.courseId}/syllabus` },
-    ids.courseId && { name: 'course-page', path: `/settings/organization/courses/${ids.courseId}`, action: async (page) => { await page.getByRole('region', { name: 'Basic information' }).waitFor(); } },
-    ids.courseId && { name: 'course-page-assessment', path: `/settings/organization/courses/${ids.courseId}?tab=assessment`, action: async (page) => { await page.getByRole('tabpanel', { name: 'Course Assessment' }).waitFor(); } },
-    { name: 'course-new', path: '/settings/organization/courses/new', action: async (page) => { await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
-    { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
-    { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export' }).waitFor(); } },
+    ids.courseId && { name: 'course-page', path: `/settings/courses/${ids.courseId}`, action: async (page) => { await page.getByRole('region', { name: 'Basic information' }).waitFor(); } },
+    ids.courseId && { name: 'course-page-assessment', path: `/settings/courses/${ids.courseId}?tab=assessment`, action: async (page) => { await page.getByRole('tabpanel', { name: 'Course Assessment' }).waitFor(); } },
+    { name: 'course-new', path: '/settings/courses/new', action: async (page) => { await page.getByRole('navigation', { name: 'Breadcrumb' }).waitFor(); } },
+    { name: 'program-new', path: '/settings/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
+    { name: 'settings-courses', path: '/settings/courses', action: async (page) => { await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export' }).waitFor(); } },
     { name: 'settings-gened', path: '/settings/organization', action: async (page) => { await clickTab('General education')(page); await page.getByRole('form', { name: 'General education credits' }).waitFor(); } },
-    { name: 'program-requirements', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Degree Requirements')(page); await page.getByRole('region', { name: 'Requirements' }).waitFor(); } },
-    { name: 'program-study-plan', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Study Plan')(page); await page.getByRole('region', { name: 'Study plan' }).waitFor(); } },
+    { name: 'program-requirements', path: '/settings/programs', action: async (page) => { await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Degree Requirements')(page); await page.getByRole('region', { name: 'Requirements' }).waitFor(); } },
+    { name: 'program-study-plan', path: '/settings/programs', action: async (page) => { await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Study Plan')(page); await page.getByRole('region', { name: 'Study plan' }).waitFor(); } },
     { name: 'settings-catalog', path: '/settings/organization', action: async (page) => { await clickTab('Catalog')(page); await page.getByRole('region', { name: 'Draft' }).or(page.getByRole('list', { name: 'Editions' })).first().waitFor(); } },
     { name: 'catalog-draft', path: '/catalog/draft', action: async (page) => { await page.getByRole('article', { name: 'Catalog' }).waitFor(); } },
-    { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
+    { name: 'settings-curriculum-map', path: '/settings/programs', action: async (page) => {
       // The map is on the program's page (the owner, 2026-11-23).
-      await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Curriculum Map')(page);
+      await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Curriculum Map')(page);
       await page.getByRole('heading', { name: 'Curriculum map' }).waitFor();
       // The map downloads as a workbook (fails the run if the download does not start).
       const button = page.getByRole('button', { name: 'Download (Excel)' });
@@ -720,7 +720,7 @@ function pagesFor(ids) {
     { name: 'org-chart-chart-box-drawer', path: '/settings/organization', action: async (page) => { await openChart(page); await page.getByTestId('chart-box').first().dispatchEvent('click'); await page.getByRole('dialog').waitFor(); } },
     { name: 'org-chart-unit-types', path: '/settings/organization', action: async (page) => { await page.getByRole('button', { name: 'Unit types' }).click(); await page.getByRole('dialog', { name: 'Unit types' }).waitFor(); } },
     { name: 'org-chart-add-unit', path: '/settings/organization', action: async (page) => { await page.getByRole('button', { name: 'Add unit' }).click(); await page.getByRole('dialog').waitFor(); } },
-    { name: 'settings-organization-programs', path: '/settings/organization?tab=programs' },
+    { name: 'settings-organization-programs', path: '/settings/programs' },
     { name: 'settings-programs-redirect', path: '/settings/programs' },
     { name: 'settings-organization-tab-keys', path: '/settings/organization', action: async (page) => { await page.getByRole('tab', { name: 'Institution' }).focus(); await page.keyboard.press('ArrowRight'); await page.getByRole('tab', { name: 'Programs', selected: true }).waitFor(); } },
     // The logo is uploaded here and stays for the pages after it (header and sidebar show it), then is removed.
@@ -786,13 +786,13 @@ function pagesFor(ids) {
       await page.getByRole('region', { name: 'Import report' }).waitFor();
     } },
     // TASK-076: Programs -> Docs (the list with a failed and a read catalogue, the Import dialog, and the review of imported programs).
-    { name: 'programs-docs', path: '/settings/organization?tab=programs', action: async (page) => { await page.getByRole('tab', { name: 'Docs' }).click(); await page.getByRole('region', { name: 'Docs' }).getByTestId('doc-row').first().waitFor(); } },
-    { name: 'programs-docs-import-dialog', path: '/settings/organization?tab=programs', action: async (page) => {
+    { name: 'programs-docs', path: '/settings/programs', action: async (page) => { await page.getByRole('tab', { name: 'Docs' }).click(); await page.getByRole('region', { name: 'Docs' }).getByTestId('doc-row').first().waitFor(); } },
+    { name: 'programs-docs-import-dialog', path: '/settings/programs', action: async (page) => {
       await page.getByRole('tab', { name: 'Docs' }).click();
       await page.getByRole('button', { name: 'Import programs' }).click();
       await page.getByRole('dialog', { name: /^Import programs/ }).waitFor();
     } },
-    { name: 'programs-docs-import-review', path: '/settings/organization?tab=programs', action: async (page) => {
+    { name: 'programs-docs-import-review', path: '/settings/programs', action: async (page) => {
       await page.getByRole('tab', { name: 'Docs' }).click();
       await page.getByRole('button', { name: /^Review the proposals of the Programs/ }).click();
       await page.getByRole('table', { name: 'Proposals' }).waitFor();

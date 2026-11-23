@@ -15,7 +15,7 @@ export function SyllabusAlertBar({ enabled, api: override }: { enabled: boolean;
       <span className="font-medium">{rows.length === 1 ? "1 course's content has" : `${rows.length} courses' content has`} {errors} error{errors === 1 ? '' : 's'} and needs your attention:</span>
       <span className="flex flex-wrap gap-x-3">
         {rows.slice(0, 4).map((r) => (
-          <Link key={r.courseId} to="/settings/organization/courses/$courseId" params={{ courseId: r.courseId }} className="underline underline-offset-2">{r.code} ({r.errorCount})</Link>
+          <Link key={r.courseId} to="/settings/courses/$courseId" params={{ courseId: r.courseId }} className="underline underline-offset-2">{r.code} ({r.errorCount})</Link>
         ))}
         {rows.length > 4 && <Link to="/quality-management" search={{ tab: 'syllabi' }} className="underline underline-offset-2">and {rows.length - 4} more</Link>}
       </span>

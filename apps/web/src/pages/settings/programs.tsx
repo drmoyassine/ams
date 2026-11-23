@@ -46,7 +46,7 @@ export function ProgramsSettingsPage({ api: override, docs: docsOverride, progra
 }
 
 /**
- * The list of programs: each opens on its own page (/settings/organization/programs/<id>), "Add program" on /new. A record saved by an
+ * The list of programs: each opens on its own page (/settings/programs/<id>), "Add program" on /new. A record saved by an
  * import or the API without its required fields shows what is missing.
  */
 function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: AcademicApi }) {
@@ -74,7 +74,7 @@ function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: Ac
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
           <Button type="button" variant="outline" aria-expanded={io} onClick={() => setIo(!io)}>Import and export</Button>
-          {canWrite && <Link to="/settings/organization/programs/$programId" params={{ programId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add program</Link>}
+          {canWrite && <Link to="/settings/programs/$programId" params={{ programId: 'new' }} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Add program</Link>}
         </div>
       </div>
       {io && <AcademicImportExport canWrite={canWrite} {...(programsApi ? { api: programsApi } : {})} onDone={() => setIo(false)} />}
@@ -86,7 +86,7 @@ function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: Ac
           <li key={p.id} className="px-4 py-3" data-testid="program">
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1">
-                <Link to="/settings/organization/programs/$programId" params={{ programId: p.id }} className="font-medium underline-offset-2 hover:underline" data-testid="program-name">
+                <Link to="/settings/programs/$programId" params={{ programId: p.id }} className="font-medium underline-offset-2 hover:underline" data-testid="program-name">
                   <ContentText>{p.nameEn}</ContentText>
                 </Link>
                 {p.nameAr && <ContentText className="ms-2 text-sm text-muted-foreground">{p.nameAr}</ContentText>}
@@ -94,7 +94,7 @@ function ProgramsList({ api, programsApi }: { api: SettingsApi; programsApi?: Ac
                 {p.missing.length > 0 && <p className="mt-1 text-xs"><span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900" title={p.missing.join(', ')}>Missing: {p.missing.join(', ')}</span></p>}
               </div>
               {!p.active && <span className="rounded border border-border px-2 py-0.5 text-xs">Inactive</span>}
-              <Link to="/settings/organization/programs/$programId" params={{ programId: p.id }} aria-label={`${canWrite ? 'Edit' : 'Open'} ${p.nameEn}`} className="rounded-md px-2 py-1 text-sm hover:bg-muted">{canWrite ? 'Edit' : 'Open'}</Link>
+              <Link to="/settings/programs/$programId" params={{ programId: p.id }} aria-label={`${canWrite ? 'Edit' : 'Open'} ${p.nameEn}`} className="rounded-md px-2 py-1 text-sm hover:bg-muted">{canWrite ? 'Edit' : 'Open'}</Link>
               {canWrite && <Button type="button" variant="ghost" className="px-2 py-1" onClick={() => run.mutate(() => api.updateProgram(p.id, { active: !p.active }))}>{p.active ? 'Deactivate' : 'Reactivate'}</Button>}
             </div>
           </li>

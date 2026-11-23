@@ -5,10 +5,8 @@ import { ReadOnlyNote } from '../../components/read-only-note';
 import { OrgChartSection } from './org-chart/org-chart-section';
 import { useTranslation } from '../../i18n';
 import { LanguagesSection } from './languages-section';
-import { ProgramsSettingsPage } from './programs';
 import { CatalogEditionsSection } from './catalog-editions';
 import { GenedSection } from './gened';
-import { CoursesSettingsPage } from './courses';
 import { SyllabusSettingsPage } from './syllabus-settings';
 import { LearningOutcomesSection } from './learning-outcomes';
 import type { OutcomesApi } from '../../lib/outcomes-api';
@@ -133,14 +131,14 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'gened' }, { id: 'catalog' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'gened' }, { id: 'catalog' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
  * Settings -> Organization: one screen, four tabs (Courses and Learning outcomes join with TASK-105 and TASK-112). Institution holds the details, the logo and the org chart (Languages
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
-export function OrganizationPage({ api: override, outcomes, assessment, syllabus, tab: tabProp, onTab }: {
+export function OrganizationPage({ api: override, outcomes, assessment, tab: tabProp, onTab }: {
   api?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; syllabus?: SyllabusApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void;
 }) {
   const { t } = useTranslation();
@@ -150,7 +148,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
-  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
+  const tabLabel = { institution: t('org.tab.institution'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -181,13 +179,11 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
             <InstitutionCard api={api} canEdit={can(me.data, 'institution:write')} />
             <LogoCard api={api} canEdit={can(me.data, 'institution:write')} />
             <LanguagesSection api={api} canEdit={can(me.data, 'institution:write')} />
-            <OrgChartSection api={api} canEdit={can(me.data, 'org:write')} onOpenPrograms={() => choose('programs')} />
+            <OrgChartSection api={api} canEdit={can(me.data, 'org:write')} onOpenPrograms={() => { window.location.assign('/settings/programs'); }} />
             <ScopeLevelsSection api={api} canEdit={can(me.data, 'org:write')} />
             <AcademicCalendarSection api={api} canEdit={can(me.data, 'org:write')} />
           </>
-        ) : tab === 'programs' ? <ProgramsSettingsPage api={api} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} />
-          : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
-          : tab === 'catalog' ? <CatalogEditionsSection api={api} />
+        )          : tab === 'catalog' ? <CatalogEditionsSection api={api} />
           : tab === 'gened' ? <GenedSection api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'syllabus' ? <SyllabusSettingsPage api={api} />
           : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} canEdit={can(me.data, 'org:write')} />}

@@ -31,6 +31,8 @@ export function SettingsLayout({ api = defaultSettingsApi, trashApi = defaultTra
   const trash = useQuery({ queryKey: ['trash', 'count'], queryFn: () => trashApi.count(), enabled: canTrash, staleTime: 15_000 });
   const items = [
     { to: '/settings/organization', label: t('settings.organization'), hint: t('settings.organization.hint') },
+    { to: '/settings/programs', label: t('settings.programs'), hint: t('settings.programs.hint') },
+    { to: '/settings/courses', label: t('settings.courses'), hint: t('settings.courses.hint') },
     { to: '/settings/quality-framework', label: t('settings.iqf'), hint: t('settings.iqf.hint') },
     { to: '/settings/external-standards', label: t('settings.external'), hint: t('settings.external.hint') },
     ...(can(me.data, 'org:read') ? [{ to: '/settings/quality-management', label: t('settings.qm'), hint: t('settings.qm.hint') }] : []),

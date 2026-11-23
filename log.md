@@ -998,3 +998,8 @@ The AIU Course Syllabus Template is now the course schema. One document per cour
 - **Migration 0088:** `program.description_ar` (the English one is the existing `program.description`) and `program.coordinator_user_id`. The English description is required (`PROGRAM_REQUIRED`, the form, the workbook's Programs sheet: Description (English), Description (Arabic)); the catalog prints both under the program's name. The Program Coordinator names a person and grants nothing.
 - **Requirements split:** `RequirementsSection part="requirements" | "plan"`. The Study Plan groups courses by year and term (Summer for term 3) with credits per term, elective slots in their term, then "Not scheduled".
 - **Curriculum map:** removed from Settings → Organization; it is the program's Curriculum Map tab (`CurriculumMapPage fixed`). An old `?tab=map&program=<id>` address redirects there.
+
+## 2026-11-23 — Programs and Courses are Settings pages of their own
+- **Settings menu:** Organization, **Programs**, **Courses**, then the rest. `/settings/programs` (list; `?section=docs`) and `/settings/courses`; a program is `/settings/programs/<id>` (`?tab=`), a course `/settings/courses/<id>` (`?tab=`). Breadcrumbs: Settings › Programs › the program; Settings › Courses › the course.
+- **Organization** keeps Institution, General education, Catalog, Learning outcomes, Syllabus rules.
+- **Old addresses redirect:** `/settings/organization?tab=programs|courses`, `/settings/organization/programs/<id>` and `/settings/organization/courses/<id>` (with their `?tab=`), and `?tab=map&program=<id>`.

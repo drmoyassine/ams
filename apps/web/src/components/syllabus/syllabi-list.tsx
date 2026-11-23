@@ -24,7 +24,7 @@ export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Each course's content is approved by its Dean; the syllabus is the report generated from it. Opening one goes to the course page. A syllabus with errors needs its coordinator at once and goes up the line while it is unfixed.</p>
-      <p className="text-sm text-muted-foreground">To add or update many courses and their content at once, use the courses workbook in <Link to="/settings/organization" search={{ tab: 'courses' }} className="underline underline-offset-2">Settings › Organization › Courses</Link> (Import and export).</p>
+      <p className="text-sm text-muted-foreground">To add or update many courses and their content at once, use the courses workbook in <Link to="/settings/courses" className="underline underline-offset-2">Settings › Courses</Link> (Import and export).</p>
       <div className="flex flex-wrap items-center gap-3">
         <Input aria-label="Search syllabi" placeholder="Search by code or title" value={text} onChange={(e) => setText(e.target.value)} className="w-full sm:w-64" />
         <div role="group" aria-label="Show" className="flex flex-wrap gap-1">
@@ -36,7 +36,7 @@ export function SyllabiList({ api: override }: { api?: SyllabusApi }) {
           <li key={r.courseId}>
             <AccordionCard label={`Syllabus: ${r.code}`} title={`${r.code} · ${r.titleEn}`} strong open={false} menuLabel={`Actions for ${r.code}`} menu={[]}
               subtitle={[r.unitName, r.coordinatorName ? `coordinator ${r.coordinatorName}` : 'no coordinator named'].filter(Boolean).join(' · ')}
-              onToggle={() => { void navigate({ to: '/settings/organization/courses/$courseId', params: { courseId: r.courseId } }); }}
+              onToggle={() => { void navigate({ to: '/settings/courses/$courseId', params: { courseId: r.courseId } }); }}
               meta={(
                 <span className="flex flex-wrap items-center gap-1.5">
                   {r.openStatus && <StatusChip status={r.openStatus} />}

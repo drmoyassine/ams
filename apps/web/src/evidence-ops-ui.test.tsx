@@ -119,7 +119,7 @@ describe('the KPI card', () => {
     expect(await within(report).findByRole('heading', { name: /ECE 420 · Spring 2026/ })).toBeTruthy();
     const link = await within(report).findByTestId('report-course-link');
     expect(link.textContent).toBe('ECE420 Digital Signal Processing');
-    expect(link.getAttribute('href')).toBe('/settings/organization/courses/22222222-2222-4222-8222-222222222222');
+    expect(link.getAttribute('href')).toBe('/settings/courses/22222222-2222-4222-8222-222222222222');
     const table = await within(report).findByRole('table');
     const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent);
     expect(rows[0]).toContain('SO1'); expect(rows[0]).toContain('At or above target');

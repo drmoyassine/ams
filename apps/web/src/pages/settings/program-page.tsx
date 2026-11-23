@@ -19,7 +19,7 @@ import { CurriculumMapPage } from './curriculum-map';
 
 export const LEVEL = { associate: 'Associate', bachelor: 'Bachelor', master: 'Master', doctorate: 'Doctorate', diploma: 'Diploma', certificate: 'Certificate' } as const;
 export const MODE = { on_campus: 'On-campus', online: 'Online', blended: 'Blended' } as const;
-const PROGRAMS_HREF = '/settings/organization?tab=programs';
+const PROGRAMS_HREF = '/settings/programs';
 
 /** The org chart as indented choices, parents before children, so a program can sit at any level (a college, a school, a department). */
 export function unitChoices(units: OrgUnit[], types: OrgUnitType[], keep?: string): { id: string; label: string }[] {
@@ -56,7 +56,7 @@ const MINOR_SKIPS = new Set<keyof Values>(['mode', 'durationYears', 'contactHour
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
 /**
- * A program on a page of its own (Settings -> Organization -> Programs -> the program), addressable as /settings/organization/programs/<id>
+ * A program on a page of its own (Settings -> Organization -> Programs -> the program), addressable as /settings/programs/<id>
  * or /new: its record in the owner's order, then its PEOs and PLOs (recorded ones edited in place, new ones typed as rows). The page refuses
  * to save without the required fields; an import or the API saves and flags what is missing instead.
  */
@@ -257,7 +257,7 @@ function ProgramForm({ program, canWrite, api, outcomes, syllabus, catalog, onSa
   );
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Organization', href: '/settings/organization' }, { label: 'Programs', href: PROGRAMS_HREF }, { label: title }]} />
+      <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Programs', href: PROGRAMS_HREF }, { label: title }]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="min-w-0 text-xl font-semibold break-words">{title}{program && !program.active && <span className="ms-2 rounded border border-border px-2 py-0.5 align-middle text-xs font-normal">Inactive</span>}</h2>
         {canWrite && formTab && <Button type="submit" form="program-form" variant="outline" disabled={saving} aria-label={`${program ? 'Save' : 'Add program'} (top)`}>{saving ? 'Saving…' : program ? 'Save' : 'Add program'}</Button>}

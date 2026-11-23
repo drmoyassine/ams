@@ -83,7 +83,7 @@ export function CourseReport({ api, items, courses: records = [] }: { api: Evide
           {(() => {
             const rec = courseOf(chosenCourse, records);
             return rec
-              ? <p className="text-sm">Course record: <a className="underline underline-offset-2" href={`/settings/organization/courses/${rec.id}`} data-testid="report-course-link">{rec.code} {rec.titleEn}</a>{rec.active ? '' : ' (inactive)'}</p>
+              ? <p className="text-sm">Course record: <a className="underline underline-offset-2" href={`/settings/courses/${rec.id}`} data-testid="report-course-link">{rec.code} {rec.titleEn}</a>{rec.active ? '' : ' (inactive)'}</p>
               : <p className="text-xs text-muted-foreground print:hidden">No course record has the code this KPI names.</p>;
           })()}
           <p className="text-xs text-muted-foreground">Generated from {parts.length === 1 ? 'one KPI' : `${parts.length} KPIs`} of this course and term. Each figure is a value of the KPI named under the table; nothing is typed in here.</p>

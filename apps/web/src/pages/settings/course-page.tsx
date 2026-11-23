@@ -17,14 +17,14 @@ import { useAction } from '../../lib/use-action';
 import { unitChoices } from './program-page';
 
 export const ROLE = { core: 'Core', elective: 'Elective', service: 'Service' } as const;
-const COURSES_HREF = '/settings/organization?tab=courses';
+const COURSES_HREF = '/settings/courses';
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 const field = 'flex min-w-0 flex-col gap-1 text-xs';
 const select = 'h-9 w-full min-w-0 max-w-full rounded-md border border-border bg-background px-2 text-sm';
 const req = <span className="text-red-700" aria-hidden="true"> *</span>;
 
 /**
- * A course on a page of its own (Settings -> Organization -> Courses -> the course; /settings/organization/courses/<id>, or /new), the master
+ * A course on a page of its own (Settings -> Organization -> Courses -> the course; /settings/courses/<id>, or /new), the master
  * record (DEC-042): its record (code, unit, SIS code, year of study, active) and the programs it serves change at once; its content (titles,
  * credit hours, description, CLOs with their PLOs, outline, assessment plan, rubrics) changes through a draft that is approved, below. The
  * syllabus is the report generated from it.
@@ -48,7 +48,7 @@ export function CoursePage({ courseId, api: override, outcomes, syllabus, onSave
   const isNew = courseId === 'new';
   const course = isNew ? undefined : courses.data?.find((c) => c.id === courseId);
   const choices = unitChoices(units.data ?? [], types.data ?? [], course?.orgUnitId ?? undefined);
-  const crumbs = (label: string) => <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Organization', href: '/settings/organization' }, { label: 'Courses', href: COURSES_HREF }, { label }]} />;
+  const crumbs = (label: string) => <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Courses', href: COURSES_HREF }, { label }]} />;
   if (isNew) {
     return (
       <div className="space-y-4">

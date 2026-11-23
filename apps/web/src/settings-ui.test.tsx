@@ -180,8 +180,8 @@ describe('programs settings', () => {
     let savedId = '';
     render(wrap(<ProgramPage programId="new" api={apiFor('lead')} outcomes={outcomesApi(fetchFor('lead'))} onSaved={(id) => { savedId = id; }} onCancel={() => undefined} />));
     const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
-    expect(within(crumbs).getAllByRole('listitem').map((li) => li.textContent?.replace('›', '').trim())).toEqual(['Settings', 'Organization', 'Programs', 'New program']);
-    expect(within(crumbs).getByRole('link', { name: 'Programs' }).getAttribute('href')).toBe('/settings/organization?tab=programs');
+    expect(within(crumbs).getAllByRole('listitem').map((li) => li.textContent?.replace('›', '').trim())).toEqual(['Settings', 'Programs', 'New program']);
+    expect(within(crumbs).getByRole('link', { name: 'Programs' }).getAttribute('href')).toBe('/settings/programs');
     // The unit picker is the org chart: the department sits under its college.
     const unit = screen.getByLabelText('Unit') as HTMLSelectElement;
     await waitFor(() => expect([...unit.options].map((o) => o.text)).toContain('College of Engineering (College)'));
@@ -229,12 +229,12 @@ describe('programs settings', () => {
     const user = userEvent.setup();
     await db.su.query(`insert into program (institution_id, org_unit_id, name_en, degree_level, code) values ($1, $2, 'BS Industrial Engineering', 'bachelor', 'BS-IE')`, [ids.inst, ids.col]);
     render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
-    expect((await screen.findByRole('link', { name: 'Add program' })).getAttribute('href')).toBe('/settings/organization/programs/new');
+    expect((await screen.findByRole('link', { name: 'Add program' })).getAttribute('href')).toBe('/settings/programs/new');
     const ie = (await screen.findByText('BS Industrial Engineering')).closest('[data-testid="program"]') as HTMLElement;
     expect(within(ie).getByText(/^Missing: Arabic name, Mode, Credits, Years, Contact hours, Language, Mission, Description \(English\), PEOs, PLOs$/)).toBeTruthy();
     const me = (await screen.findByText('BS Mechanical Engineering')).closest('[data-testid="program"]') as HTMLElement;
     expect(within(me).queryByText(/^Missing/)).toBeNull();
-    expect(within(me).getByRole('link', { name: 'Edit BS Mechanical Engineering' }).getAttribute('href')).toMatch(/^\/settings\/organization\/programs\/[0-9a-f-]{36}$/);
+    expect(within(me).getByRole('link', { name: 'Edit BS Mechanical Engineering' }).getAttribute('href')).toMatch(/^\/settings\/programs\/[0-9a-f-]{36}$/);
     await user.click(within(ie).getByRole('button', { name: 'Deactivate' }));
     await waitFor(() => expect(screen.queryByText('BS Industrial Engineering')).toBeNull());
     await user.click(screen.getByLabelText('Show inactive'));

@@ -17,6 +17,8 @@ import { assessmentApi } from './lib/assessment-api';
 import { settingsApi } from './lib/settings-api';
 import { syllabusApi } from './lib/syllabus-api';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
+import { ProgramsSettingsPage } from './pages/settings/programs';
+import { CoursesSettingsPage } from './pages/settings/courses';
 import { ProgramQualityTab } from './pages/program-quality';
 import { ProgramPage } from './pages/settings/program-page';
 import { CoursePage } from './pages/settings/course-page';
@@ -37,9 +39,11 @@ const fetchAs = (who: string) => ((input: RequestInfo | URL, init?: RequestInit)
   headers.set('x-test-user', `${ids[who]}:${ids.inst}`);
   return app.request(input as string, { ...init, headers });
 }) as typeof fetch;
-function page(who: string, tab: OrganizationTab) {
+function page(who: string, tab: OrganizationTab | 'programs' | 'courses') {
   const f = fetchAs(who);
-  const ui = <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} syllabus={syllabusApi(f)} tab={tab} />;
+  const ui = tab === 'programs' ? <ProgramsSettingsPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} />
+    : tab === 'courses' ? <CoursesSettingsPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} />
+    : <OrganizationPage api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} assessment={assessmentApi(f)} syllabus={syllabusApi(f)} tab={tab} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }

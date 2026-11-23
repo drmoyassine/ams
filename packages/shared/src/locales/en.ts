@@ -236,7 +236,11 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'nav.myRequests': 'My requests ({{count}})',
 
   'settings.organization': 'Organization',
-  'settings.organization.hint': 'Institution details, logo, languages and org chart; programs',
+  'settings.organization.hint': 'Institution details, logo, languages and org chart',
+  'settings.programs': 'Programs',
+  'settings.programs.hint': 'Programs: their record, outcomes, degree requirements, study plan and curriculum map',
+  'settings.courses': 'Courses',
+  'settings.courses.hint': 'Courses: their record, content and syllabus',
   'settings.iqf': 'Internal Quality Framework',
   'settings.iqf.hint': "The institution's own standards and terms",
   'settings.external': 'External Standards',
@@ -467,8 +471,6 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'qmt.err.other': '{{message}}',
 
   'org.tab.institution': 'Institution',
-  'org.tab.programs': 'Programs',
-  'org.tab.courses': 'Courses',
   'org.tab.outcomes': 'Learning outcomes',
   'org.tab.syllabus': 'Syllabus rules',
   'org.tab.gened': 'General education',

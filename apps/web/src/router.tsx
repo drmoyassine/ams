@@ -22,6 +22,8 @@ import { RequestsPage } from './pages/requests';
 import { RespondPage } from './pages/respond';
 import { AnswerFormPage, PublicFormPage } from './pages/answer-form';
 import { OrganizationPage, type OrganizationTab } from './pages/settings/organization';
+import { ProgramsSettingsPage } from './pages/settings/programs';
+import { CoursesSettingsPage } from './pages/settings/courses';
 import { SettingsLayout } from './pages/settings/layout';
 import { AiSettingsPage } from './pages/settings/ai';
 import { ApiKeysPage } from './pages/settings/api-keys';
@@ -61,22 +63,25 @@ const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, pa
 // The curriculum map is on the program's page now (the owner, 2026-11-23): an old ?tab=map&program=<id> address goes there.
 const organizationRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationRoute />,
-  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab | 'map'; program?: string; view?: 'course' | 'plo' } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab | 'map' | 'programs' | 'courses'; program?: string; view?: 'course' | 'plo' } => ({
     ...(s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'gened' || s.tab === 'catalog' || s.tab === 'map' || s.tab === 'outcomes' || s.tab === 'syllabus' ? { tab: s.tab } : {}),
     ...(typeof s.program === 'string' && /^[0-9a-f-]{36}$/i.test(s.program) ? { program: s.program } : {}),
     ...(s.view === 'course' || s.view === 'plo' ? { view: s.view } : {}),
   }),
   beforeLoad: ({ search }) => {
+    // Programs and Courses have their own Settings pages (the owner, 2026-11-23).
+    if (search.tab === 'programs') throw redirect({ to: '/settings/programs' });
+    if (search.tab === 'courses') throw redirect({ to: '/settings/courses' });
     if (search.tab !== 'map') return;
-    if (search.program) throw redirect({ to: '/settings/organization/programs/$programId', params: { programId: search.program }, search: { tab: 'map', ...(search.view ? { view: search.view } : {}) } });
-    throw redirect({ to: '/settings/organization', search: { tab: 'programs' } });
+    if (search.program) throw redirect({ to: '/settings/programs/$programId', params: { programId: search.program }, search: { tab: 'map', ...(search.view ? { view: search.view } : {}) } });
+    throw redirect({ to: '/settings/programs' });
   },
 });
-// One program on a page of its own: /settings/organization/programs/<id>, or /new to add one (with a breadcrumb back to the list), in tabs
+// One program on a page of its own: /settings/programs/<id>, or /new to add one (with a breadcrumb back to the list), in tabs
 // (?tab=outcomes|requirements|plan|map; the map also takes &view=course|plo).
 const PROGRAM_TAB_KEYS = ['basic', 'outcomes', 'requirements', 'plan', 'map'] as const;
 const programPageRoute = createRoute({
-  getParentRoute: () => settingsRoute, path: '/organization/programs/$programId', component: () => <ProgramPageRoute />,
+  getParentRoute: () => settingsRoute, path: '/programs/$programId', component: () => <ProgramPageRoute />,
   validateSearch: (s: Record<string, unknown>): { tab?: (typeof PROGRAM_TAB_KEYS)[number]; view?: 'course' | 'plo' } => ({
     ...(PROGRAM_TAB_KEYS.includes(s.tab as never) ? { tab: s.tab as (typeof PROGRAM_TAB_KEYS)[number] } : {}),
     ...(s.view === 'course' || s.view === 'plo' ? { view: s.view } : {}),
@@ -88,13 +93,13 @@ function ProgramPageRoute() {
   const navigate = programPageRoute.useNavigate();
   return <ProgramPage key={programId} programId={programId} tab={tab ?? 'basic'} view={view}
     onTab={(t, v) => { void navigate({ search: t === 'basic' ? {} : { tab: t, ...(t === 'map' && v ? { view: v } : {}) }, replace: true }); }}
-    onSaved={(id) => { if (id !== programId) void navigate({ to: '/settings/organization/programs/$programId', params: { programId: id }, replace: true }); }}
-    onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'programs' } }); }} />;
+    onSaved={(id) => { if (id !== programId) void navigate({ to: '/settings/programs/$programId', params: { programId: id }, replace: true }); }}
+    onCancel={() => { void navigate({ to: '/settings/programs' }); }} />;
 }
-// One course on a page of its own (DEC-042): /settings/organization/courses/<id>, or /new.
+// One course on a page of its own (DEC-042): /settings/courses/<id>, or /new.
 const COURSE_TAB_KEYS = ['basic', 'clos', 'outline', 'materials', 'assessment', 'policies'] as const;
 const coursePageRoute = createRoute({
-  getParentRoute: () => settingsRoute, path: '/organization/courses/$courseId', component: () => <CoursePageRoute />,
+  getParentRoute: () => settingsRoute, path: '/courses/$courseId', component: () => <CoursePageRoute />,
   validateSearch: (s: Record<string, unknown>): { tab?: (typeof COURSE_TAB_KEYS)[number] } => (COURSE_TAB_KEYS.includes(s.tab as never) ? { tab: s.tab as (typeof COURSE_TAB_KEYS)[number] } : {}),
 });
 function CoursePageRoute() {
@@ -102,14 +107,14 @@ function CoursePageRoute() {
   const { tab } = coursePageRoute.useSearch();
   const navigate = coursePageRoute.useNavigate();
   return <CoursePage key={courseId} courseId={courseId} tab={tab ?? 'basic'} onTab={(t) => { void navigate({ search: t === 'basic' ? {} : { tab: t }, replace: true }); }}
-    onSaved={(id) => { if (id !== courseId) void navigate({ to: '/settings/organization/courses/$courseId', params: { courseId: id }, replace: true }); }}
-    onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'courses' } }); }} />;
+    onSaved={(id) => { if (id !== courseId) void navigate({ to: '/settings/courses/$courseId', params: { courseId: id }, replace: true }); }}
+    onCancel={() => { void navigate({ to: '/settings/courses' }); }} />;
 }
 function OrganizationRoute() {
   const { tab } = organizationRoute.useSearch();
   const navigate = organizationRoute.useNavigate();
   // The parent routes pass the raw address through, so an unknown value is dropped here as well.
-  return <OrganizationPage tab={tab === 'programs' || tab === 'courses' || tab === 'gened' || tab === 'catalog' || tab === 'outcomes' || tab === 'syllabus' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
+  return <OrganizationPage tab={tab === 'gened' || tab === 'catalog' || tab === 'outcomes' || tab === 'syllabus' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
 }
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });
@@ -124,8 +129,12 @@ function QualityRoute() {
   const navigate = qualityRoute.useNavigate();
   return <QualityFrameworkPage doc={doc ?? null} onDoc={(d) => { void navigate({ search: d ? { doc: d } : {}, replace: true }); }} />;
 }
-// Programs moved under Organization; the old address still works.
-const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', beforeLoad: () => { throw redirect({ to: '/settings/organization', search: { tab: 'programs' } }); } });
+// Programs and Courses: Settings pages of their own (the owner, 2026-11-23), each with its records on pages beneath (/settings/programs/<id>,
+// /settings/courses/<id>). The addresses under /settings/organization still work.
+const programsSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/programs', component: () => <ProgramsSettingsPage /> });
+const coursesSettingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/courses', component: () => <CoursesSettingsPage /> });
+const oldProgramPageRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization/programs/$programId', beforeLoad: ({ params, search }) => { throw redirect({ to: '/settings/programs/$programId', params: { programId: params.programId }, search: search as never }); } });
+const oldCoursePageRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization/courses/$courseId', beforeLoad: ({ params, search }) => { throw redirect({ to: '/settings/courses/$courseId', params: { courseId: params.courseId }, search: search as never }); } });
 // External standards (accreditors' frameworks) live in Settings beside the internal one; the old addresses still work.
 const documentsRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/documents', component: () => <DocumentsPage /> });
 // The Trash is for people who can edit standards; anyone else who opens the address is told so (the menu hides it too).
@@ -259,7 +268,7 @@ const syllabusRoute = createRoute({ getParentRoute: () => appRoute, path: '/cour
 function SyllabusRoute() { const { id } = syllabusRoute.useParams(); return <SyllabusPage key={id} courseId={id} />; }
 const requestsRoute = createRoute({ getParentRoute: () => appRoute, path: '/requests', component: () => <RequestsPage /> });
 
-const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, catalogRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, coursePageRoute, programsSettingsRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, respondRoute, publicFormRoute, appRoute.addChildren([homeRoute, catalogRoute, settingsRoute.addChildren([settingsIndexRoute, organizationRoute, programPageRoute, coursePageRoute, programsSettingsRoute, coursesSettingsRoute, oldProgramPageRoute, oldCoursePageRoute, qualityRoute, frameworksRoute, qmSettingsRoute, qmTemplateRoute, aiSettingsRoute, apiKeysRoute, assistantMemoryRoute, trashRoute, documentsRoute, versionRoute, glossaryRoute]), oldStandardsRoute, oldVersionRoute, qualityManagementRoute, cycleRoute, engagementsRoute, newEngagementRoute, engagementRoute, reportRoute, workspaceRoute, evidenceRoute, reportsRoute, reportDetailRoute, syllabusRoute, requestsRoute, answerFormRoute])]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
