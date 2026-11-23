@@ -58,9 +58,9 @@ jobs:
           POSTGRES_USER=ams
           POSTGRES_PASSWORD=ci-postgres-password
           POSTGRES_DB=ams
-          DATABASE_URL=postgres://ams:ci-postgres-password@postgres:5432/ams
+          DATABASE_URL=postgres://ams:ci-postgres-password@ams-postgres:5432/ams
           AUTH_SECRET=$(openssl rand -hex 32)
-          S3_ENDPOINT=http://garage:3900
+          S3_ENDPOINT=http://ams-garage:3900
           S3_REGION=garage
           S3_BUCKET=ams
           S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)

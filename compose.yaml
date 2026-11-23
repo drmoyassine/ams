@@ -1,3 +1,9 @@
+# The bundled database and object store, by the names of their own (ams-postgres, ams-garage; see below). They override
+# DATABASE_URL and S3_ENDPOINT from .env, which the bare names "postgres" and "garage" used to point at.
+x-bundled: &bundled
+  DATABASE_URL: postgres://${POSTGRES_USER:-ams}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@ams-postgres:5432/${POSTGRES_DB:-ams}
+  S3_ENDPOINT: http://ams-garage:3900
+
 services:
   postgres:
     image: postgres:16
@@ -11,6 +17,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # A name of its own on the network: a host that runs other stacks on one shared network (Easypanel does) may have
+    # another "postgres" or "garage", and the bare service name can then reach the wrong one. Connect with ams-postgres.
+    networks:
+      default:
+        aliases: [ams-postgres]
 
   garage:
     # S3-compatible object storage (Garage). Pinned: the admin API the app's startup bootstrap uses is v1.
@@ -30,14 +41,19 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+    # Its own name too (see postgres): another stack's "garage" (a v2 node) answered the bootstrap on a shared network.
+    networks:
+      default:
+        aliases: [ams-garage]
 
   app:
     build: { context: ., target: app }
     env_file: .env
     environment:
+      <<: *bundled
       # The app prepares Garage itself before it serves (layout, S3 key, bucket, grant; packages/core garage-bootstrap).
       # Leave GARAGE_ADMIN_URL out on any other S3 host (AWS S3, MinIO ...): nothing is then bootstrapped.
-      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_URL: http://ams-garage:3903
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
     depends_on:
       postgres: { condition: service_healthy }
@@ -59,6 +75,7 @@ services:
     build: { context: ., target: worker }
     env_file: .env
     environment:
+      <<: *bundled
       WORKER_NAME: worker
       WORKER_QUEUES: export,notify,purge_trash,collect_tick
     depends_on:
@@ -71,6 +88,7 @@ services:
     build: { context: ., target: parser }
     env_file: .env
     environment:
+      <<: *bundled
       WORKER_NAME: parser
       WORKER_QUEUES: extract_text
     depends_on:
@@ -85,6 +103,7 @@ services:
     build: { context: ., target: agent }
     env_file: .env
     environment:
+      <<: *bundled
       WORKER_NAME: agent
       WORKER_QUEUES: analyse,ai_extract,ocr,assistant,import,translate
     depends_on:
