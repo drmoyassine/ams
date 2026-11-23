@@ -5,7 +5,7 @@ import { z } from 'zod';
 export interface SnapOutcome { code: string; textEn: string; textAr: string | null }
 export interface SnapProgram {
   code: string; nameEn: string; nameAr: string | null; type: 'degree' | 'minor'; level: string; unit: string | null; college: string | null;
-  mode: string | null; credits: number | null; durationYears: number | null; contactHours: number | null; language: string | null; mission: string | null; vision: string | null; description: string | null;
+  mode: string | null; credits: number | null; durationYears: number | null; contactHours: number | null; language: string | null; mission: string | null; vision: string | null; description: string | null; descriptionAr?: string | null;
   peos: SnapOutcome[]; plos: (SnapOutcome & { ilos: string[] })[];
   concentrations: { code: string; nameEn: string; nameAr: string | null }[];
   blocks: { concentration: string | null; block: string; requirement: string; credits: number }[];

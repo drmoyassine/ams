@@ -56,7 +56,7 @@ export async function buildCatalogSnapshot(ctx: Ctx): Promise<CatalogSnapshot> {
     const ids = new Set(pc.map((c) => c.id));
     return {
       code: p.code ?? p.nameEn, nameEn: p.nameEn, nameAr: p.nameAr, type: p.programType, level: p.degreeLevel, unit: paths.get(p.orgUnitId) ?? null, college: top(p.orgUnitId),
-      mode: p.mode, credits: p.credits, durationYears: num(p.durationYears), contactHours: p.contactHours, language: p.languageOfInstruction, mission: p.mission, vision: p.vision, description: p.description,
+      mode: p.mode, credits: p.credits, durationYears: num(p.durationYears), contactHours: p.contactHours, language: p.languageOfInstruction, mission: p.mission, vision: p.vision, description: p.description, descriptionAr: p.descriptionAr,
       peos: mine.filter((o) => o.kind === 'peo').map((o) => ({ code: o.code, textEn: o.textEn, textAr: o.textAr })),
       plos: mine.filter((o) => o.kind === 'plo').map((o) => ({ code: o.code, textEn: o.textEn, textAr: o.textAr, ilos: links.filter((l) => l.fromId === o.id && iloById.has(l.toId)).map((l) => iloById.get(l.toId)!.code).sort() })),
       gened: {
@@ -125,8 +125,8 @@ export function diffSnapshots(prev: CatalogSnapshot | null, next: CatalogSnapsho
     if (was.gened && (was.gened.freeElectiveCredits !== p.gened.freeElectiveCredits)) add('Program', p.code, `Free elective credits: ${fmt(was.gened.freeElectiveCredits)} → ${fmt(p.gened.freeElectiveCredits)}.`);
     for (const a of p.gened.areas) { const w = was.gened?.areas.find((x) => x.code === a.code); if (w && w.minCredits !== a.minCredits) add('Program', p.code, `General education ${a.code} minimum: ${w.minCredits} → ${a.minCredits}.`); }
     const fields: [string, unknown, unknown][] = [['name', was.nameEn, p.nameEn], ['Arabic name', was.nameAr, p.nameAr], ['level', was.level, p.level], ['type', was.type, p.type], ['unit', was.unit, p.unit], ['mode', was.mode, p.mode],
-      ['credits', was.credits, p.credits], ['years', was.durationYears, p.durationYears], ['contact hours', was.contactHours, p.contactHours], ['language', was.language, p.language], ['mission', was.mission, p.mission], ['vision', was.vision, p.vision]];
-    for (const [name, a, b] of fields) if ((a ?? null) !== (b ?? null)) add('Program', p.code, name === 'mission' || name === 'vision' ? `The ${name} changed.` : `${name[0]!.toUpperCase()}${name.slice(1)}: ${fmt(a)} → ${fmt(b)}.`);
+      ['credits', was.credits, p.credits], ['years', was.durationYears, p.durationYears], ['contact hours', was.contactHours, p.contactHours], ['language', was.language, p.language], ['mission', was.mission, p.mission], ['vision', was.vision, p.vision], ['description', was.description, p.description], ['Arabic description', was.descriptionAr ?? null, p.descriptionAr ?? null]];
+    for (const [name, a, b] of fields) if ((a ?? null) !== (b ?? null)) add('Program', p.code, name === 'mission' || name === 'vision' || name.endsWith('description') ? `The ${name} changed.` : `${name[0]!.toUpperCase()}${name.slice(1)}: ${fmt(a)} → ${fmt(b)}.`);
     for (const k of ['peos', 'plos'] as const) {
       const label = k === 'peos' ? 'PEO' : 'PLO';
       for (const o of p[k]) { const w = was[k].find((x) => x.code === o.code); if (!w) add('Program', p.code, `${label} ${o.code} added.`); else if (w.textEn !== o.textEn) add('Program', p.code, `${label} ${o.code} reworded.`); }

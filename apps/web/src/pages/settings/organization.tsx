@@ -10,7 +10,6 @@ import { CatalogEditionsSection } from './catalog-editions';
 import { GenedSection } from './gened';
 import { CoursesSettingsPage } from './courses';
 import { SyllabusSettingsPage } from './syllabus-settings';
-import { CurriculumMapPage } from './curriculum-map';
 import { LearningOutcomesSection } from './learning-outcomes';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 import type { AssessmentApi } from '../../lib/assessment-api';
@@ -134,16 +133,15 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'gened' }, { id: 'catalog' }, { id: 'map' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'programs' }, { id: 'courses' }, { id: 'gened' }, { id: 'catalog' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
  * Settings -> Organization: one screen, four tabs (Courses and Learning outcomes join with TASK-105 and TASK-112). Institution holds the details, the logo and the org chart (Languages
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
-export function OrganizationPage({ api: override, outcomes, assessment, syllabus, tab: tabProp, onTab, map, onMap }: {
+export function OrganizationPage({ api: override, outcomes, assessment, syllabus, tab: tabProp, onTab }: {
   api?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; syllabus?: SyllabusApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void;
-  /** The Curriculum map's program and view, from the address. */ map?: { program?: string | undefined; view?: 'course' | 'plo' | undefined }; onMap?: (m: { program?: string; view?: 'course' | 'plo' }) => void;
 }) {
   const { t } = useTranslation();
   const api = useSettingsApi(override);
@@ -152,7 +150,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
-  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), map: t('org.tab.map'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
+  const tabLabel = { institution: t('org.tab.institution'), programs: t('org.tab.programs'), courses: t('org.tab.courses'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -191,7 +189,6 @@ export function OrganizationPage({ api: override, outcomes, assessment, syllabus
           : tab === 'courses' ? <CoursesSettingsPage api={api} {...(outcomes ? { outcomes } : {})} />
           : tab === 'catalog' ? <CatalogEditionsSection api={api} />
           : tab === 'gened' ? <GenedSection api={api} {...(outcomes ? { outcomes } : {})} />
-          : tab === 'map' ? <CurriculumMapPage api={api} {...(outcomes ? { outcomes } : {})} {...(syllabus ? { syllabus } : {})} program={map?.program} view={map?.view} {...(onMap ? { onPick: onMap } : {})} />
           : tab === 'syllabus' ? <SyllabusSettingsPage api={api} />
           : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} canEdit={can(me.data, 'org:write')} />}
       </div>

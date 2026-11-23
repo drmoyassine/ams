@@ -29,10 +29,12 @@ type Cell = ProgramOutcomes['map'][number];
  * PLO at one level (no CLOs needed); bottom-up, a course's CLOs are linked to the PLO at a level and fill the cell. Coverage flags a course
  * mapped top-down with no CLO behind it, levels that differ, a course mapped to no PLO and the syllabus rules' limits. Nothing is blocked.
  */
-export function CurriculumMapPage({ api: override, outcomes, syllabus, program: programProp, view: viewProp, onPick }: {
+export function CurriculumMapPage({ api: override, outcomes, syllabus, program: programProp, view: viewProp, onPick, fixed }: {
   api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi;
   /** From the address (deep link): the program and the view; `onPick` writes them back. Without them the page keeps its own. */
   program?: string | undefined; view?: 'course' | 'plo' | undefined; onPick?: (p: { program?: string; view?: 'course' | 'plo' }) => void;
+  /** On the program's own page: the program is fixed, so there is no program to choose. */
+  fixed?: boolean;
 }) {
   const api = useSettingsApi(override);
   const oapi = useOutcomesApi(outcomes);
@@ -40,7 +42,7 @@ export function CurriculumMapPage({ api: override, outcomes, syllabus, program: 
   const me = useMe(api);
   const canWrite = can(me.data, 'program:write');
   const programs = useQuery({ queryKey: ['programs'], queryFn: () => api.programs() });
-  const active = (programs.data ?? []).filter((p) => p.active).sort((a, b) => a.nameEn.localeCompare(b.nameEn));
+  const active = (programs.data ?? []).filter((p) => p.active || (fixed && p.id === programProp)).sort((a, b) => a.nameEn.localeCompare(b.nameEn));
   const [own, setOwn] = useState('');
   const picked = programProp ?? own;
   const programId = (picked && active.some((p) => p.id === picked) ? picked : '') || active[0]?.id || '';
@@ -67,12 +69,12 @@ export function CurriculumMapPage({ api: override, outcomes, syllabus, program: 
           <p className="text-sm text-muted-foreground">Map a course to a PLO directly (top-down), or link its CLOs to the PLO (bottom-up). Both fill the same map.</p>
           <ReadOnlyNote show={!!me.data && !canWrite} />
         </div>
-        <label className="flex min-w-0 flex-col gap-1 text-xs">Program
+        {!fixed && <label className="flex min-w-0 flex-col gap-1 text-xs">Program
           <select aria-label="Program" className={`${select} w-full sm:w-80`} value={programId} onChange={(e) => setPicked(e.target.value)}>
             {active.length === 0 && <option value="">No programs yet</option>}
             {active.map((p) => <option key={p.id} value={p.id}>{p.code ? `${p.code} · ` : ''}{p.nameEn}</option>)}
           </select>
-        </label>
+        </label>}
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {!programId ? <p className="text-sm text-muted-foreground">{programs.isError ? 'Could not load programs.' : programs.data ? 'Add a program first.' : 'Loading…'}</p>

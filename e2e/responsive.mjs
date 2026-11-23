@@ -661,11 +661,14 @@ function pagesFor(ids) {
     { name: 'program-new', path: '/settings/organization/programs/new', action: async (page) => { await page.getByRole('heading', { name: 'New program' }).waitFor(); } },
     { name: 'settings-courses', path: '/settings/organization', action: async (page) => { await clickTab('Courses')(page); await page.getByRole('button', { name: 'Import and export' }).click(); await page.getByRole('region', { name: 'Import and export' }).waitFor(); } },
     { name: 'settings-gened', path: '/settings/organization', action: async (page) => { await clickTab('General education')(page); await page.getByRole('form', { name: 'General education credits' }).waitFor(); } },
-    { name: 'program-requirements', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await page.getByRole('region', { name: 'Requirements' }).waitFor(); } },
+    { name: 'program-requirements', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Degree Requirements')(page); await page.getByRole('region', { name: 'Requirements' }).waitFor(); } },
+    { name: 'program-study-plan', path: '/settings/organization', action: async (page) => { await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Study Plan')(page); await page.getByRole('region', { name: 'Study plan' }).waitFor(); } },
     { name: 'settings-catalog', path: '/settings/organization', action: async (page) => { await clickTab('Catalog')(page); await page.getByRole('region', { name: 'Draft' }).or(page.getByRole('list', { name: 'Editions' })).first().waitFor(); } },
     { name: 'catalog-draft', path: '/catalog/draft', action: async (page) => { await page.getByRole('article', { name: 'Catalog' }).waitFor(); } },
     { name: 'settings-curriculum-map', path: '/settings/organization', action: async (page) => {
-      await clickTab('Curriculum map')(page);
+      // The map is on the program's page (the owner, 2026-11-23).
+      await clickTab('Programs')(page); await page.getByRole('link', { name: /^Edit / }).first().click(); await clickTab('Curriculum Map')(page);
+      await page.getByRole('heading', { name: 'Curriculum map' }).waitFor();
       // The map downloads as a workbook (fails the run if the download does not start).
       const button = page.getByRole('button', { name: 'Download (Excel)' });
       if (await button.count()) { const [file] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), button.click()]); if (!file.suggestedFilename().endsWith('.xlsx')) throw new Error(`unexpected download ${file.suggestedFilename()}`); }

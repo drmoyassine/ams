@@ -81,7 +81,7 @@ describe('a degree\'s requirements', () => {
   });
 
   it('a minor has no General Education check and needs no mode, years, contact hours or PEOs', async () => {
-    const [{ id }] = (await w.db.su.query(`insert into program (institution_id, org_unit_id, name_en, degree_level, program_type, code, credits, mission, language_of_instruction, name_ar) select institution_id, org_unit_id, 'Minor in Data', 'bachelor', 'minor', 'MIN-DATA', 15, 'To add data skills.', 'English', 'x' from program limit 1 returning id`)).rows;
+    const [{ id }] = (await w.db.su.query(`insert into program (institution_id, org_unit_id, name_en, degree_level, program_type, code, credits, mission, language_of_instruction, name_ar, description) select institution_id, org_unit_id, 'Minor in Data', 'bachelor', 'minor', 'MIN-DATA', 15, 'To add data skills.', 'English', 'x', 'Data skills.' from program limit 1 returning id`)).rows;
     const r = await w.as('alo', (c) => getProgramRequirements(c, id));
     expect(r).toMatchObject({ programType: 'minor', credits: 15, issues: [] });
     const missing = (await w.as('alo', async (c) => (await import('../org/programs.js')).getProgram(c, id))).missing;

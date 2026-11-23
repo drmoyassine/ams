@@ -37,7 +37,7 @@ describe('the academic workbook', () => {
     expect(sheets[0]!.lines).toBe(ACADEMIC_README);
     const by = (n: string) => sheets.find((s) => s.name === n)!.columns!;
     expect(by('Programs')[0]).toMatchObject({ header: 'ID', grey: true });
-    expect(by('Programs').filter((c) => c.required).map((c) => c.header)).toEqual(['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission']);
+    expect(by('Programs').filter((c) => c.required).map((c) => c.header)).toEqual(['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Description (English)']);
     expect(by('Programs').find((c) => c.header === 'Unit')!.check).toEqual({ list: 'Lists!$A$2:$A$3' });
     expect(by('Programs').find((c) => c.header === 'Credits')!.check).toEqual({ whole: [1, 400] });
     expect(by('PLOs').find((c) => c.header === 'Program code')!.check).toEqual({ list: 'Programs!$B$2:$B$302' });

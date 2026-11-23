@@ -66,8 +66,8 @@ describe('the degree\'s structure in the same file', () => {
   const structure = wb({
     catalog: [{ Setting: 'General education credits', Value: 6 }],
     genedAreas: [{ Code: 'HUM', 'Name (English)': 'Humanities', 'Minimum credits': 3, Courses: 'HUM 101; HUM 999' }],
-    programs: [{ 'Program code': 'BS-ENG', 'Name (English)': 'BS Engineering', Unit: 'Engineering', 'Program level': 'Bachelor', Type: 'Degree', Mode: 'On-campus', Credits: 15, Years: 4, 'Contact hours': 1500, Language: 'English', Mission: 'To engineer.', 'Name (Arabic)': 'ب' },
-      { 'Program code': 'MIN-ENG', 'Name (English)': 'Minor in Engineering', Unit: 'Engineering', 'Program level': 'Bachelor', Type: 'Minor', Credits: 9, Language: 'English', Mission: 'A minor.', 'Name (Arabic)': 'ب' }],
+    programs: [{ 'Program code': 'BS-ENG', 'Name (English)': 'BS Engineering', Unit: 'Engineering', 'Program level': 'Bachelor', Type: 'Degree', Mode: 'On-campus', Credits: 15, Years: 4, 'Contact hours': 1500, Language: 'English', Mission: 'To engineer.', 'Description (English)': 'Engineering.', 'Name (Arabic)': 'ب' },
+      { 'Program code': 'MIN-ENG', 'Name (English)': 'Minor in Engineering', Unit: 'Engineering', 'Program level': 'Bachelor', Type: 'Minor', Credits: 9, Language: 'English', Mission: 'A minor.', 'Description (English)': 'A minor in engineering.', 'Name (Arabic)': 'ب' }],
     concentrations: [{ 'Program code': 'BS-ENG', Code: 'DES', 'Name (English)': 'Design' }],
     blocks: [{ 'Program code': 'BS-ENG', Block: 'Major requirements', 'Core credits': 6, 'Elective credits': 3 }, { 'Program code': 'BS-ENG', Concentration: 'DES', Block: 'Concentration requirements', 'Core credits': 3 }],
     courses: [{ 'Course code': 'HUM 101', 'Title (English)': 'Ethics', Unit: 'Engineering', 'Credit hours': 3 }, { 'Course code': 'ENG 201', 'Title (English)': 'Mechanics', Unit: 'Engineering', 'Credit hours': 6 },

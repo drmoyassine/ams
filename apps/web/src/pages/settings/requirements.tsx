@@ -40,7 +40,13 @@ function Override({ label, own, fallback, disabled, compact, onSave }: { label: 
   );
 }
 
-export function RequirementsSection({ programId, canWrite, catalog: catalogOverride, outcomes: outcomesOverride, settings: settingsOverride }: { programId: string; canWrite: boolean; catalog?: CatalogApi; outcomes?: OutcomesApi; settings?: SettingsApi }) {
+/**
+ * A program's requirements (DEC-046, DEC-047), in two parts that are two tabs of the program page: `requirements` (the checks, credits by
+ * block, General education and Free electives, concentrations) and `plan` (the study plan by year and term, with the elective slots).
+ */
+export function RequirementsSection({ programId, canWrite, catalog: catalogOverride, outcomes: outcomesOverride, settings: settingsOverride, part }: { programId: string; canWrite: boolean; catalog?: CatalogApi; outcomes?: OutcomesApi; settings?: SettingsApi; part?: 'requirements' | 'plan' }) {
+  const showReq = part !== 'plan';
+  const showPlan = part !== 'requirements';
   const sapi = useSettingsApi(settingsOverride);
   const settingsUpdate = (patch: { genedCredits?: number | null; freeElectiveCredits?: number | null }) => sapi.updateProgram(programId, patch);
   const api = useCatalogApi(catalogOverride);
@@ -88,16 +94,31 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
       <td className="px-2 py-1">{ROLE_LABEL[c.role]}</td><td className="px-2 py-1 whitespace-nowrap">{c.year ? `Y${c.year}` : ''}{c.term ? ` T${c.term}` : ''}</td>
     </tr>
   );
+  const slotRow = (s: (typeof r.slots)[number]) => (
+    <tr key={s.id} className="border-t border-border align-top italic" data-testid="slot">
+      <td className="px-2 py-1 text-muted-foreground">—</td>
+      <td className="px-2 py-1" colSpan={2}><span className="font-medium not-italic">{s.name}</span> <span className="text-xs text-muted-foreground">{BLOCK_LABEL[s.block]}{s.concentrationId ? ` · ${concName.get(s.concentrationId)}` : ''} · {fmt(s.credits)} credits{s.rule ? ` · ${s.rule}` : ''}</span></td>
+      <td className="px-2 py-1 text-end not-italic">{canWrite && <Button type="button" variant="ghost" className="px-2 py-0.5 text-xs" aria-label={`Remove slot ${s.name}`} onClick={() => run.mutate(() => api.deleteSlot(s.id))}>Remove</Button>}</td>
+      <td className="px-2 py-1" colSpan={3}>Elective slot</td>
+    </tr>
+  );
+  // The plan by year and term (as the catalog prints it); what has no year or term comes last.
+  const termKey = (y: number | null, t: number | null) => (y ? `${String(y).padStart(2, '0')}-${String(t ?? 0).padStart(2, '0')}` : '99-99');
+  const termName = (k: string) => (k === '99-99' ? 'Not scheduled' : `Year ${Number(k.slice(0, 2))}${Number(k.slice(3)) ? ` · ${Number(k.slice(3)) === 3 ? 'Summer' : `Term ${Number(k.slice(3))}`}` : ''}`);
+  const terms = [...new Set([...r.courses.map((c) => termKey(c.year, c.term)), ...r.slots.map((x) => termKey(x.year, x.term))])].sort();
+  const credit = (k: string) => r.courses.filter((c) => termKey(c.year, c.term) === k).reduce((a, c) => a + (c.credits ?? 0), 0) + r.slots.filter((x) => termKey(x.year, x.term) === k).reduce((a, x) => a + x.credits, 0);
+  const issuesBox = r.issues.length > 0
+    ? <ul aria-label="To look at" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-950">{r.issues.map((i, n) => <li key={n}>{i.message}</li>)}</ul>
+    : r.courses.length + r.slots.length > 0 && <p role="status" className="text-sm text-emerald-800">The credits add up.</p>;
   return (
-    <Card>
+    <div className="space-y-4">
+    {showReq && <Card>
       <section aria-label="Requirements" className="space-y-4">
         <div>
-          <h3 className="text-base font-semibold">Requirements{minor ? ' (minor)' : ''}</h3>
+          <h3 className="text-base font-semibold">Degree requirements{minor ? ' (minor)' : ''}</h3>
           <p className="text-xs text-muted-foreground">What the degree is made of: General education (the institution&apos;s, set by Academic Affairs), College, Major and a Concentration, each with core and elective credits. The checks flag what does not add up; they never block a save.</p>
         </div>
-        {r.issues.length > 0
-          ? <ul aria-label="To look at" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-950">{r.issues.map((i, n) => <li key={n}>{i.message}</li>)}</ul>
-          : r.courses.length + r.slots.length > 0 && <p role="status" className="text-sm text-emerald-800">The credits add up.</p>}
+        {issuesBox}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
         <div className="space-y-2">
@@ -165,30 +186,34 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
           )}
         </div>
 
+      </section>
+    </Card>}
+    {showPlan && <Card>
+      <section aria-label="Study plan" className="space-y-4">
+        <div>
+          <h3 className="text-base font-semibold">Study plan</h3>
+          <p className="text-xs text-muted-foreground">The courses by year and term, each in its block; an elective slot stands for a course chosen later. {fmt(r.courses.reduce((a, c) => a + (c.credits ?? 0), 0) + r.slots.reduce((a, x) => a + x.credits, 0))} credits planned{r.credits ? ` of ${fmt(r.credits)}` : ''}.</p>
+        </div>
+        {part === 'plan' && issuesBox}
+        {part === 'plan' && error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="space-y-2">
-          <h4 className="text-sm font-semibold">Study plan</h4>
           {r.courses.length === 0 && <p className="text-sm text-muted-foreground">No courses yet. Add the program on a course&apos;s page (its Study plan), then set its block here.</p>}
-          {r.courses.length > 0 && (
-            <div className="overflow-x-auto">
-              <table aria-label="Study plan" className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground"><tr><th className="px-2 py-1 text-start">Code</th><th className="px-2 py-1 text-start">Title</th><th className="px-2 py-1 text-end">Credits</th><th className="px-2 py-1 text-start">Block</th><th className="px-2 py-1 text-start">Concentration</th><th className="px-2 py-1 text-start">Role</th><th className="px-2 py-1 text-start">When</th></tr></thead>
-                <tbody>{r.courses.map(plan)}</tbody>
-              </table>
+          {terms.map((k) => (
+            <div key={k} className="space-y-1" data-testid="plan-term">
+              <h4 className="flex justify-between text-sm font-semibold"><span>{termName(k)}</span><span className="text-xs font-normal text-muted-foreground">{fmt(credit(k))} credits</span></h4>
+              <div className="overflow-x-auto">
+                <table aria-label={`Study plan, ${termName(k)}`} className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground"><tr><th className="w-24 px-2 py-1 text-start">Code</th><th className="px-2 py-1 text-start">Title</th><th className="w-16 px-2 py-1 text-end">Credits</th><th className="px-2 py-1 text-start">Block</th><th className="px-2 py-1 text-start">Concentration</th><th className="px-2 py-1 text-start">Role</th><th className="px-2 py-1 text-start">When</th></tr></thead>
+                  <tbody>{r.courses.filter((c) => termKey(c.year, c.term) === k).map(plan)}{r.slots.filter((x) => termKey(x.year, x.term) === k).map(slotRow)}</tbody>
+                </table>
+              </div>
             </div>
-          )}
+          ))}
         </div>
 
         <div className="space-y-2">
-          <h4 className="text-sm font-semibold">Elective slots</h4>
+          <h4 className="text-sm font-semibold">Add an elective slot</h4>
           <p className="text-xs text-muted-foreground">A place in the plan for a course chosen later, for example &quot;Major elective, 3 credits, year 4 term 1&quot;, with the rule that fills it.</p>
-          <ul aria-label="Elective slots" className="space-y-1 text-sm">
-            {r.slots.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-2" data-testid="slot">
-                <span className="font-medium">{s.name}</span><span className="text-xs text-muted-foreground">{BLOCK_LABEL[s.block]}{s.concentrationId ? ` · ${concName.get(s.concentrationId)}` : ''} · {fmt(s.credits)} credits{s.year ? ` · Y${s.year}` : ''}{s.term ? ` T${s.term}` : ''}{s.rule ? ` · ${s.rule}` : ''}</span>
-                {canWrite && <Button type="button" variant="ghost" className="px-2 py-0.5 text-xs" aria-label={`Remove slot ${s.name}`} onClick={() => run.mutate(() => api.deleteSlot(s.id))}>Remove</Button>}
-              </li>
-            ))}
-          </ul>
           {canWrite && (
             <form aria-label="Add an elective slot" className="flex flex-wrap items-end gap-2" onSubmit={(e) => {
               e.preventDefault();
@@ -210,7 +235,8 @@ export function RequirementsSection({ programId, canWrite, catalog: catalogOverr
           )}
         </div>
       </section>
-    </Card>
+    </Card>}
+    </div>
   );
 }
 

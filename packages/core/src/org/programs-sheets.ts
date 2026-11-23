@@ -108,6 +108,8 @@ export async function upsertPrograms(ctx: Ctx, input: UpsertPrograms): Promise<U
     if (c('Language')) patch.languageOfInstruction = c('Language');
     if (c('Mission')) patch.mission = c('Mission');
     if (c('Vision')) patch.vision = c('Vision');
+    if (c('Description (English)')) patch.description = c('Description (English)');
+    if (c('Description (Arabic)')) patch.descriptionAr = c('Description (Arabic)');
     if (['yes', 'true', '1', 'active'].includes(activeText)) patch.active = true;
     if (['no', 'false', '0', 'inactive'].includes(activeText)) patch.active = false;
     const warn = modeText && !mode ? ` Unknown mode "${modeText}" (On-campus, Online or Blended) left as it was.` : '';
@@ -259,7 +261,7 @@ export async function exportPrograms(ctx: Ctx): Promise<ProgramsExport> {
     wb.programs.push({
       ID: p.id, 'Program code': code, 'Name (English)': p.nameEn, 'Name (Arabic)': p.nameAr ?? '', Unit: paths.get(p.orgUnitId) ?? '', 'Program level': LEVEL_LABEL[p.degreeLevel] ?? p.degreeLevel, Type: p.programType === 'minor' ? 'Minor' : 'Degree', 'GenEd credits': p.genedCredits === null ? null : Number(p.genedCredits), 'Free elective credits': p.freeElectiveCredits === null ? null : Number(p.freeElectiveCredits),
       'SIS code': p.externalId ?? '', Mode: p.mode ? MODE_LABEL[p.mode] ?? p.mode : '', Credits: p.credits, Years: p.durationYears === null ? null : Number(p.durationYears),
-      'Contact hours': p.contactHours, Language: p.languageOfInstruction ?? '', Mission: p.mission ?? '', Vision: p.vision ?? '', Active: p.active ? 'Yes' : 'No',
+      'Contact hours': p.contactHours, Language: p.languageOfInstruction ?? '', Mission: p.mission ?? '', Vision: p.vision ?? '', 'Description (English)': p.description ?? '', 'Description (Arabic)': p.descriptionAr ?? '', Active: p.active ? 'Yes' : 'No',
     });
     const mine = outcomes.filter((o) => o.programId === p.id).sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code, 'en', { numeric: true }));
     const base = (o: (typeof outcomes)[number]) => ({ ID: o.id, 'Program code': code, 'Program name': p.nameEn, Code: o.code, 'Statement (English)': o.textEn, 'Statement (Arabic)': o.textAr ?? '' });

@@ -104,7 +104,8 @@ export function academicWorkbookSheets(data: AcademicExport): RichSheet[] {
       ...(k === 'programs' && h === 'Credits' ? { check: { whole: [1, 400] } } : {}),
       ...(k === 'programs' && h === 'Contact hours' ? { check: { whole: [1, 20000] } } : {}),
       ...(h === 'Years' ? { check: { decimal: [0.5, 12] } } : {}),
-      ...(h === 'Mission' || h === 'Vision' ? { wrap: true, width: 60 } : {}),
+      ...(h === 'Mission' || h === 'Vision' || h === 'Description (English)' ? { wrap: true, width: 60 } : {}),
+      ...(k === 'programs' && h === 'Description (Arabic)' ? { wrap: true, rtl: true, width: 60 } : {}),
       // PEOs, PLOs
       ...(hasProgramCode(k) && k !== 'programs' && k !== 'studyPlan' && h === 'Program code' ? { check: { list: programCodes } } : {}),
       ...(h === 'Program name' ? { grey: true, width: 34, formula: (n: number) => `IFERROR(INDEX(Programs!$${pName}:$${pName},MATCH($${own}${n},Programs!$${pCode}:$${pCode},0)),"")` } : {}),

@@ -44,10 +44,18 @@ function page(who: string, tab: OrganizationTab) {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
 
-/** The program's own page (Settings -> Organization -> Programs -> the program). */
-function programPage(who: string) {
+/** The program's Curriculum Map tab (the map lives on the program's page, the owner 2026-11-23). */
+function mapPage(who: string) {
   const f = fetchAs(who);
-  const ui = <ProgramPage programId={ids.prog!} api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} onSaved={() => undefined} onCancel={() => undefined} />;
+  const ui = <ProgramPage programId={ids.prog!} tab="map" api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} onSaved={() => undefined} onCancel={() => undefined} />;
+  const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
+}
+
+/** The program's own page (Settings -> Organization -> Programs -> the program). */
+function programPage(who: string, tab: 'basic' | 'outcomes' = 'outcomes') {
+  const f = fetchAs(who);
+  const ui = <ProgramPage programId={ids.prog!} tab={tab} api={settingsApi(createApi(f), f)} outcomes={outcomesApi(f)} syllabus={syllabusApi(f)} onSaved={() => undefined} onCancel={() => undefined} />;
   const router = createRouter({ routeTree: createRootRoute({ component: () => ui }), history: createMemoryHistory({ initialEntries: ['/'] }) });
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -74,7 +82,7 @@ beforeAll(async () => {
   const unit = ids.unit = await one(`insert into org_unit (institution_id, type, name_en) values ($1, 'college', 'Engineering') returning id`, [ids.inst]);
   ids.prog = await one(`insert into program (institution_id, org_unit_id, name_en, degree_level) values ($1, $2, 'BS Electrical and Computer Engineering', 'bachelor') returning id`, [ids.inst, unit]);
   // A complete record (the program's page refuses to save without one) with one PEO already.
-  await db.su.query(`update program set name_ar = 'بكالوريوس الهندسة الكهربائية', code = 'BS-ECE', mode = 'on_campus', credits = 130, duration_years = 4, contact_hours = 2000, language_of_instruction = 'English', mission = 'To educate engineers.' where id = $1`, [ids.prog]);
+  await db.su.query(`update program set name_ar = 'بكالوريوس الهندسة الكهربائية', code = 'BS-ECE', mode = 'on_campus', credits = 130, duration_years = 4, contact_hours = 2000, language_of_instruction = 'English', mission = 'To educate engineers.', description = 'Electrical and computer engineering.' where id = $1`, [ids.prog]);
   await db.su.query(`insert into learning_outcome (institution_id, kind, program_id, code, text_en) values ($1, 'peo', $2, 'PEO0', 'Graduates keep learning')`, [ids.inst, ids.prog]);
 }, 120000);
 afterEach(() => cleanup());
@@ -123,9 +131,10 @@ describe('courses, outcomes and the curriculum map', () => {
     await user.click(within(dlg).getByRole('button', { name: 'Save' }));
     await screen.findByRole('status');
     cleanup();
-    page('admin', 'map');
-    const pick = await screen.findByLabelText('Program') as HTMLSelectElement;
-    await waitFor(() => expect(pick.selectedOptions[0]!.textContent).toMatch(/BS Electrical and Computer Engineering/));
+    mapPage('admin');
+    // The map is the program's own: no program to pick.
+    expect(await screen.findByRole('tabpanel', { name: 'Curriculum Map' })).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Program' })).toBeNull();
     const coverage = await screen.findByRole('region', { name: 'Coverage' });
     await within(coverage).findByText('SO1 has no course mapped to it');
     // The hint says what a click does; an empty cell is a button.
@@ -146,7 +155,7 @@ describe('courses, outcomes and the curriculum map', () => {
     const clo1 = (await db.su.query(`select id from learning_outcome where code = 'CLO1' and kind = 'clo'`)).rows[0].id;
     await db.su.query(`insert into outcome_link (institution_id, from_id, to_id, level) values ($1, $2, $3, 'M')`, [ids.inst, clo1, so1]);
     cleanup();
-    page('admin', 'map');
+    mapPage('admin');
     const coverage2 = await screen.findByRole('region', { name: 'Coverage' });
     await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' });
     await waitFor(() => expect(within(coverage2).queryByText(/SO1/)).toBeNull());
@@ -203,7 +212,7 @@ describe('courses, outcomes and the curriculum map', () => {
 
   it('maps a course to a PLO top-down from the PLO view as a draft change, and asks before moving a CLO to another PLO', async () => {
     const user = userEvent.setup();
-    page('admin', 'map');
+    mapPage('admin');
     await user.click(await screen.findByRole('tab', { name: 'By PLO' }));
     const plo7 = await screen.findByRole('group', { name: 'PLO7 courses' });
     within(plo7).getByText('No course mapped yet.');
@@ -254,7 +263,7 @@ describe('courses, outcomes and the curriculum map', () => {
     expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Outcomes of / })).toBeNull();
     cleanup();
-    page('viewer', 'map');
+    mapPage('viewer');
     expect((await screen.findByRole('button', { name: 'ECE 420 SO1: Mastered' })).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('form', { name: 'Add a course to the program' })).toBeNull();
     // ILOs are columns after the PLOs: ECE 420 reaches ILO1 through SO1, at SO1's level; the totals row counts the courses.
@@ -264,7 +273,7 @@ describe('courses, outcomes and the curriculum map', () => {
     expect(screen.getByRole('button', { name: 'Download (Excel)' })).toBeTruthy();
     const user2 = userEvent.setup();
     await user2.click(screen.getByRole('tab', { name: 'By PLO' }));
-    await screen.findByText('Solve complex engineering problems');
+    expect((await within(screen.getByRole('tabpanel', { name: 'Curriculum Map' })).findAllByText('Solve complex engineering problems')).length).toBeGreaterThan(0);
   });
 
   it('adds a review finding on a criterion and shows it in the Review heatmap', async () => {

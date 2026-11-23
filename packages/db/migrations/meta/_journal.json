@@ -603,6 +603,13 @@
       "when": 1793721600000,
       "tag": "0087_gened_overrides_free_electives",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1793721601000,
+      "tag": "0088_program_description_coordinator",
+      "breakpoints": true
     }
   ]
 }

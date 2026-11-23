@@ -192,7 +192,7 @@ describe('programs settings', () => {
     expect(screen.queryByLabelText('Discipline')).toBeNull();
     // Saving with nothing filled in says what is missing (the vision and the SIS code are optional).
     await user.click(await screen.findByRole('button', { name: 'Add program' }));
-    expect((await screen.findByRole('alert')).textContent).toBe('Fill in: Name (English), Name (Arabic), Unit, Program code, Mode, Credits, Years, Contact hours, Language, Mission, at least one PEO, at least one PLO.');
+    expect((await screen.findByRole('alert')).textContent).toBe('Fill in: Name (English), Name (Arabic), Unit, Program code, Mode, Credits, Years, Contact hours, Language, Mission, Description (English), at least one PEO, at least one PLO.');
     expect(savedId).toBe('');
     await user.type(screen.getByLabelText('Name (English)'), 'BS Mechanical Engineering');
     await user.type(screen.getByLabelText('Name (Arabic)'), 'بكالوريوس الهندسة الميكانيكية');
@@ -204,6 +204,7 @@ describe('programs settings', () => {
     await user.type(screen.getByLabelText('Contact hours'), '2200');
     await user.selectOptions(screen.getByLabelText('Language'), 'English');
     await user.type(screen.getByLabelText('Mission'), 'To educate mechanical engineers.');
+    await user.type(screen.getByLabelText('Description (English)'), 'A four-year degree in mechanical engineering.');
     await user.click(screen.getByRole('button', { name: 'Add PEO' }));
     await user.type(screen.getByLabelText('PEO 1 statement'), 'Graduates lead engineering work');
     await user.click(screen.getByRole('button', { name: 'Add PLO' }));
@@ -211,7 +212,7 @@ describe('programs settings', () => {
     await user.click(screen.getByRole('button', { name: 'Add program' }));
     await waitFor(() => expect(savedId).not.toBe(''));
     const saved = (await apiFor('lead').programs()).find((p) => p.id === savedId)!;
-    expect(saved).toMatchObject({ code: 'BS-ME', orgUnitId: ids.dept, mode: 'on_campus', credits: 132, durationYears: 4, contactHours: 2200, languageOfInstruction: 'English', vision: null, missing: [] });
+    expect(saved).toMatchObject({ code: 'BS-ME', orgUnitId: ids.dept, mode: 'on_campus', credits: 132, durationYears: 4, contactHours: 2200, languageOfInstruction: 'English', vision: null, description: 'A four-year degree in mechanical engineering.', descriptionAr: null, missing: [] });
     cleanup();
     // Opened again (its own address), the record is filled in and its PEO and PLO are listed to edit in place.
     render(wrap(<ProgramPage programId={savedId} api={apiFor('lead')} outcomes={outcomesApi(fetchFor('lead'))} syllabus={syllabusApi(fetchFor('lead'))} onSaved={() => undefined} onCancel={() => undefined} />));
@@ -230,7 +231,7 @@ describe('programs settings', () => {
     render(wrap(<ProgramsSettingsPage api={apiFor('lead')} />));
     expect((await screen.findByRole('link', { name: 'Add program' })).getAttribute('href')).toBe('/settings/organization/programs/new');
     const ie = (await screen.findByText('BS Industrial Engineering')).closest('[data-testid="program"]') as HTMLElement;
-    expect(within(ie).getByText(/^Missing: Arabic name, Mode, Credits, Years, Contact hours, Language, Mission, PEOs, PLOs$/)).toBeTruthy();
+    expect(within(ie).getByText(/^Missing: Arabic name, Mode, Credits, Years, Contact hours, Language, Mission, Description \(English\), PEOs, PLOs$/)).toBeTruthy();
     const me = (await screen.findByText('BS Mechanical Engineering')).closest('[data-testid="program"]') as HTMLElement;
     expect(within(me).queryByText(/^Missing/)).toBeNull();
     expect(within(me).getByRole('link', { name: 'Edit BS Mechanical Engineering' }).getAttribute('href')).toMatch(/^\/settings\/organization\/programs\/[0-9a-f-]{36}$/);

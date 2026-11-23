@@ -64,7 +64,11 @@ export const ProgramSchema = z.object({
   externalId: z.string().nullable(),
   mission: z.string().nullable(),
   vision: z.string().nullable(),
+  /** The description: English (required), Arabic (optional). */
   description: z.string().nullable(),
+  descriptionAr: z.string().nullable(),
+  /** The person who coordinates the program (names them; grants nothing by itself). */
+  coordinatorUserId: z.uuid().nullable(),
   mode: z.enum(PROGRAM_MODES).nullable(),
   durationYears: z.number().nullable(),
   credits: z.number().int().nullable(),
@@ -89,6 +93,8 @@ const programFacts = {
   mission: z.string().trim().nullable().optional(),
   vision: z.string().trim().nullable().optional(),
   description: z.string().trim().nullable().optional(),
+  descriptionAr: z.string().trim().nullable().optional(),
+  coordinatorUserId: z.uuid().nullable().optional(),
   mode: z.enum(PROGRAM_MODES).nullable().optional(),
   durationYears: z.coerce.number().min(0.5).max(12).nullable().optional(),
   credits: z.coerce.number().int().min(1).max(400).nullable().optional(),
@@ -130,7 +136,7 @@ export type UpdateProgram = z.infer<typeof UpdateProgramSchema>;
  */
 export const PROGRAM_REQUIRED = {
   nameAr: 'Arabic name', code: 'Program code', mode: 'Mode', credits: 'Credits', durationYears: 'Years', contactHours: 'Contact hours',
-  languageOfInstruction: 'Language', mission: 'Mission',
+  languageOfInstruction: 'Language', mission: 'Mission', description: 'Description (English)',
 } as const;
 /** What a minor does not need: a minor has no mode, years or contact hours of its own, and no PEOs. */
 const MINOR_SKIPS = new Set(['mode', 'durationYears', 'contactHours']);

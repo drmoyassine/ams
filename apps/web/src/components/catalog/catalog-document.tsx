@@ -86,6 +86,7 @@ function ProgramSection({ program: p, snapshot, byCode }: { program: SnapProgram
         {!minor && <tr><th>Mode</th><td>{p.mode ? MODE[p.mode] ?? p.mode : '—'}</td><th>Contact hours</th><td>{fmt(p.contactHours)}</td></tr>}
         <tr><th>Language of instruction</th><td colSpan={3}>{p.language ?? '—'}</td></tr>
       </tbody></table>
+      {(p.description || p.descriptionAr) && <>{p.description && <p dir="auto">{p.description}</p>}{p.descriptionAr && <p dir="auto">{p.descriptionAr}</p>}</>}
       {p.mission && <><h4>Mission</h4><p dir="auto">{p.mission}</p></>}
       {p.vision && <><h4>Vision</h4><p dir="auto">{p.vision}</p></>}
       {p.peos.length > 0 && <><h4>Program educational objectives</h4><ol>{p.peos.map((o) => <li key={o.code} dir="auto"><b>{o.code}</b> {o.textEn}</li>)}</ol></>}

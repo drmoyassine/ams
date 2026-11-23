@@ -12,8 +12,8 @@ import { z } from 'zod';
 export const PROGRAM_SHEETS = {
   programs: {
     name: 'Programs',
-    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Type', 'SIS code', 'Mode', 'Credits', 'GenEd credits', 'Free elective credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Active'],
-    required: ['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission'],
+    headers: ['ID', 'Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Type', 'SIS code', 'Mode', 'Credits', 'GenEd credits', 'Free elective credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Vision', 'Description (English)', 'Description (Arabic)', 'Active'],
+    required: ['Program code', 'Name (English)', 'Name (Arabic)', 'Unit', 'Program level', 'Mode', 'Credits', 'Years', 'Contact hours', 'Language', 'Mission', 'Description (English)'],
   },
   peos: { name: 'PEOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },
   plos: { name: 'PLOs', headers: ['ID', 'Program code', 'Program name', 'Code', 'Statement (English)', 'Statement (Arabic)', 'Bloom level', 'ILOs', 'Status'], required: ['Program code', 'Code', 'Statement (English)'] },

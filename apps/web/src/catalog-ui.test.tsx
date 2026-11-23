@@ -17,6 +17,7 @@ import { settingsApi } from './lib/settings-api';
 import { CatalogPage, catalogWordBlob } from './pages/catalog';
 import { CatalogEditionsSection } from './pages/settings/catalog-editions';
 import { GenedSection } from './pages/settings/gened';
+import { RequirementsSection } from './pages/settings/requirements';
 import { ProgramPage } from './pages/settings/program-page';
 
 configure({ asyncUtilTimeout: 15000 });
@@ -35,7 +36,9 @@ const mount = (node: React.ReactNode) => {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><RouterProvider router={router} /></QueryClientProvider>);
 };
 const apis = (who: string) => { const f = fetcherOf(who); return { api: settingsApi(createApi(f), f), outcomes: outcomesApi(f), catalog: catalogApi(f) }; };
-const programPage = (who: string) => { const a = apis(who); return mount(<ProgramPage programId={ids.prog!} api={a.api} outcomes={a.outcomes} catalog={a.catalog} onSaved={() => undefined} onCancel={() => undefined} />); };
+const programPage = (who: string, tab: 'requirements' | 'plan' = 'requirements') => { const a = apis(who); return mount(<ProgramPage programId={ids.prog!} tab={tab} api={a.api} outcomes={a.outcomes} catalog={a.catalog} onSaved={() => undefined} onCancel={() => undefined} />); };
+/** Both parts of a program's requirements at once (on the program page they are the Degree Requirements and Study Plan tabs). */
+const requirementsBoth = (who: string, canWrite: boolean) => { const a = apis(who); return mount(<div data-testid="requirements-both"><RequirementsSection programId={ids.prog!} canWrite={canWrite} catalog={a.catalog} outcomes={a.outcomes} settings={a.api} /></div>); };
 
 beforeAll(async () => {
   db = await createTestDb('webcatalog');
@@ -85,8 +88,16 @@ describe('General education', () => {
 describe('a program\'s requirements', () => {
   it('flags a plan that does not add up, then agrees once blocks, a concentration and a slot are set', async () => {
     const user = userEvent.setup();
+    // The program page: Degree Requirements and Study Plan are two tabs.
     programPage('admin');
-    const section = await screen.findByRole('region', { name: 'Requirements' });
+    expect(await screen.findByRole('region', { name: 'Requirements' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Study plan' })).toBeNull();
+    cleanup();
+    programPage('admin', 'plan');
+    expect(await screen.findByRole('region', { name: 'Study plan' })).toBeTruthy();
+    cleanup();
+    requirementsBoth('admin', true);
+    const section = await screen.findByTestId('requirements-both');
     // No block yet: the courses are not counted.
     expect((await within(section).findByRole('list', { name: 'To look at' })).textContent).toMatch(/3 courses are in no block/);
     // The selects are enabled once the person's permissions have loaded.
@@ -118,8 +129,8 @@ describe('a program\'s requirements', () => {
   }, 60000);
 
   it('is read-only for a viewer', async () => {
-    programPage('viewer');
-    const section = await screen.findByRole('region', { name: 'Requirements' });
+    programPage('viewer', 'plan');
+    const section = await screen.findByRole('region', { name: 'Study plan' });
     await within(section).findByLabelText('Block of ENG 101');
     expect((within(section).getByLabelText('Block of ENG 101') as HTMLSelectElement).disabled).toBe(true);
     expect(within(section).queryByRole('button', { name: 'Add slot' })).toBeNull();

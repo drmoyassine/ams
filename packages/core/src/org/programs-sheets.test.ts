@@ -13,7 +13,7 @@ afterAll(() => w.close());
 
 const workbook = (): ProgramsWorkbook => ({
   programs: [
-    { 'Program code': 'BS-CE', 'Name (English)': 'BS Civil Engineering', 'Name (Arabic)': 'بكالوريوس الهندسة المدنية', Unit: 'engineering', 'Program level': 'Bachelor', Mode: 'On-campus', Credits: 132, Years: 4, 'Contact hours': 2200, Language: 'English', Mission: 'To educate civil engineers.' },
+    { 'Program code': 'BS-CE', 'Name (English)': 'BS Civil Engineering', 'Name (Arabic)': 'بكالوريوس الهندسة المدنية', Unit: 'engineering', 'Program level': 'Bachelor', Mode: 'On-campus', Credits: 132, Years: 4, 'Contact hours': 2200, Language: 'English', Mission: 'To educate civil engineers.', 'Description (English)': 'A degree in civil engineering.' },
     { 'Program code': 'BS-X', 'Name (English)': 'BS Nowhere', Unit: 'Medicine', 'Program level': 'Bachelor' },
     { 'Program code': 'MS-CE', 'Name (English)': 'MS Civil Engineering', Unit: 'Engineering', 'Program level': 'master', Mode: 'part time' },
   ],
@@ -36,7 +36,7 @@ describe('programs from the template', () => {
     ]);
     expect(done.rows.find((r) => r.code === 'BS-X')!.message).toBe('no unit "Medicine" in the org chart');
     expect(done.rows.find((r) => r.code === 'BS-CE')!.message).toBe('');
-    expect(done.rows.find((r) => r.code === 'MS-CE')!.message).toMatch(/^Missing: Arabic name, Credits, Years, Contact hours, Language, Mission, PEOs, PLOs\.$/);
+    expect(done.rows.find((r) => r.code === 'MS-CE')!.message).toMatch(/^Missing: Arabic name, Credits, Years, Contact hours, Language, Mission, Description \(English\), PEOs, PLOs\.$/);
     const ce = (await w.as('alo', (c) => listPrograms(c))).find((p) => p.code === 'BS-CE')!;
     expect(ce).toMatchObject({ mode: 'on_campus', credits: 132, contactHours: 2200, missing: [] });
     expect((await w.as('alo', (c) => listPrograms(c))).find((p) => p.code === 'MS-CE')).toMatchObject({ mode: 'on_campus', degreeLevel: 'master' });

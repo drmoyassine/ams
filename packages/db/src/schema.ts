@@ -243,6 +243,8 @@ export const program = pgTable('program', {
   /** A degree, or a minor (DEC-046). */
   programType: text('program_type', { enum: PROGRAM_TYPES }).notNull().default('degree'),
   /** The program's own General education and Free elective credits when they differ from the institution's (null: the default; DEC-047). */
+  descriptionAr: text('description_ar'),
+  coordinatorUserId: uuid('coordinator_user_id').references(() => appUser.id, { onDelete: 'set null' }),
   genedCredits: numeric('gened_credits', { precision: 5, scale: 1 }),
   freeElectiveCredits: numeric('free_elective_credits', { precision: 5, scale: 1 }),
 }, (t) => [index('program_org_unit_idx').on(t.orgUnitId), oneOf('program_degree_level_check', t.degreeLevel, DEGREE_LEVELS)]);

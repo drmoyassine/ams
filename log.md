@@ -992,3 +992,9 @@ The AIU Course Syllabus Template is now the course schema. One document per cour
 - **Course Policies:** the assessment notes (pass percentage, how assessments work) and the template's own sections; institutional policies await the Policies and Procedures module.
 - **Description language:** English only by default; the Arabic description shows when a program the course serves teaches in Arabic or both (the program's Language), or when one is already written.
 - `SyllabusEditor` and `SyllabusView` take `only` (blocks in order); the syllabus report is unchanged.
+
+## 2026-11-23 — The program page in tabs; program description and coordinator; the curriculum map moves to the program
+- **Tabs** (`?tab=` in the address): Basic Information | Outcomes | Degree Requirements | Study Plan | Curriculum Map, each with a count of what to look at (missing fields, missing PEOs/PLOs, failing checks). Tabs are made on first visit and kept, so typing survives a switch; Save shows on Basic Information and Outcomes. A new program keeps one page (record and first outcomes).
+- **Migration 0088:** `program.description_ar` (the English one is the existing `program.description`) and `program.coordinator_user_id`. The English description is required (`PROGRAM_REQUIRED`, the form, the workbook's Programs sheet: Description (English), Description (Arabic)); the catalog prints both under the program's name. The Program Coordinator names a person and grants nothing.
+- **Requirements split:** `RequirementsSection part="requirements" | "plan"`. The Study Plan groups courses by year and term (Summer for term 3) with credits per term, elective slots in their term, then "Not scheduled".
+- **Curriculum map:** removed from Settings → Organization; it is the program's Curriculum Map tab (`CurriculumMapPage fixed`). An old `?tab=map&program=<id>` address redirects there.
