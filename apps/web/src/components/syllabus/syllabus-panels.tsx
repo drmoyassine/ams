@@ -96,7 +96,7 @@ export function SuggestionsPanel({ overview, version, busy, onSuggest, onResolve
   );
 }
 
-export function StaffPanel({ overview, busy, apis, onSave }: { overview: SyllabusOverview; busy: boolean; apis?: CycleApis | undefined; onSave: (coordinatorUserId: string | null, instructorIds: string[]) => void }) {
+export function StaffPanel({ overview, busy, apis, onSave, inline }: { overview: SyllabusOverview; busy: boolean; apis?: CycleApis | undefined; onSave: (coordinatorUserId: string | null, instructorIds: string[]) => void; inline?: boolean }) {
   const dir = useDirectory(apis);
   const [coordinator, setCoordinator] = useState(overview.course.coordinatorUserId ?? '');
   const [instructors, setInstructors] = useState<string[]>(overview.course.instructors.map((i) => i.id));
@@ -104,8 +104,8 @@ export function StaffPanel({ overview, busy, apis, onSave }: { overview: Syllabu
   for (const t of overview.course.instructors) if (!people.some((p) => p.id === t.id)) people.push({ id: t.id, fullName: t.name } as (typeof people)[number]);
   if (overview.course.coordinatorUserId && !people.some((p) => p.id === overview.course.coordinatorUserId)) people.push({ id: overview.course.coordinatorUserId, fullName: overview.course.coordinatorName ?? '' } as (typeof people)[number]);
   return (
-    <section aria-label="Course staff" className="space-y-2 rounded-lg border border-border p-3">
-      <h3 className="text-sm font-semibold">Course staff</h3>
+    <section aria-label={inline ? 'Course Coordinator' : 'Course staff'} className={inline ? 'space-y-2 rounded-lg border border-border p-4' : 'space-y-2 rounded-lg border border-border p-3'}>
+      <h3 className={inline ? 'text-base font-semibold' : 'text-sm font-semibold'}>{inline ? 'Course Coordinator' : 'Course staff'}</h3>
       {overview.can.approve ? (
         <>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">Course coordinator (edits the syllabus, told first when it is flagged)

@@ -77,11 +77,16 @@ function ProgramPageRoute() {
     onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'programs' } }); }} />;
 }
 // One course on a page of its own (DEC-042): /settings/organization/courses/<id>, or /new.
-const coursePageRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/organization/courses/$courseId', component: () => <CoursePageRoute /> });
+const COURSE_TAB_KEYS = ['basic', 'clos', 'outline', 'materials', 'assessment', 'policies'] as const;
+const coursePageRoute = createRoute({
+  getParentRoute: () => settingsRoute, path: '/organization/courses/$courseId', component: () => <CoursePageRoute />,
+  validateSearch: (s: Record<string, unknown>): { tab?: (typeof COURSE_TAB_KEYS)[number] } => (COURSE_TAB_KEYS.includes(s.tab as never) ? { tab: s.tab as (typeof COURSE_TAB_KEYS)[number] } : {}),
+});
 function CoursePageRoute() {
   const { courseId } = coursePageRoute.useParams();
+  const { tab } = coursePageRoute.useSearch();
   const navigate = coursePageRoute.useNavigate();
-  return <CoursePage key={courseId} courseId={courseId}
+  return <CoursePage key={courseId} courseId={courseId} tab={tab ?? 'basic'} onTab={(t) => { void navigate({ search: t === 'basic' ? {} : { tab: t }, replace: true }); }}
     onSaved={(id) => { if (id !== courseId) void navigate({ to: '/settings/organization/courses/$courseId', params: { courseId: id }, replace: true }); }}
     onCancel={() => { void navigate({ to: '/settings/organization', search: { tab: 'courses' } }); }} />;
 }

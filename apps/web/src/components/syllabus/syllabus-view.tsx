@@ -23,13 +23,82 @@ function Facts({ rows }: { rows: [string, string][] }) {
   return <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">{rows.map(([k, v]) => <div key={k} className="flex gap-2 text-sm"><dt className="w-44 shrink-0 text-muted-foreground">{k}</dt><dd className="min-w-0 break-words"><ContentText>{v}</ContentText></dd></div>)}</dl>;
 }
 
-export function SyllabusView({ content: c, code, plos, levels, courses, template }: { content: SyllabusContent; code: string; plos: SyllabusPlo[]; levels: OutcomeLevel[]; courses: { id: string; code: string }[]; template?: SyllabusTemplate }) {
+/**
+ * The syllabus (the report of a course's content). With `only`, just those blocks in that order (the course page's tabs): info, description,
+ * methodology, clos (with the program coverage), outline, materials, assessments, rubrics, policies (the assessment notes and the template's own sections).
+ */
+export function SyllabusView({ content: c, code, plos, levels, courses, template, only }: { content: SyllabusContent; code: string; plos: SyllabusPlo[]; levels: OutcomeLevel[]; courses: { id: string; code: string }[]; template?: SyllabusTemplate; only?: readonly string[] }) {
   const i = c.info;
   const courseCode = (id: string) => courses.find((x) => x.id === id)?.code ?? id;
   const plo = (id: string) => plos.find((p) => p.id === id);
   const cloCode = (id: string) => c.clos.find((x) => x.id === id)?.code ?? '?';
   const weights = cloWeights(c);
   const contact = (i.contactLecture ?? 0) + (i.contactLab ?? 0) + (i.contactOther ?? 0);
+  const CLOS = (
+      <Block title="Course learning outcomes (CLOs) and the PLO each serves">
+        <Table head={['CLO', 'Outcome', 'Bloom level', 'PLO', 'Coverage']} empty="No CLOs yet."
+          rows={c.clos.map((x) => [x.code, <ContentText key="t">{x.textEn}</ContentText>, label(x.bloom) || '—',
+            x.plos.map((m) => (plo(m.ploId) ? `${plo(m.ploId)!.code} · ${plo(m.ploId)!.programName}` : '—')).join('; ') || '—',
+            x.plos.map((m) => (m.level ? LEVEL_NAME(levels, m.level) : '—')).join('; ') || '—'])} />
+      </Block>
+  );
+  const COVERAGE = (
+      <Block title="Program coverage: the level at which the course covers each PLO">
+        <Table head={['PLO', 'Course level']} empty="No program coverage recorded."
+          rows={c.coverage.map((cv) => [plo(cv.ploId) ? `${plo(cv.ploId)!.code} · ${plo(cv.ploId)!.programName}` : '—', cv.level ? LEVEL_NAME(levels, cv.level) : '—'])} />
+      </Block>
+  );
+  const OUTLINE = (
+      <Block title="Course outline">
+        <Table head={['Week', 'Topic (and reading)', 'Lab / other', 'CLOs', 'SDGs', 'Assessment']} empty="No weeks yet."
+          rows={[...c.outline].sort((a, b) => (a.week ?? 0) - (b.week ?? 0)).map((w) => [dash(w.week), <span key="t"><ContentText>{w.topic}</ContentText>{w.reading && <span className="block text-xs text-muted-foreground">Reading: {w.reading}</span>}</span>, dash(w.lab), w.cloIds.map(cloCode).join(', ') || '—', w.sdgs.join(', ') || '—', c.assessments.find((a) => a.id === w.assessmentId)?.name ?? '—'])} />
+      </Block>
+  );
+  const MATERIALS = (
+      <Block title="Textbooks, materials and software">
+        <Table head={['Kind', 'Citation', 'ISBN', 'Year']} empty="None yet." rows={c.materials.map((m) => [label(m.kind), <ContentText key="c">{m.citation}</ContentText>, dash(m.isbn), dash(m.year)])} />
+      </Block>
+  );
+  const PLAN = (<>
+        <Table head={['Assessment', 'Category', 'CLOs assessed (share, rubric)', '% of grade', 'Due']} empty="No assessments yet."
+          rows={c.assessments.map((a) => [<ContentText key="n">{a.name}</ContentText>, label(a.category), a.clos.map((l) => `${cloCode(l.cloId)} ${dash(l.share)}% · ${c.rubrics.find((r) => r.id === l.rubricId)?.title ?? 'no rubric'}`).join('; ') || '—', dash(a.weight), a.dueWeek ? `Week ${a.dueWeek}` : '—'])} />
+        {c.assessments.length > 0 && <p className="text-xs text-muted-foreground">Total {c.assessments.reduce((s, a) => s + (a.weight ?? 0), 0)}%. Share of the grade by CLO: {c.clos.map((x) => `${x.code} ${Math.round((weights.get(x.id) ?? 0) * 10) / 10}%`).join(', ')}.</p>}
+  </>);
+  const RUBRICS = c.rubrics.length > 0 ? (
+        <Block title="Rubrics">
+          {c.rubrics.map((r) => (
+            <div key={r.id} className="space-y-1">
+              <p className="text-sm font-medium"><ContentText>{r.title}</ContentText></p>
+              <Table head={['Criterion', ...r.levels.map((l) => `${l.name}${l.min !== null || l.max !== null ? ` (${dash(l.min)}-${dash(l.max)})` : ''}`)]} empty="No criteria." rows={r.criteria.map((k) => [<ContentText key="k">{k.name}</ContentText>, ...r.levels.map((_, j) => k.descriptions[j] ?? '')])} />
+            </div>
+          ))}
+        </Block>
+  ) : null;
+  const notesText = [c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks].filter(Boolean).join('\n');
+  const customs = (template?.sections ?? []).filter((x) => x.key.startsWith('custom:') && c.custom[x.key]?.trim()).map((x) => (
+    <Block key={x.key} title={x.title}><p className="whitespace-pre-line text-sm"><ContentText>{c.custom[x.key]!}</ContentText></p></Block>
+  ));
+  if (only) {
+    const parts: Record<string, React.ReactNode> = {
+      info: <Block title="Basic course information"><Facts rows={[
+        ['Title', i.titleEn || '—'], ['Credit hours', dash(i.credits)], ['Contact hours per week', `${contact}  (lecture ${dash(i.contactLecture)}, lab ${dash(i.contactLab)}, other ${dash(i.contactOther)})`],
+        ['Language of delivery', label(i.languageOfDelivery) || '—'], ['Course type', label(i.courseType) || '—'], ['Course level', dash(i.courseLevel)], ['Course category', label(i.category) || '—'],
+        ['Sustainability indicator', label(i.sustainability) || '—'], ['Prerequisite(s)', describeRequisites(i.prerequisites, courseCode) || '—'], ['Co-requisite(s)', describeRequisites(i.corequisites, courseCode) || '—'], ['Other requirements', i.otherRequirements || '—'],
+      ]} /></Block>,
+      description: <Block title="Course description"><p className="whitespace-pre-line text-sm"><ContentText>{c.description.en || '—'}</ContentText></p>{c.description.ar && <p className="whitespace-pre-line text-sm" dir="auto"><ContentText>{c.description.ar}</ContentText></p>}</Block>,
+      methodology: <Block title="Teaching methodology"><p className="whitespace-pre-line text-sm"><ContentText>{c.methodology || '—'}</ContentText></p></Block>,
+      clos: <>{CLOS}{COVERAGE}</>,
+      outline: OUTLINE, materials: MATERIALS,
+      assessments: <Block title="Assessment plan and evaluation methods">{PLAN}</Block>,
+      rubrics: RUBRICS ?? <p className="text-sm text-muted-foreground">No rubrics yet.</p>,
+      policies: <>
+        <Block title="Assessment policies"><p className="whitespace-pre-line text-sm"><ContentText>{notesText || '—'}</ContentText></p></Block>
+        {customs}
+        <Block title="Institutional policies"><p className="text-sm text-muted-foreground">The course policies will come from the Policies and Procedures module.</p></Block>
+      </>,
+    };
+    return <article className="space-y-6" aria-label="Syllabus" data-testid="syllabus-view">{only.map((k) => <div key={k}>{parts[k]}</div>)}</article>;
+  }
   return (
     <article className="space-y-6" aria-label="Syllabus" data-testid="syllabus-view">
       <Block title="Basic course information">

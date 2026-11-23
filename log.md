@@ -985,3 +985,10 @@ The AIU Course Syllabus Template is now the course schema. One document per cour
 - **Course delete:** `DELETE /api/courses/{id}` deletes a course with no approved syllabus (cascade: draft, CLOs, study-plan rows) and deactivates one with an approved syllabus, saying why.
 - **Course Report:** links to the course record whose code the KPI's course text starts with ("ECE 420 …" → ECE420).
 - **Compose:** another Easypanel stack's `garage` (v2) answered the app's bootstrap on the shared network and the app would not start; Postgres and Garage now have aliases of their own (`ams-postgres`, `ams-garage`).
+
+## 2026-11-23 — The course page in tabs, one Basic Information box
+- **Tabs** (`?tab=` in the address): Basic Information | CLOs | Course Outline | Course Material | Course Assessment | Course Policies (`COURSE_TABS` in `components/syllabus/course-content.tsx`). The workflow bar stays above the tabs; Suggestions and Versions beside them.
+- **Basic Information** is one box, first: the record's own fields (code, unit, year of study, SIS code; saved at once), the **Course Coordinator** (and instructors; moved from the side), the course information, **Course description** and **Teaching methodology** (the content, through the draft). Title and credit hours appear once: in the record while the course has no content, in the content after.
+- **Course Policies:** the assessment notes (pass percentage, how assessments work) and the template's own sections; institutional policies await the Policies and Procedures module.
+- **Description language:** English only by default; the Arabic description shows when a program the course serves teaches in Arabic or both (the program's Language), or when one is already written.
+- `SyllabusEditor` and `SyllabusView` take `only` (blocks in order); the syllabus report is unchanged.

@@ -19,7 +19,22 @@ import { useSyllabusApi, type SyllabusApi } from '../../lib/syllabus-api';
  * the rules, and go through the workflow (the coordinator submits, the chair endorses, the Dean approves); approval writes them to the course.
  * The syllabus is the report generated from the approved content. Suggestions, staff and the history of versions sit beside it.
  */
-export function CourseContent({ courseId, api: override, apis }: { courseId: string; api?: SyllabusApi; apis?: CycleApis }) {
+/** The course page's tabs and the blocks of the content each holds (the owner, 2026-11-23). */
+export const COURSE_TABS = [
+  { key: 'basic', label: 'Basic Information', blocks: ['info', 'description', 'methodology'] },
+  { key: 'clos', label: 'CLOs', blocks: ['clos'] },
+  { key: 'outline', label: 'Course Outline', blocks: ['outline'] },
+  { key: 'materials', label: 'Course Material', blocks: ['materials'] },
+  { key: 'assessment', label: 'Course Assessment', blocks: ['assessments', 'rubrics'] },
+  { key: 'policies', label: 'Course Policies', blocks: ['policies'] },
+] as const;
+export type CourseTab = (typeof COURSE_TABS)[number]['key'];
+
+export function CourseContent({ courseId, api: override, apis, tab, record, after, secondLanguage = true, tabBar }: {
+  courseId: string; api?: SyllabusApi; apis?: CycleApis;
+  /** On the course page: one tab of the content; the Basic Information box also holds the record (`record`, told whether there is content) and the coordinator. */
+  tab?: CourseTab; record?: (hasContent: boolean) => React.ReactNode; after?: React.ReactNode; secondLanguage?: boolean; tabBar?: React.ReactNode;
+}) {
   const api = useSyllabusApi(override);
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['syllabus', courseId], queryFn: () => api.overview(courseId) });
@@ -55,7 +70,7 @@ export function CourseContent({ courseId, api: override, apis }: { courseId: str
   return (
     <section className="space-y-4" aria-label="Course content">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">Course content</h3>
+        {tab ? <span /> : <h3 className="text-lg font-semibold">Course content</h3>}
         {shown && (
           <span className="flex flex-wrap gap-2">
             <Link to="/courses/$id/syllabus" params={{ id: courseId }} className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm hover:bg-muted">View the syllabus</Link>
@@ -73,6 +88,46 @@ export function CourseContent({ courseId, api: override, apis }: { courseId: str
         onApprove={(term) => act.mutate(async () => { await api.approve(open!.id, term); })}
         onNewVersion={() => act.mutate(async () => { await api.save(courseId, { content: ov.current!.content, source: 'new version' }); })} />
 
+      {tabBar}
+      {tab ? (() => {
+        const only = COURSE_TABS.find((t) => t.key === tab)!.blocks;
+        const body = editing
+          ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} only={only} secondLanguage={secondLanguage} />
+          : shown
+            ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} template={ov.template} only={only} />
+            : (
+              <div className="space-y-2 rounded-lg border border-dashed border-border p-6 text-center">
+                <p className="text-sm text-muted-foreground">This course has no content yet: its outcomes, outline, assessment plan and the rest.</p>
+                {ov.can.edit && <Button type="button" onClick={() => void startFromCourse()}>Start the course content</Button>}
+              </div>
+            );
+        const staff = <StaffPanel inline key={`${ov.course.coordinatorUserId}-${ov.course.instructors.length}`} overview={ov} busy={busy} apis={apis} onSave={(coordinatorUserId, instructorIds) => act.mutate(async () => { await api.setStaff(courseId, { coordinatorUserId, instructorIds }); })} />;
+        return (
+          <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+            <div className="min-w-0 space-y-4" role="tabpanel" aria-label={COURSE_TABS.find((t) => t.key === tab)!.label}>
+              {tab === 'basic'
+                ? (
+                  <>
+                    <section aria-label="Basic information" className="space-y-4 rounded-lg border border-border bg-card p-4">
+                      <h3 className="text-lg font-semibold">Basic Information</h3>
+                      {record?.(!!shown)}
+                      {staff}
+                      {body}
+                    </section>
+                    {after}
+                  </>
+                )
+                : body}
+            </div>
+            <aside className="space-y-3 print:hidden">
+              <SuggestionsPanel overview={ov} version={open} busy={busy}
+                onSuggest={(section, suggestion) => act.mutate(async () => { await api.suggest(open!.id, { section, suggestion }); })}
+                onResolve={(s, decision) => act.mutate(async () => { await api.resolve(s.id, { decision }); })} />
+              <HistoryList overview={ov} />
+            </aside>
+          </div>
+        );
+      })() : (
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-4">
           {editing
@@ -94,6 +149,7 @@ export function CourseContent({ courseId, api: override, apis }: { courseId: str
           <HistoryList overview={ov} />
         </aside>
       </div>
+      )}
     </section>
   );
 }

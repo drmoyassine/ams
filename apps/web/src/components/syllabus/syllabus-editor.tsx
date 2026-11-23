@@ -126,9 +126,13 @@ export interface SyllabusEditorProps {
   content: SyllabusContent; onChange: (c: SyllabusContent) => void;
   plos: SyllabusPlo[]; levels: OutcomeLevel[]; courses: { id: string; code: string; titleEn: string }[]; courseId: string; code: string;
   issues: SyllabusIssue[]; settings: SyllabusSettings; template: SyllabusTemplate;
+  /** Only these blocks, in this order (the course page's tabs); 'policies' is the assessment notes and the template's own sections. */
+  only?: readonly string[];
+  /** The description in the second language: by default only when a program the course serves teaches in it. */
+  secondLanguage?: boolean;
 }
 
-export function SyllabusEditor({ content: c, onChange, plos, levels, courses, courseId, code, issues, settings, template }: SyllabusEditorProps) {
+export function SyllabusEditor({ content: c, onChange, plos, levels, courses, courseId, code, issues, settings, template, only, secondLanguage = true }: SyllabusEditorProps) {
   const set = (patch: Partial<SyllabusContent>) => onChange({ ...c, ...patch });
   const setInfo = (p: Partial<SyllabusContent['info']>) => set({ info: { ...c.info, ...p } });
   const of = (s: SectionKey) => issues.filter((x) => x.section === s);
@@ -143,12 +147,18 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
   const title = (key: string, fallback: string) => sec(key)?.title ?? fallback;
   const Row = ({ about }: { about: string }) => <>{refIssues(about).map((x, k) => <p key={k} role="alert" className={`text-xs ${x.severity === 'error' ? 'text-red-800' : 'text-amber-800'}`}>{x.message}</p>)}</>;
 
+  const notes = (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={field}>Pass percentage and submission details<textarea aria-label="Pass percentage and submission details" rows={2} className={area} value={c.assessmentNotes.passPercentage} onChange={(e) => set({ assessmentNotes: { ...c.assessmentNotes, passPercentage: e.target.value } })} /></label>
+          <label className={field}>How assignments, quizzes and exams work<textarea aria-label="How assessments work" rows={2} className={area} value={c.assessmentNotes.howItWorks} onChange={(e) => set({ assessmentNotes: { ...c.assessmentNotes, howItWorks: e.target.value } })} /></label>
+        </div>
+  );
   const blocks: Record<string, React.ReactNode> = {
     info: (
       <Section id="info" title={title('info', 'Basic course information')} help={hint('info')} issues={of('info')}>
         <div className="grid gap-3 sm:grid-cols-6">
-          <div className={`${field} sm:col-span-1`}>Course code<Input aria-label="Course code" value={code} readOnly disabled /></div>
-          <label className={`${field} sm:col-span-3`}>Course title (English)<Input aria-label="Course title (English)" value={c.info.titleEn} onChange={(e) => setInfo({ titleEn: e.target.value })} /></label>
+          {!only && <div className={`${field} sm:col-span-1`}>Course code<Input aria-label="Course code" value={code} readOnly disabled /></div>}
+          <label className={`${field} ${only ? 'sm:col-span-4' : 'sm:col-span-3'}`}>Course title (English)<Input aria-label="Course title (English)" value={c.info.titleEn} onChange={(e) => setInfo({ titleEn: e.target.value })} /></label>
           <label className={field}>Credit hours<Num ariaLabel="Credit hours" value={c.info.credits} onChange={(v) => setInfo({ credits: v })} /></label>
           <label className={field}>Lecture hours<Num ariaLabel="Lecture hours" value={c.info.contactLecture} onChange={(v) => setInfo({ contactLecture: v })} /></label>
           <label className={field}>Lab hours<Num ariaLabel="Lab hours" value={c.info.contactLab} onChange={(v) => setInfo({ contactLab: v })} /></label>
@@ -189,7 +199,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
     description: (
       <Section id="description" title={title('description', 'Course description')} help={hint('description')} issues={of('description')}>
         <label className={field}>Description (English)<textarea aria-label="Description (English)" rows={5} className={area} value={c.description.en} onChange={(e) => set({ description: { ...c.description, en: e.target.value } })} /></label>
-        <label className={field}>Description (Arabic)<textarea aria-label="Description (Arabic)" dir="auto" rows={3} className={area} value={c.description.ar} onChange={(e) => set({ description: { ...c.description, ar: e.target.value } })} /></label>
+        {(secondLanguage || c.description.ar.trim() !== '') && <label className={field}>Description (Arabic)<textarea aria-label="Description (Arabic)" dir="auto" rows={3} className={area} value={c.description.ar} onChange={(e) => set({ description: { ...c.description, ar: e.target.value } })} /></label>}
       </Section>
     ),
     clos: (
@@ -341,10 +351,7 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
           })}
         </div>
         <Button type="button" variant="outline" onClick={() => set({ assessments: [...c.assessments, { id: newId(), name: '', category: '', objective: '', weight: null, dueWeek: null, clos: [] }] })}>+ Assessment</Button>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className={field}>Pass percentage and submission details<textarea aria-label="Pass percentage and submission details" rows={2} className={area} value={c.assessmentNotes.passPercentage} onChange={(e) => set({ assessmentNotes: { ...c.assessmentNotes, passPercentage: e.target.value } })} /></label>
-          <label className={field}>How assignments, quizzes and exams work<textarea aria-label="How assessments work" rows={2} className={area} value={c.assessmentNotes.howItWorks} onChange={(e) => set({ assessmentNotes: { ...c.assessmentNotes, howItWorks: e.target.value } })} /></label>
-        </div>
+        {!only && notes}
       </Section>
     ),
     rubrics: (
@@ -406,6 +413,18 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
     </section>
   );
 
+  const policies = (
+    <div className="space-y-4">
+      <section aria-label="Assessment policies" className="space-y-2 rounded-lg border border-border p-4">
+        <div><h3 className="text-base font-semibold">Assessment policies</h3><p className="text-xs text-muted-foreground">The pass percentage, submission details and how assignments, quizzes and exams work.</p></div>
+        {notes}
+      </section>
+      {template.sections.filter((s2) => s2.key.startsWith('custom:')).map((s2) => custom(s2.key, s2.title, s2.help))}
+    </div>
+  );
+  if (only) {
+    return <div className="space-y-4" data-testid="syllabus-editor">{only.map((k) => (k === 'policies' ? <div key={k}>{policies}</div> : blocks[k] ? <div key={k}>{blocks[k]}</div> : null))}</div>;
+  }
   return (
     <div className="space-y-4" data-testid="syllabus-editor">
       {template.sections.map((s2) => (blocks[s2.key] ? <div key={s2.key}>{blocks[s2.key]}</div> : s2.key.startsWith('custom:') ? custom(s2.key, s2.title, s2.help) : null))}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BLOCK_LABEL, COURSE_ROLES, REQUIREMENT_BLOCKS, type Course, type Program, type RequirementBlock } from '@ams/shared';
 import { Breadcrumb } from '../../components/breadcrumb';
-import { CourseContent } from '../../components/syllabus/course-content';
+import { COURSE_TABS, CourseContent, type CourseTab } from '../../components/syllabus/course-content';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -29,9 +29,14 @@ const req = <span className="text-red-700" aria-hidden="true"> *</span>;
  * credit hours, description, CLOs with their PLOs, outline, assessment plan, rubrics) changes through a draft that is approved, below. The
  * syllabus is the report generated from it.
  */
-export function CoursePage({ courseId, api: override, outcomes, syllabus, onSaved, onCancel }: {
+export function CoursePage({ courseId, api: override, outcomes, syllabus, onSaved, onCancel, tab = 'basic', onTab }: {
   courseId: string | 'new'; api?: SettingsApi; outcomes?: OutcomesApi; syllabus?: SyllabusApi; onSaved: (id: string) => void; onCancel: () => void;
+  /** The tab shown (in the address, ?tab=); a page without onTab keeps it here. */
+  tab?: CourseTab; onTab?: (tab: CourseTab) => void;
 }) {
+  const [ownTab, setOwnTab] = useState<CourseTab>(tab);
+  const shownTab = onTab ? tab : ownTab;
+  const pickTab = (t: CourseTab) => (onTab ? onTab(t) : setOwnTab(t));
   const api = useSettingsApi(override);
   const oapi = useOutcomesApi(outcomes);
   const me = useMe(api);
@@ -59,9 +64,19 @@ export function CoursePage({ courseId, api: override, outcomes, syllabus, onSave
       {crumbs(course.code)}
       <h2 className="min-w-0 text-xl font-semibold break-words">{course.code} · {course.titleEn}{!course.active && <span className="ms-2 rounded border border-border px-2 py-0.5 align-middle text-xs font-normal">Inactive</span>}</h2>
       {course.missing.length > 0 && <p role="note" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">This course lacks: {course.missing.join(', ')}.</p>}
-      <CourseRecord key={JSON.stringify(course)} course={course} units={choices} oapi={oapi} canWrite={canWrite} />
-      <Placement course={course} programs={programs.data ?? []} oapi={oapi} canWrite={canWrite} />
-      <CourseContent courseId={course.id} {...(syllabus ? { api: syllabus } : {})} />
+      <CourseContent courseId={course.id} {...(syllabus ? { api: syllabus } : {})} tab={shownTab}
+        // The description's second language is shown when a program the course serves teaches in Arabic or in both languages.
+        secondLanguage={(programs.data ?? []).some((p) => course.programIds.includes(p.id) && /arabic|bilingual/i.test(p.languageOfInstruction ?? ''))}
+        tabBar={
+          <div role="tablist" aria-label="Course" className="flex gap-1 overflow-x-auto border-b border-border">
+            {COURSE_TABS.map((t) => (
+              <button key={t.key} type="button" role="tab" aria-selected={shownTab === t.key} onClick={() => pickTab(t.key)}
+                className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${shownTab === t.key ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{t.label}</button>
+            ))}
+          </div>
+        }
+        record={(hasContent) => <CourseRecord key={JSON.stringify(course)} course={course} units={choices} oapi={oapi} canWrite={canWrite} hasContent={hasContent} />}
+        after={<Placement course={course} programs={programs.data ?? []} oapi={oapi} canWrite={canWrite} />} />
       <div className="flex flex-wrap gap-2 border-t border-border pt-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Back to courses</Button>
       </div>
@@ -145,7 +160,8 @@ function NewCourse({ units, programs, oapi, canWrite, onSaved, onCancel }: {
  * The course record: code, unit, SIS code, year of study and active change at once. The title and credit hours belong to the content: editable
  * here only until the course has approved content, then changed through its draft (Course content).
  */
-function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units: { id: string; label: string }[]; oapi: OutcomesApi; canWrite: boolean }) {
+/** The record's own fields, saved at once. Once the course has content, its title and credit hours are edited there (in the draft), not here. */
+function CourseRecord({ course, units, oapi, canWrite, hasContent }: { course: Course; units: { id: string; label: string }[]; oapi: OutcomesApi; canWrite: boolean; hasContent: boolean }) {
   const qc = useQueryClient();
   const [v, setV] = useState({ code: course.code, titleEn: course.titleEn, orgUnitId: course.orgUnitId ?? '', credits: course.credits?.toString() ?? '', level: course.level?.toString() ?? '', externalId: course.externalId ?? '' });
   const [saved, setSaved] = useState(false);
@@ -153,10 +169,10 @@ function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units
   const act = useAction(setError);
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); setSaved(false); return act(fn); }, onSuccess: (r) => { if (r !== undefined) { setSaved(true); void qc.invalidateQueries({ queryKey: ['courses'] }); } } });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => { setSaved(false); setV({ ...v, [k]: e.target.value }); };
-  const locked = course.approved;
-  const missing = [...(!v.code.trim() ? ['Course code'] : []), ...(!v.titleEn.trim() ? ['Title'] : []), ...(!v.orgUnitId ? ['Unit'] : []), ...(!v.credits.trim() ? ['Credit hours'] : [])];
+  const locked = course.approved || hasContent;
+  const missing = [...(!v.code.trim() ? ['Course code'] : []), ...(!locked && !v.titleEn.trim() ? ['Title'] : []), ...(!v.orgUnitId ? ['Unit'] : []), ...(!locked && !v.credits.trim() ? ['Credit hours'] : [])];
   return (
-    <Card>
+    <div>
       <form aria-label="Course record" className="grid min-w-0 gap-3 sm:grid-cols-4" onSubmit={(e) => {
         e.preventDefault();
         if (missing.length) { setError(`Fill in: ${missing.join(', ')}.`); return; }
@@ -166,19 +182,18 @@ function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units
         }));
       }}>
         <fieldset className="contents" disabled={!canWrite}>
-          <h3 className="text-base font-semibold sm:col-span-4">The course</h3>
           <label className={field}><span>Course code{req}</span><Input aria-label="Course code" value={v.code} onChange={set('code')} /></label>
-          <label className={`${field} sm:col-span-3`}><span>Title{req}</span><Input aria-label="Course title" value={v.titleEn} onChange={set('titleEn')} disabled={locked} /></label>
+          {!locked && <label className={`${field} sm:col-span-3`}><span>Title{req}</span><Input aria-label="Course title" value={v.titleEn} onChange={set('titleEn')} /></label>}
           <label className={`${field} sm:col-span-4`}><span>Unit{req}</span>
             <select aria-label="Owning unit" className={select} value={v.orgUnitId} onChange={set('orgUnitId')}>
               <option value="">Choose a unit</option>
               {units.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
             </select>
           </label>
-          <label className={field}><span>Credit hours{req}</span><Input aria-label="Credit hours" inputMode="decimal" value={v.credits} onChange={set('credits')} disabled={locked} /></label>
+          {!locked && <label className={field}><span>Credit hours{req}</span><Input aria-label="Credit hours" inputMode="decimal" value={v.credits} onChange={set('credits')} /></label>}
           <label className={field}><span>Year of study</span><Input aria-label="Year of study" inputMode="numeric" value={v.level} onChange={set('level')} /></label>
           <label className={`${field} sm:col-span-2`}><span>SIS code (optional)</span><Input aria-label="SIS code" value={v.externalId} onChange={set('externalId')} /></label>
-          {locked && <p className="text-xs text-muted-foreground sm:col-span-4">The title and credit hours are part of the approved content: change them in Course content below (a draft, approved by the Dean).</p>}
+          {locked && <p className="text-xs text-muted-foreground sm:col-span-4">The title, credit hours and the rest of the course information below are its content: they change in a draft, approved by the Dean.</p>}
           {error && <p role="alert" className="text-sm text-red-700 sm:col-span-4">{error}</p>}
           {canWrite && (
             <div className="flex flex-wrap items-center gap-2 sm:col-span-4">
@@ -189,7 +204,7 @@ function CourseRecord({ course, units, oapi, canWrite }: { course: Course; units
           )}
         </fieldset>
       </form>
-    </Card>
+    </div>
   );
 }
 

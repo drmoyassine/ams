@@ -2,7 +2,7 @@
 // The course page (DEC-042): a new course needs a unit, credit hours and a program it serves; once its content is approved, the title and
 // credit hours change only through the draft, while the record (code, year, SIS code) still saves at once.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { configure, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { configure, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import userEvent from '@testing-library/user-event';
 import pg from 'pg';
@@ -80,12 +80,26 @@ describe('a course with approved content', () => {
     }
     const user = userEvent.setup();
     render_(ids.course!);
-    const title = await screen.findByLabelText('Course title');
-    await waitFor(() => expect((title as HTMLInputElement).disabled).toBe(true));
-    expect((screen.getAllByLabelText('Credit hours')[0] as HTMLInputElement).disabled).toBe(true);
+    // One Basic information box: the record's own fields (no title or credit hours: those are the content's, shown once below), the
+    // Course Coordinator, and the course information, description and methodology of the content.
+    const box = await screen.findByRole('region', { name: 'Basic information' });
+    const record = await within(box).findByRole('form', { name: 'Course record' });
+    expect(within(record).queryByLabelText('Course title')).toBeNull();
+    expect(within(record).queryByLabelText('Credit hours')).toBeNull();
+    expect(within(box).getByRole('region', { name: 'Course Coordinator' })).toBeTruthy();
+    expect(await within(box).findByRole('region', { name: 'Course description' })).toBeTruthy();
+    expect(within(box).getByRole('region', { name: 'Teaching methodology' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Course staff' })).toBeNull();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Basic Information', 'CLOs', 'Course Outline', 'Course Material', 'Course Assessment', 'Course Policies']);
     await expect(outcomesApi(fetcher).updateCourse(ids.course!, { titleEn: 'Something else' })).rejects.toThrow(/draft/);
-    await user.type(screen.getByLabelText('SIS code'), 'MCE410-SIS');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.type(within(record).getByLabelText('SIS code'), 'MCE410-SIS');
+    await user.click(within(record).getByRole('button', { name: 'Save' }));
     await waitFor(async () => expect((await outcomesApi(fetcher).courses()).find((x) => x.id === ids.course)?.externalId).toBe('MCE410-SIS'));
+    // The other tabs show one part of the content each.
+    await user.click(screen.getByRole('tab', { name: 'CLOs' }));
+    const clos = await screen.findByRole('tabpanel', { name: 'CLOs' });
+    expect(within(clos).queryByRole('region', { name: 'Course description' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'Course Policies' }));
+    expect(await within(await screen.findByRole('tabpanel', { name: 'Course Policies' })).findByRole('region', { name: 'Assessment policies' })).toBeTruthy();
   }, 30000);
 });
