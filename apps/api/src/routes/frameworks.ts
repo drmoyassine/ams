@@ -24,6 +24,7 @@ const ConfigPatchBody = z.object({
   effectiveFrom: z.string().nullable().optional(),
   effectiveTo: z.string().nullable().optional(),
   changeSummary: z.string().nullable().optional(),
+  autoNumber: z.boolean().optional(),
 });
 
 export function frameworkRoutes(registry: RouteRegistry, deps: ChainDeps, options: { defaultHook: Hook<unknown, AppEnv, string, unknown> }) {

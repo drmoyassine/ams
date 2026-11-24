@@ -172,6 +172,19 @@ describe('framework API', () => {
     expect((await call('lead', 'GET', `/api/framework-versions/${vid}/validation`)).body.ok).toBe(false);
   });
 
+  it('turns numbering by place on through the API, and an empty settings patch changes nothing', async () => {
+    const created = await call('lead', 'POST', '/api/framework-versions/import', { file: file(), edition: 'numbered' });
+    const vid = created.body.version.id as string;
+    expect((await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, {})).status).toBe(200);
+    const on = await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: true });
+    expect(on.status).toBe(200);
+    expect(on.body.autoNumber).toBe(true);
+    const codes = ((await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { code: string }[]).map((r) => r.code);
+    expect(codes.every((c) => /^\d+(\.\d+)*$/.test(c))).toBe(true);
+    const off = await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: false });
+    expect(off.body.autoNumber).toBe(false);
+  });
+
   it('stores source documents and pages for quote verification', async () => {
     const created = await call('lead', 'POST', '/api/framework-versions/import', { file: file(), edition: 'sources' });
     const vid = created.body.version.id as string;

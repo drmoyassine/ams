@@ -197,6 +197,8 @@ export async function updateVersionConfig(ctx: Ctx, versionId: string, patch: z.
   if (!parsed.success) {
     throw new ValidationError('invalid configuration', parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })));
   }
+  // An empty patch changes nothing (an update with no values would fail).
+  if (!Object.values(parsed.data).some((x) => x !== undefined)) return (await ctx.tx.select().from(frameworkVersion).where(eq(frameworkVersion.id, versionId)))[0]!;
   const [row] = await guardIntegrity(() => ctx.tx.update(frameworkVersion).set(parsed.data).where(eq(frameworkVersion.id, versionId)).returning());
   if (parsed.data.levelLabels && await isInternalVersion(ctx, versionId)) await syncLevelTerms(ctx);
   // Turning numbering by place on renumbers the version now.
