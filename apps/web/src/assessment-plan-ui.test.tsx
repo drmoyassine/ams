@@ -35,7 +35,7 @@ describe('the assessments tables', () => {
   it('adds an assessment quietly, brings the template rubric with each CLO, splits the shares evenly, and says what each CLO is worth', async () => {
     const user = userEvent.setup();
     render(<Harness start={withClos()} />);
-    expect(within(screen.getByRole('table', { name: 'Assessments' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Type', 'Assessment', 'Week', 'Weight %', 'CLOs', '']);
+    expect(within(screen.getByRole('table', { name: 'Assessments' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Type', 'Assessment', 'Week', 'Weight %', '']);
     await user.click(screen.getByRole('button', { name: '+ Assessment' }));
     // Just added: no complaints yet.
     expect(screen.queryByRole('list', { name: /Issues of/ })).toBeNull();

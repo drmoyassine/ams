@@ -14,13 +14,13 @@ import { Dialog } from '../dialog';
 import { RubricGrid } from './rubric-grid';
 
 const newId = () => crypto.randomUUID();
-const th = 'border-b border-border px-2 py-1.5 text-start text-xs font-medium text-muted-foreground';
-const td = 'border-b border-border px-2 py-1.5 align-top';
+const th = 'border-b border-border px-1 py-1.5 text-start text-xs font-medium text-muted-foreground';
+const td = 'border-b border-border px-1 py-1.5 align-top';
 const select = 'h-9 w-full rounded-md border border-border bg-background px-2 text-sm';
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
 const num = (s: string): number | null => (s.trim() === '' || Number.isNaN(Number(s)) ? null : Number(s));
 
-function NumCell({ value, onChange, label, className = 'w-16' }: { value: number | null; onChange: (v: number | null) => void; label: string; className?: string }) {
+function NumCell({ value, onChange, label, className = 'w-full' }: { value: number | null; onChange: (v: number | null) => void; label: string; className?: string }) {
   return <Input aria-label={label} inputMode="decimal" className={className} value={value ?? ''} onChange={(e) => onChange(num(e.target.value))} />;
 }
 
@@ -90,8 +90,8 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
     <div className="space-y-6">
       {/* 1. The assessments */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[34rem] table-fixed border-collapse text-sm" aria-label="Assessments">
-          <thead><tr><th className={`${th} w-9`} /><th className={`${th} w-32`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-[4.5rem]`}>Week</th><th className={`${th} w-[4.5rem]`}>Weight %</th><th className={`${th} w-36`}>CLOs</th><th className={`${th} w-9`} /></tr></thead>
+        <table className="w-full min-w-[30rem] table-fixed border-collapse text-sm" aria-label="Assessments">
+          <thead><tr><th className={`${th} w-8`} /><th className={`${th} w-28`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-14`}>Week</th><th className={`${th} w-16`}>Weight %</th><th className={`${th} w-7`} /></tr></thead>
           {c.assessments.map((a, k) => {
             const isOpen = open.has(a.id) || fresh.has(a.id);
             const own = issuesOf(a.id);
@@ -111,10 +111,9 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                       <option value="">Choose</option>{ASSESSMENT_CATEGORIES.map((v) => <option key={v} value={v}>{LABEL[v] ?? v}</option>)}
                     </select>
                   </td>
-                  <td className={td}><Input aria-label={`Assessment ${k + 1} name`} value={a.name} placeholder="e.g. Midterm exam" onChange={(e) => setA({ name: e.target.value })} /></td>
-                  <td className={td}><NumCell label={`Assessment ${k + 1} due week`} value={a.dueWeek} onChange={(v) => setA({ dueWeek: v })} /></td>
-                  <td className={td}><NumCell label={`Assessment ${k + 1} weight`} value={a.weight} onChange={(v) => setA({ weight: v })} /></td>
                   <td className={td}>
+                    <Input aria-label={`Assessment ${k + 1} name`} value={a.name} placeholder="e.g. Midterm exam" onChange={(e) => setA({ name: e.target.value })} />
+                    <div className="mt-1" data-testid="assessment-clos">
                     {a.clos.length
                       ? <span className="flex flex-wrap gap-1">{a.clos.map((l) => <span key={l.cloId} className="rounded-full bg-muted px-2 py-0.5 text-xs">{cloCode(l.cloId)}</span>)}</span>
                       : <span className="text-xs text-muted-foreground">None yet</span>}
@@ -123,7 +122,10 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                         {own.length} to fix
                       </button>
                     )}
+                    </div>
                   </td>
+                  <td className={td}><NumCell label={`Assessment ${k + 1} due week`} value={a.dueWeek} onChange={(v) => setA({ dueWeek: v })} /></td>
+                  <td className={td}><NumCell label={`Assessment ${k + 1} weight`} value={a.weight} onChange={(v) => setA({ weight: v })} /></td>
                   <td className={`${td} text-center`}>
                     <button type="button" aria-label={`Remove assessment ${k + 1}`} className="rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => set({ assessments: c.assessments.filter((_, i) => i !== k), outline: c.outline.map((w) => (w.assessmentId === a.id ? { ...w, assessmentId: '' } : w)) })}>✕</button>
@@ -132,9 +134,9 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                 {isOpen && (
                   <tr>
                     <td className="border-b border-border" />
-                    <td colSpan={6} className="border-b border-border bg-muted/30 px-2 py-2">
+                    <td colSpan={5} className="border-b border-border bg-muted/30 px-1 py-2">
                       <table className="w-full table-fixed border-collapse text-sm" aria-label={`CLOs of ${a.name || `assessment ${k + 1}`}`}>
-                        <thead><tr><th className={`${th} w-24`}>CLO</th><th className={`${th} w-36`}>Questions / part</th><th className={`${th} w-20`}>Share %</th><th className={th}>Rubric</th><th className={`${th} w-9`} /></tr></thead>
+                        <thead><tr><th className={`${th} w-20`}>CLO</th><th className={`${th} w-28`}>Questions / part</th><th className={`${th} w-16`}>Share %</th><th className={th}>Rubric</th><th className={`${th} w-7`} /></tr></thead>
                         <tbody>
                           {a.clos.map((l, j) => {
                             const r = c.rubrics.find((x) => x.id === l.rubricId);
@@ -184,9 +186,9 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                 <Button type="button" variant="outline" onClick={() => { const id = newId(); onFresh(id, true); setOpen((o) => new Set(o).add(id)); set({ assessments: [...c.assessments, { id, name: '', category: '', weight: null, dueWeek: null, clos: [] }] }); }}>+ Assessment</Button>
               </td>
               <td className="px-2 py-2 text-sm font-semibold" data-testid="weight-total">
-                <span className={Math.abs(total - 100) < 0.01 ? 'text-emerald-800' : c.assessments.length ? 'text-red-800' : 'text-muted-foreground'}>{pct(total)}{Math.abs(total - 100) < 0.01 ? ' ✓' : ''}</span>
+                <span title={Math.abs(total - 100) < 0.01 ? 'The weights add up to 100%.' : 'The weights must add up to 100%.'} className={Math.abs(total - 100) < 0.01 ? 'text-emerald-800' : c.assessments.length ? 'text-red-800' : 'text-muted-foreground'}>{pct(total)}{Math.abs(total - 100) < 0.01 ? ' ✓' : ''}</span>
               </td>
-              <td colSpan={2} className="px-2 py-2 text-xs text-muted-foreground">{Math.abs(total - 100) < 0.01 ? 'The weights add up to 100%.' : 'The weights must add up to 100%.'}</td>
+              <td className="px-1 py-2" />
             </tr>
           </tfoot>
         </table>
