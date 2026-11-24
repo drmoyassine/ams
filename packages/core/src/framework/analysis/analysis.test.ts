@@ -155,12 +155,13 @@ describe('framework analysis', () => {
     await drain();
     const after = await tree(v.versionId);
     expect(after).toHaveLength(before.length + 1);
-    const code = (c: string) => after.find((r) => r.code === c)!;
+    // The AI's rows are found by the code the source gave them: what they show follows their places (numbering by place).
+    const code = (c: string) => after.find((r) => (r.sourceCode ?? r.code) === c)!;
     // Edited by a person: same title, same wording, never re-parented.
     expect(code('1.1')).toMatchObject({ title: 'Mission statement (checked)', officialText: one.officialText, parentId: one.parentId, editedByPerson: true });
     // Untouched AI row: updated from the new run.
     expect(code('1.2').title).toBe('Integrity and academic freedom');
-    expect(code('5')).toMatchObject({ origin: 'manual', title: 'Added by a person', id: mine.id });
+    expect(after.find((r) => r.id === mine.id)).toMatchObject({ origin: 'manual', title: 'Added by a person', sourceCode: null });
     expect((await notesOf(v.versionId))).toHaveLength(3);
     expect((await as('alo', (c) => getVersion(c, v.versionId))).levelLabels).toEqual(['Standard', 'Criterion', 'Indicator', 'Element']);
     const done = await as('alo', (c) => getAnalysisRun(c, run.id));

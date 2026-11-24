@@ -132,6 +132,8 @@ export async function splitRequirement(ctx: Ctx, id: string, input: z.input<type
     if (check.verified && check.page) page = check.page;
   }
   const hasSource = !!original.sourceDocumentId;
+  // Room for the part right after the original: the siblings after it move down one (so it does not tie with the next one).
+  await ctx.tx.execute(sql`update requirement set display_order = display_order + 1 where framework_version_id = ${original.frameworkVersionId}::uuid and parent_id is not distinct from ${original.parentId}::uuid and display_order > ${original.displayOrder}`);
   const [created] = await guardIntegrity(() => ctx.tx.insert(requirement).values({
     institutionId: ctx.caller.institutionId, frameworkVersionId: original.frameworkVersionId, parentId: original.parentId,
     code: data.code, levelLabel: original.levelLabel, title: data.title ?? data.code, officialText: data.part, language: original.language,

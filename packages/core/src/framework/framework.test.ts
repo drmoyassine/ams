@@ -102,7 +102,8 @@ describe('requirement tree', () => {
     const x = await draft('tree');
     await run('lead', (c) => createRequirement(c, { versionId: x.v.id, parentId: x.std.id, code: 'CFR 1.0', levelLabel: 'CFR', title: 'First', displayOrder: -1 }));
     const rows = await run('lead', (c) => listRequirements(c, x.v.id));
-    expect(rows.map((r) => [r.code, r.depth])).toEqual([['Standard 1', 0], ['CFR 1.0', 1], ['CFR 1.1', 1]]);
+    // Codes follow the places (numbering by place is always on): the new first CFR takes 1.1 and the old one moves down.
+    expect(rows.map((r) => [r.code, r.depth, r.title === 'First'])).toEqual([['Standard 1', 0, false], ['CFR 1.1', 1, true], ['CFR 1.2', 1, false]]);
   });
 
   it('rejects a duplicate code and a parent from another version', async () => {

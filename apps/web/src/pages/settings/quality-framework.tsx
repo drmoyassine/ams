@@ -112,15 +112,6 @@ export function QualityFrameworkPage({ api: apiProp, glossary, settings, evidenc
               )}
               {canWrite && current!.status === 'draft' && (reqs.data?.length ?? 0) > 0 && (
                 <ActionsMenu label="More actions" items={[{
-                  // Numbering by place (the owner, 2026-11-23): codes follow the order (1, 2, 2.1 …) after every move, addition or deletion.
-                  label: current!.autoNumber ? 'Stop numbering by place' : 'Number standards by place',
-                  onSelect: () => {
-                    if (current!.autoNumber) { act(() => api.patchConfig(current!.id, { autoNumber: false })); return; }
-                    void confirm({ title: 'Number standards by place?', confirmLabel: 'Number by place',
-                      message: 'The codes become 1, 2, 2.1 … in the order shown, now and after every move, addition or deletion in this draft. Scope, champions, frequency, evidence links and mappings follow the new codes when the version is published.' })
-                      .then((ok) => { if (ok) act(() => api.patchConfig(current!.id, { autoNumber: true })); });
-                  },
-                }, {
                   label: 'Delete all standards in this version',
                   onSelect: () => act(async () => {
                     const done = await confirmAndDeleteAll(api, confirm, current!.id, `version ${current!.edition}`);

@@ -46,7 +46,6 @@ export const VersionSchema = z.object({
   levelLabels: z.unknown(), lifecycleTemplate: z.unknown(), decisionVocab: z.unknown(), findingVocab: z.unknown(), responseVocab: z.unknown(), ratingMethod: z.unknown(),
   changeSummary: z.string().nullable(), publishedBy: z.string().nullable(), publishedAt: iso.nullable(), supersedesId: z.string().nullable(),
   /** The standards are numbered by their place (1, 2, 2.1 …): every move, addition or deletion renumbers them. */
-  autoNumber: z.boolean().optional(),
   /** What the analysis wrote into each part of the configuration, with its page and quote (step H); and which parts a person has edited since. */
   configFound: z.unknown().optional(), configEdited: z.unknown().optional(),
   /** Set on the detail of a version of the institution's own quality framework. */

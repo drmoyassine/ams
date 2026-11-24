@@ -186,7 +186,9 @@ describe('check and recover', () => {
 
     const again = await analyse(d.versionId, gappyResponder());
     expect(again.run.status).toBe('succeeded');
-    expect((await tree(d.versionId)).map((r) => r.code)).toEqual(['2', '2.1', '2.2', '2.3', '2.4']);
+    // Not added back: the rows keep the codes the source gave them, though what they show follows their places.
+    expect((await tree(d.versionId)).map((r) => r.sourceCode)).toEqual(['2', '2.1', '2.2', '2.3', '2.4']);
+    expect((await tree(d.versionId)).map((r) => r.code)).toEqual(['1', '1.1', '1.2', '1.3', '1.4']);
     expect((await q(`select count(*)::int n from requirement_note n join requirement r on r.id = n.requirement_id where r.framework_version_id = $1`, [d.versionId]))[0].n).toBe(0);
     expect(again.run.report.stats).toMatchObject({ dismissedSkipped: 2 });
   }, 120000);

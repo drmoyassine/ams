@@ -153,16 +153,6 @@ export function VersionPage({ versionId, api: apiProp, glossary, evidence, onOpe
     ...(version.status === 'published' && canPublish ? [{ label: 'Retire this version', onSelect: () => void confirm({
       title: `Retire ${versionLabel(version.edition)}?`, message: 'It stays readable but is no longer offered for new engagements.', confirmLabel: 'Retire', tone: 'danger',
     }).then((ok) => { if (ok) void act(() => api.retire(version.id)); }) }] : []),
-    ...(version.status === 'draft' && canWrite ? [{
-      // Numbering by place (the owner, 2026-11-23): off unless asked for, so an accreditor's own codes are never rewritten by accident.
-      label: version.autoNumber ? 'Stop numbering by place' : 'Number standards by place',
-      onSelect: () => {
-        if (version.autoNumber) { void act(() => api.patchConfig(version.id, { autoNumber: false })); return; }
-        void confirm({ title: 'Number standards by place?', confirmLabel: 'Number by place',
-          message: 'The codes become 1, 2, 2.1 … in the order shown, now and after every move, addition or deletion in this draft. Use it only when the standard has no official codes of its own. What is attached to the codes follows them when the version is published.' })
-          .then((ok) => { if (ok) void act(() => api.patchConfig(version.id, { autoNumber: true })); });
-      },
-    }] : []),
     ...(version.status === 'draft' && canWrite ? [{ label: 'Delete all standards in this version', onSelect: () => void deleteAll() }] : []),
     ...((version.status === 'draft' || version.status === 'in_review') && canWrite ? [{ label: 'Delete this version', onSelect: () => void confirm({
       title: `Delete ${versionLabel(version.edition)}?`, tone: 'danger', confirmLabel: 'Delete',

@@ -79,9 +79,9 @@ describe('levels by depth', () => {
       expect((await w2.as('alo', (c) => listRequirements(c, v)))[0]!.reviewStatus).toBe('approved'); // renaming a level is not a change of content
 
       await w2.as('alo', (c) => indentRequirement(c, two.id)); // under Q1, after Q1.1
-      expect(await labels()).toEqual([['Q1', 'Theme'], ['Q1.1', 'A'], ['Q2', 'A']]);
+      expect(await labels()).toEqual([['Q1', 'Theme'], ['Q1.1', 'A'], ['Q1.2', 'A']]); // its code follows its place
       await w2.as('alo', (c) => indentRequirement(c, two.id)); // under Q1.1: deeper than the named levels
-      expect(await labels()).toEqual([['Q1', 'Theme'], ['Q1.1', 'A'], ['Q2', 'Level 3']]);
+      expect(await labels()).toEqual([['Q1', 'Theme'], ['Q1.1', 'A'], ['Q1.1.1', 'Level 3']]);
       await expect(w2.as('alo', (c) => indentRequirement(c, top.id))).rejects.toThrow(/nothing above/);
       await w2.as('alo', (c) => outdentRequirement(c, two.id));
       await w2.as('alo', (c) => outdentRequirement(c, two.id));
@@ -125,22 +125,24 @@ describe('levels by depth', () => {
     } finally { await w4.close(); }
   });
 
-  it('places items by their code, moves them when the code changes, and renumbers sub-standards with their standard', async () => {
+  it('places items by their code, moves them when the code changes, and numbers every item by its place', async () => {
     const w5 = await buildWorld('internalcodes');
     try {
       const v = (await w5.as('alo', (c) => setUpQualityFramework(c))).versions[0]!.id;
       const one = await w5.as('alo', (c) => addQualityItem(c, v, { code: '1.0', title: 'Teaching' }));
       expect(one).toMatchObject({ code: '1', parentId: null, levelLabel: 'Standard' });
+      // The code names where it goes (1.2 under Standard 1); numbering by place then makes it 1.1, the first of its standard.
       const sub = await w5.as('alo', (c) => addQualityItem(c, v, { code: '1.2', title: 'Course review', description: 'Each course is reviewed yearly.' }));
       expect(sub).toMatchObject({ parentId: one.id, levelLabel: 'Sub-standard', officialText: 'Each course is reviewed yearly.' });
+      expect((await w5.as('alo', (c) => listRequirements(c, v))).find((r) => r.id === sub.id)!.code).toBe('1.1');
       await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: '7.1', title: 'Orphan' }))).rejects.toThrow(/no Standard 7.0/);
-      await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: '1.2', title: 'Again' }))).rejects.toThrow(/code 1.2 is already used/);
       await expect(w5.as('alo', (c) => addQualityItem(c, v, { code: 'A', title: 'Bad' }))).rejects.toThrow(ValidationError);
       const three = await w5.as('alo', (c) => addQualityItem(c, v, { code: '3', title: 'Students' }));
-      expect((await w5.as('alo', (c) => editQualityItem(c, sub.id, { code: '3.1', title: 'Course review' }))).parentId).toBe(three.id); // moved
+      expect((await w5.as('alo', (c) => listRequirements(c, v))).find((r) => r.id === three.id)!.code).toBe('2'); // no gap: the second standard
+      expect((await w5.as('alo', (c) => editQualityItem(c, sub.id, { code: '2.1', title: 'Course review' }))).parentId).toBe(three.id); // moved (Students is now Standard 2)
       await expect(w5.as('alo', (c) => editQualityItem(c, three.id, { code: '1.5', title: 'Students' }))).rejects.toThrow(/cannot become a sub-standard/);
       await w5.as('alo', (c) => editQualityItem(c, three.id, { code: '4', title: 'Students' }));
-      expect((await w5.as('alo', (c) => listRequirements(c, v))).map((r) => r.code)).toEqual(['1', '4', '4.1']);
+      expect((await w5.as('alo', (c) => listRequirements(c, v))).map((r) => r.code)).toEqual(['1', '2', '2.1']);
     } finally { await w5.close(); }
   });
 });

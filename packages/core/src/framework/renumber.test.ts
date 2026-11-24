@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildWorld, type World } from '../engagement/test-support.js';
 import { setUpQualityFramework } from './internal.js';
 import { createRequirement, listRequirements, moveRequirement, reviewRequirement } from './requirements.js';
-import { newVersionFrom, publishVersion, submitForReview, updateVersionConfig } from './versions.js';
+import { newVersionFrom, publishVersion, submitForReview } from './versions.js';
 import { deleteRequirement } from '../trash/delete.js';
 import { getOwnAssignment, setRequirementChampion, setRequirementScope } from '../scope/index.js';
 import { placeCodes } from './renumber.js';
@@ -20,7 +20,6 @@ beforeAll(async () => {
   w = await buildWorld('renumber');
   const q = await w.as('admin', (c) => setUpQualityFramework(c));
   ids.v1 = q.versions[0]!.id;
-  await w.as('admin', (c) => updateVersionConfig(c, ids.v1!, { autoNumber: true }));
   const a = await w.as('admin', (c) => createRequirement(c, { versionId: ids.v1!, code: '7', levelLabel: 'Standard', title: 'Mission' }));
   const b = await w.as('admin', (c) => createRequirement(c, { versionId: ids.v1!, code: '8', levelLabel: 'Standard', title: 'Programs' }));
   await w.as('admin', (c) => createRequirement(c, { versionId: ids.v1!, code: '8.5', levelLabel: 'Sub', title: 'Design', parentId: b.id }));

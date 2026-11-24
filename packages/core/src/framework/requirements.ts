@@ -95,6 +95,7 @@ export async function updateRequirement(ctx: Ctx, id: string, patch: z.input<typ
     const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, current.frameworkVersionId));
     await followNewStandards(ctx, current.frameworkVersionId, v!.frameworkId, [{ id, old: current.code, next: data.code }]);
   }
+  if (data.code !== undefined && data.code !== current.code) await renumberVersion(ctx, current.frameworkVersionId);
   // Undo = write the earlier values back (the requirement returns to review either way, as any edit does).
   reportUndo(ctx, { label: `Edited ${current.code}`, method: 'PATCH', path: `/api/requirements/${id}`, body: before });
   return row!;

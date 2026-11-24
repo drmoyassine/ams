@@ -153,17 +153,18 @@ describe('IQF mapping after an analysis run', () => {
     const item = p.proposals.find((x) => x.code === '1.4')!;
     const accepted = await as('alo', (c) => acceptIqfProposal(c, item.id, { title: 'Academic freedom', code: '1.5' }));
     expect(accepted).toMatchObject({ status: 'accepted', code: '1.5', title: 'Academic freedom', parentCode: '1' });
+    // The proposal was edited to 1.5, but the draft numbers its items by place: it is the third item of Standard 1 there.
     const row = (await q(`select r.*, p.code as parent_code from requirement r join requirement p on p.id = r.parent_id where r.id = $1`, [accepted.acceptedRequirementId]))[0];
     expect(row).toMatchObject({
-      framework_version_id: draft, code: '1.5', title: 'Academic freedom', origin: 'ai', review_status: 'pending', reviewed_by: null, parent_code: '1',
+      framework_version_id: draft, code: '1.3', title: 'Academic freedom', origin: 'ai', review_status: 'pending', reviewed_by: null, parent_code: '1',
       level_label: 'Sub-standard', official_text: 'The institution has a policy on academic freedom and reviews it.',
     });
     const links = await mappingsOf();
-    expect(mappingOf(links, '1.2.1', '1.5')).toMatchObject({ relation: 'partly_covers', origin: 'ai', reviewStatus: 'approved', rationale: null });
-    // A person cannot accept it twice, nor take a code that is already used.
+    expect(mappingOf(links, '1.2.1', '1.3')).toMatchObject({ relation: 'partly_covers', origin: 'ai', reviewStatus: 'approved', rationale: null });
+    // A person cannot accept it twice, nor take a code that is already used (the draft shows 1.1 to 1.3 now: the accepted item is the third).
     await expect(as('alo', (c) => acceptIqfProposal(c, item.id))).rejects.toThrow(/already accepted/);
     const other = p.proposals.find((x) => x.code === '1.3')!;
-    await expect(as('alo', (c) => acceptIqfProposal(c, other.id, { code: '1.5' }))).rejects.toThrow(ConflictError);
+    await expect(as('alo', (c) => acceptIqfProposal(c, other.id, { code: '1.1' }))).rejects.toThrow(ConflictError);
     await expect(as('alo', (c) => acceptIqfProposal(c, other.id, { parentCode: '7.7' }))).rejects.toThrow(/no item coded 7.7/);
     // Dismissing is a decision too.
     const last = p.proposals.find((x) => x.code === '3')!;

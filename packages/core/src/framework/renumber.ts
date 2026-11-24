@@ -1,10 +1,11 @@
-// Standards numbered by their place (the owner, 2026-11-23/24). In a draft whose version has "Number by place" on
-// (framework_version.auto_number), every structural change renumbers it. A code keeps its own words and separators and only its
+// Standards numbered by their place (the owner, 2026-11-23/24), always: in every draft version (the IQF and external standards alike)
+// every structural change (a move, an addition, a deletion, a code edited by hand) renumbers it. A code keeps its own words and separators and only its
 // numbers change: "2.5" becomes "2.3", "CFR 1.4" becomes "CFR 1.2", "Criterion 3(4)" becomes "Criterion 3(2)", "1-1-3" becomes
 // "1-1-2". The leading numbers come from the parent, the last one from the place among the siblings. A heading that adds no number
 // of its own ("Standard 1 - Integrity", under "Standard 1") takes its parent's numbers, and the numbering of its children runs on
-// across the headings of the same parent (CFR 1.1, 1.2 under the first heading, 1.3 … under the next). A code without numbers
-// ("Preamble") stays as it is and takes no place. Off by default; a new version keeps the setting.
+// across the headings of the same parent (CFR 1.1, 1.2 under the first heading, 1.3 … under the next). A code that
+// begins with its parent's code (I.C.4.b.(1) under I.C.4.b) is counted within that parent. A code without numbers ("Preamble") stays
+// as it is and takes no place. A published version is never renumbered.
 //
 // What hangs on a standard's code (scope, champion, frequency, approval steps, icon, evidence links and requests, mappings, cycle plans,
 // submissions) belongs to it, not to the code:
@@ -23,56 +24,89 @@ import { ConflictError } from '../ctx.js';
 
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 const numbersOf = (code: string) => (code.match(/\d+/g) ?? []).map(Number);
-const withNumbers = (code: string, nums: number[]) => { let i = 0; return code.replace(/\d+/g, (m) => (i < nums.length ? String(nums[i++]) : m)); };
+/**
+ * The code with its numbers replaced by `nums`. Numbers beyond those given are dropped when they only continue the numbering
+ * (S1.2.1 at the top level is S2), kept when text follows them; numbers the code lacks are added with the separator it uses
+ * (2 under 1 is 1.2, S2 under S1 is S1.1).
+ */
+const withNumbers = (code: string, nums: number[]) => {
+  const groups = [...code.matchAll(/\d+/g)];
+  let i = 0;
+  let out = code.replace(/\d+/g, (m) => (i < nums.length ? String(nums[i++]) : m));
+  if (nums.length > groups.length) {
+    const sep = groups.length >= 2 ? code.slice(groups[0]!.index! + groups[0]![0].length, groups[1]!.index!) : '.';
+    return out + nums.slice(groups.length).map((n) => `${sep}${n}`).join('');
+  }
+  if (nums.length >= groups.length || nums.length === 0) return out;
+  const last = groups[nums.length - 1]!;
+  const rest = code.slice(last.index! + last[0].length);
+  if (/^(?:[.\-/()\s]*\d+[)]?)*$/.test(rest)) out = out.slice(0, out.length - rest.length);
+  return out;
+};
+
 /** The key a draft standard's attachments are held under while its code belongs to a standard of another version. */
 export const parkedCode = (requirementId: string) => `~std~${requirementId}`;
 
 type Row = { id: string; parentId: string | null; code: string; displayOrder: number };
 
+/** A code without the "(restored)" the Trash gives one that came back while its code was taken: numbering by place gives it a clean one. */
+const cleanCode = (code: string) => code.replace(/(?:\s*\(restored(?: \d+)?\))+$/, '');
+
 /** The codes each requirement of a version should have, from its place in the tree (siblings by display order, then code). */
-export function placeCodes(rows: Row[]): Map<string, { code: string; order: number }> {
+export function placeCodes(input: Row[]): Map<string, { code: string; order: number }> {
+  const rows = input.map((r) => ({ ...r, code: cleanCode(r.code) }));
   const kids = new Map<string | null, Row[]>();
   for (const r of rows) kids.set(r.parentId ?? null, [...(kids.get(r.parentId ?? null) ?? []), r]);
   const out = new Map<string, { code: string; order: number }>();
-  const walk = (parent: string | null, parentNums: number[], counter: { n: number }) => {
+  const walk = (parent: string | null, parentCode: string, parentNums: number[], counter: { n: number }) => {
+    // Siblings in the order the list shows them: by display order, then by code.
     const list = [...(kids.get(parent) ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || natural(a.code, b.code));
     list.forEach((r, order) => {
-      const own = numbersOf(r.code);
-      if (own.length === 0) { out.set(r.id, { code: r.code, order }); walk(r.id, parentNums, { n: 0 }); return; }
-      if (parentNums.length > 0 && own.length === parentNums.length) {
-        // A heading: its parent's numbers, and its children carry on the parent's count.
-        out.set(r.id, { code: withNumbers(r.code, parentNums), order }); walk(r.id, parentNums, counter); return;
+      const mine = numbersOf(r.code);
+      const below = kids.get(r.id) ?? [];
+      if (mine.length === 0) { out.set(r.id, { code: r.code, order }); walk(r.id, r.code, parentNums, { n: 0 }); return; }
+      // A heading adds no number of its own and repeats its parent's text ("Standard 1 - Integrity" under "Standard 1"): it takes the
+      // parent's numbers. Its children carry on the parent's count (CFR 1.1, 1.2 under one heading, 1.3 under the next), unless they
+      // repeat the heading's own text (I.C.4.b.(1) under I.C.4.b), which are counted within it.
+      if (parentNums.length > 0 && parentCode && r.code.startsWith(parentCode) && mine.join('.') === numbersOf(parentCode).join('.')) {
+        out.set(r.id, { code: withNumbers(r.code, parentNums), order });
+        walk(r.id, r.code, parentNums, below.some((k) => !k.code.startsWith(r.code)) ? counter : { n: 0 });
+        return;
       }
-      if (own.length < parentNums.length) { out.set(r.id, { code: r.code, order }); walk(r.id, own, { n: 0 }); return; }
-      const nums = [...parentNums, ...own.slice(parentNums.length, own.length - 1), ++counter.n];
+      const nums = [...parentNums, ++counter.n];
       out.set(r.id, { code: withNumbers(r.code, nums), order });
-      walk(r.id, nums, { n: 0 });
+      walk(r.id, r.code, nums, { n: 0 });
     });
   };
-  walk(null, [], { n: 0 });
+  walk(null, '', [], { n: 0 });
   return out;
 }
 
 /** Renumbers a draft version by place (see above). Returns how many codes changed. */
 export async function renumberVersion(ctx: Ctx, versionId: string): Promise<number> {
-  const [v] = await ctx.tx.select({ status: frameworkVersion.status, auto: frameworkVersion.autoNumber, frameworkId: frameworkVersion.frameworkId })
+  const [v] = await ctx.tx.select({ status: frameworkVersion.status, frameworkId: frameworkVersion.frameworkId })
     .from(frameworkVersion).where(eq(frameworkVersion.id, versionId));
-  if (!v || v.status !== 'draft' || !v.auto) return 0;
+  if (!v || v.status !== 'draft') return 0;
   const rows = await ctx.tx.select({ id: requirement.id, parentId: requirement.parentId, code: requirement.code, displayOrder: requirement.displayOrder, from: requirement.carriedFromId })
     .from(requirement).where(eq(requirement.frameworkVersionId, versionId));
   if (!rows.length) return 0;
   const want = placeCodes(rows);
-  const seen = new Map<string, string>();
-  for (const r of rows) {
-    const c = want.get(r.id)!.code;
-    if (seen.has(c)) throw new ConflictError(`numbering by place would give two standards the code ${c}; change one of their codes first`);
-    seen.set(c, r.id);
+  // Two standards cannot share a code: those that would keep the code they have (current codes are unique, so this settles).
+  for (let pass = 0; pass <= rows.length; pass++) {
+    const by = new Map<string, string[]>();
+    for (const r of rows) by.set(want.get(r.id)!.code, [...(by.get(want.get(r.id)!.code) ?? []), r.id]);
+    const clash = new Set([...by.values()].filter((ids) => ids.length > 1).flat());
+    if (!clash.size) break;
+    for (const r of rows) if (clash.has(r.id)) want.set(r.id, { code: r.code, order: want.get(r.id)!.order });
   }
-  const changed = rows.filter((r) => want.get(r.id)!.code !== r.code || want.get(r.id)!.order !== r.displayOrder);
+  // Only codes change: where a standard sits (its display order) is left as it is, so a restored one lands where it was.
+  const changed = rows.filter((r) => want.get(r.id)!.code !== r.code);
   if (!changed.length) return 0;
   // Two steps, so a code freed by one row can be taken by another without colliding on (version, code).
+  await ctx.tx.execute(sql`select set_config('app.renumbering', 'on', true)`);
   for (const r of changed) await ctx.tx.update(requirement).set({ code: `~${r.id}` }).where(eq(requirement.id, r.id));
-  for (const r of changed) { const w = want.get(r.id)!; await ctx.tx.update(requirement).set({ code: w.code, displayOrder: w.order }).where(eq(requirement.id, r.id)); }
+  for (const r of changed) { const w = want.get(r.id)!; await ctx.tx.update(requirement).set({ code: w.code }).where(eq(requirement.id, r.id)); }
+  await ctx.tx.execute(sql`select set_config('app.renumbering', '', true)`);
   const recoded = changed.filter((r) => want.get(r.id)!.code !== r.code);
   await followNewStandards(ctx, versionId, v.frameworkId, recoded.filter((r) => !r.from).map((r) => ({ id: r.id, old: r.code, next: want.get(r.id)!.code })));
   return recoded.length;

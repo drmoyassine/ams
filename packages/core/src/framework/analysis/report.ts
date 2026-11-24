@@ -92,7 +92,7 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
 
   // ---- the draft as it is now
   const reqs = await ctx.tx.select().from(requirement).where(eq(requirement.frameworkVersionId, version.id));
-  const reqByCode = new Map(reqs.map((r) => [normalizeCode(r.code), r]));
+  const reqByCode = new Map(reqs.map((r) => [normalizeCode(r.sourceCode ?? r.code), r]));
   const notes = reqs.length ? await ctx.tx.select().from(requirementNote).where(inArray(requirementNote.requirementId, reqs.map((r) => r.id))) : [];
   const reqById = new Map(reqs.map((r) => [r.id, r]));
   const refOf = (code: string | null, documentId: string | null, page: number | null): ReportRef => {
@@ -135,7 +135,7 @@ export async function getAnalysisReport(ctx: Ctx, runId: string): Promise<Analys
 
   // Deleted by a person and not added back.
   const deleted: AnalysisReport['requirements']['deleted'] = [];
-  const noteKeys = new Set(notes.map((n) => `${normalizeCode(reqById.get(n.requirementId)?.code ?? '')}\u0000${noteFingerprint(n.text)}`));
+  const noteKeys = new Set(notes.map((n) => `${normalizeCode(reqById.get(n.requirementId)?.sourceCode ?? reqById.get(n.requirementId)?.code ?? '')}\u0000${noteFingerprint(n.text)}`));
   for (const d of await ctx.tx.select().from(analysisDismissal).where(eq(analysisDismissal.frameworkVersionId, version.id))) {
     const code = normalizeCode(d.code);
     if (d.kind === 'requirement' && !reqByCode.has(code)) deleted.push({ kind: 'requirement', code: d.code });

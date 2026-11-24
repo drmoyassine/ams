@@ -53,32 +53,32 @@ async function shape(versionId: string): Promise<string> {
 const START = 'S1(S1.1,S1.2(S1.2.1),S1.3) S2(S2.1) S3';
 
 describe('moveMany', () => {
-  it('re-parents under another item at a position, renumbers gap-free, and leaves codes alone', async () => {
+  it('re-parents under another item at a position, gap-free, and the codes follow the places', async () => {
     const t = await tree();
     const res = await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s12.id, parentId: t.s2.id, index: 0 }] }));
     expect(res).toMatchObject({ moved: 1, unchanged: false });
-    expect(await shape(t.v)).toBe('S1(S1.1,S1.3) S2(S1.2(S1.2.1),S2.1) S3');
+    expect(await shape(t.v)).toBe('S1(S1.1,S1.2) S2(S2.1(S2.1.1),S2.2) S3');
     const rows = await as('alo', (c) => listRequirements(c, t.v));
-    expect(rows.find((r) => r.id === t.s12.id)!.code).toBe('S1.2'); // the code did not change
+    expect(rows.find((r) => r.id === t.s12.id)!.code).toBe('S2.1'); // numbering by place: it is now the first under S2
     expect(lastUndo).toMatchObject({ label: 'Moved S1.2 under S2', method: 'POST', path: `/api/framework-versions/${t.v}/requirements/move-many` });
   });
 
   it('reorders inside one parent, and to the top level', async () => {
     const t = await tree();
     await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s13.id, parentId: t.s1.id, index: 0 }] }));
-    expect(await shape(t.v)).toBe('S1(S1.3,S1.1,S1.2(S1.2.1)) S2(S2.1) S3');
+    expect(await shape(t.v)).toBe('S1(S1.1,S1.2,S1.3(S1.3.1)) S2(S2.1) S3'); // the former S1.3 is now first, and S1.1
     expect(lastUndo!.label).toBe('Reordered S1.3');
     await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s121.id, parentId: null, index: 1 }] }));
-    expect(await shape(t.v)).toBe('S1(S1.3,S1.1,S1.2) S1.2.1 S2(S2.1) S3');
-    expect(lastUndo!.label).toBe('Moved S1.2.1 to the top level');
+    expect(await shape(t.v)).toBe('S1(S1.1,S1.2,S1.3) S2 S3(S3.1) S4'); // the moved one is the second standard; the rest follow
+    expect(lastUndo!.label).toBe('Moved S1.3.1 to the top level');
   });
 
   it('moves several together keeping their relative order, a parent with its children', async () => {
     const t = await tree();
     await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s11.id, parentId: t.s3.id, index: 0 }, { id: t.s13.id, parentId: t.s3.id, index: 1 }] }));
-    expect(await shape(t.v)).toBe('S1(S1.2(S1.2.1)) S2(S2.1) S3(S1.1,S1.3)');
+    expect(await shape(t.v)).toBe('S1(S1.1(S1.1.1)) S2(S2.1) S3(S3.1,S3.2)');
     await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s1.id, parentId: t.s2.id, index: 1 }] }));
-    expect(await shape(t.v)).toBe('S2(S2.1,S1(S1.2(S1.2.1))) S3(S1.1,S1.3)');
+    expect(await shape(t.v)).toBe('S1(S1.1,S1.2(S1.2.1(S1.2.1.1))) S2(S2.1,S2.2)'); // S2 is first now (S1), S1 went under it as S1.2 with its sub-items
   });
 
   it('refuses a move under itself or its own sub-items, and applies nothing', async () => {
@@ -137,11 +137,11 @@ describe('moveMany', () => {
   it('marks the rows it moved as edited by a person', async () => {
     const t = await tree();
     await as('alo', (c) => moveMany(c, t.v, { moves: [{ id: t.s3.id, parentId: t.s1.id, index: 0 }] }));
-    const r = await w.db.su.query(`select code, edited_by_person from requirement where framework_version_id = $1 order by code`, [t.v]);
-    expect(r.rows.find((x) => x.code === 'S3').edited_by_person).toBe(true);
+    const r = await w.db.su.query(`select edited_by_person from requirement where id = $1`, [t.s3.id]);
+    expect(r.rows[0].edited_by_person).toBe(true);
   });
 
-  it('on the internal framework, a move changes the level label to the new depth and not the code', async () => {
+  it('on the internal framework, a move changes the level label to the new depth and the code to the new place', async () => {
     const w2 = await buildWorld('movemanyiqf');
     try {
       const run = (fn: (c: Ctx) => Promise<unknown>) => w2.as('alo', fn);
@@ -151,7 +151,7 @@ describe('moveMany', () => {
       const b = await w2.as('alo', (c) => createRequirement(c, { versionId: v, code: '2', levelLabel: 'x', title: 'Two', displayOrder: 1 }));
       await run((c) => moveMany(c, v, { moves: [{ id: b.id, parentId: a.id, index: 0 }] }));
       const rows = await w2.as('alo', (c) => listRequirements(c, v));
-      expect(rows.map((r) => [r.code, r.levelLabel])).toEqual([['1', 'Standard'], ['2', 'Sub-standard']]);
+      expect(rows.map((r) => [r.code, r.levelLabel])).toEqual([['1', 'Standard'], ['1.1', 'Sub-standard']]);
     } finally { await w2.close(); }
   });
 });
@@ -168,7 +168,7 @@ describe('the internal framework\'s level model', () => {
       const b = await mk('2', 1);
       await expect(w2.as('alo', (c) => moveMany(c, v, { moves: [{ id: b.id, parentId: a1.id, index: 0 }] }))).rejects.toThrow(/more than 2 levels deep.*Standard, Sub-standard/);
       await w2.as('alo', (c) => moveMany(c, v, { moves: [{ id: b.id, parentId: a.id, index: 1 }] })); // a second sub-standard is fine
-      expect((await w2.as('alo', (c) => listRequirements(c, v))).map((r) => [r.code, r.levelLabel])).toEqual([['1', 'Standard'], ['1.1', 'Sub-standard'], ['2', 'Sub-standard']]);
+      expect((await w2.as('alo', (c) => listRequirements(c, v))).map((r) => [r.code, r.levelLabel])).toEqual([['1', 'Standard'], ['1.1', 'Sub-standard'], ['1.2', 'Sub-standard']]); // the codes follow the places
     } finally { await w2.close(); }
   });
 });
@@ -178,13 +178,17 @@ describe('Undo of a move', () => {
   async function roundTrip(moves: { id: string; parentId: string | null; index: number }[]) {
     const t = await tree();
     const resolved = moves.map((m) => ({ ...m, id: (t as never as Record<string, { id: string }>)[m.id]!.id, parentId: m.parentId === null ? null : (t as never as Record<string, { id: string }>)[m.parentId]!.id }));
+    // Where each item sits (by id): numbering by place gives codes that can look the same after a swap, so compare the places.
+    const places = async () => (await as('alo', (c) => listRequirements(c, t.v))).map((r) => `${r.id}<${r.parentId ?? ''}@${r.displayOrder}`).sort().join('|');
+    const before = await places();
     await as('alo', (c) => moveMany(c, t.v, { moves: resolved }));
     const undo = lastUndo!;
     const moved = await shape(t.v);
-    expect(moved).not.toBe(START);
+    expect(await places()).not.toBe(before);
     expect(undo.path).toBe(`/api/framework-versions/${t.v}/requirements/move-many`);
     await as('alo', (c) => moveMany(c, t.v, undo.body as never));
     expect(await shape(t.v)).toBe(START);
+    expect(await places()).toBe(before);
     return { t, undo, moved };
   }
 

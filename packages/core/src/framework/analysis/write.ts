@@ -61,7 +61,7 @@ export async function loadDismissals(ctx: Ctx, versionId: string) {
 export async function loadRunState(ctx: Ctx, run: { id: string; frameworkVersionId: string }, docs: ReadonlyMap<string, DocInfo>, pageDocIds: string[] = []) {
   const all = await loadRawItems(ctx, run.id);
   const existing = await ctx.tx.select().from(requirement).where(eq(requirement.frameworkVersionId, run.frameworkVersionId));
-  const byCode = new Map<string, ReqRow>(existing.map((r) => [normalizeCode(r.code), r]));
+  const byCode = new Map<string, ReqRow>(existing.map((r) => [normalizeCode(r.sourceCode ?? r.code), r]));
   const dismissed = await loadDismissals(ctx, run.frameworkVersionId);
   const skipped = new Set<string>();
   const dismissedRaw: RawItem[] = [];
@@ -86,9 +86,10 @@ export async function writeAnalysis(ctx: Ctx, run: { id: string; frameworkVersio
   for (const r of existing) {
     let d = 0;
     for (let at = r; at.parentId && byId.has(at.parentId) && d < 50; at = byId.get(at.parentId)!) d++;
-    depthOf.set(normalizeCode(r.code), d);
+    depthOf.set(normalizeCode(r.sourceCode ?? r.code), d);
   }
 
+  const takenCodes = new Set(existing.map((r) => r.code));
   let added = 0;
   let updated = 0;
   let keptHumanEdits = 0;
@@ -105,7 +106,7 @@ export async function writeAnalysis(ctx: Ctx, run: { id: string; frameworkVersio
 
   for (const m of merged.requirements) {
     const parent = m.parentCode ? byCode.get(m.parentCode) ?? null : null;
-    const depth = parent ? (depthOf.get(normalizeCode(parent.code)) ?? 0) + 1 : 0;
+    const depth = parent ? (depthOf.get(normalizeCode(parent.sourceCode ?? parent.code)) ?? 0) + 1 : 0;
     const levelLabel = m.levelLabel && (labels.length === 0 || labels.includes(m.levelLabel)) ? m.levelLabel : levelAt(labels, depth);
     const { title, officialText } = placeWording(m.code, m.title ?? m.code, m.text || null);
     const values = {
@@ -114,8 +115,11 @@ export async function writeAnalysis(ctx: Ctx, run: { id: string; frameworkVersio
     };
     const current = byCode.get(m.code);
     if (!current) {
+      // The code it shows may already be held by another row (the draft's codes follow its places): then it waits for the next renumbering.
+      const shown = takenCodes.has(m.code) ? `${m.code} (from the source)` : m.code;
+      takenCodes.add(shown);
       const [row] = await ctx.tx.insert(requirement).values({
-        institutionId: ctx.caller.institutionId, frameworkVersionId: versionId, code: m.code, origin: 'ai', ...values,
+        institutionId: ctx.caller.institutionId, frameworkVersionId: versionId, code: shown, sourceCode: m.code, origin: 'ai', ...values,
       }).returning();
       byCode.set(m.code, row!);
       added++;

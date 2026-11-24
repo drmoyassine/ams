@@ -85,17 +85,20 @@ export async function acceptIqfProposal(ctx: Ctx, id: string, edits: AcceptIqfPr
     displayOrder: siblings.reduce((n, s) => Math.max(n, s.displayOrder), -1) + 1, origin: 'ai',
   }).returning());
   await relabelByDepth(ctx, draft.version.id);
+  // The draft numbers its items by place, so the item may not show the code it was given: the links go to the code it shows.
+  const [placed] = await ctx.tx.select({ code: requirement.code }).from(requirement).where(eq(requirement.id, created!.id));
+  const shown = placed!.code;
 
   const now = new Date();
   for (const l of p.links) {
     const [existing] = await ctx.tx.select().from(requirementMapping).where(and(
-      eq(requirementMapping.frameworkId, p.frameworkId), eq(requirementMapping.externalCode, l.externalCode), eq(requirementMapping.internalCode, code)));
+      eq(requirementMapping.frameworkId, p.frameworkId), eq(requirementMapping.externalCode, l.externalCode), eq(requirementMapping.internalCode, shown)));
     if (existing) {
       if (existing.reviewStatus !== 'approved') await ctx.tx.update(requirementMapping).set({ reviewStatus: 'approved', reviewedBy: ctx.caller.userId, reviewedAt: now }).where(eq(requirementMapping.id, existing.id));
       continue;
     }
     await ctx.tx.insert(requirementMapping).values({
-      institutionId: ctx.caller.institutionId, frameworkId: p.frameworkId, externalCode: l.externalCode, internalFrameworkId: p.internalFrameworkId, internalCode: code,
+      institutionId: ctx.caller.institutionId, frameworkId: p.frameworkId, externalCode: l.externalCode, internalFrameworkId: p.internalFrameworkId, internalCode: shown,
       relation: l.relation as 'covers' | 'partly_covers' | 'related', rationale: l.reason, origin: 'ai', reviewStatus: 'approved', reviewedBy: ctx.caller.userId, reviewedAt: now,
     });
   }

@@ -677,7 +677,6 @@ export const frameworkVersion = pgTable('framework_version', {
   frameworkId: uuid('framework_id').notNull().references(() => framework.id),
   edition: text('edition').notNull(),
   /** The version numbers its standards by place (1, 2, 2.1 …) after every move, addition or deletion (renumber.ts). */
-  autoNumber: boolean('auto_number').notNull().default(false),
   effectiveFrom: date('effective_from'),
   effectiveTo: date('effective_to'),
   status: text('status', { enum: FRAMEWORK_VERSION_STATUSES }).notNull().default('draft'),
@@ -787,6 +786,8 @@ export const requirement = pgTable('requirement', {
   parentId: uuid('parent_id').references((): AnyPgColumn => requirement.id),
   /** The requirement of the earlier version this one was copied from: a publish renames what is attached to its old code. */
   carriedFromId: uuid('carried_from_id').references((): AnyPgColumn => requirement.id, { onDelete: 'set null' }),
+  /** The code the source gave an AI-made requirement (null on a person's): what a re-run and the memory of deletions match on, since `code` follows the place. */
+  sourceCode: text('source_code'),
   code: text('code').notNull(),
   levelLabel: text('level_label').notNull(),
   title: text('title').notNull(),

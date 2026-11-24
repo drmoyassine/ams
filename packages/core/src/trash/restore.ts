@@ -142,6 +142,7 @@ async function restoreRequirements(ctx: Ctx, item: ItemRow, payload: TrashPayloa
   const codes = rows.map((r) => text(r.code));
   const taken = new Set((await ctx.tx.execute<{ code: string }>(sql`select code from requirement where framework_version_id = ${root.versionId} and code = any(${texts(codes)})`)).rows.map((r) => r.code));
   const renamedOld = new Set<string>();
+  const renamedAs = new Map<string, string>(); // the temporary code -> the restored requirement
   if (taken.size) {
     if (opts.codeConflict === 'refuse') {
       const first = rows.find((r) => taken.has(text(r.code)))!;
@@ -157,6 +158,7 @@ async function restoreRequirements(ctx: Ctx, item: ItemRow, payload: TrashPayloa
       while (used.has(candidate)) { n += 1; candidate = `${code} (restored ${n})`; }
       used.add(candidate);
       out.renamed.push({ from: code, to: candidate });
+      renamedAs.set(candidate, text(r.id));
       renamedOld.add(code);
       return { ...r, code: candidate };
     });
@@ -173,7 +175,15 @@ async function restoreRequirements(ctx: Ctx, item: ItemRow, payload: TrashPayloa
 
   const merge = payload.meta?.merge as MergeMeta | undefined;
   if (merge && opts.revertMerge !== false) await revertMerge(ctx, merge, root.rootIds[0]!, out);
-  if (relabel || merge) await relabelByDepth(ctx, root.versionId);
+  // The version numbers its standards by place (always): what came back takes the code of its place, and the result says which.
+  await relabelByDepth(ctx, root.versionId);
+  for (const r of out.renamed) {
+    const id = renamedAs.get(r.to);
+    if (!id) continue;
+    const [now] = (await ctx.tx.execute<{ code: string }>(sql`select code from requirement where id = ${id}::uuid`)).rows;
+    if (now) r.to = now.code;
+  }
+  void relabel; void merge;
   return out;
 }
 

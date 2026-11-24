@@ -186,17 +186,17 @@ describe('framework API', () => {
     expect((await call('lead', 'GET', `/api/framework-versions/${vid}/icons`)).body).toEqual({});
   });
 
-  it('turns numbering by place on through the API, and an empty settings patch changes nothing', async () => {
+  it('numbers a draft by place without being asked, keeping the accreditor\'s words; an empty settings patch changes nothing', async () => {
     const created = await call('lead', 'POST', '/api/framework-versions/import', { file: file(), edition: 'numbered' });
     const vid = created.body.version.id as string;
     expect((await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, {})).status).toBe(200);
-    const on = await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: true });
-    expect(on.status).toBe(200);
-    expect(on.body.autoNumber).toBe(true);
-    const codes = ((await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { code: string }[]).map((r) => r.code);
-    expect(codes).toEqual(['Standard 1', 'CFR 1.1']); // already in place; an accreditor's words and separators are kept
-    const off = await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: false });
-    expect(off.body.autoNumber).toBe(false);
+    expect((await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: true })).status).toBe(400); // no such setting any more
+    const rows = (await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { id: string; code: string; parentId: string | null }[];
+    const extra = await call('lead', 'POST', `/api/framework-versions/${vid}/requirements`, { code: 'Standard 9', levelLabel: 'Standard', title: 'Added', displayOrder: 0 });
+    expect(extra.status).toBe(201);
+    const codes = ((await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { code: string; title: string }[]).map((r) => `${r.code} ${r.title}`);
+    expect(codes).toEqual(['Standard 1 Added', 'Standard 2 Purposes', 'CFR 2.1 Mission']);
+    void rows;
   });
 
   it('stores source documents and pages for quote verification', async () => {

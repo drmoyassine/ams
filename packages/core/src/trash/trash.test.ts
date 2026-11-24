@@ -201,17 +201,17 @@ describe('restore rules', () => {
     // Put it under the nearest living ancestor.
     const placed = await run('lead', (c) => restoreTrash(c, { groupId: child.groupId }, { placeParentId: x.std.id }));
     expect(placed.placedUnder).toBe('Standard 1');
-    expect((await live(x.v.id)).find((r) => r.code === 'CFR 1.1.1')!.parent_id).toBe(x.std.id);
+    expect((await live(x.v.id)).find((r) => r.id === x.sub.id)!.parent_id).toBe(x.std.id);
     // Or at the top level; or restore the parent first.
     const other = await draft('rule-parent2');
     const c2 = await run('lead', (c) => deleteMany(c, { ids: [other.sub.id] }));
     await run('lead', (c) => deleteMany(c, { ids: [other.cfr.id] }));
     const top = await run('lead', (c) => restoreTrash(c, { groupId: c2.groupId }, { atTopLevel: true }));
     expect(top.placedUnder).toBe('the top level');
-    expect((await live(other.v.id)).find((r) => r.code === 'CFR 1.1.1')!.parent_id).toBeNull();
+    expect((await live(other.v.id)).find((r) => r.id === other.sub.id)!.parent_id).toBeNull();
     // Restoring the middle one first leaves nothing to choose.
     await run('lead', (c) => restoreTrash(c, { groupId: mid.groupId }));
-    expect((await live(x.v.id)).find((r) => r.code === 'CFR 1.1')!.parent_id).toBe(x.std.id);
+    expect((await live(x.v.id)).find((r) => r.id === x.cfr.id)!.parent_id).toBe(x.std.id);
   });
 
   it('gives the restored one the next free code when its code was taken, or refuses when asked to', async () => {
@@ -222,15 +222,19 @@ describe('restore rules', () => {
     expect(refused.details).toMatchObject({ code: 'code_taken' });
     expect(await live(x.v.id)).toHaveLength(3);
     const back = await run('lead', (c) => restoreTrash(c, { groupId: res.groupId }));
-    expect(back.renamed).toEqual([{ from: 'CFR 1.1.1', to: 'CFR 1.1.1 (restored)' }]);
-    expect(back.message).toContain('CFR 1.1.1 was taken in the meantime, so it is now CFR 1.1.1 (restored)');
-    expect((await live(x.v.id)).map((r) => r.code)).toEqual(['CFR 1.1', 'CFR 1.1.1', 'CFR 1.1.1 (restored)', 'Standard 1']);
-    // A second time it is "(restored 2)".
-    const restoredId = (await live(x.v.id)).find((r) => r.code === 'CFR 1.1.1 (restored)')!.id as string;
+    // The version numbers its standards by place: what came back takes the code of its place, and the result says which.
+    const codes = (await live(x.v.id)).map((r) => r.code as string);
+    expect(codes).toEqual(['CFR 1.1', 'CFR 1.1.1', 'CFR 1.1.2', 'Standard 1']);
+    expect(back.renamed).toHaveLength(1);
+    expect(back.renamed[0]!.from).toBe('CFR 1.1.1');
+    expect(codes).toContain(back.renamed[0]!.to);
+    expect(back.message).toContain(`CFR 1.1.1 was taken in the meantime, so it is now ${back.renamed[0]!.to}`);
+    // Again: delete it, take its place, restore: every code stays unique and tidy (no "(restored)" is left on one).
+    const restoredId = (await live(x.v.id)).find((r) => r.id === x.sub.id)!.id as string;
     const again = await run('lead', (c) => deleteMany(c, { ids: [restoredId] }));
-    await run('lead', (c) => createRequirement(c, { versionId: x.v.id, parentId: x.cfr.id, code: 'CFR 1.1.1 (restored)', levelLabel: 'CFR', title: 'Squatter' }));
-    const back2 = await run('lead', (c) => restoreTrash(c, { groupId: again.groupId }));
-    expect(back2.renamed[0]!.to).toBe('CFR 1.1.1 (restored) (restored)');
+    await run('lead', (c) => createRequirement(c, { versionId: x.v.id, parentId: x.cfr.id, code: 'CFR 1.1.2', levelLabel: 'CFR', title: 'Squatter' }));
+    await run('lead', (c) => restoreTrash(c, { groupId: again.groupId }));
+    expect((await live(x.v.id)).map((r) => r.code as string)).toEqual(['CFR 1.1', 'CFR 1.1.1', 'CFR 1.1.2', 'CFR 1.1.3', 'Standard 1']);
   });
 
   it('drops links to other standards whose other side is gone, and counts them', async () => {
@@ -459,13 +463,13 @@ describe('undo descriptors', () => {
     expect(lastUndo).toEqual({ label: 'Moved CFR 1.1', method: 'POST', path: `/api/requirements/${x.cfr.id}/move`, body: { parentId: x.std.id, displayOrder: 0 } });
 
     await run('lead', (c) => updateRequirement(c, x.cfr.id, { title: 'New title', officialText: null }));
-    expect(lastUndo).toEqual({ label: 'Edited CFR 1.1', method: 'PATCH', path: `/api/requirements/${x.cfr.id}`, body: { title: 'Mission', officialText: 'The institution has a mission.' } });
+    expect(lastUndo).toEqual({ label: 'Edited CFR 2.1', method: 'PATCH', path: `/api/requirements/${x.cfr.id}`, body: { title: 'Mission', officialText: 'The institution has a mission.' } });
 
     const created = await run('lead', (c) => createRequirement(c, { versionId: x.v.id, code: 'Standard 3', levelLabel: 'Standard', title: 'Third' }));
     expect(lastUndo).toEqual({ label: 'Added Standard 3', method: 'DELETE', path: `/api/requirements/${created.id}` });
 
     await run('lead', (c) => updateNote(c, x.note.id, { text: 'Changed text' }));
-    expect(lastUndo).toEqual({ label: 'Edited a note on CFR 1.1', method: 'PATCH', path: `/api/notes/${x.note.id}`, body: { text: 'Show the mission statement.' } });
+    expect(lastUndo).toEqual({ label: 'Edited a note on CFR 3.1', method: 'PATCH', path: `/api/notes/${x.note.id}`, body: { text: 'Show the mission statement.' } });
     const added = await run('lead', (c) => addNote(c, { requirementId: x.cfr.id, type: 'guidance', text: 'second', authority: 'example' }));
     expect(lastUndo).toMatchObject({ method: 'DELETE', path: `/api/notes/${added.id}` });
   });
@@ -474,7 +478,7 @@ describe('undo descriptors', () => {
     await iqfItem('8', 'Eighth');
     const nine = await iqfItem('9', 'Ninth');
     await run('lead', (c) => indentRequirement(c, nine.id));
-    expect(lastUndo).toEqual({ label: 'Indented 9', method: 'POST', path: `/api/requirements/${nine.id}/move`, body: { parentId: null, displayOrder: nine.displayOrder } });
+    expect(lastUndo).toEqual({ label: `Indented ${nine.code}`, method: 'POST', path: `/api/requirements/${nine.id}/move`, body: { parentId: null, displayOrder: nine.displayOrder } });
     const moved = (await q(`select parent_id from requirement where id = $1`, [nine.id]))[0];
     expect(moved.parent_id).not.toBeNull();
   });

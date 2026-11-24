@@ -39,6 +39,9 @@ let editionNo = 0;
 /** A fresh draft copy of PUC, shaped as the PUC data was before the statement moved into the title: indicators have the code as title. */
 async function freshDraft(opts: { codeTitles?: boolean } = {}): Promise<string> {
   const v = await as('admin', (ctx) => newVersionFrom(ctx, ids.puc!, { edition: `T${++editionNo}` }));
+  // Siblings share display orders in the source; numbering by place settles them, so start from settled places (the order the list shows).
+  await w.db.su.query(`do $$ begin perform set_config('app.renumbering', 'on', true); -- not an edit of content: the rows keep their marks
+    update requirement r set display_order = x.n from (select id, (row_number() over (partition by parent_id order by display_order, code) - 1)::int as n from requirement where framework_version_id = '${v.version.id}') x where x.id = r.id; end $$`);
   if (opts.codeTitles !== false) {
     await w.db.su.query(`update requirement set official_text = title, title = code where framework_version_id = $1 and level_label = 'Indicator'`, [v.version.id]);
   }
@@ -452,10 +455,14 @@ describe('recipes through the whole path', () => {
 
   it('reparent_by_rule moves everything that matches under the new parent in one go and keeps the tree valid', async () => {
     const draft = await freshDraft({ codeTitles: false });
+    // Found by row: the codes follow the places, so the moved ones are renumbered under their new parent.
+    const moving = (await rows(`select id from requirement where framework_version_id = $1 and code in ('2-1', '2-2') order by code`, [draft])).map((r) => r.id as string);
     const { a } = await proposeAndApply(draft, [{ op: 'reparent_by_rule', filter: { codeEquals: ['2-1', '2-2'] }, newParent: { code: '1' } }]);
     expect(a.status).toBe('applied');
-    for (const code of ['2-1', '2-2']) expect((await rows(`select (select code from requirement p where p.id = r.parent_id) as parent from requirement r where framework_version_id = $1 and code = $2`, [draft, code]))[0]!.parent).toBe('1');
+    for (const id of moving) expect((await rows(`select (select code from requirement p where p.id = r.parent_id) as parent from requirement r where id = $1`, [id]))[0]!.parent).toBe('1');
+    const first = (await rows(`select id from requirement where framework_version_id = $1 and code = '1-1'`, [draft]))[0]!.id as string;
     const top = await propose('alo', draft, [{ op: 'reparent_by_rule', filter: { codeEquals: ['1-1'] }, newParent: { root: true } }]);
+    void first;
     expect(top.part!.counts.items).toBe(1);
   });
 
