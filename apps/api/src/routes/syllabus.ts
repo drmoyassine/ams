@@ -1,9 +1,11 @@
 import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   approveSyllabus, discardDraft, endorseSyllabus, escalateFlags, getStartingSyllabus, getSyllabusOverview, importSyllabi, getSyllabusSettings, listSyllabi, resolveSuggestion, returnSyllabus,
+  getAchievementScale, getRubricTemplates, setRubricTemplates, setScaleAndRecheck,
   getSyllabusTemplate, proposeMapping, saveSyllabusDraft, submitSyllabi, setCourseStaff, setSyllabusSettings, setSyllabusTemplate, submitSyllabus, suggestChange, upsertSyllabus,
 } from '@ams/core';
 import {
+  AchievementScaleSchema, RubricTemplateSchema,
   ApproveSyllabusSchema, CourseStaffSchema, ProposeMappingSchema, SubmitManyResultSchema, SubmitManySchema, ResolveSuggestionSchema, SaveSyllabusSchema, SuggestSchema, SyllabusContentSchema, SyllabusListSchema, SyllabusNoteSchema, SyllabusOverviewSchema,
   SyllabusSettingsSchema, SyllabusSuggestionSchema, SyllabusTemplateSchema, SyllabusWorkbookSchema, SyllabusVersionSchema, UpsertSyllabusSchema, toDto,
 } from '@ams/shared';
@@ -159,5 +161,29 @@ export function syllabusRoutes(registry: RouteRegistry, deps: ChainDeps, options
       description: 'Sets the limits and the escalation days; every syllabus is checked again and the ones that now break a limit are flagged.',
       request: { body: { required: true, ...json(SyllabusSettingsSchema) } },
       responses: { 200: { description: 'The settings', ...json(SyllabusSettingsSchema) }, ...errors },
-    }), async (c) => c.json(await setSyllabusSettings(c.get('ctx'), c.req.valid('json')), 200));
+    }), async (c) => c.json(await setSyllabusSettings(c.get('ctx'), c.req.valid('json')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/settings/achievement-scale', access: requires('org:read'), tags: tag,
+      responses: { 200: { description: 'The achievement scale every rubric uses, and its target level', ...json(AchievementScaleSchema) }, ...errors },
+    }), async (c) => c.json(await getAchievementScale(c.get('ctx')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/settings/achievement-scale', access: requires('org:write'), tags: tag,
+      description: 'Sets the levels (highest first, without overlaps) and the target level; the CLO score target becomes its lowest score. Every syllabus is checked again.',
+      request: { body: { required: true, ...json(AchievementScaleSchema) } },
+      responses: { 200: { description: 'The scale', ...json(AchievementScaleSchema) }, ...errors },
+    }), async (c) => c.json(await setScaleAndRecheck(c.get('ctx'), c.req.valid('json')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/settings/rubric-templates', access: requires('org:read'), tags: tag,
+      responses: { 200: { description: 'The rubric templates coordinators start from', ...json(z.array(RubricTemplateSchema)) }, ...errors },
+    }), async (c) => c.json(await getRubricTemplates(c.get('ctx')), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/settings/rubric-templates', access: requires('org:write'), tags: tag,
+      description: 'Sets the rubric templates (one per kind of assessment). Syllabi keep the copies they made.',
+      request: { body: { required: true, ...json(z.array(RubricTemplateSchema)) } },
+      responses: { 200: { description: 'The templates', ...json(z.array(RubricTemplateSchema)) }, ...errors },
+    }), async (c) => c.json(await setRubricTemplates(c.get('ctx'), c.req.valid('json')), 200));
 }

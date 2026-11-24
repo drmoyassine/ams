@@ -19,9 +19,9 @@ function good(): SyllabusContent {
   c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? 'plo1' : 'plo2', level: k < 3 ? 'R' : 'M' }] }));
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }] }];
   c.assessments = [
-    { id: 'q', name: 'Quizzes', category: 'quiz', objective: '', weight: 30, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
-    { id: 'm', name: 'Mid exam', category: 'midterm', objective: '', weight: 30, dueWeek: 8, clos: [{ cloId: 'b', share: 50, rubricId: 'r' }, { cloId: 'c', share: 50, rubricId: 'r' }] },
-    { id: 'f', name: 'Final exam', category: 'final', objective: '', weight: 40, dueWeek: 15, clos: [{ cloId: 'c', share: 50, rubricId: 'r' }, { cloId: 'd', share: 50, rubricId: 'r' }] },
+    { id: 'q', name: 'Quizzes', category: 'quiz', weight: 30, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
+    { id: 'm', name: 'Mid exam', category: 'midterm', weight: 30, dueWeek: 8, clos: [{ cloId: 'b', share: 50, rubricId: 'r' }, { cloId: 'c', share: 50, rubricId: 'r' }] },
+    { id: 'f', name: 'Final exam', category: 'final', weight: 40, dueWeek: 15, clos: [{ cloId: 'c', share: 50, rubricId: 'r' }, { cloId: 'd', share: 50, rubricId: 'r' }] },
   ];
   c.outline = [{ week: 1, topic: 'Signals and systems', reading: '', lab: '', cloIds: ['a'], sdgs: [], assessmentId: '', activity: '' }];
   return c;
@@ -94,7 +94,7 @@ describe('the syllabus rule checker', () => {
     expect(codes(c)).toContain('clo.notAssessed');
     const r = good(); r.assessments[0]!.clos[0]!.rubricId = ''; r.assessments[0]!.clos[1]!.rubricId = 'nope';
     expect(codes(r)).toEqual(expect.arrayContaining(['assessment.rubric', 'assessment.rubricUnknown']));
-    const p = good(); p.assessments.push({ id: 'p', name: 'Participation', category: 'participation', objective: '', weight: 0, dueWeek: 14, clos: [] });
+    const p = good(); p.assessments.push({ id: 'p', name: 'Participation', category: 'participation', weight: 0, dueWeek: 14, clos: [] });
     expect(codes(p)).not.toContain('assessment.noClo');
   });
 

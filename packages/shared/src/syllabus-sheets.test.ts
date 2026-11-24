@@ -15,7 +15,7 @@ function sample(): SyllabusContent {
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals', isbn: '978-1', year: 2017 }];
   c.clos = [{ id: 'a', code: 'CLO1', textEn: 'Analyse conduction', textAr: '', bloom: 'analyze', plos: [{ ploId: 'plo1', level: 'R' }] }, { id: 'b', code: 'CLO2', textEn: 'Design an exchanger', textAr: '', bloom: 'create', plos: [{ ploId: 'plo2', level: 'M' }] }];
   c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }, { name: 'Accuracy', descriptions: ['High', 'Low'] }] }];
-  c.assessments = [{ id: 'q', name: 'Quizzes', category: 'quiz', objective: 'Check basics', weight: 40, dueWeek: 6, clos: [{ cloId: 'a', share: 100, rubricId: 'r' }] }, { id: 'f', name: 'Final', category: 'final', objective: '', weight: 60, dueWeek: 15, clos: [{ cloId: 'a', share: 40, rubricId: 'r' }, { cloId: 'b', share: 60, rubricId: 'r' }] }];
+  c.assessments = [{ id: 'q', name: 'Quizzes', category: 'quiz', weight: 40, dueWeek: 6, clos: [{ cloId: 'a', share: 100, rubricId: 'r' }] }, { id: 'f', name: 'Final', category: 'final', weight: 60, dueWeek: 15, clos: [{ cloId: 'a', share: 40, rubricId: 'r' }, { cloId: 'b', share: 60, rubricId: 'r' }] }];
   c.outline = [{ week: 1, topic: 'Introduction', reading: 'Ch 1', lab: '', cloIds: ['a'], sdgs: ['7', '9'], assessmentId: '', activity: '' }, { week: 6, topic: 'Quiz week', reading: '', lab: '', cloIds: ['a', 'b'], sdgs: [], assessmentId: 'q', activity: '' }];
   return c;
 }
@@ -23,8 +23,8 @@ function sample(): SyllabusContent {
 const plain = (c: SyllabusContent) => {
   const cloCode = (id: string) => c.clos.find((x) => x.id === id)?.code;
   return JSON.parse(JSON.stringify({
-    ...c, clos: c.clos.map((x) => ({ ...x, id: undefined })), rubrics: c.rubrics.map((x) => ({ ...x, id: undefined })),
-    assessments: c.assessments.map((a) => ({ name: a.name, category: a.category, objective: a.objective, weight: a.weight, dueWeek: a.dueWeek, clos: a.clos.map((l) => ({ clo: cloCode(l.cloId), share: l.share, rubric: c.rubrics.find((r) => r.id === l.rubricId)?.title })) })),
+    ...c, clos: c.clos.map((x) => ({ ...x, id: undefined })), rubrics: c.rubrics.map((x) => ({ ...x, id: undefined, templateId: undefined })),
+    assessments: c.assessments.map((a) => ({ name: a.name, category: a.category, weight: a.weight, dueWeek: a.dueWeek, clos: a.clos.map((l) => ({ clo: cloCode(l.cloId), share: l.share, rubric: c.rubrics.find((r) => r.id === l.rubricId)?.title })) })),
     outline: c.outline.map((w) => ({ ...w, cloIds: w.cloIds.map(cloCode), assessmentId: c.assessments.find((a) => a.id === w.assessmentId)?.name ?? '' })),
   })) as unknown;
 };

@@ -645,6 +645,13 @@
       "when": 1793721724000,
       "tag": "0093_numbering_always",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1793721784000,
+      "tag": "0094_achievement_scale_rubric_templates",
+      "breakpoints": true
     }
   ]
 }

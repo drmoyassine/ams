@@ -65,7 +65,8 @@ const settingsIndexRoute = createRoute({ getParentRoute: () => settingsRoute, pa
 const organizationRoute = createRoute({
   getParentRoute: () => settingsRoute, path: '/organization', component: () => <OrganizationRoute />,
   validateSearch: (s: Record<string, unknown>): { tab?: OrganizationTab | 'map' | 'programs' | 'courses'; program?: string; view?: 'course' | 'plo' } => ({
-    ...(s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'gened' || s.tab === 'catalog' || s.tab === 'map' || s.tab === 'outcomes' || s.tab === 'syllabus' ? { tab: s.tab } : {}),
+    // Learning outcomes and Syllabus are one tab (Outcomes & Syllabus): the old ?tab=syllabus opens it.
+    ...(s.tab === 'syllabus' ? { tab: 'outcomes' as const } : s.tab === 'institution' || s.tab === 'programs' || s.tab === 'courses' || s.tab === 'gened' || s.tab === 'catalog' || s.tab === 'map' || s.tab === 'outcomes' ? { tab: s.tab } : {}),
     ...(typeof s.program === 'string' && /^[0-9a-f-]{36}$/i.test(s.program) ? { program: s.program } : {}),
     ...(s.view === 'course' || s.view === 'plo' ? { view: s.view } : {}),
   }),
@@ -115,7 +116,7 @@ function OrganizationRoute() {
   const { tab } = organizationRoute.useSearch();
   const navigate = organizationRoute.useNavigate();
   // The parent routes pass the raw address through, so an unknown value is dropped here as well.
-  return <OrganizationPage tab={tab === 'gened' || tab === 'catalog' || tab === 'outcomes' || tab === 'syllabus' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
+  return <OrganizationPage tab={tab === 'gened' || tab === 'catalog' || tab === 'outcomes' ? tab : 'institution'} onTab={(t) => { void navigate({ search: { tab: t }, replace: true }); }} />;
 }
 // The glossary lives inside the internal quality framework page; the old address still works.
 const glossaryRoute = createRoute({ getParentRoute: () => settingsRoute, path: '/glossary', beforeLoad: () => { throw redirect({ to: '/settings/quality-framework' }); } });

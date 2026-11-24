@@ -92,7 +92,7 @@ export function CourseContent({ courseId, api: override, apis, tab, record, afte
       {tab ? (() => {
         const only = COURSE_TABS.find((t) => t.key === tab)!.blocks;
         const body = editing
-          ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} only={only} secondLanguage={secondLanguage} />
+          ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} scale={ov.scale} rubricTemplates={ov.rubricTemplates} only={only} secondLanguage={secondLanguage} />
           : shown
             ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} template={ov.template} only={only} />
             : (
@@ -131,7 +131,7 @@ export function CourseContent({ courseId, api: override, apis, tab, record, afte
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-4">
           {editing
-            ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} />
+            ? <SyllabusEditor content={draft!} onChange={(c) => { setDraft(c); setDirty(true); }} plos={ov.plos} levels={ov.levels} courses={ov.courses} courseId={courseId} code={ov.course.code} issues={live} settings={ov.settings} template={ov.template} scale={ov.scale} rubricTemplates={ov.rubricTemplates} />
             : shown
               ? <SyllabusView content={shown.content} code={ov.course.code} plos={ov.plos} levels={ov.levels} courses={ov.courses} template={ov.template} />
               : (

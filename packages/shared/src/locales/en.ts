@@ -470,7 +470,7 @@ export const EN_CATALOGUE: Readonly<Record<string, string>> = {
   'qmt.err.other': '{{message}}',
 
   'org.tab.institution': 'Institution',
-  'org.tab.outcomes': 'Learning outcomes',
+  'org.tab.outcomes': 'Outcomes & Syllabus',
   'org.tab.syllabus': 'Syllabus rules',
   'org.tab.gened': 'General education',
   'org.tab.catalog': 'Catalog',

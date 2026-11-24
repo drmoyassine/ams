@@ -10,13 +10,17 @@ import { useConfirm } from '../../components/confirm-dialog';
 import { useOutcomesApi, type OutcomesApi } from '../../lib/outcomes-api';
 import { useAction } from '../../lib/use-action';
 import type { AssessmentApi } from '../../lib/assessment-api';
+import { AchievementScaleCard, RubricTemplatesCard } from './assessment-scale';
+import { SyllabusSettingsPage } from './syllabus-settings';
+import type { SyllabusApi } from '../../lib/syllabus-api';
+import type { SettingsApi } from '../../lib/settings-api';
 import { BenchmarksCard, IloRotationCard } from './ilo-rotation';
 
 /**
  * Settings -> Organization -> Learning outcomes (TASK-112): the institution's learning outcomes (ILOs, which every program's PLOs link
  * to) and the CLO-PLO mapping levels (DEC-036).
  */
-export function LearningOutcomesSection({ api: override, assessment, canEdit }: { api?: OutcomesApi; assessment?: AssessmentApi; canEdit: boolean }) {
+export function LearningOutcomesSection({ api: override, assessment, syllabus, settings, canEdit }: { api?: OutcomesApi; assessment?: AssessmentApi; syllabus?: SyllabusApi; settings?: SettingsApi; canEdit: boolean }) {
   const api = useOutcomesApi(override);
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -26,6 +30,7 @@ export function LearningOutcomesSection({ api: override, assessment, canEdit }: 
   const run = useMutation({ mutationFn: (fn: () => Promise<unknown>) => { setError(null); return act(fn); }, onSuccess: () => { void qc.invalidateQueries({ queryKey: ['ilos'] }); void qc.invalidateQueries({ queryKey: ['program-outcomes'] }); } });
   return (
     <div className="space-y-6">
+      <Group title="Outcomes" intro="What graduates achieve, and the levels at which courses cover program outcomes." />
       <Card>
         <h3 className="mb-1 text-lg font-semibold">Institutional learning outcomes</h3>
         <p className="mb-3 text-sm text-muted-foreground">What every graduate achieves, whatever the program. Each program links its PLOs to them. Keep one approved list with fixed numbering.</p>
@@ -36,9 +41,16 @@ export function LearningOutcomesSection({ api: override, assessment, canEdit }: 
           onSave={(id, d) => run.mutate(() => api.updateOutcome(id, patchOf(d)))}
           onDelete={(o) => { void confirm({ title: `Delete ${o.code}?`, message: 'The draft and its links to PLOs are deleted.', confirmLabel: 'Delete', tone: 'danger' }).then((ok) => { if (ok) run.mutate(() => api.deleteOutcome(o.id)); }); }} />
       </Card>
-      <IloRotationCard {...(assessment ? { api: assessment } : {})} canEdit={canEdit} />
       <LevelsCard api={api} canEdit={canEdit} />
+
+      <Group title="Assessment" intro="How achievement is described and what counts as reaching the target. Every rubric uses this scale." />
+      <AchievementScaleCard {...(syllabus ? { api: syllabus } : {})} canEdit={canEdit} />
       <BenchmarksCard {...(assessment ? { api: assessment } : {})} canEdit={canEdit} />
+      <IloRotationCard {...(assessment ? { api: assessment } : {})} canEdit={canEdit} />
+
+      <Group title="Syllabus" intro="The rules every course syllabus is checked against, the rubric templates coordinators start from, and the syllabus form." />
+      <SyllabusSettingsPage {...(settings ? { api: settings } : {})} {...(syllabus ? { syllabus } : {})} />
+      <RubricTemplatesCard {...(syllabus ? { api: syllabus } : {})} canEdit={canEdit} />
     </div>
   );
 }
@@ -90,5 +102,15 @@ function LevelsForm({ api, canEdit, initial }: { api: OutcomesApi; canEdit: bool
       )}
       {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
     </Card>
+  );
+}
+
+/** A heading over a group of settings cards in Outcomes & Syllabus. */
+function Group({ title, intro }: { title: string; intro: string }) {
+  return (
+    <div className="border-b border-border pb-1 pt-2">
+      <h2 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      <p className="text-sm text-muted-foreground">{intro}</p>
+    </div>
   );
 }

@@ -24,10 +24,10 @@ function complete(): SyllabusContent {
   c.description.en = 'Conduction, convection and radiation.'; c.methodology = 'Lectures and problem sessions.';
   c.materials = [{ kind: 'textbook', citation: 'Incropera, Fundamentals of Heat and Mass Transfer', isbn: '', year: null }];
   c.clos = ['a', 'b', 'c', 'd'].map((id, k) => ({ id, code: `CLO${k + 1}`, textEn: `Outcome ${k + 1}`, textAr: '', bloom: 'apply', plos: [{ ploId: k < 2 ? ids.plo1! : ids.plo2!, level: k < 3 ? 'R' : 'M' }] }));
-  c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Proficient', min: 70, max: 100 }, { name: 'Developing', min: 0, max: 69 }], criteria: [{ name: 'Method', descriptions: ['Sound', 'Partly sound'] }] }];
+  c.rubrics = [{ id: 'r', title: 'Problem solving', levels: [{ name: 'Exemplary', min: 90, max: 100 }, { name: 'Proficient', min: 70, max: 89 }, { name: 'Developing', min: 50, max: 69 }, { name: 'Beginning', min: 0, max: 49 }], criteria: [{ name: 'Method', descriptions: ['Fully sound', 'Sound', 'Partly sound', 'Unsound'] }] }];
   c.assessments = [
-    { id: 'q', name: 'Quizzes', category: 'quiz', objective: '', weight: 50, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
-    { id: 'f', name: 'Final exam', category: 'final', objective: '', weight: 50, dueWeek: 15, clos: [{ cloId: 'c', share: 50, rubricId: 'r' }, { cloId: 'd', share: 50, rubricId: 'r' }] },
+    { id: 'q', name: 'Quizzes', category: 'quiz', weight: 50, dueWeek: 6, clos: [{ cloId: 'a', share: 50, rubricId: 'r' }, { cloId: 'b', share: 50, rubricId: 'r' }] },
+    { id: 'f', name: 'Final exam', category: 'final', weight: 50, dueWeek: 15, clos: [{ cloId: 'c', share: 50, rubricId: 'r' }, { cloId: 'd', share: 50, rubricId: 'r' }] },
   ];
   return c;
 }

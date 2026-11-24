@@ -13,6 +13,7 @@ import {
   type CourseStaff, type OutcomeLevel, type ResolveSuggestion, type SaveSyllabus, type Suggest, type SyllabusCheckContext, type SyllabusContent, type SyllabusIssue,
   type SyllabusListRow, type SyllabusOverview, type SyllabusPlo, type SyllabusSettings, type SyllabusStatus, type SyllabusSuggestion, type SyllabusTemplate,
   type SyllabusVersion, type UpsertSyllabus, type SyllabusPloLevel, type ProposeMapping, type SubmitManyResult, ProposeMappingSchema,
+  DEFAULT_RUBRIC_TEMPLATES, RubricTemplatesSchema, type AchievementScale, type RubricTemplate,
 } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../ctx.js';
@@ -21,6 +22,7 @@ import { guardIntegrity } from '../framework/errors.js';
 import { createNotification } from '../notifications/store.js';
 import { assertPermitted, isPermitted } from '../permissions.js';
 import { courseScope, loadCourse } from '../outcomes/courses.js';
+import { getAchievementScale, setAchievementScale } from '../outcomes/assessment.js';
 
 type VersionRow = typeof syllabusVersion.$inferSelect;
 type CourseRow = typeof course.$inferSelect;
@@ -45,6 +47,27 @@ export async function setSyllabusSettings(ctx: Ctx, input: SyllabusSettings): Pr
   await ctx.tx.update(institution).set({ syllabusSettings: settings }).where(eq(institution.id, ctx.caller.institutionId));
   await recheckSyllabi(ctx);
   return settings;
+}
+
+/** The rubric templates coordinators start from: the institution's, or the default set until it keeps its own. */
+export async function getRubricTemplates(ctx: Ctx): Promise<RubricTemplate[]> {
+  const [row] = await ctx.tx.select({ t: institution.rubricTemplates }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
+  const parsed = RubricTemplatesSchema.safeParse(row?.t);
+  return row?.t && parsed.success ? parsed.data : DEFAULT_RUBRIC_TEMPLATES;
+}
+/** Sets the rubric templates (one per kind of assessment). A syllabus keeps its own copies, so it does not change with them. */
+export async function setRubricTemplates(ctx: Ctx, input: unknown): Promise<RubricTemplate[]> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'org:write', { type: 'institution' });
+  const t = RubricTemplatesSchema.parse(input);
+  await ctx.tx.update(institution).set({ rubricTemplates: t }).where(eq(institution.id, ctx.caller.institutionId));
+  return t;
+}
+/** Sets the achievement scale (Settings) and checks every open syllabus against it again. */
+export async function setScaleAndRecheck(ctx: Ctx, input: unknown): Promise<AchievementScale> {
+  const scale = await setAchievementScale(ctx, input);
+  await recheckSyllabi(ctx);
+  return scale;
 }
 
 export async function getSyllabusTemplate(ctx: Ctx): Promise<SyllabusTemplate> {
@@ -126,11 +149,11 @@ async function powersOf(ctx: Ctx, c: CourseRow): Promise<Powers> {
 // ---- The checking context and the flag ----------------------------------------------------------------------------------------
 
 async function checkContext(ctx: Ctx, c: CourseRow): Promise<SyllabusCheckContext> {
-  const [settings, levels, template] = await Promise.all([getSyllabusSettings(ctx), levelsOf(ctx), getSyllabusTemplate(ctx)]);
+  const [settings, levels, template, scale] = await Promise.all([getSyllabusSettings(ctx), levelsOf(ctx), getSyllabusTemplate(ctx), getAchievementScale(ctx)]);
   const progs = await programIdsOf(ctx, c.id);
   const plos = progs.length ? await ctx.tx.select({ id: learningOutcome.id, code: learningOutcome.code }).from(learningOutcome).where(and(eq(learningOutcome.kind, 'plo'), inArray(learningOutcome.programId, progs))) : [];
   const known = await ctx.tx.select({ id: course.id }).from(course);
-  return { settings, levels, allowedPloIds: new Set(plos.map((p) => p.id)), ploCodes: new Map(plos.map((p) => [p.id, p.code])), programCount: progs.length, optional: new Set(template.optional), knownCourseIds: new Set(known.map((k) => k.id)) };
+  return { settings, levels, scale, allowedPloIds: new Set(plos.map((p) => p.id)), ploCodes: new Map(plos.map((p) => [p.id, p.code])), programCount: progs.length, optional: new Set(template.optional), knownCourseIds: new Set(known.map((k) => k.id)) };
 }
 
 /** The computed columns of a version: its issues, the counts, and when it was first flagged (kept while it stays flagged). */
@@ -251,7 +274,7 @@ export async function getSyllabusOverview(ctx: Ctx, courseId: string): Promise<S
     current: versions.find((v) => v.status === 'approved') ?? null, open,
     history: versions.map((v) => ({ id: v.id, versionNo: v.versionNo, status: v.status, effectiveFrom: v.effectiveFrom, approvedAt: v.approvedAt })),
     suggestions: sugg.map((s): SyllabusSuggestion => ({ id: s.id, versionId: s.syllabusVersionId, section: s.section, suggestion: s.suggestion, status: s.status, byName: s.createdBy ? who.get(s.createdBy) ?? null : null, createdAt: s.createdAt.toISOString(), resolutionNote: s.resolutionNote })),
-    can: await powersOf(ctx, c), settings: await getSyllabusSettings(ctx), template: await getSyllabusTemplate(ctx), levels: await levelsOf(ctx), plos: await ploChoices(ctx, courseId), courses,
+    can: await powersOf(ctx, c), settings: await getSyllabusSettings(ctx), template: await getSyllabusTemplate(ctx), scale: await getAchievementScale(ctx), rubricTemplates: await getRubricTemplates(ctx), levels: await levelsOf(ctx), plos: await ploChoices(ctx, courseId), courses,
   };
 }
 

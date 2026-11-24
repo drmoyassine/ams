@@ -79,7 +79,7 @@ describe('Organization: tabs, deep-linkable', () => {
     current = 'admin';
     const router = await openRouter('/settings/organization');
     const tabs = await screen.findByRole('tablist', { name: 'Organization' });
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'General education', 'Catalog', 'Learning outcomes', 'Syllabus rules']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Institution', 'General education', 'Catalog', 'Outcomes & Syllabus']);
     expect(within(tabs).getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true');
     const panel = await screen.findByRole('tabpanel');
     await within(panel).findByRole('heading', { name: 'Details' });
@@ -121,7 +121,7 @@ describe('Organization: tabs, deep-linkable', () => {
     await user.keyboard('{Home}');
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Institution' }).getAttribute('aria-selected')).toBe('true'));
     await user.keyboard('{End}');
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Syllabus rules' }).getAttribute('aria-selected')).toBe('true'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Outcomes & Syllabus' }).getAttribute('aria-selected')).toBe('true'));
   });
 
   it('sends the old Programs and Courses addresses to their pages, and ignores an unknown tab', async () => {

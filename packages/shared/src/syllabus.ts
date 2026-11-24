@@ -54,10 +54,18 @@ export interface SyllabusPloLevel { ploId: string; level: string }
 export interface SyllabusClo { id: string; code: string; textEn: string; textAr: string; bloom: string; plos: SyllabusPloLevel[] }
 export interface SyllabusWeek { week: number | null; topic: string; reading: string; lab: string; cloIds: string[]; sdgs: string[]; assessmentId: string; activity: string }
 export interface SyllabusMaterial { kind: string; citation: string; isbn: string; year: number | null }
-/** The share of an assessment that goes to a CLO (percent of the assessment), and the rubric that scores it. */
-export interface SyllabusAssessmentClo { cloId: string; share: number | null; rubricId: string }
-export interface SyllabusAssessment { id: string; name: string; category: string; objective: string; weight: number | null; dueWeek: number | null; clos: SyllabusAssessmentClo[] }
-export interface SyllabusRubric { id: string; title: string; levels: { name: string; min: number | null; max: number | null }[]; criteria: { name: string; descriptions: string[] }[] }
+/**
+ * One CLO an assessment assesses: its share of the assessment (percent), the part of the assessment that is about it (questions, an
+ * item: each part belongs to one CLO) and the rubric that scores it (always one).
+ */
+export interface SyllabusAssessmentClo { cloId: string; share: number | null; rubricId: string; part?: string }
+/** An assessment: its type (`category`, one of ASSESSMENT_CATEGORIES), name, weight (percent of the grade) and due week. */
+export interface SyllabusAssessment { id: string; name: string; category: string; weight: number | null; dueWeek: number | null; clos: SyllabusAssessmentClo[] }
+/**
+ * A rubric: criteria, each described at every level of the institution's achievement scale. `levels` is the scale it was written
+ * against (kept with the syllabus, so an approved one keeps the scale it was approved with); `templateId` the template it came from.
+ */
+export interface SyllabusRubric { id: string; title: string; levels: { name: string; min: number | null; max: number | null }[]; criteria: { name: string; descriptions: string[] }[]; templateId?: string }
 export interface SyllabusContent {
   info: SyllabusInfo; description: { en: string; ar: string };
   clos: SyllabusClo[];
@@ -106,13 +114,14 @@ export const SyllabusContentSchema: z.ZodType<SyllabusContent, SyllabusContent> 
   outline: z.array(z.object({ week: n, topic: s, reading: s, lab: s, cloIds: strs, sdgs: strs, assessmentId: s, activity: s })).default([]),
   materials: z.array(z.object({ kind: s, citation: s, isbn: s, year: n })).default([]),
   assessments: z.array(z.object({
-    id: z.string().min(1), name: s, category: s, objective: s, weight: n, dueWeek: n,
-    clos: z.array(z.object({ cloId: s, share: n, rubricId: s })).default([]),
+    id: z.string().min(1), name: s, category: s, weight: n, dueWeek: n,
+    clos: z.array(z.object({ cloId: s, share: n, rubricId: s, part: s })).default([]),
   })).default([]),
   rubrics: z.array(z.object({
     id: z.string().min(1), title: s,
     levels: z.array(z.object({ name: s, min: n, max: n })).default([]),
     criteria: z.array(z.object({ name: s, descriptions: strs })).default([]),
+    templateId: s,
   })).default([]),
   assessmentNotes: z.object({ passPercentage: s, howItWorks: s }).default({ passPercentage: '', howItWorks: '' }),
   methodology: s,
@@ -133,6 +142,78 @@ export interface SyllabusSettings {
   escalateDays: { chair: number; dean: number; vpaa: number };
 }
 export const DEFAULT_SYLLABUS_SETTINGS: SyllabusSettings = { minClos: 3, maxClos: 8, minPlos: 1, maxPlos: 5, maxPlosPerClo: 1, minCloWeightPct: 5, escalateDays: { chair: 3, dean: 7, vpaa: 14 } };
+// ---- The achievement scale and the rubric templates (Settings, Outcomes & Syllabus) ----------------------------------------------
+
+/** One level of the institution's achievement scale: its name and the score range (percent) it covers. */
+export interface AchievementLevel { name: string; min: number; max: number }
+/** The scale every rubric uses, highest level first, and which level is the target (its lower bound is the CLO score target). */
+export interface AchievementScale { levels: AchievementLevel[]; target: number }
+export const DEFAULT_ACHIEVEMENT_SCALE: AchievementScale = {
+  levels: [{ name: 'Exemplary', min: 90, max: 100 }, { name: 'Proficient', min: 70, max: 89 }, { name: 'Developing', min: 50, max: 69 }, { name: 'Beginning', min: 0, max: 49 }],
+  target: 1,
+};
+export const AchievementScaleSchema: z.ZodType<AchievementScale, AchievementScale> = z.object({
+  levels: z.array(z.object({ name: z.string().trim().min(1).max(60), min: z.number().min(0).max(100), max: z.number().min(0).max(100) })).min(2).max(6),
+  target: z.number().int().min(0),
+}).strict().superRefine((v, ctx) => {
+  if (v.target >= v.levels.length) ctx.addIssue({ code: 'custom', path: ['target'], message: 'the target must be one of the levels' });
+  const names = v.levels.map((l) => l.name.toLowerCase());
+  if (new Set(names).size !== names.length) ctx.addIssue({ code: 'custom', path: ['levels'], message: 'two levels have the same name' });
+  v.levels.forEach((l, i) => {
+    if (l.min > l.max) ctx.addIssue({ code: 'custom', path: ['levels', i, 'min'], message: `${l.name}: the lowest score is above the highest` });
+    const next = v.levels[i + 1];
+    if (next && next.max >= l.min) ctx.addIssue({ code: 'custom', path: ['levels', i + 1, 'max'], message: `${next.name} overlaps ${l.name}: list the levels from highest to lowest, without overlaps` });
+  });
+}) as unknown as z.ZodType<AchievementScale, AchievementScale>;
+
+/** A rubric template the institution keeps: the assessment types it is the starting point for, and its criteria (one description per level of the scale). */
+export interface RubricTemplate { id: string; title: string; types: string[]; criteria: { name: string; descriptions: string[] }[] }
+export const RubricTemplateSchema: z.ZodType<RubricTemplate, RubricTemplate> = z.object({
+  id: z.string().min(1).max(100), title: z.string().trim().min(1).max(200),
+  types: z.array(z.enum(ASSESSMENT_CATEGORIES)).default([]),
+  criteria: z.array(z.object({ name: z.string().trim().min(1).max(200), descriptions: z.array(z.string().max(2000)).max(6) })).min(1).max(20),
+}).strict() as unknown as z.ZodType<RubricTemplate, RubricTemplate>;
+export const RubricTemplatesSchema = z.array(RubricTemplateSchema).max(50).superRefine((v, ctx) => {
+  const seen = new Map<string, string>();
+  for (const t of v) for (const ty of t.types) {
+    if (seen.has(ty)) ctx.addIssue({ code: 'custom', message: `${LABEL[ty] ?? ty} is the type of two templates (${seen.get(ty)}, ${t.title}): one template per type` });
+    seen.set(ty, t.title);
+  }
+});
+
+const four = (what: string): string[] => [
+  `${what}: fully, with no significant errors or gaps.`, `${what}: mostly, with minor errors or gaps.`,
+  `${what}: partly, with several errors or gaps.`, `${what}: little or not at all.`,
+];
+const tpl = (id: string, title: string, types: string[], criteria: [string, string][]): RubricTemplate =>
+  ({ id, title, types, criteria: criteria.map(([name, what]) => ({ name, descriptions: four(what) })) });
+/** The templates an institution starts with (one per kind of assessment); it edits them in Settings. */
+export const DEFAULT_RUBRIC_TEMPLATES: RubricTemplate[] = [
+  tpl('tpl-exam', 'Exam or quiz question', ['quiz', 'midterm', 'final'], [
+    ['Correctness', 'The answer is correct'], ['Method and reasoning', 'The method is sound and the reasoning is shown'], ['Use of concepts', 'Concepts and terms are used accurately']]),
+  tpl('tpl-assignment', 'Assignment / homework', ['assignment'], [
+    ['Completeness', 'Every part of the task is done'], ['Accuracy', 'The work is accurate'], ['Presentation', 'The work is clear and well presented']]),
+  tpl('tpl-project', 'Project or report', ['project'], [
+    ['Problem definition', 'The problem and its requirements are defined'], ['Approach and design', 'The approach is sound and justified'],
+    ['Results and analysis', 'Results are obtained and analysed critically'], ['Written communication', 'The report is clear, organised and referenced']]),
+  tpl('tpl-lab', 'Lab work', ['lab'], [
+    ['Procedure and safety', 'The procedure is followed safely'], ['Data and observations', 'Data are recorded accurately'], ['Analysis and conclusions', 'Conclusions follow from the data']]),
+  tpl('tpl-presentation', 'Presentation', ['presentation'], [
+    ['Content', 'The content is accurate and relevant'], ['Organization', 'The talk is well organised'], ['Delivery', 'The delivery is clear and confident'], ['Visual aids', 'Visual aids support the message']]),
+  tpl('tpl-participation', 'Participation', ['participation'], [
+    ['Preparation', 'The student comes prepared'], ['Contribution', 'Contributions are relevant and constructive'], ['Engagement', 'The student engages with others respectfully']]),
+  tpl('tpl-general', 'General', ['other'], [['Quality of work', 'The work meets the expectations of the task'], ['Understanding', 'Understanding of the outcome is shown']]),
+];
+/** The template an assessment type starts from (the general one when none names the type). */
+export const templateFor = (templates: RubricTemplate[], type: string): RubricTemplate | undefined =>
+  templates.find((t) => t.types.includes(type)) ?? templates.find((t) => t.types.includes('other')) ?? templates[0];
+/** A rubric for a syllabus, copied from a template and written against the scale (descriptions fitted to its levels). */
+export const rubricFromTemplate = (t: RubricTemplate, scale: AchievementScale, id: string): SyllabusRubric => ({
+  id, title: t.title, templateId: t.id,
+  levels: scale.levels.map((l) => ({ name: l.name, min: l.min, max: l.max })),
+  criteria: t.criteria.map((k) => ({ name: k.name, descriptions: scale.levels.map((_, j) => k.descriptions[j] ?? '') })),
+});
+
 const count = z.number().int().min(0).max(50);
 export const SyllabusSettingsSchema: z.ZodType<SyllabusSettings, SyllabusSettings> = z.object({
   minClos: count, maxClos: count, minPlos: count, maxPlos: count, maxPlosPerClo: z.number().int().min(1).max(10), minCloWeightPct: z.number().min(0).max(100),
@@ -199,6 +280,8 @@ export type IssueSeverity = 'error' | 'warning';
 export interface SyllabusIssue { severity: IssueSeverity; code: string; section: SectionKey; message: string; /** The CLO, assessment, rubric or week the issue is about, by its id or number. */ ref?: string }
 export interface SyllabusCheckContext {
   settings: SyllabusSettings; levels: OutcomeLevel[];
+  /** The institution's achievement scale: every rubric is described at each of its levels. */
+  scale?: AchievementScale | undefined;
   /** The PLOs of the programs the course serves; when given, a CLO's PLO must be one of them. */
   allowedPloIds?: ReadonlySet<string> | undefined;
   /** PLO codes by id, for messages about the program coverage. */
@@ -349,14 +432,16 @@ export function checkSyllabus(c: SyllabusContent, ctx: SyllabusCheckContext): Sy
     if (assessed.has(x.id) && w < st.minCloWeightPct) add('warning', 'clo.lowWeight', 'assessments', `${x.code || 'A CLO'} carries only ${pct(w)} of the grade; the design may not measure it well.`, x.id);
   }
 
-  // -- Rubrics
+  // -- Rubrics: criteria described at every level of the achievement scale (the institution's; a rubric does not set its own)
+  const used = new Set(c.assessments.flatMap((a) => a.clos.map((l) => l.rubricId)));
   for (const r of c.rubrics) {
+    if (!used.has(r.id)) continue; // a rubric no assessment uses is not part of the plan
     const label = r.title || 'A rubric';
+    const levels = ctx.scale ? ctx.scale.levels.map((l) => l.name) : r.levels.map((l) => l.name);
     if (blank(r.title)) add('error', 'rubric.title', 'rubrics', 'A rubric has no title.', r.id);
-    if (r.levels.length < 2) add('error', 'rubric.levels', 'rubrics', `${label} needs at least two performance levels.`, r.id);
-    if (r.levels.some((l) => blank(l.name))) add('error', 'rubric.levelName', 'rubrics', `${label} has a level with no name.`, r.id);
+    if (ctx.scale && r.levels.map((l) => l.name).join('|') !== levels.join('|')) add('warning', 'rubric.scale', 'rubrics', `${label} was written for another achievement scale; open it to fit it to the institution's levels.`, r.id);
     if (!r.criteria.length) add('error', 'rubric.criteria', 'rubrics', `${label} has no criteria.`, r.id);
-    else if (r.criteria.some((k) => blank(k.name) || r.levels.some((_, j) => blank(k.descriptions[j])))) add('error', 'rubric.descriptions', 'rubrics', `${label}: every criterion needs a name and a description at every level.`, r.id);
+    else if (r.criteria.some((k) => blank(k.name) || levels.some((_, j) => blank(k.descriptions[j])))) add('error', 'rubric.descriptions', 'rubrics', `${label}: every criterion needs a name and a description at every level.`, r.id);
   }
   return issues;
 }
@@ -386,6 +471,8 @@ export interface SyllabusOverview {
   /** What the signed-in person may do with it. */
   can: { edit: boolean; suggest: boolean; endorse: boolean; approve: boolean };
   settings: SyllabusSettings; template: SyllabusTemplate; levels: OutcomeLevel[]; plos: SyllabusPlo[];
+  /** The institution's achievement scale and rubric templates (Settings, Outcomes & Syllabus). */
+  scale: AchievementScale; rubricTemplates: RubricTemplate[];
   courses: { id: string; code: string; titleEn: string }[];
 }
 export interface SyllabusListRow {

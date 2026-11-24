@@ -71,4 +71,21 @@ describe('the syllabus API', () => {
     expect((await call('admin', 'PUT', '/api/settings/syllabus', { ...cur, minClos: 9 })).status).toBe(400);
     expect((await call('admin', 'PUT', '/api/settings/syllabus', { ...cur, maxClos: 6 })).body.maxClos).toBe(6);
   });
+
+  it('keeps one achievement scale (its target level is the CLO score target) and the rubric templates, set by an admin', async () => {
+    const scale = (await call('viewer', 'GET', '/api/settings/achievement-scale')).body;
+    expect(scale.levels.map((l: { name: string }) => l.name)).toEqual(['Exemplary', 'Proficient', 'Developing', 'Beginning']);
+    expect((await call('coordinator', 'PUT', '/api/settings/achievement-scale', scale)).status).toBe(403);
+    expect((await call('admin', 'PUT', '/api/settings/achievement-scale', { ...scale, target: 9 })).status).toBe(400);
+    const three = { levels: [{ name: 'Excellent', min: 80, max: 100 }, { name: 'Satisfactory', min: 60, max: 79 }, { name: 'Unsatisfactory', min: 0, max: 59 }], target: 1 };
+    expect((await call('admin', 'PUT', '/api/settings/achievement-scale', three)).status).toBe(200);
+    expect((await call('viewer', 'GET', '/api/settings/assessment-benchmarks')).body.cloScore).toBe(60);
+    const templates = (await call('viewer', 'GET', '/api/settings/rubric-templates')).body as { id: string; title: string; types: string[] }[];
+    expect(templates.find((t) => t.types.includes('midterm'))!.title).toBe('Exam or quiz question');
+    expect((await call('coordinator', 'PUT', '/api/settings/rubric-templates', templates)).status).toBe(403);
+    const mine = [{ id: 'tpl-mine', title: 'Design review', types: ['project'], criteria: [{ name: 'Design', descriptions: ['a', 'b', 'c'] }] }];
+    expect((await call('admin', 'PUT', '/api/settings/rubric-templates', mine)).body).toEqual(mine);
+    expect((await call('admin', 'PUT', '/api/settings/rubric-templates', [...mine, { ...mine[0], id: 'tpl-2' }])).status).toBe(400); // one template per type
+    expect((await call('admin', 'PUT', '/api/settings/achievement-scale', scale)).status).toBe(200);
+  });
 });

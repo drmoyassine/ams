@@ -7,7 +7,6 @@ import { useTranslation } from '../../i18n';
 import { LanguagesSection } from './languages-section';
 import { CatalogEditionsSection } from './catalog-editions';
 import { GenedSection } from './gened';
-import { SyllabusSettingsPage } from './syllabus-settings';
 import { LearningOutcomesSection } from './learning-outcomes';
 import type { OutcomesApi } from '../../lib/outcomes-api';
 import type { AssessmentApi } from '../../lib/assessment-api';
@@ -131,14 +130,14 @@ function LogoCard({ api, canEdit }: { api: SettingsApi; canEdit: boolean }) {
   );
 }
 
-export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'gened' }, { id: 'catalog' }, { id: 'outcomes' }, { id: 'syllabus' }] as const;
+export const ORGANIZATION_TABS = [{ id: 'institution' }, { id: 'gened' }, { id: 'catalog' }, { id: 'outcomes' }] as const;
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]['id'];
 
 /**
  * Settings -> Organization: one screen, four tabs (Courses and Learning outcomes join with TASK-105 and TASK-112). Institution holds the details, the logo and the org chart (Languages
  * joins later); Programs holds the programs. `tab` (from the address) makes it deep-linkable; without it the page keeps its own.
  */
-export function OrganizationPage({ api: override, outcomes, assessment, tab: tabProp, onTab }: {
+export function OrganizationPage({ api: override, outcomes, assessment, syllabus, tab: tabProp, onTab }: {
   api?: SettingsApi; outcomes?: OutcomesApi; assessment?: AssessmentApi; syllabus?: SyllabusApi; tab?: OrganizationTab; onTab?: (tab: OrganizationTab) => void;
 }) {
   const { t } = useTranslation();
@@ -148,7 +147,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, tab: tab
   const tab = tabProp ?? local;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const choose = (id: OrganizationTab) => { setLocal(id); onTab?.(id); };
-  const tabLabel = { institution: t('org.tab.institution'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), outcomes: t('org.tab.outcomes'), syllabus: t('org.tab.syllabus') } as const;
+  const tabLabel = { institution: t('org.tab.institution'), gened: t('org.tab.gened'), catalog: t('org.tab.catalog'), outcomes: t('org.tab.outcomes') } as const;
   // Arrow keys, Home and End move between the tabs (the focused tab is the selected one).
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const rtl = window.getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -185,8 +184,7 @@ export function OrganizationPage({ api: override, outcomes, assessment, tab: tab
           </>
         )          : tab === 'catalog' ? <CatalogEditionsSection api={api} />
           : tab === 'gened' ? <GenedSection api={api} {...(outcomes ? { outcomes } : {})} />
-          : tab === 'syllabus' ? <SyllabusSettingsPage api={api} />
-          : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} canEdit={can(me.data, 'org:write')} />}
+          : <LearningOutcomesSection {...(outcomes ? { api: outcomes } : {})} {...(assessment ? { assessment } : {})} {...(syllabus ? { syllabus } : {})} settings={api} canEdit={can(me.data, 'org:write')} />}
       </div>
     </div>
   );

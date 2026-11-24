@@ -2,8 +2,9 @@
 // It is a controlled component: the page holds the document, saves it, and runs the same shared checker live, so a coordinator sees an
 // error as it appears. Nothing here blocks typing; only submitting for review waits for the errors to be fixed.
 import { useState } from 'react';
-import { ASSESSMENT_CATEGORIES, BLOOM_LEVELS, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_TYPES, LANGUAGES_OF_DELIVERY, MATERIAL_KINDS, SDGS, SUSTAINABILITY, cloWeights, formatRequisites, parseRequisites } from '@ams/shared';
-import type { OutcomeLevel, SectionKey, SyllabusAssessment, SyllabusContent, SyllabusIssue, SyllabusPlo, SyllabusRubric, SyllabusSettings, SyllabusTemplate } from '@ams/shared';
+import { BLOOM_LEVELS, DEFAULT_ACHIEVEMENT_SCALE, DEFAULT_RUBRIC_TEMPLATES, COURSE_CATEGORIES, COURSE_LEVELS, COURSE_TYPES, LANGUAGES_OF_DELIVERY, MATERIAL_KINDS, SDGS, SUSTAINABILITY, formatRequisites, parseRequisites } from '@ams/shared';
+import type { AchievementScale, OutcomeLevel, RubricTemplate, SectionKey, SyllabusContent, SyllabusIssue, SyllabusPlo, SyllabusSettings, SyllabusTemplate } from '@ams/shared';
+import { AssessmentPlan } from './assessment-plan';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { label } from './labels';
@@ -98,7 +99,7 @@ function ProgramCoverage({ content: c, plos, programs, levels, onChange }: { con
   );
 }
 
-function Section({ id, title, help, issues, children }: { id: SectionKey; title: string; help: string; issues: SyllabusIssue[]; children: React.ReactNode }) {
+function Section({ id, title, help, issues, children, rowsShowTheirs = false }: { id: SectionKey; title: string; help: string; issues: SyllabusIssue[]; children: React.ReactNode; /** Issues about a row are shown on the row only. */ rowsShowTheirs?: boolean }) {
   const errors = issues.filter((x) => x.severity === 'error');
   const warnings = issues.filter((x) => x.severity === 'warning');
   return (
@@ -112,9 +113,9 @@ function Section({ id, title, help, issues, children }: { id: SectionKey; title:
           </span>
         )}
       </div>
-      {issues.length > 0 && (
+      {issues.some((x) => !rowsShowTheirs || !x.ref) && (
         <ul aria-label={`Issues in ${title}`} className="space-y-0.5 text-xs">
-          {issues.map((x, k) => <li key={k} className={x.severity === 'error' ? 'text-red-800' : 'text-amber-800'}>{x.severity === 'error' ? 'Error: ' : 'Warning: '}{x.message}</li>)}
+          {issues.filter((x) => !rowsShowTheirs || !x.ref).map((x, k) => <li key={k} className={x.severity === 'error' ? 'text-red-800' : 'text-amber-800'}>{x.severity === 'error' ? 'Error: ' : 'Warning: '}{x.message}</li>)}
         </ul>
       )}
       {children}
@@ -130,9 +131,12 @@ export interface SyllabusEditorProps {
   only?: readonly string[];
   /** The description in the second language: by default only when a program the course serves teaches in it. */
   secondLanguage?: boolean;
+  /** The institution's achievement scale and rubric templates (the defaults when not given). */
+  scale?: AchievementScale; rubricTemplates?: RubricTemplate[];
 }
 
-export function SyllabusEditor({ content: c, onChange, plos, levels, courses, courseId, code, issues, settings, template, only, secondLanguage = true }: SyllabusEditorProps) {
+export function SyllabusEditor({ content: c, onChange, plos, levels, courses, courseId, code, issues, settings, template, only, secondLanguage = true, scale = DEFAULT_ACHIEVEMENT_SCALE, rubricTemplates = DEFAULT_RUBRIC_TEMPLATES }: SyllabusEditorProps) {
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
   const set = (patch: Partial<SyllabusContent>) => onChange({ ...c, ...patch });
   const setInfo = (p: Partial<SyllabusContent['info']>) => set({ info: { ...c.info, ...p } });
   const of = (s: SectionKey) => issues.filter((x) => x.section === s);
@@ -140,7 +144,6 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
   const sec = (key: string) => template.sections.find((s) => s.key === key);
   const cloOptions = c.clos.map((x) => ({ id: x.id, text: x.code }));
   const recode = (clos: SyllabusContent['clos']) => clos.map((x, k) => ({ ...x, code: `CLO${k + 1}` }));
-  const weights = cloWeights(c);
   const otherCourses = courses.filter((x) => x.id !== courseId);
   const programs = [...new Set(plos.map((p) => p.programName))];
   const hint = (key: string) => (sec(key)?.help ?? '');
@@ -306,104 +309,15 @@ export function SyllabusEditor({ content: c, onChange, plos, levels, courses, co
       </Section>
     ),
     assessments: (
-      <Section id="assessments" title={title('assessments', 'Assessment plan')} help={hint('assessments')} issues={of('assessments')}>
-        <div className="space-y-3">
-          {c.assessments.map((a, k) => {
-            const setA = (p: Partial<SyllabusAssessment>) => set({ assessments: replaceAt(c.assessments, k, { ...a, ...p }) });
-            const assesses = (cloId: string) => a.clos.find((l) => l.cloId === cloId);
-            return (
-              <div key={a.id} className="space-y-2 rounded-md border border-border p-3" data-testid="assessment-row">
-                <div className="grid gap-2 sm:grid-cols-12">
-                  <label className={`${field} sm:col-span-3`}>Assessment<Input aria-label={`Assessment ${k + 1} name`} value={a.name} onChange={(e) => setA({ name: e.target.value })} /></label>
-                  <label className={`${field} sm:col-span-3`}>Category
-                    <select aria-label={`Assessment ${k + 1} category`} className={select} value={a.category} onChange={(e) => setA({ category: e.target.value })}>
-                      <option value="">Choose</option>{ASSESSMENT_CATEGORIES.map((v) => <option key={v} value={v}>{label(v)}</option>)}
-                    </select>
-                  </label>
-                  <label className={`${field} sm:col-span-2`}>% of grade<Num ariaLabel={`Assessment ${k + 1} weight`} value={a.weight} onChange={(v) => setA({ weight: v })} /></label>
-                  <label className={`${field} sm:col-span-2`}>Due week<Num ariaLabel={`Assessment ${k + 1} due week`} value={a.dueWeek} onChange={(v) => setA({ dueWeek: v })} /></label>
-                  <div className="flex items-end sm:col-span-2"><Button type="button" variant="ghost" aria-label={`Remove assessment ${k + 1}`} onClick={() => set({ assessments: removeAt(c.assessments, k), outline: c.outline.map((w) => (w.assessmentId === a.id ? { ...w, assessmentId: '' } : w)) })}>Remove</Button></div>
-                </div>
-                <label className={field}>Objective<Input aria-label={`Assessment ${k + 1} objective`} value={a.objective} onChange={(e) => setA({ objective: e.target.value })} /></label>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">CLOs it assesses, their share of this assessment, and the rubric for each</p>
-                  {c.clos.length === 0 && <p className="text-xs text-muted-foreground">Add CLOs first.</p>}
-                  {c.clos.map((x) => {
-                    const l = assesses(x.id);
-                    return (
-                      <div key={x.id} className="grid items-center gap-2 sm:grid-cols-12">
-                        <label className="flex items-center gap-2 text-sm sm:col-span-3"><input type="checkbox" aria-label={`Assessment ${k + 1} assesses ${x.code}`} checked={!!l}
-                          onChange={(e) => setA({ clos: e.target.checked ? [...a.clos, { cloId: x.id, share: null, rubricId: c.rubrics[0]?.id ?? '' }] : a.clos.filter((y) => y.cloId !== x.id) })} />{x.code}
-                          <span className="text-xs text-muted-foreground">{Math.round((weights.get(x.id) ?? 0) * 10) / 10}% of grade</span></label>
-                        {l && <label className="sm:col-span-3"><span className="sr-only">{`${x.code} share of assessment ${k + 1}`}</span><Num ariaLabel={`${x.code} share of assessment ${k + 1}`} value={l.share} onChange={(v) => setA({ clos: a.clos.map((y) => (y.cloId === x.id ? { ...y, share: v } : y)) })} /></label>}
-                        {l && <label className="sm:col-span-6"><span className="sr-only">{`${x.code} rubric in assessment ${k + 1}`}</span>
-                          <select aria-label={`${x.code} rubric in assessment ${k + 1}`} className={select} value={l.rubricId} onChange={(e) => setA({ clos: a.clos.map((y) => (y.cloId === x.id ? { ...y, rubricId: e.target.value } : y)) })}>
-                            <option value="">No rubric</option>{c.rubrics.map((r) => <option key={r.id} value={r.id}>{r.title || 'Untitled rubric'}</option>)}
-                          </select></label>}
-                      </div>
-                    );
-                  })}
-                  {a.clos.length > 0 && <Button type="button" variant="ghost" onClick={() => setA({ clos: a.clos.map((y) => ({ ...y, share: Math.round((10000 / a.clos.length)) / 100 })) })}>Split the shares evenly</Button>}
-                </div>
-                <Row about={a.id} />
-              </div>
-            );
-          })}
-        </div>
-        <Button type="button" variant="outline" onClick={() => set({ assessments: [...c.assessments, { id: newId(), name: '', category: '', objective: '', weight: null, dueWeek: null, clos: [] }] })}>+ Assessment</Button>
+      <Section id="assessments" title={title('assessments', 'Assessments')} help="Each assessment with its type, week and weight; under it, the CLOs it assesses, the share of it each one carries and the rubric that scores it." rowsShowTheirs
+        issues={[...of('assessments'), ...of('rubrics')].filter((x) => !x.ref || !fresh.has(x.ref))}>
+        <AssessmentPlan content={c} onChange={onChange} scale={scale} templates={rubricTemplates} settings={settings} issues={[...of('assessments'), ...of('rubrics')]}
+          fresh={fresh} onFresh={(id, on) => setFresh((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })} />
         {!only && notes}
       </Section>
     ),
-    rubrics: (
-      <Section id="rubrics" title={title('rubrics', 'Rubrics')} help={hint('rubrics')} issues={of('rubrics')}>
-        <div className="space-y-3">
-          {c.rubrics.map((r, k) => {
-            const setR = (p: Partial<SyllabusRubric>) => set({ rubrics: replaceAt(c.rubrics, k, { ...r, ...p }) });
-            const pad = (ds: string[]) => r.levels.map((_, j) => ds[j] ?? '');
-            return (
-              <div key={r.id} className="space-y-2 rounded-md border border-border p-3" data-testid="rubric-row">
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className={`${field} grow`}>Rubric title<Input aria-label={`Rubric ${k + 1} title`} value={r.title} onChange={(e) => setR({ title: e.target.value })} /></label>
-                  <Button type="button" variant="ghost" aria-label={`Remove rubric ${k + 1}`} onClick={() => set({ rubrics: removeAt(c.rubrics, k), assessments: c.assessments.map((a) => ({ ...a, clos: a.clos.map((l) => (l.rubricId === r.id ? { ...l, rubricId: '' } : l)) })) })}>Remove</Button>
-                </div>
-                <p className="text-xs font-medium text-muted-foreground">Performance levels</p>
-                <div className="flex flex-wrap gap-2">
-                  {r.levels.map((l, j) => (
-                    <div key={j} className="flex items-center gap-1">
-                      <Input aria-label={`Rubric ${k + 1} level ${j + 1} name`} className="w-32" value={l.name} onChange={(e) => setR({ levels: replaceAt(r.levels, j, { ...l, name: e.target.value }) })} />
-                      <Num className="w-16" ariaLabel={`Rubric ${k + 1} level ${j + 1} from`} value={l.min} onChange={(v) => setR({ levels: replaceAt(r.levels, j, { ...l, min: v }) })} />
-                      <Num className="w-16" ariaLabel={`Rubric ${k + 1} level ${j + 1} to`} value={l.max} onChange={(v) => setR({ levels: replaceAt(r.levels, j, { ...l, max: v }) })} />
-                      <Button type="button" variant="ghost" aria-label={`Remove level ${j + 1} of rubric ${k + 1}`} onClick={() => setR({ levels: removeAt(r.levels, j), criteria: r.criteria.map((q) => ({ ...q, descriptions: removeAt(pad(q.descriptions), j) })) })}>✕</Button>
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" onClick={() => setR({ levels: [...r.levels, { name: '', min: null, max: null }], criteria: r.criteria.map((q) => ({ ...q, descriptions: [...pad(q.descriptions), ''] })) })}>+ Level</Button>
-                </div>
-                <p className="text-xs font-medium text-muted-foreground">Criteria, with a description at every level</p>
-                {r.criteria.map((q, j) => (
-                  <div key={j} className="space-y-1 rounded border border-border/60 p-2">
-                    <div className="flex items-end gap-2">
-                      <label className={`${field} grow`}>Criterion<Input aria-label={`Rubric ${k + 1} criterion ${j + 1} name`} value={q.name} onChange={(e) => setR({ criteria: replaceAt(r.criteria, j, { ...q, name: e.target.value }) })} /></label>
-                      <Button type="button" variant="ghost" aria-label={`Remove criterion ${j + 1} of rubric ${k + 1}`} onClick={() => setR({ criteria: removeAt(r.criteria, j) })}>Remove</Button>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      {r.levels.map((l, m) => (
-                        <label key={m} className={field}>{l.name || `Level ${m + 1}`}
-                          <textarea aria-label={`Rubric ${k + 1} criterion ${j + 1} at ${l.name || `level ${m + 1}`}`} rows={2} className={area} value={pad(q.descriptions)[m] ?? ''}
-                            onChange={(e) => setR({ criteria: replaceAt(r.criteria, j, { ...q, descriptions: replaceAt(pad(q.descriptions), m, e.target.value) }) })} />
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={() => setR({ criteria: [...r.criteria, { name: '', descriptions: r.levels.map(() => '') }] })}>+ Criterion</Button>
-                <Row about={r.id} />
-              </div>
-            );
-          })}
-        </div>
-        <Button type="button" variant="outline" onClick={() => set({ rubrics: [...c.rubrics, { id: newId(), title: '', levels: [{ name: 'Exemplary', min: 90, max: 100 }, { name: 'Proficient', min: 70, max: 89 }, { name: 'Developing', min: 50, max: 69 }, { name: 'Beginning', min: 0, max: 49 }], criteria: [] }] })}>+ Rubric</Button>
-      </Section>
-    ),
+    // The rubrics are part of the assessments (above): the course's rubrics are listed and edited there.
+    rubrics: null,
   };
   // Sections an admin added to the template (Settings, Organization, Courses) are free text, kept in the document under their key.
   const custom = (key: string, titleText: string, help: string) => (

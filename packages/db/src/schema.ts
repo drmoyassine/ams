@@ -6,7 +6,7 @@ import {
   PLAN_ANCHOR_KINDS, PLAN_MODES, ACADEMIC_TERM_KINDS, type AppliesTo, type CycleRecurrence,
   CYCLE_STAGE_STATUSES, CYCLE_STATUSES, CYCLE_SUBJECT_KINDS, CYCLE_TEMPLATE_ORIGINS, CYCLE_TEMPLATE_STATUSES,
   BLOCK_TYPES, REPORT_STATUSES, REPORT_SUBJECT_KINDS, SECTION_STATUSES,
-  BLOOM_LEVELS, COURSE_ROLES, PROGRAM_TYPES, REQUIREMENT_BLOCKS, REQUIREMENT_KINDS, type CatalogSettings, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric, type SyllabusSettings, type SyllabusTemplate,
+  BLOOM_LEVELS, COURSE_ROLES, PROGRAM_TYPES, REQUIREMENT_BLOCKS, REQUIREMENT_KINDS, type CatalogSettings, OUTCOME_KINDS, OUTCOME_STATUSES, PROGRAM_MODES, DEFAULT_OUTCOME_LEVELS, DEFAULT_REVIEW_RUBRIC, PLAN_STATUSES, RESULT_KINDS, ACTION_STATUSES, type AssessmentBenchmarks, type OutcomeLevel, type ReviewRubric, type SyllabusSettings, type SyllabusTemplate, type AchievementScale, type RubricTemplate,
 } from '@ams/shared';
 import {
   boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, real, smallint, text, timestamp, uniqueIndex, uuid, type AnyPgColumn,
@@ -57,6 +57,10 @@ export const institution = pgTable('institution', {
   assessmentBenchmarks: jsonb('assessment_benchmarks').$type<AssessmentBenchmarks>().notNull().default({}),
   /** The syllabus limits and escalation, and the template an admin edits (DEC-038); empty means the defaults. */
   syllabusSettings: jsonb('syllabus_settings').$type<Partial<SyllabusSettings>>().notNull().default({}),
+  /** The achievement scale every rubric uses, and its target level; null is the default scale. */
+  achievementScale: jsonb('achievement_scale').$type<AchievementScale>(),
+  /** The rubric templates coordinators start from; null is the default set. */
+  rubricTemplates: jsonb('rubric_templates').$type<RubricTemplate[]>(),
   syllabusTemplate: jsonb('syllabus_template').$type<Partial<SyllabusTemplate>>().notNull().default({}),
   logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
 }, (t) => [

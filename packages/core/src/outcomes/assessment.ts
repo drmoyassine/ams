@@ -12,6 +12,7 @@ import {
   type CourseAssessment, type IloReport, type IloScheduleRow, type ImportResultRow, type OutcomeResult, type ProgramAssessment, type SaveAction,
   type SaveCourseAssessment, type SaveIloSchedule, type SavePlanItem, type SaveResult, type UpdatePlan,
 } from '@ams/shared';
+import { AchievementScaleSchema, DEFAULT_ACHIEVEMENT_SCALE, type AchievementScale } from '@ams/shared';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
 import { assertHuman } from '../framework/common.js';
@@ -29,16 +30,38 @@ const ATTAINMENT_SOURCE = 'Course attainment (QAIEO method)';
 
 // ---- Benchmarks ---------------------------------------------------------------------------------------------------------------
 
+/** The CLO score target follows the achievement scale: the lowest score of its target level (one number, set in one place). */
 export async function getBenchmarks(ctx: Ctx): Promise<AssessmentBenchmarks> {
   const [row] = await ctx.tx.select({ b: institution.assessmentBenchmarks }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
-  return AssessmentBenchmarksSchema.parse(row?.b ?? {});
+  const scale = await getAchievementScale(ctx);
+  return { ...AssessmentBenchmarksSchema.parse(row?.b ?? {}), cloScore: scale.levels[scale.target]!.min };
 }
 export async function setBenchmarks(ctx: Ctx, input: AssessmentBenchmarks): Promise<AssessmentBenchmarks> {
   assertHuman(ctx);
   await assertPermitted(ctx, 'org:write', { type: 'institution' });
-  const b = AssessmentBenchmarksSchema.parse(input);
+  const scale = await getAchievementScale(ctx);
+  const b = { ...AssessmentBenchmarksSchema.parse(input), cloScore: scale.levels[scale.target]!.min };
   await ctx.tx.update(institution).set({ assessmentBenchmarks: b }).where(eq(institution.id, ctx.caller.institutionId));
   return b;
+}
+
+// ---- The achievement scale -------------------------------------------------------------------------------------------------
+
+/** The levels every rubric is described at, and the target level; the default scale until the institution sets its own. */
+export async function getAchievementScale(ctx: Ctx): Promise<AchievementScale> {
+  const [row] = await ctx.tx.select({ s: institution.achievementScale }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
+  const parsed = AchievementScaleSchema.safeParse(row?.s);
+  return parsed.success ? parsed.data : DEFAULT_ACHIEVEMENT_SCALE;
+}
+/** Sets the scale; the CLO score target becomes the lowest score of the target level. Syllabi are checked again by the caller. */
+export async function setAchievementScale(ctx: Ctx, input: unknown): Promise<AchievementScale> {
+  assertHuman(ctx);
+  await assertPermitted(ctx, 'org:write', { type: 'institution' });
+  const scale = AchievementScaleSchema.parse(input);
+  const [row] = await ctx.tx.select({ b: institution.assessmentBenchmarks }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
+  const b = { ...AssessmentBenchmarksSchema.parse(row?.b ?? {}), cloScore: scale.levels[scale.target]!.min };
+  await ctx.tx.update(institution).set({ achievementScale: scale, assessmentBenchmarks: b }).where(eq(institution.id, ctx.caller.institutionId));
+  return scale;
 }
 
 // ---- Plan (TASK-114) ---------------------------------------------------------------------------------------------------------

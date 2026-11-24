@@ -35,7 +35,7 @@ function BenchmarksForm({ api, canEdit, initial }: { api: AssessmentApi; canEdit
       <h3 className="mb-1 text-lg font-semibold">Assessment targets</h3>
       <p className="mb-3 text-sm text-muted-foreground">The university's thresholds, e.g. 70% of students at 70% or above. Results are shown at or above, or below, these targets unless a program's plan sets its own. Leave empty until decided.</p>
       <div className="grid gap-2 sm:grid-cols-4">
-        {keys.map((k) => <label key={k} className="flex flex-col gap-1 text-xs">{label[k]}<Input aria-label={label[k]} inputMode="decimal" value={v[k]} disabled={!canEdit} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}
+        {keys.map((k) => <label key={k} className="flex flex-col gap-1 text-xs">{label[k]}<Input aria-label={label[k]} inputMode="decimal" value={v[k]} disabled={!canEdit || k === 'cloScore'} onChange={(e) => setV({ ...v, [k]: e.target.value })} />{k === 'cloScore' && <span className="text-muted-foreground">From the achievement scale (its target level)</span>}</label>)}
       </div>
       {canEdit && <div className="mt-3 flex items-center gap-2"><Button type="button" onClick={() => save.mutate()}>Save targets</Button>{saved && <span role="status" className="text-sm text-emerald-700">Saved</span>}</div>}
       {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}

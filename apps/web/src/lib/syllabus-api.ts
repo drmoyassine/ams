@@ -1,6 +1,6 @@
 import { hc } from 'hono/client';
 import type { SyllabusRoutes } from '@ams/api';
-import type {
+import type { AchievementScale, RubricTemplate,
   CourseStaff, ResolveSuggestion, SyllabusWorkbook, SaveSyllabus, Suggest, SyllabusContent, SyllabusListRow, SyllabusOverview, SyllabusSettings, SyllabusSuggestion, SyllabusTemplate, SyllabusVersion, UpsertSyllabus, ProposeMapping, SubmitManyResult,
 } from '@ams/shared';
 import { noteResponse } from './undo';
@@ -37,6 +37,11 @@ export function syllabusApi(fetcher: typeof fetch = fetch) {
     setTemplate: (json: SyllabusTemplate) => a.settings['syllabus-template'].$put({ json }).then((r) => unwrap<SyllabusTemplate>(r)),
     settings: () => a.settings.syllabus.$get().then((r) => unwrap<SyllabusSettings>(r)),
     setSettings: (json: SyllabusSettings) => a.settings.syllabus.$put({ json }).then((r) => unwrap<SyllabusSettings>(r)),
+    /** The institution's achievement scale (every rubric's levels) and the rubric templates (Settings, Outcomes & Syllabus). */
+    scale: () => a.settings['achievement-scale'].$get().then((r) => unwrap<AchievementScale>(r)),
+    setScale: (json: AchievementScale) => a.settings['achievement-scale'].$put({ json }).then((r) => unwrap<AchievementScale>(r)),
+    rubricTemplates: () => a.settings['rubric-templates'].$get().then((r) => unwrap<RubricTemplate[]>(r)),
+    setRubricTemplates: (json: RubricTemplate[]) => a.settings['rubric-templates'].$put({ json }).then((r) => unwrap<RubricTemplate[]>(r)),
   };
 }
 export type SyllabusApi = ReturnType<typeof syllabusApi>;

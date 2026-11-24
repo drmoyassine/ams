@@ -12,7 +12,7 @@ export const SYLLABUS_SHEETS = {
   clos: { name: 'CLOs', headers: ['Course code', 'CLO', 'Outcome (English)', 'Outcome (Arabic)', 'Bloom level', 'PLO', 'Coverage'] },
   outline: { name: 'Outline', headers: ['Course code', 'Week', 'Topic', 'Reading', 'Lab / other sessions', 'CLOs', 'SDGs', 'Assessment'] },
   materials: { name: 'Materials', headers: ['Course code', 'Kind', 'Citation', 'ISBN', 'Year'] },
-  assessments: { name: 'Assessments', headers: ['Course code', 'Assessment', 'Category', 'Objective', '% of grade', 'Due week', 'CLO', 'Share of assessment %', 'Rubric'] },
+  assessments: { name: 'Assessments', headers: ['Course code', 'Type', 'Assessment', 'Due week', 'Weight %', 'CLO', 'Questions / part', 'Share of assessment %', 'Rubric'] },
   rubrics: { name: 'Rubrics', headers: ['Course code', 'Rubric', 'Criterion', 'Level', 'From', 'To', 'Description'] },
   /** The sections an admin added to the template: one row per course and section. */
   sections: { name: 'Sections', headers: ['Course code', 'Section', 'Text'] },
@@ -106,9 +106,9 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     if (!cc || !name) continue;
     const d = doc(cc); const key = `${code(cc)}|${norm(name)}`;
     let a = d.assessments.find((x) => assessmentByName.get(key) === x.id);
-    if (!a) { a = { id: newId(), name, category: vocab(cell(r, 'Category'), ACATS), objective: cell(r, 'Objective'), weight: numOf(cell(r, '% of grade')), dueWeek: numOf(cell(r, 'Due week')), clos: [] }; d.assessments.push(a); assessmentByName.set(key, a.id); }
+    if (!a) { a = { id: newId(), name, category: vocab(cell(r, 'Type') || cell(r, 'Category'), ACATS), weight: numOf(cell(r, 'Weight %') || cell(r, '% of grade')), dueWeek: numOf(cell(r, 'Due week')), clos: [] }; d.assessments.push(a); assessmentByName.set(key, a.id); }
     const clo = cell(r, 'CLO') ? cloOf(cc, cell(r, 'CLO')) : undefined;
-    if (clo) a.clos.push({ cloId: clo.id, share: numOf(cell(r, 'Share of assessment %')), rubricId: cell(r, 'Rubric') });   // the rubric's title, made an id below
+    if (clo) a.clos.push({ cloId: clo.id, share: numOf(cell(r, 'Share of assessment %')), rubricId: cell(r, 'Rubric'), part: cell(r, 'Questions / part') });   // the rubric's title, made an id below
   }
   const rubricKey = new Map<string, string>();
   for (const r of wb.rubrics) {
@@ -116,7 +116,7 @@ export function workbookToSyllabi(wb: SyllabusWorkbook, rs: SheetResolver): Map<
     if (!cc || !title) continue;
     const d = doc(cc); const key = `${code(cc)}|${norm(title)}`;
     let rub = d.rubrics.find((x) => rubricKey.get(key) === x.id);
-    if (!rub) { rub = { id: newId(), title, levels: [], criteria: [] }; d.rubrics.push(rub); rubricKey.set(key, rub.id); }
+    if (!rub) { rub = { id: newId(), title, levels: [], criteria: [], templateId: '' }; d.rubrics.push(rub); rubricKey.set(key, rub.id); }
     const lvl = cell(r, 'Level');
     let li = rub.levels.findIndex((l) => norm(l.name) === norm(lvl));
     if (li < 0 && lvl) { rub.levels.push({ name: lvl, min: numOf(cell(r, 'From')), max: numOf(cell(r, 'To')) }); li = rub.levels.length - 1; for (const k of rub.criteria) k.descriptions.push(''); }
@@ -167,8 +167,8 @@ export function syllabusToWorkbook(c: SyllabusContent, ex: ExportContext): Sylla
   for (const w of c.outline) wb.outline.push(put(S.outline.headers, [ex.code, w.week, w.topic, w.reading, w.lab, w.cloIds.map(cloCode).join(', '), w.sdgs.join(', '), c.assessments.find((a) => a.id === w.assessmentId)?.name ?? '']));
   for (const m of c.materials) wb.materials.push(put(S.materials.headers, [ex.code, lbl(m.kind), m.citation, m.isbn, m.year]));
   for (const a of c.assessments) {
-    if (!a.clos.length) wb.assessments.push(put(S.assessments.headers, [ex.code, a.name, lbl(a.category), a.objective, a.weight, a.dueWeek, '', null, '']));
-    for (const l of a.clos) wb.assessments.push(put(S.assessments.headers, [ex.code, a.name, lbl(a.category), a.objective, a.weight, a.dueWeek, cloCode(l.cloId), l.share, c.rubrics.find((r) => r.id === l.rubricId)?.title ?? '']));
+    if (!a.clos.length) wb.assessments.push(put(S.assessments.headers, [ex.code, lbl(a.category), a.name, a.dueWeek, a.weight, '', '', null, '']));
+    for (const l of a.clos) wb.assessments.push(put(S.assessments.headers, [ex.code, lbl(a.category), a.name, a.dueWeek, a.weight, cloCode(l.cloId), l.part ?? '', l.share, c.rubrics.find((r) => r.id === l.rubricId)?.title ?? '']));
   }
   for (const r of c.rubrics) for (const k of r.criteria) r.levels.forEach((l, j) => wb.rubrics.push(put(S.rubrics.headers, [ex.code, r.title, k.name, l.name, l.min, l.max, k.descriptions[j] ?? ''])));
   for (const sec of ex.customSections ?? []) if (c.custom[sec.key]?.trim()) wb.sections.push(put(S.sections.headers, [ex.code, sec.title, c.custom[sec.key]!]));

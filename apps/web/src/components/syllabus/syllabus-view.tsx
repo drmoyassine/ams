@@ -61,7 +61,7 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
   );
   const PLAN = (<>
         <Table head={['Assessment', 'Category', 'CLOs assessed (share, rubric)', '% of grade', 'Due']} empty="No assessments yet."
-          rows={c.assessments.map((a) => [<ContentText key="n">{a.name}</ContentText>, label(a.category), a.clos.map((l) => `${cloCode(l.cloId)} ${dash(l.share)}% · ${c.rubrics.find((r) => r.id === l.rubricId)?.title ?? 'no rubric'}`).join('; ') || '—', dash(a.weight), a.dueWeek ? `Week ${a.dueWeek}` : '—'])} />
+          rows={c.assessments.map((a) => [<ContentText key="n">{a.name}</ContentText>, label(a.category), a.clos.map((l) => `${cloCode(l.cloId)}${l.part ? ` (${l.part})` : ""} ${dash(l.share)}% · ${c.rubrics.find((r) => r.id === l.rubricId)?.title ?? 'no rubric'}`).join('; ') || '—', dash(a.weight), a.dueWeek ? `Week ${a.dueWeek}` : '—'])} />
         {c.assessments.length > 0 && <p className="text-xs text-muted-foreground">Total {c.assessments.reduce((s, a) => s + (a.weight ?? 0), 0)}%. Share of the grade by CLO: {c.clos.map((x) => `${x.code} ${Math.round((weights.get(x.id) ?? 0) * 10) / 10}%`).join(', ')}.</p>}
   </>);
   const RUBRICS = c.rubrics.length > 0 ? (
@@ -134,7 +134,7 @@ export function SyllabusView({ content: c, code, plos, levels, courses, template
       <Block title="Teaching methodology"><p className="whitespace-pre-line text-sm"><ContentText>{c.methodology || '—'}</ContentText></p></Block>
       <Block title="Assessment plan and evaluation methods">
         <Table head={['Assessment', 'Category', 'CLOs assessed (share, rubric)', '% of grade', 'Due']} empty="No assessments yet."
-          rows={c.assessments.map((a) => [<ContentText key="n">{a.name}</ContentText>, label(a.category), a.clos.map((l) => `${cloCode(l.cloId)} ${dash(l.share)}% · ${c.rubrics.find((r) => r.id === l.rubricId)?.title ?? 'no rubric'}`).join('; ') || '—', dash(a.weight), a.dueWeek ? `Week ${a.dueWeek}` : '—'])} />
+          rows={c.assessments.map((a) => [<ContentText key="n">{a.name}</ContentText>, label(a.category), a.clos.map((l) => `${cloCode(l.cloId)}${l.part ? ` (${l.part})` : ""} ${dash(l.share)}% · ${c.rubrics.find((r) => r.id === l.rubricId)?.title ?? 'no rubric'}`).join('; ') || '—', dash(a.weight), a.dueWeek ? `Week ${a.dueWeek}` : '—'])} />
         {c.assessments.length > 0 && <p className="text-xs text-muted-foreground">Total {c.assessments.reduce((s, a) => s + (a.weight ?? 0), 0)}%. Share of the grade by CLO: {c.clos.map((x) => `${x.code} ${Math.round((weights.get(x.id) ?? 0) * 10) / 10}%`).join(', ')}.</p>}
         {(c.assessmentNotes.passPercentage || c.assessmentNotes.howItWorks) && <p className="whitespace-pre-line text-sm"><ContentText>{[c.assessmentNotes.passPercentage, c.assessmentNotes.howItWorks].filter(Boolean).join('\n')}</ContentText></p>}
       </Block>
