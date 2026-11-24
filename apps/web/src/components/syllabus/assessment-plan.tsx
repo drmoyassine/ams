@@ -20,7 +20,7 @@ const select = 'h-9 w-full rounded-md border border-border bg-background px-2 te
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
 const num = (s: string): number | null => (s.trim() === '' || Number.isNaN(Number(s)) ? null : Number(s));
 
-function NumCell({ value, onChange, label, className = 'w-20' }: { value: number | null; onChange: (v: number | null) => void; label: string; className?: string }) {
+function NumCell({ value, onChange, label, className = 'w-16' }: { value: number | null; onChange: (v: number | null) => void; label: string; className?: string }) {
   return <Input aria-label={label} inputMode="decimal" className={className} value={value ?? ''} onChange={(e) => onChange(num(e.target.value))} />;
 }
 
@@ -90,8 +90,8 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
     <div className="space-y-6">
       {/* 1. The assessments */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[44rem] border-collapse text-sm" aria-label="Assessments">
-          <thead><tr><th className={`${th} w-8`} /><th className={`${th} w-40`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-24`}>Week</th><th className={`${th} w-24`}>Weight %</th><th className={th}>CLOs</th><th className={`${th} w-10`} /></tr></thead>
+        <table className="w-full min-w-[34rem] table-fixed border-collapse text-sm" aria-label="Assessments">
+          <thead><tr><th className={`${th} w-9`} /><th className={`${th} w-32`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-[4.5rem]`}>Week</th><th className={`${th} w-[4.5rem]`}>Weight %</th><th className={`${th} w-36`}>CLOs</th><th className={`${th} w-9`} /></tr></thead>
           {c.assessments.map((a, k) => {
             const isOpen = open.has(a.id) || fresh.has(a.id);
             const own = issuesOf(a.id);
@@ -133,8 +133,8 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                   <tr>
                     <td className="border-b border-border" />
                     <td colSpan={6} className="border-b border-border bg-muted/30 px-2 py-2">
-                      <table className="w-full border-collapse text-sm" aria-label={`CLOs of ${a.name || `assessment ${k + 1}`}`}>
-                        <thead><tr><th className={`${th} w-28`}>CLO</th><th className={th}>Questions / part</th><th className={`${th} w-28`}>Share of it %</th><th className={th}>Rubric</th><th className={`${th} w-10`} /></tr></thead>
+                      <table className="w-full table-fixed border-collapse text-sm" aria-label={`CLOs of ${a.name || `assessment ${k + 1}`}`}>
+                        <thead><tr><th className={`${th} w-24`}>CLO</th><th className={`${th} w-36`}>Questions / part</th><th className={`${th} w-20`}>Share %</th><th className={th}>Rubric</th><th className={`${th} w-9`} /></tr></thead>
                         <tbody>
                           {a.clos.map((l, j) => {
                             const r = c.rubrics.find((x) => x.id === l.rubricId);
@@ -149,8 +149,8 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                                 <td className={td}><Input aria-label={`${cloCode(l.cloId)} part of assessment ${k + 1}`} placeholder="e.g. Q1–Q3" value={l.part ?? ''} onChange={(e) => setA({ clos: a.clos.map((y, i) => (i === j ? { ...y, part: e.target.value } : y)) })} /></td>
                                 <td className={td}><NumCell label={`${cloCode(l.cloId)} share of assessment ${k + 1}`} value={l.share} onChange={(v) => setA({ clos: a.clos.map((y, i) => (i === j ? { ...y, share: v } : y)) })} /></td>
                                 <td className={td}>
-                                  <div className="flex gap-1">
-                                    <select aria-label={`${cloCode(l.cloId)} rubric in assessment ${k + 1}`} className={select} value={l.rubricId} onChange={(e) => pickRubric(k, a, j, e.target.value)}>
+                                  <div className="flex min-w-0 gap-1">
+                                    <select aria-label={`${cloCode(l.cloId)} rubric in assessment ${k + 1}`} className={`${select} min-w-0 flex-1`} value={l.rubricId} onChange={(e) => pickRubric(k, a, j, e.target.value)}>
                                       {!r && <option value="">Choose a rubric</option>}
                                       {c.rubrics.length > 0 && <optgroup label="This course's rubrics">{c.rubrics.map((x) => <option key={x.id} value={x.id}>{x.title || 'Untitled rubric'}</option>)}</optgroup>}
                                       <optgroup label="Start from a template">{templates.filter((t) => !c.rubrics.some((x) => x.templateId === t.id)).map((t) => <option key={t.id} value={`tpl:${t.id}`}>{t.title}</option>)}</optgroup>
