@@ -12,6 +12,7 @@ import { placeWording } from './exchange.js';
 import { syncLevelTerms } from '../glossary/glossary.js';
 import { countUnreviewedWrittenTexts } from '../assistant/changes/marks.js';
 import { assertHuman, getDraftVersion, getVersion, isInternalVersion, require_ } from './common.js';
+import { carryCodesOnPublish, renumberVersion } from './renumber.js';
 
 const ROW_META = ['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'] as const;
 /** A row without its identity and audit stamps, ready to be inserted as a copy. */
@@ -185,6 +186,7 @@ const ConfigPatchSchema = z.object({
   effectiveFrom: z.iso.date().nullable().optional(),
   effectiveTo: z.iso.date().nullable().optional(),
   changeSummary: z.string().nullable().optional(),
+  autoNumber: z.boolean().optional(),
 }).strict();
 
 /** Saves configuration fields of a draft version. Each field is validated alone; references are checked on submit. */
@@ -197,6 +199,8 @@ export async function updateVersionConfig(ctx: Ctx, versionId: string, patch: z.
   }
   const [row] = await guardIntegrity(() => ctx.tx.update(frameworkVersion).set(parsed.data).where(eq(frameworkVersion.id, versionId)).returning());
   if (parsed.data.levelLabels && await isInternalVersion(ctx, versionId)) await syncLevelTerms(ctx);
+  // Turning numbering by place on renumbers the version now.
+  if (parsed.data.autoNumber) await renumberVersion(ctx, versionId);
   return row!;
 }
 
@@ -314,6 +318,8 @@ export async function publishVersion(ctx: Ctx, versionId: string) {
     .set({ status: 'published', publishedAt: new Date(), publishedBy: ctx.caller.userId })
     .where(and(eq(frameworkVersion.id, versionId), eq(frameworkVersion.status, 'in_review'))).returning());
   if (!row) throw new ConflictError('the version changed while publishing');
+  // What hangs on the old codes of renumbered standards now hangs on their new ones (renumber.ts).
+  await carryCodesOnPublish(ctx, versionId, v.frameworkId);
   return row;
 }
 
@@ -333,7 +339,7 @@ export async function newVersionFrom(ctx: Ctx, sourceVersionId: string, input: {
   const [draft] = await guardIntegrity(() => ctx.tx.insert(frameworkVersion).values({
     institutionId: ctx.caller.institutionId, frameworkId: src.frameworkId, edition: input.edition, changeSummary: input.changeSummary ?? null,
     levelLabels: src.levelLabels, lifecycleTemplate: src.lifecycleTemplate, decisionVocab: src.decisionVocab,
-    findingVocab: src.findingVocab, responseVocab: src.responseVocab, ratingMethod: src.ratingMethod, supersedesId: src.id,
+    findingVocab: src.findingVocab, responseVocab: src.responseVocab, ratingMethod: src.ratingMethod, supersedesId: src.id, autoNumber: src.autoNumber,
   }).returning());
   const target = draft!;
 
@@ -345,7 +351,7 @@ export async function newVersionFrom(ctx: Ctx, sourceVersionId: string, input: {
   const byParent = (parent: string | null) => reqs.filter((r) => (r.parentId ?? null) === parent);
   const copyLevel = async (parent: string | null, newParent: string | null) => {
     for (const r of byParent(parent)) {
-      const [copy] = await ctx.tx.insert(requirement).values({ ...copyable(r), ...(internalSource ? {} : placeWording(r.code, r.title, r.officialText)), frameworkVersionId: target.id, parentId: newParent }).returning();
+      const [copy] = await ctx.tx.insert(requirement).values({ ...copyable(r), ...(internalSource ? {} : placeWording(r.code, r.title, r.officialText)), frameworkVersionId: target.id, parentId: newParent, carriedFromId: r.id }).returning();
       idMap.set(r.id, copy!.id);
       await copyLevel(r.id, copy!.id);
     }

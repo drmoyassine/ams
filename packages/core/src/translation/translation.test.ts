@@ -238,7 +238,7 @@ describe('the catalogue, review and the language rules', () => {
     await expect(as('admin', (c) => updateInstitution(c, { defaultLocale: 'fr' }))).rejects.toThrow(/English or Arabic/);
     await expect(as('alo', (c) => updateInstitution(c, { secondaryLanguage: 'fr' }))).rejects.toThrow(ForbiddenError);
 
-    expect(await as('contrib', (c) => languageStateOf(c))).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: null, effectiveLocale: 'en' });
+    expect(await as('contrib', (c) => languageStateOf(c))).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: null, effectiveLocale: 'en', navCollapsed: false });
     expect(await as('contrib', (c) => updateMyPreferences(c, { uiLocale: 'ar' }))).toMatchObject({ uiLocale: 'ar', effectiveLocale: 'ar' });
     await expect(as('contrib', (c) => updateMyPreferences(c, { uiLocale: 'fr' }))).rejects.toThrow(/English or Arabic/);
     // Another person's choice is not touched by mine.

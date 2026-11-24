@@ -152,7 +152,8 @@ export type QualityTab = z.infer<typeof QualityTabSchema>;
 export const QualityTabsSchema = z.object({ frameworkId: z.string().nullable(), versionId: z.string().nullable(), tabs: z.array(QualityTabSchema) });
 export type QualityTabs = z.infer<typeof QualityTabsSchema>;
 export const QualityTabDetailSchema = z.object({
-  standard: QualityStandardNodeSchema,
+  // A recursive schema cannot be written into the OpenAPI document: the tree is described in QualityStandardNode and passed as is.
+  standard: z.any() as unknown as z.ZodType<QualityStandardNode>,
   /** The periods that can be shown, newest first (the current one first). */
   periods: z.array(z.object({ key: z.string(), label: z.string() })),
   submissions: z.array(SubmissionSummarySchema),

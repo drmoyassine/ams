@@ -10,13 +10,14 @@ export async function languageStateOf(ctx: Ctx): Promise<LanguageState> {
   const [inst] = await ctx.tx.select({ secondary: institution.secondaryLanguage, def: institution.defaultLocale }).from(institution).where(eq(institution.id, ctx.caller.institutionId));
   if (!inst) throw new NotFoundError('institution');
   let own: string | null = null;
+  let navCollapsed = false;
   if (ctx.caller.userId) {
-    const [u] = await ctx.tx.select({ ui: appUser.uiLocale }).from(appUser).where(eq(appUser.id, ctx.caller.userId));
-    own = u?.ui ?? null;
+    const [u] = await ctx.tx.select({ ui: appUser.uiLocale, nav: appUser.navCollapsed }).from(appUser).where(eq(appUser.id, ctx.caller.userId));
+    own = u?.ui ?? null; navCollapsed = u?.nav ?? false;
   }
   const effective = effectiveLocale(own, inst.def, inst.secondary);
   // A stored choice that no longer fits (the secondary language changed) is reported as not chosen.
-  return { secondaryLanguage: inst.secondary, defaultLocale: uiLocaleProblem(inst.def, inst.secondary) === null ? inst.def : 'en', uiLocale: own && uiLocaleProblem(own, inst.secondary) === null ? own : null, effectiveLocale: effective };
+  return { secondaryLanguage: inst.secondary, defaultLocale: uiLocaleProblem(inst.def, inst.secondary) === null ? inst.def : 'en', uiLocale: own && uiLocaleProblem(own, inst.secondary) === null ? own : null, effectiveLocale: effective, navCollapsed };
 }
 
 /**
@@ -24,12 +25,16 @@ export async function languageStateOf(ctx: Ctx): Promise<LanguageState> {
  * no person id to name. The language must be English or the institution's secondary language; null goes back to the
  * institution's default.
  */
-export async function updateMyPreferences(ctx: Ctx, patch: { uiLocale: string | null }): Promise<LanguageState> {
+export async function updateMyPreferences(ctx: Ctx, patch: { uiLocale?: string | null | undefined; navCollapsed?: boolean | undefined }): Promise<LanguageState> {
   assertHuman(ctx);
   const state = await languageStateOf(ctx);
-  const problem = uiLocaleProblem(patch.uiLocale, state.secondaryLanguage);
-  if (problem) throw new ValidationError(problem, [{ path: 'uiLocale', message: problem }]);
-  const [row] = await ctx.tx.update(appUser).set({ uiLocale: patch.uiLocale }).where(eq(appUser.id, ctx.caller.userId!)).returning({ id: appUser.id });
+  if (patch.uiLocale !== undefined) {
+    const problem = uiLocaleProblem(patch.uiLocale, state.secondaryLanguage);
+    if (problem) throw new ValidationError(problem, [{ path: 'uiLocale', message: problem }]);
+  }
+  const set = { ...(patch.uiLocale !== undefined ? { uiLocale: patch.uiLocale } : {}), ...(patch.navCollapsed !== undefined ? { navCollapsed: patch.navCollapsed } : {}) };
+  if (!Object.keys(set).length) return state;
+  const [row] = await ctx.tx.update(appUser).set(set).where(eq(appUser.id, ctx.caller.userId!)).returning({ id: appUser.id });
   if (!row) throw new NotFoundError('your user record');
   return languageStateOf(ctx);
 }

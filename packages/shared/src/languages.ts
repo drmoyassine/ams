@@ -109,10 +109,12 @@ export const LanguageStateSchema = z.object({
   uiLocale: z.string().nullable(),
   /** What applies to this person now. */
   effectiveLocale: z.string(),
+  /** The person keeps the left navigation collapsed to icons. */
+  navCollapsed: z.boolean().optional(),
 });
 export type LanguageState = z.infer<typeof LanguageStateSchema>;
 
-export const UpdateMyPreferencesSchema = z.object({ uiLocale: z.string().nullable() }).strict();
+export const UpdateMyPreferencesSchema = z.object({ uiLocale: z.string().nullable().optional(), navCollapsed: z.boolean().optional() }).strict();
 export type UpdateMyPreferences = z.infer<typeof UpdateMyPreferencesSchema>;
 
 // ---- Translation runs and the interface catalogue -------------------------------------------------------------------

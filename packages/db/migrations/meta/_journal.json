@@ -617,6 +617,20 @@
       "when": 1793721602000,
       "tag": "0089_quality_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793721603000,
+      "tag": "0090_requirement_renumbering",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1793721604000,
+      "tag": "0091_nav_collapsed",
+      "breakpoints": true
     }
   ]
 }

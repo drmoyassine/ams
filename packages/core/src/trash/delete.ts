@@ -12,6 +12,7 @@ import {
   deleteRows, deleteTables, emptyPayload, idsOf, readRows, readWhere, texts, uuids, type Row, type Tables, type TrashPayload, type TrashRef,
 } from './rows.js';
 import { insideWords, joinWords, reportUndo, restoreUndo, TRASH_RETENTION_DAYS, writeTrash, type NewTrashItem } from './store.js';
+import { renumberVersion } from '../framework/renumber.js';
 
 // ---- Shared helpers -----------------------------------------------------------------------------------------------
 
@@ -200,7 +201,11 @@ async function executeRequirements(ctx: Ctx, plan: RequirementPlan, opts: { grou
 export async function deleteMany(ctx: Ctx, input: { ids: string[] }): Promise<DeleteResult> {
   await require_(ctx, 'framework:write');
   assertHuman(ctx);
-  return executeRequirements(ctx, await planRequirements(ctx, input.ids));
+  const plan = await planRequirements(ctx, input.ids);
+  const result = await executeRequirements(ctx, plan);
+  // The siblings left close the gap (renumber.ts).
+  for (const v of new Set(plan.roots.map((r) => r.versionId))) await renumberVersion(ctx, v);
+  return result;
 }
 
 /** One requirement with its whole subtree (what the delete button does). */

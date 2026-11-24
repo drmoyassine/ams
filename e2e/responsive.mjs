@@ -1165,6 +1165,11 @@ function pagesFor(ids) {
       await dialog.waitFor();
       await dialog.getByLabel('Repeats').scrollIntoViewIfNeeded();
     } },
+    // The left menu collapsed to icons (the owner, 2026-11-23): last, then expanded again so a later run starts as the others do.
+    { name: 'nav-collapsed', path: '/evidence', action: async (page) => {
+      const toggle = page.getByRole('button', { name: 'Collapse the menu' });
+      if (await toggle.isVisible()) { await toggle.click(); await page.getByRole('button', { name: 'Expand the menu' }).waitFor(); await page.getByRole('link', { name: 'Settings' }).first().hover(); }
+    } },
   ].filter(Boolean).filter((p) => !onlyPages || onlyPages.includes(p.name) || (onlyPages.includes('languages') && LANGUAGE_PAGES.includes(p.name)));
 }
 

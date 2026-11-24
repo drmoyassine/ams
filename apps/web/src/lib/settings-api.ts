@@ -21,7 +21,7 @@ export function settingsApi(api: Api = defaultApi, fetcher: typeof fetch = fetch
     /** Before sign-in: the language setting and the sign-in page's own strings, and nothing else. */
     publicI18n: () => api.api.public.i18n.$get().then((r) => unwrap<PublicI18n>(r)),
     /** The signed-in person's own preferences (the interface language); null goes back to the institution's default. */
-    updateMyPreferences: (json: { uiLocale: string | null }) => api.api.me.preferences.$patch({ json }).then((r) => unwrap<LanguageState>(r)),
+    updateMyPreferences: (json: { uiLocale?: string | null; navCollapsed?: boolean }) => api.api.me.preferences.$patch({ json }).then((r) => unwrap<LanguageState>(r)),
     /** The secondary language's interface catalogue, merged over English by the app; null when that language is not the institution's. */
     i18nBundle: async (language: string): Promise<I18nBundle | null> => {
       const r = await api.api.i18n[':language'].$get({ param: { language } });

@@ -7,6 +7,7 @@ import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_, unreviewed } from './common.js';
 import { reportUndo } from '../trash/store.js';
+import { renumberVersion } from './renumber.js';
 
 const Text = z.string().trim().min(1);
 
@@ -163,6 +164,8 @@ export const levelNameAt = (labels: string[], depth: number) => labels[depth] ??
  * change of content, so review states are left alone. External standards keep the levels their source gives them.
  */
 export async function relabelByDepth(ctx: Ctx, versionId: string) {
+  // Every structural change ends here: the codes follow the places (renumber.ts), then the levels follow the depths.
+  await renumberVersion(ctx, versionId);
   if (!(await isInternalVersion(ctx, versionId))) return;
   const [v] = await ctx.tx.select({ levelLabels: frameworkVersion.levelLabels }).from(frameworkVersion).where(eq(frameworkVersion.id, versionId));
   const labels = (v?.levelLabels as string[] | undefined) ?? [];

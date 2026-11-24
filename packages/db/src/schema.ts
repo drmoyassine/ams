@@ -532,6 +532,8 @@ export const appUser = pgTable('app_user', {
   /** The person's own interface language: null (the institution's default), 'en' or the secondary language. A trigger checks it. */
   uiLocale: text('ui_locale'),
   active: boolean('active').notNull().default(true),
+  /** The person keeps the left navigation collapsed to icons. */
+  navCollapsed: boolean('nav_collapsed').notNull().default(false),
 }, (t) => [
   uniqueIndex('app_user_email_idx').on(t.institutionId, sql`lower(${t.email})`),
   uniqueIndex('app_user_auth_user_idx').on(t.authUserId),
@@ -673,6 +675,8 @@ export const frameworkVersion = pgTable('framework_version', {
   ...base(), ...tenant(),
   frameworkId: uuid('framework_id').notNull().references(() => framework.id),
   edition: text('edition').notNull(),
+  /** The version numbers its standards by place (1, 2, 2.1 …) after every move, addition or deletion (renumber.ts). */
+  autoNumber: boolean('auto_number').notNull().default(false),
   effectiveFrom: date('effective_from'),
   effectiveTo: date('effective_to'),
   status: text('status', { enum: FRAMEWORK_VERSION_STATUSES }).notNull().default('draft'),
@@ -780,6 +784,8 @@ export const requirement = pgTable('requirement', {
   ...base(), ...tenant(),
   frameworkVersionId: uuid('framework_version_id').notNull().references(() => frameworkVersion.id),
   parentId: uuid('parent_id').references((): AnyPgColumn => requirement.id),
+  /** The requirement of the earlier version this one was copied from: a publish renames what is attached to its old code. */
+  carriedFromId: uuid('carried_from_id').references((): AnyPgColumn => requirement.id, { onDelete: 'set null' }),
   code: text('code').notNull(),
   levelLabel: text('level_label').notNull(),
   title: text('title').notNull(),
