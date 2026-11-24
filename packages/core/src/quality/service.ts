@@ -5,6 +5,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   appUser, course, courseProgram, evidenceItem, evidenceLink, evidenceVersion, framework, institution, orgUnit, program, qualitySubmission,
   qualitySubmissionEvidence, qualitySubmissionStep, requirement, requirementApproval, requirementFrequency, roleAssignment,
+  requirementIcon,
 } from '@ams/db';
 import {
   ApprovalStepSchema, describeFrequency, FrequencyRuleSchema, SetRequirementApprovalSchema, SetRequirementFrequencySchema,
@@ -268,10 +269,12 @@ export async function qualityTabs(ctx: Ctx): Promise<QualityTabs> {
   }
   if (w.readAll) for (const n of w.nodes.filter((x) => !x.parentCode)) if (!tabs.has(n.code)) tabs.set(n.code, { roles: new Set(['read']), toSubmit: 0, toApprove: 0 });
   const order = new Map(w.nodes.map((n, i) => [n.code, i]));
+  const icons = new Map((await ctx.tx.select({ code: requirementIcon.code, icon: requirementIcon.icon }).from(requirementIcon)
+    .where(eq(requirementIcon.frameworkId, w.frameworkId))).map((r) => [r.code, r.icon]));
   return {
     frameworkId: w.frameworkId, versionId: w.versionId,
     tabs: [...tabs].sort(([a], [b]) => (order.get(a) ?? 0) - (order.get(b) ?? 0)).map(([code, t]) => ({
-      frameworkId: w.frameworkId, code, title: w.nodes.find((n) => n.code === code)?.title ?? code, roles: [...t.roles], toSubmit: t.toSubmit, toApprove: t.toApprove,
+      frameworkId: w.frameworkId, code, title: w.nodes.find((n) => n.code === code)?.title ?? code, roles: [...t.roles], toSubmit: t.toSubmit, toApprove: t.toApprove, icon: icons.get(code) ?? null,
     })),
   };
 }

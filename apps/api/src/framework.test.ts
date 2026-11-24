@@ -172,6 +172,20 @@ describe('framework API', () => {
     expect((await call('lead', 'GET', `/api/framework-versions/${vid}/validation`)).body.ok).toBe(false);
   });
 
+  it('keeps an icon for a top-level standard, by framework and code', async () => {
+    const created = await call('lead', 'POST', '/api/framework-versions/import', { file: file(), edition: 'icons' });
+    const vid = created.body.version.id as string;
+    const tree = (await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { id: string; parentId: string | null }[];
+    const top = tree.find((r) => !r.parentId)!; const sub = tree.find((r) => r.parentId)!;
+    expect((await call('viewer', 'PUT', `/api/requirements/${top.id}/icon`, { icon: 'Target' })).status).toBe(403);
+    expect((await call('lead', 'PUT', `/api/requirements/${top.id}/icon`, { icon: 'Target' })).body).toEqual({ requirementId: top.id, icon: 'Target' });
+    expect((await call('viewer', 'GET', `/api/framework-versions/${vid}/icons`)).body).toEqual({ [top.id]: 'Target' });
+    expect((await call('lead', 'PUT', `/api/requirements/${sub.id}/icon`, { icon: 'Target' })).status).toBe(400); // only a top-level standard
+    expect((await call('lead', 'PUT', `/api/requirements/${top.id}/icon`, { icon: '<svg>' })).status).toBe(400);
+    expect((await call('lead', 'PUT', `/api/requirements/${top.id}/icon`, { icon: null })).body.icon).toBeNull();
+    expect((await call('lead', 'GET', `/api/framework-versions/${vid}/icons`)).body).toEqual({});
+  });
+
   it('turns numbering by place on through the API, and an empty settings patch changes nothing', async () => {
     const created = await call('lead', 'POST', '/api/framework-versions/import', { file: file(), edition: 'numbered' });
     const vid = created.body.version.id as string;
@@ -180,7 +194,7 @@ describe('framework API', () => {
     expect(on.status).toBe(200);
     expect(on.body.autoNumber).toBe(true);
     const codes = ((await call('lead', 'GET', `/api/framework-versions/${vid}/requirements`)).body as { code: string }[]).map((r) => r.code);
-    expect(codes.every((c) => /^\d+(\.\d+)*$/.test(c))).toBe(true);
+    expect(codes).toEqual(['Standard 1', 'CFR 1.1']); // already in place; an accreditor's words and separators are kept
     const off = await call('lead', 'PATCH', `/api/framework-versions/${vid}/config`, { autoNumber: false });
     expect(off.body.autoNumber).toBe(false);
   });

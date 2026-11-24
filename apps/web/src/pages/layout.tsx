@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SyllabusAlertBar } from '../components/syllabus/syllabus-alert-bar';
-import { Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, BarChart3, FolderOpen, Inbox, LogOut, MailQuestion, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Award, BarChart3, FolderOpen, Inbox, LogOut, MailQuestion, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
+import { NavLabel } from '../components/side-panel';
 import { isReadableAccent } from '@ams/shared';
 import { AssistantLauncher } from '../components/assistant/launcher';
 import { ConfirmHost } from '../components/confirm-dialog';
@@ -19,33 +20,34 @@ import { can, useMe } from '../lib/me';
 import { useSettingsApi, type SettingsApi } from '../lib/settings-api';
 import { useMyNotifications, useMyRuns, useMyWork } from './cycles/my-work';
 
-const navLink = 'rounded-md px-3 py-2 text-sm hover:bg-background [&.active]:bg-background [&.active]:font-medium';
-/** A navigation entry with its icon. Collapsed, only the icon shows and the label is a tooltip on hover and focus (and the accessible name). */
-function NavLabel({ icon: Icon, label, collapsed }: { icon: LucideIcon; label: string; collapsed: boolean }) {
-  return (
-    <>
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className={collapsed ? 'sr-only' : 'min-w-0'}>{label}</span>
-      {collapsed && <span role="tooltip" aria-hidden="true" className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs text-background shadow group-hover:block group-focus-visible:block">{label}</span>}
-    </>
-  );
-}
-const itemClass = (collapsed: boolean) => `group relative flex items-center gap-2 ${navLink} ${collapsed ? 'justify-center px-0' : ''}`;
+/**
+ * A main-menu entry. In the sidebar (`edge`) it reaches the menu's edge and the active one runs into what it opens: the page, or the
+ * page's own side panel (Settings, Quality Management), whose colour it takes. In the drawer it is a plain rounded item.
+ */
+const itemClass = (collapsed: boolean, edge: Edge = 'none') => [
+  'group relative flex items-center gap-2 py-2 text-sm [&.active]:font-medium',
+  edge === 'none' ? 'rounded-md hover:bg-background [&.active]:bg-background' : 'rounded-s-md hover:bg-background/60',
+  edge === 'panel' ? '[&.active]:bg-panel' : edge === 'page' ? '[&.active]:bg-background' : '',
+  collapsed ? 'justify-center px-0' : 'px-3',
+].join(' ');
+type Edge = 'none' | 'page' | 'panel';
+/** The pages with their own side panel flush against the main menu (from `lg` up). */
+export const hasSidePanel = (path: string) => /^\/settings(\/|$)/.test(path) || path === '/quality-management';
 const NAV_KEY = 'ams.navCollapsed';
 const storedCollapsed = () => { try { return localStorage.getItem(NAV_KEY) === '1'; } catch { return false; } };
 
 /** "My requests (N)", only while someone has asked the signed-in person for evidence and it is still open. */
-export function MyRequestsLink({ api: override, enabled, collapsed = false }: { api?: EvidenceApi; enabled: boolean; collapsed?: boolean }) {
+export function MyRequestsLink({ api: override, enabled, collapsed = false, edge = 'none' }: { api?: EvidenceApi; enabled: boolean; collapsed?: boolean; edge?: Edge }) {
   const { t } = useTranslation();
   const api = useEvidenceApi(override);
   const mine = useQuery({ queryKey: ['evidence-requests', 'mine'], queryFn: () => api.requests(true), enabled, staleTime: 30_000 });
   const open = (mine.data ?? []).filter((r) => r.status === 'open').length;
   if (!enabled || open === 0) return null;
-  return <Link to="/requests" className={itemClass(collapsed)}><NavLabel icon={MailQuestion} label={t('nav.myRequests', { count: open })} collapsed={collapsed} /></Link>;
+  return <Link to="/requests" className={itemClass(collapsed, edge)}><NavLabel icon={MailQuestion} label={t('nav.myRequests', { count: open })} collapsed={collapsed} /></Link>;
 }
 
 /** "My work (N)": the stages I own, the approvals waiting for me in running cycles, the runs due of plans I own, the evidence runs I owe and my unread notifications; shown only while there are some. */
-export function MyWorkLink({ enabled, notify = false, api, evidence, collapsed = false }: { enabled: boolean; notify?: boolean; api?: CyclesApi; evidence?: EvidenceApi; collapsed?: boolean }) {
+export function MyWorkLink({ enabled, notify = false, api, evidence, collapsed = false, edge = 'none' }: { enabled: boolean; notify?: boolean; api?: CyclesApi; evidence?: EvidenceApi; collapsed?: boolean; edge?: Edge }) {
   const { t } = useTranslation();
   const mine = useMyWork(api ? { cycles: api } : {}, enabled);
   const notes = useMyNotifications(evidence ? { evidence } : {}, notify);
@@ -54,7 +56,7 @@ export function MyWorkLink({ enabled, notify = false, api, evidence, collapsed =
   const runs = useMyRuns(evidence ? { evidence } : {}, notify);
   const count = (mine.data?.stages.length ?? 0) + (mine.data?.approvals.length ?? 0) + (mine.data?.dueRuns?.length ?? 0) + unread + (runs.data?.length ?? 0);
   if ((!enabled && !notify) || count === 0) return null;
-  return <Link to="/quality-management/legacy" search={{ tab: 'my-work' }} className={itemClass(collapsed)}><NavLabel icon={Inbox} label={t('nav.myWork', { count })} collapsed={collapsed} /></Link>;
+  return <Link to="/quality-management/legacy" search={{ tab: 'my-work' }} className={itemClass(collapsed, edge)}><NavLabel icon={Inbox} label={t('nav.myWork', { count })} collapsed={collapsed} /></Link>;
 }
 
 /** Focusable elements inside the drawer, for keeping Tab inside it while it is open. */
@@ -79,6 +81,7 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
     return () => { root.style.removeProperty('--primary'); };
   }, [accent]);
   const canSettings = can(me.data, 'org:read');
+  const panelled = hasSidePanel(useRouterState({ select: (st) => st.location.pathname }));
   const nav = [
     { to: '/quality-management', label: t('nav.quality'), icon: ShieldCheck },
     { to: '/engagements', label: t('nav.engagements'), icon: Award },
@@ -135,20 +138,20 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
   }, [drawer]);
 
   /** The navigation itself: the same in the sidebar and in the drawer (rendered in one of them at a time; the drawer is never collapsed). */
-  const linksOf = (folded: boolean) => (
+  const linksOf = (folded: boolean, edge: Edge = 'none') => (
     <>
       <nav className="flex flex-col gap-1" aria-label={t('nav.main')}>
         {nav.map((n) => (
-          <Link key={n.to} to={n.to} className={itemClass(folded)}><NavLabel icon={n.icon} label={n.label} collapsed={folded} /></Link>
+          <Link key={n.to} to={n.to} className={itemClass(folded, edge)}><NavLabel icon={n.icon} label={n.label} collapsed={folded} /></Link>
         ))}
-        <MyWorkLink collapsed={folded} enabled={can(me.data, 'cycle:read')} notify={can(me.data, 'evidence:read')} {...(evidence ? { evidence } : {})} {...(cycles ? { api: cycles } : {})} />
-        <MyRequestsLink collapsed={folded} api={evidence} enabled={can(me.data, 'evidence:read')} />
+        <MyWorkLink collapsed={folded} edge={edge} enabled={can(me.data, 'cycle:read')} notify={can(me.data, 'evidence:read')} {...(evidence ? { evidence } : {})} {...(cycles ? { api: cycles } : {})} />
+        <MyRequestsLink collapsed={folded} edge={edge} api={evidence} enabled={can(me.data, 'evidence:read')} />
       </nav>
       {canSettings && (
-        <Link to="/settings" className={`mt-6 ${itemClass(folded)}`}><NavLabel icon={SettingsIcon} label={t('nav.settings')} collapsed={folded} /></Link>
+        <Link to="/settings" className={`mt-6 ${itemClass(folded, edge)}`}><NavLabel icon={SettingsIcon} label={t('nav.settings')} collapsed={folded} /></Link>
       )}
       <Button
-        variant="ghost" className={`${canSettings ? 'mt-1' : 'mt-6'} group relative w-full ${folded ? 'justify-center px-0' : 'justify-start gap-2 px-3'}`}
+        variant="ghost" className={`${canSettings ? 'mt-1' : 'mt-6'} group relative w-full ${edge === 'none' ? '' : 'rounded-e-none'} ${folded ? 'justify-center px-0' : 'justify-start gap-2 px-3'}`}
         onClick={async () => { close(); await authClient.signOut(); await navigate({ to: '/login' }); }}
       >
         <NavLabel icon={LogOut} label={t('signOut')} collapsed={folded} />
@@ -169,16 +172,16 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
         </div>
         <LanguageMenu api={api} className="shrink-0" />
       </header>
-      <aside className={`print:hidden hidden shrink-0 border-e border-border bg-muted lg:block ${collapsed ? 'w-16 p-2' : 'w-56 p-4'}`} data-collapsed={collapsed ? 'true' : 'false'}>
-        <div className={`mb-3 flex items-start gap-1 ${collapsed ? 'flex-col items-center' : ''}`}>
+      <aside className={`print:hidden hidden shrink-0 bg-muted shadow-[inset_-1px_0_0_var(--border)] rtl:shadow-[inset_1px_0_0_var(--border)] lg:block ${collapsed ? 'w-16 py-2 ps-2' : 'w-56 py-4 ps-4'}`} data-collapsed={collapsed ? 'true' : 'false'}>
+        <div className={`mb-3 flex items-start gap-1 ${collapsed ? 'flex-col items-center pe-2' : 'pe-4'}`}>
           {!collapsed && <p className="min-w-0 flex-1 break-words text-sm text-muted-foreground" data-testid="institution-name">{institutionName && <InstitutionMark name={institutionName} logoUrl={logoUrl} />}</p>}
           <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? 'Expand the menu' : 'Collapse the menu'} aria-pressed={collapsed} title={collapsed ? 'Expand the menu' : 'Collapse the menu'}
             className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground">
             {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4 rtl:rotate-180" /> : <PanelLeftClose aria-hidden="true" className="size-4 rtl:rotate-180" />}
           </button>
         </div>
-        {!collapsed && <LanguageMenu api={api} className="mb-6" />}
-        {!drawer && linksOf(collapsed)}
+        {!collapsed && <div className="pe-4"><LanguageMenu api={api} className="mb-6" /></div>}
+        {!drawer && linksOf(collapsed, panelled ? 'panel' : 'page')}
       </aside>
       {drawer && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -198,7 +201,7 @@ export function AppLayout({ api: override, evidence, assistant, cycles }: { api?
           </div>
         </div>
       )}
-      <main className="min-w-0 flex-1 print:p-0 p-4 sm:p-6 lg:p-8"><SyllabusAlertBar enabled={can(me.data, 'org:read')} /><Outlet /></main>
+      <main className={`min-w-0 flex-1 print:p-0 p-4 sm:p-6 ${panelled ? 'lg:p-0' : 'lg:p-8'}`}><SyllabusAlertBar enabled={can(me.data, 'org:read')} /><Outlet /></main>
       <ConfirmHost />
       <UndoToaster />
       {can(me.data, 'org:read') && <AssistantLauncher canManageAi={can(me.data, 'ai:manage')} {...(assistant ? { api: assistant } : {})} />}

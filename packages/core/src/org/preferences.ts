@@ -11,28 +11,32 @@ export async function languageStateOf(ctx: Ctx): Promise<LanguageState> {
   if (!inst) throw new NotFoundError('institution');
   let own: string | null = null;
   let navCollapsed = false;
+  let panelsCollapsed: Record<string, boolean> = {};
   if (ctx.caller.userId) {
-    const [u] = await ctx.tx.select({ ui: appUser.uiLocale, nav: appUser.navCollapsed }).from(appUser).where(eq(appUser.id, ctx.caller.userId));
-    own = u?.ui ?? null; navCollapsed = u?.nav ?? false;
+    const [u] = await ctx.tx.select({ ui: appUser.uiLocale, nav: appUser.navCollapsed, panels: appUser.panelsCollapsed }).from(appUser).where(eq(appUser.id, ctx.caller.userId));
+    own = u?.ui ?? null; navCollapsed = u?.nav ?? false; panelsCollapsed = u?.panels ?? {};
   }
   const effective = effectiveLocale(own, inst.def, inst.secondary);
   // A stored choice that no longer fits (the secondary language changed) is reported as not chosen.
-  return { secondaryLanguage: inst.secondary, defaultLocale: uiLocaleProblem(inst.def, inst.secondary) === null ? inst.def : 'en', uiLocale: own && uiLocaleProblem(own, inst.secondary) === null ? own : null, effectiveLocale: effective, navCollapsed };
+  return { secondaryLanguage: inst.secondary, defaultLocale: uiLocaleProblem(inst.def, inst.secondary) === null ? inst.def : 'en', uiLocale: own && uiLocaleProblem(own, inst.secondary) === null ? own : null, effectiveLocale: effective, navCollapsed, panelsCollapsed };
 }
 
 /**
- * The signed-in person's own preferences (today: the interface language). Only the caller's own row can be changed: there is
+ * The signed-in person's own preferences: the interface language, the main menu and the side panels collapsed or not. Only the caller's own row can be changed: there is
  * no person id to name. The language must be English or the institution's secondary language; null goes back to the
  * institution's default.
  */
-export async function updateMyPreferences(ctx: Ctx, patch: { uiLocale?: string | null | undefined; navCollapsed?: boolean | undefined }): Promise<LanguageState> {
+export async function updateMyPreferences(ctx: Ctx, patch: { uiLocale?: string | null | undefined; navCollapsed?: boolean | undefined; panelsCollapsed?: Record<string, boolean> | undefined }): Promise<LanguageState> {
   assertHuman(ctx);
   const state = await languageStateOf(ctx);
   if (patch.uiLocale !== undefined) {
     const problem = uiLocaleProblem(patch.uiLocale, state.secondaryLanguage);
     if (problem) throw new ValidationError(problem, [{ path: 'uiLocale', message: problem }]);
   }
-  const set = { ...(patch.uiLocale !== undefined ? { uiLocale: patch.uiLocale } : {}), ...(patch.navCollapsed !== undefined ? { navCollapsed: patch.navCollapsed } : {}) };
+  const set = {
+    ...(patch.uiLocale !== undefined ? { uiLocale: patch.uiLocale } : {}), ...(patch.navCollapsed !== undefined ? { navCollapsed: patch.navCollapsed } : {}),
+    ...(patch.panelsCollapsed !== undefined && Object.keys(patch.panelsCollapsed).length ? { panelsCollapsed: { ...(state.panelsCollapsed ?? {}), ...patch.panelsCollapsed } } : {}),
+  };
   if (!Object.keys(set).length) return state;
   const [row] = await ctx.tx.update(appUser).set(set).where(eq(appUser.id, ctx.caller.userId!)).returning({ id: appUser.id });
   if (!row) throw new NotFoundError('your user record');

@@ -631,6 +631,13 @@
       "when": 1793721604000,
       "tag": "0091_nav_collapsed",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1793721664000,
+      "tag": "0092_standard_icons_panels",
+      "breakpoints": true
     }
   ]
 }

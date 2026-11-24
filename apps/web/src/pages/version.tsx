@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '../components/accordion';
 import { VersionStatusBadge } from '../components/badges';
+import { Breadcrumb } from '../components/breadcrumb';
 import { ContentText } from '../components/content-text';
 import { AccreditorMark } from '../components/standard-card';
 import { useConfirm } from '../components/confirm-dialog';
@@ -177,11 +178,9 @@ export function VersionPage({ versionId, api: apiProp, glossary, evidence, onOpe
 
   return (
     <section className="space-y-4">
-      <p className="text-sm">
-        {internal
-          ? <Link to="/settings/quality-framework" className="underline">Internal Quality Framework</Link>
-          : <><Link to="/settings/external-standards" className="underline">External Standards</Link>{f && <span className="text-muted-foreground"> / {f.accreditorShortName}</span>}</>}
-      </p>
+      <Breadcrumb items={internal
+        ? [{ label: 'Settings', href: '/settings' }, { label: 'Internal Quality Framework', href: '/settings/quality-framework' }, { label: versionLabel(version.edition) }]
+        : [{ label: 'Settings', href: '/settings' }, { label: 'External Standards', href: '/settings/external-standards' }, { label: f ? `${f.accreditorShortName} · ${versionLabel(version.edition)}` : versionLabel(version.edition) }]} />
       {/* Phones: logo + title + accreditor, then the version row, then the actions (end-aligned) — nothing squeezes the title. */}
       <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-4">
         <div className="min-w-0 flex-1 space-y-2">

@@ -13,6 +13,7 @@ import { RequirementsLayout } from '../../components/requirements-layout';
 import { useConfirm } from '../../components/confirm-dialog';
 import { useRequirementContexts } from '../version/requirement-hover';
 import { Dialog } from '../../components/dialog';
+import { IconPicker, StandardIcon } from '../../components/standard-icons';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { NodeAssignment } from '@ams/shared';
@@ -93,6 +94,8 @@ interface ItemProps {
   api: FrameworkApi; evidence: EvidenceApi; r: Requirement; all: Requirement[]; me: Me | undefined; editable: boolean;
   open: Set<string>; toggle: (id: string) => void; act: (fn: () => Promise<unknown>) => Promise<unknown>;
   onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
+  /** Choose the icon of a top-level standard (any version: the icon is kept by framework and code); the icons by requirement id. */
+  onIcon: (r: Requirement) => void; icons: Record<string, string>;
   /** Assign scope, Assign champion (those the person may use), and what this item's hover card shows of them. */
   opsItems: (r: Requirement) => MenuItem[]; assignment: NodeAssignment | undefined;
 }
@@ -113,11 +116,13 @@ function Item(p: ItemProps) {
     ...(can(me, 'evidence:write') ? [{ label: 'Link evidence', onSelect: () => p.onLink(r) }] : []),
     ...p.opsItems(r),
     ...(editable && !r.parentId ? [{ label: 'Add sub-standard', onSelect: () => p.onAddChild(r) }] : []),
+    ...(can(me, 'framework:write') && !r.parentId ? [{ label: 'Choose icon', onSelect: () => p.onIcon(r) }] : []),
     ...(editable ? [{ label: 'Edit', onSelect: () => p.onEdit(r) }] : []),
     ...(editable ? [{ label: 'Delete', onSelect: () => void act(() => confirmAndDelete(api, confirm, [r.id], `Delete ${tag(r)}?`)) }] : []),
   ];
   return (
-    <AccordionCard label={tag(r)} tag={tag(r)} title={r.title} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}
+    <AccordionCard label={tag(r)} tag={tag(r)} title={r.title}
+      {...(!r.parentId && p.icons[r.id] ? { lead: <StandardIcon name={p.icons[r.id]} code={r.code} className="size-5 text-muted-foreground" /> } : {})} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}
       gutter={<RowGutter id={r.id} />} toggleProps={focus}
       open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tag(r)}`} menu={menu}
       meta={children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} {r.parentId ? 'item' : 'sub-standard'}{children.length === 1 ? '' : 's'}</span> : undefined}
@@ -167,11 +172,12 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
   const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsedSet] = useState<ReadonlySet<string>>(new Set());
-  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'add'; parent: Requirement | null } | { kind: 'edit'; item: Requirement } | { kind: 'link'; item: Requirement } | { kind: 'icon'; item: Requirement } | null>(null);
   const [ownDoc, setOwnDoc] = useState<string | null>(null);
   const docFilter = docFilterProp !== undefined ? docFilterProp : ownDoc;
   const setDocFilter = (v: string | null) => { setOwnDoc(v); onDocFilter?.(v); };
   const rowsQuery = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
+  const icons = useQuery({ queryKey: ['standard-icons', version.id], queryFn: () => api.icons(version.id) });
   // Which items each import created, by document; the picker appears once an import has applied anything.
   const imported = useQuery({ queryKey: ['imported-items', version.id], queryFn: () => api.importedItems(version.id) });
   const importedMap = imported.data ?? {};
@@ -212,6 +218,8 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
     onAddChild: (parent: Requirement) => setDialog({ kind: 'add', parent }),
     onEdit: (item: Requirement) => setDialog({ kind: 'edit', item }),
     onLink: (item: Requirement) => setDialog({ kind: 'link', item }),
+    onIcon: (item: Requirement) => setDialog({ kind: 'icon', item }),
+    icons: icons.data ?? {},
     opsItems: ops.items,
   };
   /** Saves through the API; on success opens what was saved (and its standard) and closes the dialog. */
@@ -283,6 +291,14 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
             setOpen((s) => new Set([...s, id]));
             await qc.invalidateQueries({ queryKey: ['internal-evidence', id] });
             await qc.invalidateQueries({ queryKey: ['evidence'] });
+          }} />
+      )}
+      {dialog?.kind === 'icon' && (
+        <IconPicker title={`Icon for ${tag(dialog.item)} · ${dialog.item.title}`} value={icons.data?.[dialog.item.id] ?? null} onClose={close}
+          onPick={async (name) => {
+            await run(() => api.setIcon(dialog.item.id, name));
+            await qc.invalidateQueries({ queryKey: ['standard-icons', version.id] });
+            await qc.invalidateQueries({ queryKey: ['quality-tabs'] });
           }} />
       )}
       {ops.dialogs}

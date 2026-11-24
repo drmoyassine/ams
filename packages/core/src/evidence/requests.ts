@@ -3,8 +3,9 @@
 // one-time link. A file becomes evidence with a proposed link, which a reviewer approves or rejects; a form answer
 // becomes a response, which joins the data when someone adds it.
 import { createHash, randomBytes } from 'node:crypto';
+import { attachmentCode } from '../framework/renumber.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { appUser, evidenceCollectionRun, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, frameworkVersion, institution } from '@ams/db';
+import { appUser, evidenceCollectionRun, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, institution } from '@ams/db';
 import {
   CreateEvidenceRequestSchema, CreateFormRequestSchema, REQUEST_LINK_DAYS,
   type CreateEvidenceRequest, type CreateFormRequest, type EvidenceRequest, type IssuedRequest, type PublicForm, type RequestByLink, type SubmitResponse,
@@ -66,8 +67,7 @@ async function getRequestRow(ctx: Ctx, id: string) {
 async function internalTarget(ctx: Ctx, internalRequirementId: string) {
   const req = await getRequirement(ctx, internalRequirementId);
   if (!(await isInternalVersion(ctx, req.frameworkVersionId))) throw new ValidationError('evidence is requested for items of the internal quality framework');
-  const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, req.frameworkVersionId));
-  return { frameworkId: v!.frameworkId, code: req.code };
+  return attachmentCode(ctx, req.id);
 }
 
 /**

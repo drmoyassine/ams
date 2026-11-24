@@ -193,7 +193,7 @@ describe('quality framework settings', () => {
     const { versions } = await api.qualityFramework();
     render(wrap(<VersionPage versionId={versions[0]!.id} api={api} onOpenVersion={() => undefined} />));
     expect(await screen.findByRole('heading', { level: 1, name: 'Internal Quality Framework' })).toBeTruthy();
-    expect(screen.getByText('Version 1')).toBeTruthy();
+    expect(screen.getAllByText('Version 1')).toHaveLength(2); // the version row, and the breadcrumb's last step
     expect(screen.queryAllByRole('tab')).toEqual([]); // only its requirements; its terms and publishing live on its own Settings page
     expect(screen.getByRole('link', { name: 'Internal Quality Framework' })).toBeTruthy();
   });

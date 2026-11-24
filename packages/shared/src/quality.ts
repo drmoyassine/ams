@@ -147,6 +147,8 @@ export const QualityTabSchema = z.object({
   /** Why the person sees it: they submit, approve, or (administrators and the QA office) read it. */
   roles: z.array(z.enum(['submit', 'approve', 'read'])),
   toSubmit: z.number(), toApprove: z.number(),
+  /** The icon chosen for the standard (a lucide icon name), or null. */
+  icon: z.string().nullable().optional(),
 });
 export type QualityTab = z.infer<typeof QualityTabSchema>;
 export const QualityTabsSchema = z.object({ frameworkId: z.string().nullable(), versionId: z.string().nullable(), tabs: z.array(QualityTabSchema) });
@@ -168,3 +170,7 @@ export type OpenSubmission = z.infer<typeof OpenSubmissionSchema>;
 export const DecideSubmissionSchema = z.object({ decision: z.enum(['approved', 'returned']), note: z.string().trim().max(4000).optional() }).strict()
   .refine((x) => x.decision !== 'returned' || !!x.note, { message: 'say what to change when returning it' });
 export type DecideSubmission = z.infer<typeof DecideSubmissionSchema>;
+
+/** A standard's icon: a lucide icon name (letters and digits), or null to clear it. */
+export const SetStandardIconSchema = z.object({ icon: z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,39}$/).nullable() }).strict();
+export type SetStandardIcon = z.infer<typeof SetStandardIconSchema>;

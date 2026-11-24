@@ -8,7 +8,8 @@ import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SUBMISSION_STATUS_LABEL, type QualityStandardNode, type SubmissionDetail, type SubmissionSummary } from '@ams/shared';
 import { ContentText } from '../../components/content-text';
-import { PageHeader } from '../../components/page-header';
+import { SidePanel } from '../../components/side-panel';
+import { StandardIcon } from '../../components/standard-icons';
 import { Button } from '../../components/ui/button';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
 import { useQualityApi, type QualityApi } from '../../lib/quality-api';
@@ -40,35 +41,36 @@ export function QualityPage({ api: override, evidence, tab, period, open, onNavi
   const list = tabs.data?.tabs ?? [];
   const current = list.find((t) => t.code === state.tab) ?? list[0];
   return (
-    <div className="space-y-4">
-      <PageHeader title="Quality Management" intro="The IQF standards you submit or approve evidence for, each on the frequency set for it." />
-      {tabs.isError && <p role="alert" className="text-sm text-red-700">Could not load your standards.</p>}
-      {tabs.data && !list.length && (
-        <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-testid="no-standards">
-          No IQF standard is assigned to you yet. A standard appears here when its scope covers a course, program or unit you coordinate or head, or when you approve for it.
+    <SidePanel panelKey="quality" title="Quality Management" label="IQF standards" tabs
+      breadcrumb={current ? [{ label: 'Quality Management', href: '/quality-management' }, { label: `${current.code} ${current.title}` }] : undefined}
+      items={list.map((t) => ({
+        key: t.code, label: `${t.code} ${t.title}`, active: current?.code === t.code, onSelect: () => go({ tab: t.code }),
+        iconNode: <StandardIcon name={t.icon} code={t.code} />,
+        ...(t.toSubmit + t.toApprove > 0 ? { badge: (
+          <span className="flex gap-0.5">
+            {t.toSubmit > 0 && <span className="rounded-full bg-sky-100 px-1.5 text-xs text-sky-900" aria-label={`${t.toSubmit} to submit`}>{t.toSubmit}</span>}
+            {t.toApprove > 0 && <span className="rounded-full bg-violet-100 px-1.5 text-xs text-violet-900" aria-label={`${t.toApprove} to approve`}>{t.toApprove}</span>}
+          </span>
+        ) } : {}),
+      }))}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">The IQF standards you submit or approve evidence for, each on the frequency set for it.</p>
+        {tabs.isError && <p role="alert" className="text-sm text-red-700">Could not load your standards.</p>}
+        {tabs.data && !list.length && (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-testid="no-standards">
+            No IQF standard is assigned to you yet. A standard appears here when its scope covers a course, program or unit you coordinate or head, or when you approve for it.
+          </p>
+        )}
+        {current && (
+          <StandardTab key={current.code} api={api} {...(evidence ? { evidence } : {})} code={current.code} readOnly={current.roles.length === 1 && current.roles[0] === 'read'}
+            period={state.period} open={state.open}
+            onPeriod={(p) => go({ tab: current.code, period: p })} onOpen={(o) => go({ tab: current.code, period: state.period, open: o })} />
+        )}
+        <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+          The earlier screens (Standards, Cycles, Plans, Programs, Syllabi, My work) are kept at <Link to="/quality-management/legacy" className="underline underline-offset-2">Quality Management: earlier screens</Link> until it is decided where they go.
         </p>
-      )}
-      {list.length > 0 && (
-        <div role="tablist" aria-label="IQF standards" className="flex gap-1 overflow-x-auto border-b border-border">
-          {list.map((t) => (
-            <button key={t.code} type="button" role="tab" aria-selected={current?.code === t.code} onClick={() => go({ tab: t.code })}
-              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${current?.code === t.code ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-              <span className="font-mono text-xs">{t.code}</span> <ContentText>{t.title}</ContentText>
-              {t.toSubmit > 0 && <span className="rounded-full bg-sky-100 px-1.5 text-xs text-sky-900" aria-label={`${t.toSubmit} to submit`}>{t.toSubmit}</span>}
-              {t.toApprove > 0 && <span className="rounded-full bg-violet-100 px-1.5 text-xs text-violet-900" aria-label={`${t.toApprove} to approve`}>{t.toApprove}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {current && (
-        <StandardTab key={current.code} api={api} {...(evidence ? { evidence } : {})} code={current.code} readOnly={current.roles.length === 1 && current.roles[0] === 'read'}
-          period={state.period} open={state.open}
-          onPeriod={(p) => go({ tab: current.code, period: p })} onOpen={(o) => go({ tab: current.code, period: state.period, open: o })} />
-      )}
-      <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-        The earlier screens (Standards, Cycles, Plans, Programs, Syllabi, My work) are kept at <Link to="/quality-management/legacy" className="underline underline-offset-2">Quality Management: earlier screens</Link> until it is decided where they go.
-      </p>
-    </div>
+      </div>
+    </SidePanel>
   );
 }
 

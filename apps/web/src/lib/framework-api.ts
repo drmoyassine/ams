@@ -124,6 +124,9 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     createRequirement: (versionId: string, json: { code: string; levelLabel: string; title: string; parentId?: string | null; officialText?: string; isAssessable?: boolean; displayOrder?: number; language?: string }) =>
       v[':id'].requirements.$post({ param: { id: versionId }, json }).then((r) => unwrap<Requirement>(r)),
     requirement: (id: string) => api.api.requirements[':id'].$get({ param: { id } }).then((r) => unwrap<RequirementDetail>(r)),
+    /** The icons of a version's top-level standards, by requirement id (Quality Management's side panel shows them). */
+    icons: (versionId: string) => v[':id'].icons.$get({ param: { id: versionId } }).then((r) => unwrap<Record<string, string>>(r)),
+    setIcon: (requirementId: string, icon: string | null) => api.api.requirements[':id'].icon.$put({ param: { id: requirementId }, json: { icon } }).then((r) => unwrap<{ requirementId: string; icon: string | null }>(r)),
     patchRequirement: (id: string, json: { code?: string; levelLabel?: string; title?: string; officialText?: string; translationEn?: string; isAssessable?: boolean; language?: string }) =>
       api.api.requirements[':id'].$patch({ param: { id }, json }).then((r) => unwrap<Requirement>(r)),
     moveRequirement: (id: string, json: { parentId: string | null; displayOrder?: number }) =>

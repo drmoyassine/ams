@@ -37,10 +37,10 @@ describe('preferences: /api/me/preferences', () => {
   it('needs a signed-in person and changes only their own row', async () => {
     expect((await call(null, 'PATCH', '/api/me/preferences', { uiLocale: 'ar' })).status).toBe(401);
     const me = await json(await call('viewer', 'GET', '/api/me'));
-    expect(me.language).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: null, effectiveLocale: 'en', navCollapsed: false });
+    expect(me.language).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: null, effectiveLocale: 'en', navCollapsed: false, panelsCollapsed: {} });
     const r = await call('viewer', 'PATCH', '/api/me/preferences', { uiLocale: 'ar' });
     expect(r.status).toBe(200);
-    expect(await json(r)).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: 'ar', effectiveLocale: 'ar', navCollapsed: false });
+    expect(await json(r)).toEqual({ secondaryLanguage: 'ar', defaultLocale: 'en', uiLocale: 'ar', effectiveLocale: 'ar', navCollapsed: false, panelsCollapsed: {} });
     expect((await db.su.query(`select ui_locale from app_user where id = $1`, [ids.viewer])).rows[0].ui_locale).toBe('ar');
     // Nobody else changed; the body cannot name another person.
     expect((await db.su.query(`select count(*)::int as n from app_user where ui_locale is not null`)).rows[0].n).toBe(1);
@@ -55,6 +55,11 @@ describe('preferences: /api/me/preferences', () => {
     expect((await call('lead', 'PATCH', '/api/me/preferences', {})).status).toBe(200);
     expect(await json(await call('lead', 'PATCH', '/api/me/preferences', { navCollapsed: true }))).toMatchObject({ navCollapsed: true });
     expect((await call('lead', 'PATCH', '/api/me/preferences', { navCollapsed: 'yes' })).status).toBe(400);
+    // Side panels are saved one by one, apart from the main menu: naming one leaves the others as they were.
+    expect(await json(await call('lead', 'PATCH', '/api/me/preferences', { panelsCollapsed: { settings: true } }))).toMatchObject({ navCollapsed: true, panelsCollapsed: { settings: true } });
+    expect(await json(await call('lead', 'PATCH', '/api/me/preferences', { panelsCollapsed: { quality: true } }))).toMatchObject({ panelsCollapsed: { settings: true, quality: true } });
+    expect(await json(await call('lead', 'PATCH', '/api/me/preferences', { panelsCollapsed: { settings: false } }))).toMatchObject({ panelsCollapsed: { settings: false, quality: true } });
+    expect((await call('lead', 'PATCH', '/api/me/preferences', { panelsCollapsed: { 'Not A Key': true } })).status).toBe(400);
     expect((await call('viewer', 'PATCH', '/api/me/preferences', { uiLocale: null })).status).toBe(200);
     // An external reviewer is a signed-in person too.
     expect((await call('ext', 'PATCH', '/api/me/preferences', { uiLocale: 'en' })).status).toBe(200);

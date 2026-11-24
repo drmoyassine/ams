@@ -141,7 +141,7 @@ describe('Quality Management -> Standards', () => {
     await user.click(await screen.findByRole('button', { name: 'Start a new version' }));
     await waitFor(async () => expect((await screen.findByLabelText('Version') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('2 · Draft'));
     await user.click(await actions('3.0'));
-    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Set frequency', 'Approval steps', 'Add sub-standard', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Link evidence', 'Assign scope', 'Assign champion', 'Set frequency', 'Approval steps', 'Add sub-standard', 'Choose icon', 'Edit', 'Delete']);
     expect(screen.queryByRole('menuitem', { name: 'Request evidence' })).toBeNull();
   });
 });

@@ -2,6 +2,7 @@
 // attached to items of the institution's own framework, and each engagement requirement mapped to those items is
 // offered it as a suggestion; linking it to the requirement is still a decision with its own reason and review.
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { attachmentCode } from '../framework/renumber.js';
 import {
   accreditor, appUser, datasetResponse, datasetSpec, engagement, engagementRequirement, evidenceCollectionRun, evidenceItem, evidenceLink, evidenceRequest, evidenceVersion, framework,
   frameworkVersion, requirement, requirementMapping,
@@ -460,12 +461,12 @@ export async function linkToRequirement(ctx: Ctx, requirementId: string, input: 
   await assertPermitted(ctx, 'evidence:write', any);
   const d = LinkEvidenceSchema.parse(input);
   const req = await getRequirement(ctx, requirementId);
-  const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, req.frameworkVersionId));
+  const at = await attachmentCode(ctx, req.id);
   await getVersionRow(ctx, d.evidenceVersionId);
   const [dup] = await ctx.tx.select({ id: evidenceLink.id }).from(evidenceLink).where(and(
-    eq(evidenceLink.evidenceVersionId, d.evidenceVersionId), eq(evidenceLink.internalFrameworkId, v!.frameworkId), eq(evidenceLink.internalCode, req.code)));
+    eq(evidenceLink.evidenceVersionId, d.evidenceVersionId), eq(evidenceLink.internalFrameworkId, at.frameworkId), eq(evidenceLink.internalCode, at.code)));
   if (dup) throw new ConflictError('this evidence version is already attached here');
-  const link = await createLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: v!.frameworkId, internalCode: req.code, rationale: d.rationale });
+  const link = await createLink(ctx, { evidenceVersionId: d.evidenceVersionId, internalFrameworkId: at.frameworkId, internalCode: at.code, rationale: d.rationale });
   reportUndo(ctx, { label: linkedLabel(link, req.code), method: 'DELETE', path: `/api/evidence-links/${link.id}` });
   return link;
 }
@@ -576,9 +577,9 @@ export async function linksForEngagementRequirement(ctx: Ctx, engagementRequirem
 export async function linksForInternal(ctx: Ctx, internalRequirementId: string): Promise<EvidenceLink[]> {
   await assertPermitted(ctx, 'evidence:read', any);
   const req = await getRequirement(ctx, internalRequirementId);
-  const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, req.frameworkVersionId));
+  const at = await attachmentCode(ctx, req.id);
   const rows = await ctx.tx.select().from(evidenceLink)
-    .where(and(eq(evidenceLink.internalFrameworkId, v!.frameworkId), eq(evidenceLink.internalCode, req.code), isNull(evidenceLink.engagementRequirementId)))
+    .where(and(eq(evidenceLink.internalFrameworkId, at.frameworkId), eq(evidenceLink.internalCode, at.code), isNull(evidenceLink.engagementRequirementId)))
     .orderBy(desc(evidenceLink.createdAt));
   return describeLinks(ctx, rows);
 }

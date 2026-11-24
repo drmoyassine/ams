@@ -2,9 +2,9 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
   MergeRequirementSchema, SplitRequirementSchema, listReviewItems, mergeRequirement, splitRequirement,
-  MoveManyInputSchema, indentRequirement, moveMany, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
+  MoveManyInputSchema, indentRequirement, setStandardIcon, versionIcons, moveMany, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
 } from '@ams/core';
-import { MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
+import { SetStandardIconSchema, MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -30,6 +30,18 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       request: { params: idParam, body: { required: true, ...json(CreateRequirementSchema.omit({ versionId: true })) } },
       responses: { 201: { description: 'Created', ...json(RequirementSchema) }, ...errors },
     }), async (c) => c.json(toDto(RequirementSchema, await createRequirement(c.get('ctx'), { ...c.req.valid('json'), versionId: c.req.valid('param').id })), 201))
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/icons', access: requires('framework:read'), tags: tag,
+      request: { params: idParam },
+      responses: { 200: { description: 'The icons of the top-level standards, by requirement id', ...json(z.record(z.string(), z.string())) }, ...errors },
+    }), async (c) => c.json(await versionIcons(c.get('ctx'), c.req.valid('param').id), 200))
+
+    .openapi(secured(registry, deps, {
+      method: 'put', path: '/api/requirements/{id}/icon', access: requires('framework:write'), tags: tag,
+      request: { params: idParam, body: { required: true, ...json(SetStandardIconSchema) } },
+      responses: { 200: { description: 'The icon of a top-level standard (any version: it is kept by framework and code)', ...json(z.object({ requirementId: z.string(), icon: z.string().nullable() })) }, ...errors },
+    }), async (c) => c.json(await setStandardIcon(c.get('ctx'), c.req.valid('param').id, c.req.valid('json')), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/requirements/{id}', access: requires('framework:read'), tags: tag,

@@ -5,6 +5,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CYCLE_ANCHOR_KINDS, type CycleAnchorKind, type CycleTemplate } from '@ams/shared';
+import { Breadcrumb } from '../../../components/breadcrumb';
 import { confirmDialog } from '../../../components/confirm-dialog';
 import { ReadOnlyNote } from '../../../components/read-only-note';
 import { Button } from '../../../components/ui/button';
@@ -152,6 +153,7 @@ function Editor({ template, canManage, api, notice, setNotice, onChanged, onBack
   return (
     <div className="space-y-5" data-testid="template-editor">
       <div>
+        <Breadcrumb items={[{ label: t('nav.settings'), href: '/settings' }, { label: t('settings.qm'), href: '/settings/quality-management' }, { label: template.name }]} />
         <Button type="button" variant="ghost" className="-ms-3 mb-1" onClick={() => void onBackClick()}>← {t('qmt.back')}</Button>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 break-words text-xl font-semibold" dir="auto">{template.name}</h2>

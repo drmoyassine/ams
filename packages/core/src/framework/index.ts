@@ -18,3 +18,4 @@ export * from './wording-proposals.js';
 export * from './accreditor-logo.js';
 export { deleteRequirement } from '../trash/delete.js';
 export * from './move-many.js';
+export * from './icons.js';

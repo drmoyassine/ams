@@ -111,10 +111,18 @@ export const LanguageStateSchema = z.object({
   effectiveLocale: z.string(),
   /** The person keeps the left navigation collapsed to icons. */
   navCollapsed: z.boolean().optional(),
+  /** The side panels (by key: settings, quality …) the person keeps collapsed to icons; a panel not named is expanded. */
+  panelsCollapsed: z.record(z.string(), z.boolean()).optional(),
 });
 export type LanguageState = z.infer<typeof LanguageStateSchema>;
 
-export const UpdateMyPreferencesSchema = z.object({ uiLocale: z.string().nullable().optional(), navCollapsed: z.boolean().optional() }).strict();
+/** A side panel's key: lower-case letters and dashes. */
+export const PanelKeySchema = z.string().regex(/^[a-z][a-z-]{0,39}$/);
+export const UpdateMyPreferencesSchema = z.object({
+  uiLocale: z.string().nullable().optional(), navCollapsed: z.boolean().optional(),
+  /** Merged into the stored panels: only the panels named change. */
+  panelsCollapsed: z.record(PanelKeySchema, z.boolean()).refine((r) => Object.keys(r).length <= 20, 'at most 20 panels at a time').optional(),
+}).strict();
 export type UpdateMyPreferences = z.infer<typeof UpdateMyPreferencesSchema>;
 
 // ---- Translation runs and the interface catalogue -------------------------------------------------------------------

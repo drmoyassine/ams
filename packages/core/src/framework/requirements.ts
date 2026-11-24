@@ -7,7 +7,7 @@ import { ConflictError, ValidationError } from '../ctx.js';
 import { guardIntegrity } from './errors.js';
 import { assertHuman, getDraftVersion, getRequirement, getVersion, isInternalVersion, require_, unreviewed } from './common.js';
 import { reportUndo } from '../trash/store.js';
-import { renumberVersion } from './renumber.js';
+import { followNewStandards, renumberVersion } from './renumber.js';
 
 const Text = z.string().trim().min(1);
 
@@ -90,6 +90,11 @@ export async function updateRequirement(ctx: Ctx, id: string, patch: z.input<typ
   if (data.displayOrder !== undefined) { set.displayOrder = data.displayOrder; before.displayOrder = current.displayOrder; }
   if (data.weight !== undefined) { set.weight = data.weight === null ? null : String(data.weight); before.weight = current.weight === null ? null : Number(current.weight); }
   const [row] = await guardIntegrity(() => ctx.tx.update(requirement).set(set).where(eq(requirement.id, id)).returning());
+  // A standard added in this draft takes its attachments to its new code (one carried from a published version does at publish).
+  if (data.code !== undefined && data.code !== current.code && !row!.carriedFromId) {
+    const [v] = await ctx.tx.select({ frameworkId: frameworkVersion.frameworkId }).from(frameworkVersion).where(eq(frameworkVersion.id, current.frameworkVersionId));
+    await followNewStandards(ctx, current.frameworkVersionId, v!.frameworkId, [{ id, old: current.code, next: data.code }]);
+  }
   // Undo = write the earlier values back (the requirement returns to review either way, as any edit does).
   reportUndo(ctx, { label: `Edited ${current.code}`, method: 'PATCH', path: `/api/requirements/${id}`, body: before });
   return row!;

@@ -534,6 +534,7 @@ export const appUser = pgTable('app_user', {
   active: boolean('active').notNull().default(true),
   /** The person keeps the left navigation collapsed to icons. */
   navCollapsed: boolean('nav_collapsed').notNull().default(false),
+  panelsCollapsed: jsonb('panels_collapsed').$type<Record<string, boolean>>().notNull().default({}),
 }, (t) => [
   uniqueIndex('app_user_email_idx').on(t.institutionId, sql`lower(${t.email})`),
   uniqueIndex('app_user_auth_user_idx').on(t.authUserId),
@@ -1203,6 +1204,14 @@ export const requirementFrequency = pgTable('requirement_frequency', {
   rule: jsonb('rule'),
   optOut: boolean('opt_out').notNull().default(false),
 }, (t) => [uniqueIndex('requirement_frequency_idx').on(t.institutionId, t.frameworkId, t.code)]);
+
+/** The icon a standard shows in Quality Management (a lucide icon name), by framework + code: it follows renumbering. */
+export const requirementIcon = pgTable('requirement_icon', {
+  ...base(), ...tenant(),
+  frameworkId: uuid('framework_id').notNull().references(() => framework.id),
+  code: text('code').notNull(),
+  icon: text('icon').notNull(),
+}, (t) => [uniqueIndex('requirement_icon_idx').on(t.institutionId, t.frameworkId, t.code)]);
 
 /** The approval steps of a standard's submissions, before the QA office and the champion (DEC-048). */
 export const requirementApproval = pgTable('requirement_approval', {
