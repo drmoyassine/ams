@@ -91,7 +91,7 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
       {/* 1. The assessments */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[30rem] table-fixed border-collapse text-sm" aria-label="Assessments">
-          <thead><tr><th className={`${th} w-8`} /><th className={`${th} w-28`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-14`}>Week</th><th className={`${th} w-16`}>Weight %</th><th className={`${th} w-7`} /></tr></thead>
+          <thead><tr><th className={`${th} w-8`} /><th className={`${th} w-32`}>Type</th><th className={th}>Assessment</th><th className={`${th} w-14`}>Week</th><th className={`${th} w-16`}>Weight %</th><th className={`${th} w-7`} /></tr></thead>
           {c.assessments.map((a, k) => {
             const isOpen = open.has(a.id) || fresh.has(a.id);
             const own = issuesOf(a.id);
@@ -136,7 +136,7 @@ export function AssessmentPlan({ content: c, onChange, scale, templates, setting
                     <td className="border-b border-border" />
                     <td colSpan={5} className="border-b border-border bg-muted/30 px-1 py-2">
                       <table className="w-full table-fixed border-collapse text-sm" aria-label={`CLOs of ${a.name || `assessment ${k + 1}`}`}>
-                        <thead><tr><th className={`${th} w-20`}>CLO</th><th className={`${th} w-28`}>Questions / part</th><th className={`${th} w-16`}>Share %</th><th className={th}>Rubric</th><th className={`${th} w-7`} /></tr></thead>
+                        <thead><tr><th className={`${th} w-24`}>CLO</th><th className={`${th} w-32`}>Questions / part</th><th className={`${th} w-20`}>Share %</th><th className={th}>Rubric</th><th className={`${th} w-7`} /></tr></thead>
                         <tbody>
                           {a.clos.map((l, j) => {
                             const r = c.rubrics.find((x) => x.id === l.rubricId);
