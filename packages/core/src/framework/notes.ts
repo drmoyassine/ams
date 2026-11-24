@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { requirementNote, sourcePage } from '@ams/db';
+import { requirement, requirementNote, sourcePage } from '@ams/db';
 import { z } from 'zod';
 import type { Ctx } from '../ctx.js';
 import { ConflictError, NotFoundError, ValidationError } from '../ctx.js';
@@ -144,4 +144,16 @@ export async function deleteNote(ctx: Ctx, id: string) {
   await getDraftVersion(ctx, req.frameworkVersionId);
   const [raw] = await readRows(ctx, 'requirement_note', [id]);
   return trashNote(ctx, raw!, (await readRows(ctx, 'requirement', [req.id]))[0]!, await versionInfo(ctx, req.frameworkVersionId));
+}
+
+/**
+ * Every note of a version with the standard it sits on, so a screen can list the notes that wait for approval (the publish gate refuses a
+ * version while any of its notes is not approved) and go to them.
+ */
+export async function listVersionNotes(ctx: Ctx, versionId: string) {
+  await require_(ctx, 'framework:read');
+  const rows = await ctx.tx.select({ note: requirementNote, code: requirement.code, title: requirement.title })
+    .from(requirementNote).innerJoin(requirement, eq(requirement.id, requirementNote.requirementId))
+    .where(eq(requirement.frameworkVersionId, versionId));
+  return rows.map((r) => ({ note: r.note, code: r.code, title: r.title }));
 }

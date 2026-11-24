@@ -2,9 +2,9 @@ import { OpenAPIHono, z, type Hook } from '@hono/zod-openapi';
 import {
   AddNoteSchema, CreateRequirementSchema, addNote, createRequirement, deleteNote, deleteRequirement, getRequirementWithNotes, listRequirements,
   MergeRequirementSchema, SplitRequirementSchema, listReviewItems, mergeRequirement, splitRequirement,
-  MoveManyInputSchema, indentRequirement, setStandardIcon, versionIcons, moveMany, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
+  MoveManyInputSchema, indentRequirement, listVersionNotes, setStandardIcon, versionIcons, moveMany, moveRequirement, outdentRequirement, reviewNote, reviewRequirement, setNoteAuthority, updateNote, updateRequirement, UpdateRequirementSchema, unsplitRequirement, UnsplitSchema,
 } from '@ams/core';
-import { SetStandardIconSchema, MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
+import { VersionNoteSchema, SetStandardIconSchema, MergeResultSchema, NoteSchema, RequirementDetailSchema, RequirementSchema, ReviewItemsSchema, SplitResultSchema, toDto } from '@ams/shared';
 import { requires, secured, type AppEnv, type ChainDeps, type RouteRegistry } from '../chain.js';
 import { errors, idParam, json } from './common.js';
 
@@ -87,6 +87,13 @@ export function requirementRoutes(registry: RouteRegistry, deps: ChainDeps, opti
       method: 'delete', path: '/api/requirements/{id}', access: requires('framework:write'), tags: tag,
       request: { params: idParam }, responses: noContent,
     }), async (c) => { await deleteRequirement(c.get('ctx'), c.req.valid('param').id); return c.body(null, 204); })
+
+    .openapi(secured(registry, deps, {
+      method: 'get', path: '/api/framework-versions/{id}/notes', access: requires('framework:read'), tags: tag,
+      description: 'Every note of the version with the standard it sits on. The publish gate refuses a version while a note is not approved.',
+      request: { params: idParam },
+      responses: { 200: { description: 'The notes', ...json(z.array(VersionNoteSchema)) }, ...errors },
+    }), async (c) => c.json(toDto(z.array(VersionNoteSchema), await listVersionNotes(c.get('ctx'), c.req.valid('param').id)), 200))
 
     .openapi(secured(registry, deps, {
       method: 'get', path: '/api/framework-versions/{id}/review-items', access: requires('framework:read'), tags: tag,

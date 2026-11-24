@@ -250,4 +250,21 @@ describe('mappings tab', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(screen.queryByRole('form', { name: 'Map to an internal quality framework item' })).toBeNull();
   });
+
+  it('lists the notes that wait for approval, where the publish gate counts them, and lets an approver decide each', async () => {
+    const user = userEvent.setup();
+    const api = apiFor('lead');
+    const latest = (await api.qualityFramework()).versions.at(-1)!;
+    const draft = latest.status === 'draft' ? latest : await api.newQualityVersion();
+    const item = (await api.requirements(draft.id)).find((r) => !r.parentId)!;
+    await db.su.query(`insert into requirement_note (institution_id, requirement_id, type, text, authority, origin, review_status) values ($1, $2, 'guidance', 'Reports go to the QA office each term.', 'institution_defined', 'ai', 'pending')`, [ids.inst, item.id]);
+    render(wrap(<QualityFrameworkPage api={apiFor('admin')} {...extra('admin')} />));
+    const panel = await screen.findByTestId('notes-to-review');
+    expect(panel.textContent).toContain('1 note waiting for approval');
+    expect(within(panel).getByText('Reports go to the QA office each term.')).toBeTruthy();
+    expect(await screen.findAllByTestId('notes-to-approve')).toHaveLength(1); // the badge on its standard's card
+    await user.click(within(panel).getByRole('button', { name: 'Approve note' }));
+    await waitFor(() => expect(screen.queryByTestId('notes-to-review')).toBeNull());
+    expect((await db.su.query(`select review_status from requirement_note where text = 'Reports go to the QA office each term.'`)).rows[0].review_status).toBe('approved');
+  });
 });

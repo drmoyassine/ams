@@ -14,11 +14,12 @@ import { useConfirm } from '../../components/confirm-dialog';
 import { useRequirementContexts } from '../version/requirement-hover';
 import { Dialog } from '../../components/dialog';
 import { IconPicker, StandardIcon } from '../../components/standard-icons';
+import { NotePanel } from '../version/requirements-tab';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { NodeAssignment } from '@ams/shared';
 import { useEvidenceApi, type EvidenceApi } from '../../lib/evidence-api';
-import type { FrameworkApi, Requirement, Version } from '../../lib/framework-api';
+import type { FrameworkApi, Note, Requirement, Version } from '../../lib/framework-api';
 import { can } from '../../lib/me';
 import { useAction } from '../../lib/use-action';
 import { confirmAndDelete } from '../../lib/delete-requirements';
@@ -96,6 +97,8 @@ interface ItemProps {
   onAddChild: (parent: Requirement) => void; onEdit: (r: Requirement) => void; onLink: (r: Requirement) => void;
   /** Choose the icon of a top-level standard (any version: the icon is kept by framework and code); the icons by requirement id. */
   onIcon: (r: Requirement) => void; icons: Record<string, string>;
+  /** The notes of a standard (they wait for approval before the version can be published), and a refresh after one is decided. */
+  notesOf: (id: string) => Note[]; onNotes: () => Promise<unknown>;
   /** Assign scope, Assign champion (those the person may use), and what this item's hover card shows of them. */
   opsItems: (r: Requirement) => MenuItem[]; assignment: NodeAssignment | undefined;
 }
@@ -125,12 +128,21 @@ function Item(p: ItemProps) {
       {...(!r.parentId && p.icons[r.id] ? { lead: <StandardIcon name={p.icons[r.id]} code={r.code} className="size-5 text-muted-foreground" /> } : {})} strong={!r.parentId} tone={r.parentId ? 'plain' : 'shaded'} testId={r.parentId ? 'iqf-substandard' : 'iqf-standard'}
       gutter={<RowGutter id={r.id} />} toggleProps={focus}
       open={isOpen} onToggle={() => toggle(r.id)} menuLabel={`Actions for ${tag(r)}`} menu={menu}
-      meta={children.length > 0 ? <span className="text-xs text-muted-foreground">{children.length} {r.parentId ? 'item' : 'sub-standard'}{children.length === 1 ? '' : 's'}</span> : undefined}
+      meta={<>{p.notesOf(r.id).some((n) => n.reviewStatus !== 'approved') && <span className="me-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900" data-testid="notes-to-approve">{p.notesOf(r.id).filter((n) => n.reviewStatus !== 'approved').length} note{p.notesOf(r.id).filter((n) => n.reviewStatus !== 'approved').length === 1 ? '' : 's'} to approve</span>}{children.length > 0 && <span className="text-xs text-muted-foreground">{children.length} {r.parentId ? 'item' : 'sub-standard'}{children.length === 1 ? '' : 's'}</span>}</>}
       hover={<HoverDetails r={r} evidence={evidence} assignment={p.assignment} />}>
       <div className="space-y-1">
         <Shaded>Description</Shaded>
         {r.officialText ? <p className="whitespace-pre-line text-sm"><ContentText>{r.officialText}</ContentText></p> : <p className="text-sm text-muted-foreground">No description yet.</p>}
       </div>
+      {p.notesOf(r.id).length > 0 && (
+        <div className="space-y-1" data-testid="item-notes">
+          <Shaded>Notes</Shaded>
+          {linkError && <p role="alert" className="text-sm text-red-700">{linkError}</p>}
+          <ul className="space-y-2" aria-label={`Notes of ${tag(r)}`}>
+            {p.notesOf(r.id).map((n) => <NotePanel key={n.id} api={api} note={n} editable={editable} canReview={can(me, 'framework:review')} invalidate={p.onNotes} setError={setLinkError} />)}
+          </ul>
+        </div>
+      )}
       <div className="space-y-1">
         <Shaded>Linked evidence</Shaded>
         {linkError && <p role="alert" className="text-sm text-red-700">{linkError}</p>}
@@ -178,6 +190,9 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
   const setDocFilter = (v: string | null) => { setOwnDoc(v); onDocFilter?.(v); };
   const rowsQuery = useQuery({ queryKey: ['requirements', version.id], queryFn: () => api.requirements(version.id) });
   const icons = useQuery({ queryKey: ['standard-icons', version.id], queryFn: () => api.icons(version.id) });
+  const notes = useQuery({ queryKey: ['version-notes', version.id], queryFn: () => api.versionNotes(version.id) });
+  const noteRows = notes.data ?? [];
+  const refreshNotes = async () => { await qc.invalidateQueries({ queryKey: ['version-notes', version.id] }); await qc.invalidateQueries({ queryKey: ['requirements', version.id] }); };
   // Which items each import created, by document; the picker appears once an import has applied anything.
   const imported = useQuery({ queryKey: ['imported-items', version.id], queryFn: () => api.importedItems(version.id) });
   const importedMap = imported.data ?? {};
@@ -220,6 +235,7 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
     onLink: (item: Requirement) => setDialog({ kind: 'link', item }),
     onIcon: (item: Requirement) => setDialog({ kind: 'icon', item }),
     icons: icons.data ?? {},
+    notesOf: (id: string) => noteRows.filter((x) => x.note.requirementId === id).map((x) => x.note), onNotes: refreshNotes,
     opsItems: ops.items,
   };
   /** Saves through the API; on success opens what was saved (and its standard) and closes the dialog. */
@@ -265,6 +281,22 @@ export function IqfRequirements({ api, version, me, evidence: evidenceOverride, 
         </div>
         {!operational && !editable && standards.length > 0 && version.status !== 'draft' && <p className="text-xs text-muted-foreground">{reason}</p>}
         {!operational && <BulkBar rows={all} />}
+        {noteRows.some((x) => x.note.reviewStatus !== 'approved') && version.status !== 'published' && (
+          <section aria-label="Notes waiting for approval" className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3" data-testid="notes-to-review">
+            <h3 className="text-sm font-semibold text-amber-950">{noteRows.filter((x) => x.note.reviewStatus !== 'approved').length} note{noteRows.filter((x) => x.note.reviewStatus !== 'approved').length === 1 ? '' : 's'} waiting for approval</h3>
+            <p className="text-xs text-amber-950">A version cannot be published while a note on one of its standards is not approved. Approve, reject or delete each one here, or open its standard.</p>
+            <ul className="space-y-2">
+              {noteRows.filter((x) => x.note.reviewStatus !== 'approved').map((x) => (
+                <li key={x.note.id} className="space-y-1">
+                  <button type="button" className="text-sm font-medium underline underline-offset-2" onClick={() => { setOpen((o) => new Set([...o, x.note.requirementId])); window.setTimeout(() => document.getElementById(`note-${x.note.id}`)?.scrollIntoView({ block: 'center' }), 50); }}>
+                    {`Standard ${x.code} · ${x.title}`}
+                  </button>
+                  <ul aria-label={`Note on ${x.code}`}><NotePanel api={api} note={x.note} idPrefix="review-note" editable={editable} canReview={can(me, 'framework:review')} invalidate={refreshNotes} setError={setError} /></ul>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {error && !dialog && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {notice && (
           <p className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-900" data-testid="tree-notice">

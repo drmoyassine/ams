@@ -67,6 +67,8 @@ export const NoteSchema = z.object({
   text: z.string(), authority: z.enum(['required', 'example', 'suggested', 'ai_suggested', 'institution_defined']), norm: z.unknown(), ...provenance,
   editedByPerson: z.boolean().optional(),
 });
+/** A note with the standard it sits on (the notes of a version, for the screen that lists those waiting for approval). */
+export const VersionNoteSchema = z.object({ note: NoteSchema, code: z.string(), title: z.string() });
 export const TemplateSchema = z.object({
   id: z.string(), frameworkVersionId: z.string(), key: z.string(), name: z.string(),
   kind: z.enum(['application', 'readiness', 'self_study', 'follow_up', 'annual', 'response', 'other']), language: z.string(),

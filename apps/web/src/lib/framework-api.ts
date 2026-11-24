@@ -184,6 +184,8 @@ export function frameworkApi(api: Api = defaultApi, fetcher: typeof fetch = fetc
     /** One page for the split view, with the stretch the quote matches (found on the server by the verifier's matcher). */
     pageView: (id: string, pageNo: number, quote?: string) =>
       api.api['source-documents'][':id'].pages[':pageNo'].view.$get({ param: { id, pageNo: String(pageNo) }, query: quote ? { quote } : {} }).then((r) => unwrap<SourcePageView>(r)),
+    /** Every note of a version with the standard it sits on (those not yet approved block publishing). */
+    versionNotes: (versionId: string) => v[':id'].notes.$get({ param: { id: versionId } }).then((r) => unwrap<{ note: Note; code: string; title: string }[]>(r)),
     reviewItems: (versionId: string) => v[':id']['review-items'].$get({ param: { id: versionId } }).then((r) => unwrap<ReviewItems>(r)),
     mergeRequirement: (id: string, json: { intoId: string; useMergedWording?: boolean }) =>
       api.api.requirements[':id'].merge.$post({ param: { id }, json }).then((r) => unwrap<MergeResult>(r)),

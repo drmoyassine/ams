@@ -159,6 +159,9 @@ describe('framework API', () => {
     expect(noAi.status).toBe(400);
     const note = await call('lead', 'POST', `/api/requirements/${tree[1]!.id}/notes`, { type: 'guidance', text: 'Example', authority: 'example' });
     expect(note.status).toBe(201);
+    const listed = (await call('viewer', 'GET', `/api/framework-versions/${vid}/notes`)).body as { note: { id: string }; code: string; title: string }[]; // every note with its standard
+    expect(listed.map((x) => x.note.id)).toContain(note.body.id);
+    expect(listed.find((x) => x.note.id === note.body.id)!.code).toBeTruthy();
     const renamed = await call('lead', 'PATCH', `/api/notes/${note.body.id}`, { text: 'Edited' });
     expect(renamed.body.text).toBe('Edited');
     expect((await call('lead', 'POST', `/api/notes/${note.body.id}/authority`, { authority: 'required' })).status).toBe(409); // no verified quote

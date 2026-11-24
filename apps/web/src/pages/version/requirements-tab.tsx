@@ -30,14 +30,15 @@ export function useAction(onError: (m: string) => void, invalidate: () => Promis
  * One note of a requirement. `perLineReview` is for the internal framework only: an external standard's notes are not
  * approved one by one; publishing the version is the review (DEC-022), so they show no review status or approve/reject.
  */
-export function NotePanel({ api, note, editable, canReview, perLineReview = true, invalidate, setError, onShowSource, selected = false, reasons = [] }: {
+export function NotePanel({ api, note, editable, canReview, perLineReview = true, invalidate, setError, onShowSource, selected = false, reasons = [], idPrefix = 'note' }: {
   api: FrameworkApi; note: Note; editable: boolean; canReview: boolean; perLineReview?: boolean; invalidate: () => Promise<unknown>; setError: (m: string) => void;
   /** External standards' split view: shows the note's source page beside the list. */
   onShowSource?: () => void; selected?: boolean; /** Why this note needs a look (see needs-look.ts), in words. */ reasons?: string[];
+  /** The prefix of the element id, when the same note is shown twice on a page. */ idPrefix?: string;
 }) {
   const act = useAction(setError, invalidate);
   return (
-    <li id={`note-${note.id}`} tabIndex={-1} className={`scroll-mt-4 rounded border p-3 ${selected ? 'border-primary' : 'border-border'}`} data-testid="note" aria-current={selected ? 'true' : undefined}>
+    <li id={`${idPrefix}-${note.id}`} tabIndex={-1} className={`scroll-mt-4 rounded border p-3 ${selected ? 'border-primary' : 'border-border'}`} data-testid="note" aria-current={selected ? 'true' : undefined}>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <AuthorityBadge authority={note.authority} />
         <span className="text-xs text-muted-foreground">{note.type.replace('_', ' ')}</span>
